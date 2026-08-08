@@ -180,3 +180,23 @@ test('no cash movement in the fixture set is left unclassified', () => {
   const unknown = cash.filter((r) => r.category === 'UNKNOWN');
   assert.deepEqual(unknown.map((r) => r.description), []);
 });
+
+test('the chart parser keys a vwdkey series by its raw identifier', () => {
+  // The identifier is what products store as vwdId, so the two must line up
+  // exactly or the series is fetched and then never found again.
+  const parsed = parseChartResponse({
+    series: [
+      { id: 'vwdkey:AMC.BATS,E', times: '2024-01-01/P1D', data: { name: 'AMC' } },
+      { id: 'price:vwdkey:AMC.BATS,E', times: '2024-01-01/P1D', data: [[0, 4.2], [1, 4.4]] },
+    ],
+  });
+  assert.deepEqual(Object.keys(parsed), ['AMC.BATS,E']);
+  assert.equal(parsed['AMC.BATS,E'].points.length, 2);
+});
+
+test('a percent-encoded identifier is decoded back to the stored form', () => {
+  const parsed = parseChartResponse({
+    series: [{ id: 'price:vwdkey:AMC.BATS%2CE', times: '2024-01-01/P1D', data: [[0, 4.2]] }],
+  });
+  assert.deepEqual(Object.keys(parsed), ['AMC.BATS,E']);
+});

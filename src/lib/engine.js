@@ -32,6 +32,26 @@ const SPLIT_JUMP_RATIO = 0.4;
 const IMPLAUSIBLE_MULTIPLE = 20;
 
 /**
+ * How far a quote may sit from the price actually paid before the series is
+ * disowned. Wide on purpose: a fill is intraday against a close, and a non-EUR
+ * instrument is counted at 1:1 until FX exists, which is another ~20% on top.
+ *
+ * Real mismatches seen in the field were 0.04x, 27x and 134,000,000x. Nothing
+ * observed lands anywhere near the edge of this band, so it separates cleanly
+ * without having to be tuned.
+ */
+const TRUST_BAND = [0.5, 2];
+
+/**
+ * How much the factor may drift between trades and still count as "the same
+ * instrument in other units". A split adjustment is piecewise constant, so the
+ * drift between two trades in the same regime is intraday noise; the field case
+ * drifted 0.2% over two years. A series belonging to something else has no
+ * reason to hold any ratio at all.
+ */
+const MAX_FACTOR_SPREAD = 5;
+
+/**
  * @typedef {Object} EngineInput
  * @property {Array} transactions   normalised transactions (parse.parseTransactions)
  * @property {Array} cashRows       normalised cash movements (parse.parseCashMovements)
@@ -118,51 +138,87 @@ export function expandSeries(series, days, dayIndex) {
 }
 
 /**
- * Reconcile a price series against the prices actually paid.
+ * Audit a price series against the prices actually paid for it.
  *
- * A transaction is hard evidence: on that day, that instrument changed hands at
- * that price. If the series disagrees by a large, consistent factor, the two
- * are not in the same units — a reverse split (the ledger holds pre-split
- * shares, the series quotes post-split money), a pence-vs-pounds quote, or a
- * currency mix-up. Multiplying them then produces a number that is wrong by
- * that factor, and nothing downstream notices.
+ * Every transaction is hard evidence: on that day, that instrument changed
+ * hands at that price. Comparing the two at the trade date is the only audit
+ * trail this project has, and it settles a question nothing else can:
  *
- * The factor is measured per transaction, so a split partway through the
- * history is handled: each trade's quantity is converted into the units its own
- * day's quote uses.
+ *  - ratio ~ 1 → the series and the ledger speak the same language. Use it.
+ *  - ratio far from 1 but **stable** across trades → the same instrument in
+ *    different units. Split-adjusted history against shares as they were booked
+ *    at the time, or pence against pounds. Confirmed in the field: an
+ *    instrument whose factor read 523,125 at a 2020 purchase and 522,000 at the
+ *    2022 sale, two years and several reverse splits apart. The series is real;
+ *    the share count needs converting into its units.
+ *  - ratio far from 1 and **unstable** → nothing consistent relates the two.
+ *    The series is not this instrument's history and cannot be used at all.
  *
- * Small deviations are normal — a trade fills intraday, the series is a close —
- * so only a factor beyond `SPLIT_FACTOR_MIN` counts as a unit mismatch.
+ * Measured on real quotes only. Before a series' first quote the expansion
+ * holds a back-filled guess, and comparing a fill against a guess would
+ * manufacture a mismatch that is not there.
+ *
+ * @returns {{ratios, median, verdict: 'ok'|'rescale'|'reject', spread: number}}
  */
-export function priceFactors(transactions, productId, close, dayIndex, covered) {
-  const out = [];
+export function auditSeries(transactions, productId, close, dayIndex, covered) {
+  const ratios = [];
   for (const t of transactions) {
     if (t.productId !== productId) continue;
     if (!(t.price > 0)) continue;
     const i = dayIndex.get(t.date);
     if (i === undefined) continue;
-    // Only where the series genuinely reaches. Before its first quote `close`
-    // holds a back-filled guess, and comparing a fill against a guess would
-    // manufacture exactly the split this is meant to detect.
     if (covered && !covered[i]) continue;
     const quoted = close[i];
     if (!(quoted > 0)) continue;
-    out.push({ date: t.date, index: i, factor: quoted / t.price });
+    ratios.push({ date: t.date, index: i, traded: t.price, quoted, ratio: quoted / t.price });
   }
-  return out;
+
+  if (!ratios.length) return { ratios, median: null, verdict: 'ok', spread: 1 };
+
+  const sorted = ratios.map((r) => r.ratio).sort((a, b) => a - b);
+  const median = sorted[Math.floor(sorted.length / 2)];
+  const spread = sorted.at(-1) / sorted[0];
+
+  if (median >= TRUST_BAND[0] && median <= TRUST_BAND[1]) return { ratios, median, verdict: 'ok', spread };
+  if (spread > MAX_FACTOR_SPREAD) return { ratios, median, spread, verdict: 'reject' };
+
+  // Smooth the factor within a split regime. Two trades either side of the same
+  // split differ only by intraday noise, and using each one's own raw ratio
+  // means a buy and its matching sell no longer cancel — a fully closed
+  // position is left holding a sliver of a share, worth real money once
+  // multiplied by a seven-figure adjusted quote.
+  return { ratios: clusterFactors(ratios), median, spread, verdict: 'rescale' };
 }
 
-/** Below this, a difference between quote and fill is just intraday noise. */
-const SPLIT_FACTOR_MIN = 1.5;
+/**
+ * Collapse near-equal factors onto one value per regime, so trades within a
+ * regime share a factor exactly. A genuine split shows up as a jump far larger
+ * than this tolerance and keeps its own cluster.
+ */
+function clusterFactors(ratios) {
+  const REGIME_TOLERANCE = 1.25;
+  const clusters = [];
+  for (const r of [...ratios].sort((a, b) => a.ratio - b.ratio)) {
+    const last = clusters.at(-1);
+    if (last && r.ratio / last[0].ratio <= REGIME_TOLERANCE) last.push(r);
+    else clusters.push([r]);
+  }
+  const factorOf = new Map();
+  for (const c of clusters) {
+    const mid = c.map((r) => r.ratio).sort((a, b) => a - b)[Math.floor(c.length / 2)];
+    for (const r of c) factorOf.set(r, mid);
+  }
+  return ratios.map((r) => ({ ...r, ratio: factorOf.get(r) ?? r.ratio }));
+}
 
-/** The factor in force on a given day, from the nearest observation at or before it. */
-function factorAt(factors, index) {
-  let chosen = factors[0];
-  for (const f of factors) {
-    if (f.index <= index) chosen = f;
+/** The factor in force on a day, from the nearest trade at or before it. */
+function factorAt(ratios, index) {
+  let chosen = ratios[0];
+  for (const r of ratios) {
+    if (r.index <= index) chosen = r;
     else break;
   }
-  return chosen?.factor ?? 1;
+  return chosen?.ratio ?? 1;
 }
 
 /**
@@ -244,46 +300,61 @@ export function computePortfolio(input) {
     priceByProduct.set(productId, { ...expanded, meta, hasSeries: !!(series && series.points?.length) });
   }
 
-  // ---- 3. position ledger, in the units the quotes use -------------------
+  // ---- 3. audit each series against the trades it should match ----------
+  const rescaled = [];
+  const rejected = [];
+  for (const productId of productIds) {
+    const entry = priceByProduct.get(productId);
+    if (!entry.hasSeries) continue;
+    const audit = auditSeries(transactions, productId, entry.close, dayIndex, entry.covered);
+    entry.audit = audit;
+    if (audit.verdict === 'ok') continue;
+
+    const row = {
+      productId,
+      name: entry.meta.name,
+      symbol: entry.meta.symbol || entry.meta.name,
+      vwdId: entry.meta.vwdId ?? null,
+      factor: Number(audit.median.toPrecision(6)),
+      spread: Number(audit.spread.toPrecision(3)),
+      sample: audit.ratios.slice(0, 3).map((r) => ({ date: r.date, traded: r.traded, quoted: round2(r.quoted) })),
+    };
+
+    if (audit.verdict === 'rescale') {
+      rescaled.push(row);
+    } else {
+      // Nothing consistent links this series to these trades. Keep the
+      // position, drop the series, value it at what it actually traded for.
+      entry.hasSeries = false;
+      entry.covered = new Uint8Array(n);
+      rejected.push(row);
+    }
+  }
+
+  // ---- 3b. position ledger, in the units its own quotes use --------------
   /** @type {Map<string, Float64Array>} productId -> qty per day */
   const qtyByProduct = new Map();
   const tradeDaysByProduct = new Map();
-  const unitMismatches = [];
 
-  for (const productId of productIds) {
-    const arr = new Float64Array(n);
-    const tradeDays = new Set();
-    const { close, covered } = priceByProduct.get(productId);
-
-    const factors = priceFactors(transactions, productId, close, dayIndex, covered).sort((a, b) => a.index - b.index);
-    const mismatched = factors.filter((f) => f.factor >= SPLIT_FACTOR_MIN || f.factor <= 1 / SPLIT_FACTOR_MIN);
-    const rescale = mismatched.length > 0 && mismatched.length >= factors.length / 2;
-
-    for (const t of transactions) {
-      if (t.productId !== productId) continue;
-      const i = idxOf(t.date);
-      if (i < 0) continue;
-      // Convert this trade's quantity into the units its own day's quote uses.
-      const f = rescale ? factorAt(factors, i) : 1;
-      arr[i] += Math.abs(f) > 1e-9 ? t.quantity / f : t.quantity;
-      tradeDays.add(t.date);
+  for (const t of transactions) {
+    const i = idxOf(t.date);
+    if (i < 0) continue;
+    let arr = qtyByProduct.get(t.productId);
+    if (!arr) {
+      arr = new Float64Array(n);
+      qtyByProduct.set(t.productId, arr);
+      tradeDaysByProduct.set(t.productId, new Set());
     }
-
-    if (rescale) {
-      const worst = mismatched.reduce((a, b) => (Math.abs(Math.log(b.factor)) > Math.abs(Math.log(a.factor)) ? b : a));
-      unitMismatches.push({
-        productId,
-        name: priceByProduct.get(productId).meta.name,
-        factor: Math.round(worst.factor * 100) / 100,
-        since: mismatched[0].date,
-        trades: mismatched.length,
-      });
-    }
-
-    qtyByProduct.set(productId, arr);
-    tradeDaysByProduct.set(productId, tradeDays);
+    // Convert this trade into the units its own day's quote uses. For an
+    // ordinary instrument the factor is 1 and nothing moves; for a
+    // split-adjusted series it is the split factor in force that day, so a
+    // split partway through the history is handled trade by trade.
+    const entry = priceByProduct.get(t.productId);
+    const useFactor = entry?.audit?.verdict === 'rescale';
+    const f = useFactor ? factorAt(entry.audit.ratios, i) : 1;
+    arr[i] += Number.isFinite(f) && Math.abs(f) > 1e-12 ? t.quantity / f : t.quantity;
+    tradeDaysByProduct.get(t.productId).add(t.date);
   }
-
   for (const arr of qtyByProduct.values()) {
     let running = 0;
     for (let i = 0; i < n; i++) {
@@ -294,14 +365,25 @@ export function computePortfolio(input) {
     }
   }
 
-  if (unitMismatches.length) {
+  if (rescaled.length) {
     warn(
       'warn',
-      'unit-mismatch',
-      `${unitMismatches.length} instrument(s) quote in different units than their trades were booked in — ` +
-        `a share split, or a pence-versus-pounds quote. Quantities were rescaled to match the price series; ` +
-        `without that the historical value would be wrong by that factor.`,
-      { instruments: unitMismatches.slice(0, 20) },
+      'price-scale-adjusted',
+      `${rescaled.length} instrument(s) quote in different units than their trades were booked in — a share ` +
+        `split, or pence versus pounds. The quoted history is real; the share counts were converted into its ` +
+        `units so the two can be multiplied. Without this the value would be wrong by that factor.`,
+      { instruments: rescaled.slice(0, 25) },
+    );
+  }
+
+  if (rejected.length) {
+    warn(
+      'error',
+      'price-series-mismatch',
+      `${rejected.length} instrument(s) came back with a price history that cannot be reconciled with what you ` +
+        `actually paid for them. Those positions are valued at their last traded price instead, so their ` +
+        `movement between trades is not real.`,
+      { instruments: rejected.slice(0, 25) },
     );
   }
 

@@ -79,3 +79,24 @@ test('the chart URL sends two series params per instrument and chunks by id', ()
   assert.ok(url.includes('format=json'));
   assert.ok(!url.includes('callback='), 'a callback param would make the response JSONP');
 });
+
+// ---------------------------------------------------------------------------
+// Not every instrument is an issueid. A real account had 59 of 77 missing
+// price histories purely because vwdkey instruments were requested as issueid.
+// ---------------------------------------------------------------------------
+
+test('a vwdkey instrument is requested under its own identifier type', () => {
+  const url = ENDPOINTS.chart({
+    vwdIds: [{ id: 'AMC.BATS,E', type: 'vwdkey' }, { id: '350009261', type: 'issueid' }],
+    userToken: '999',
+  });
+  assert.ok(url.includes('series=vwdkey:AMC.BATS%2CE'), url);
+  assert.ok(url.includes('series=price:vwdkey:AMC.BATS%2CE'), url);
+  assert.ok(url.includes('series=price:issueid:350009261'), url);
+  assert.ok(!url.includes('issueid:AMC'), 'must not ask for a vwdkey as an issueid');
+});
+
+test('a bare id still means issueid', () => {
+  const url = ENDPOINTS.chart({ vwdIds: ['350009261'], userToken: '9' });
+  assert.ok(url.includes('series=price:issueid:350009261'));
+});

@@ -13,11 +13,47 @@ evidence. What it proved:
 | Question | Answer |
 |---|---|
 | vwd `times` anchor | **Confirmed and correct.** With `period=P50Y` the anchor comes back as *today minus fifty years* (`1976-08-08`), and the point offsets are relative to that. Resolved spans of 2008→2026 and 2016→2026 for two instruments. SPEC §2.1 was right and the parser handles it. |
-| `vwdIdentifierType` | **Not always `issueid`.** One holding came back as `vwdkey` with the identifier `US7731211089.TRADE,E`. Requesting it as `issueid:` returns no series at all, so the holding had no prices. Fixed by carrying the type through to the chart URL. |
+| `vwdIdentifierType` | **Not always `issueid`.** Of 149 traded instruments on one account, 62 came back as `vwdkey`, with identifiers like `AMC.BATS,E` rather than a number. Requesting those as `issueid:` returns no series at all: 77 holdings had no price history, 59 of them for this reason alone. Fixed by carrying the type through to the chart URL. |
 | Cash funds among positions | `/update` lists `FLATEX_EUR` as a position with `productType: 311`. It is not an instrument, has no `vwdId`, and asking `products/info` about it is pointless. Now skipped. |
 | Reporting endpoint volume | 5 907 cash movements and 871 transactions over ~6 years on one account. A single all-history query is what makes `/transactions` answer 502. |
 | Cash descriptions | 230 rows in one account matched no rule: `Reservation iDEAL` (224) and `Inkomsten uit Securities Lending - <month>` (6). Both now classified — see below. |
 | `orderId` as a row id | Cash rows share an `orderId` across the legs of one order, so using it as a key collapses them. 5 907 fetched became 5 861 stored. Still open. |
+
+### The vwd series is split-adjusted; the transaction ledger is not
+
+The finding that mattered most. A second export, this time with transactions,
+showed a portfolio peaking at **€428,938,296** against €116,001 ever paid in,
+with today's totals correct.
+
+The cause is not a broken series. Sampling the shapes settles it:
+
+| | 1995 | 2000 | 2021 | 2026 |
+|---|---|---|---|---|
+| ASML | 3.60 | 42.35 | 684 | 1244 |
+
+That is ASML's real history. The instrument that blew up, a small cap through
+several reverse splits, reads 7,030,800 in 2020 and 0.93 in 2026 — also real,
+adjusted so that today's share is comparable with a share of six years ago.
+
+The ledger is not adjusted. It holds the shares as they were booked at the time.
+Multiplying one by the other is wrong by the cumulative split factor:
+
+```
+49 shares × 7,030,800 (adjusted) = €344 million
+49 shares ÷ 523,125 × 7,030,800  = €658        ← what he actually paid: €538.92
+```
+
+The factor is measurable and stable: **523,125** at a December 2020 purchase and
+**522,000** at the December 2022 sale, two years and several splits apart. The
+residual €658 vs €538.92 is exactly the dollar rate of that week (1.222), which
+is the documented FX limitation and nothing else.
+
+So the audit is: compare every quote against the price actually paid on that
+same day. Ratio ≈ 1 means the two agree. A large but *stable* ratio means the
+same instrument in different units, and the share count is converted into the
+series' units. A large and *unstable* ratio means the series cannot be
+reconciled at all and is discarded. On that account: 14 rescaled (spreads 1.00
+to 1.21), 2 discarded (spreads 5.5 and 9.9), peak down to €438,162.
 
 ### Reservation iDEAL
 

@@ -454,9 +454,19 @@ function renderBanners(data, r) {
     }
   }
 
+  // Warnings arrive one per instrument, so a portfolio missing 79 price series
+  // would otherwise bury the page in 79 identical banners. One per kind, with a
+  // count, and the detail stays in the exported JSON.
+  const seen = new Map();
   for (const w of r.warnings) {
     if (w.code === 'no-data') continue;
-    banner(w.level === 'error' ? 'error' : 'warn', w.message);
+    const group = seen.get(w.code) ?? { ...w, count: 0 };
+    group.count++;
+    seen.set(w.code, group);
+  }
+  for (const w of seen.values()) {
+    const suffix = w.count > 1 ? ` (${w.count} instruments)` : '';
+    banner(w.level === 'error' ? 'error' : 'warn', w.message + suffix);
   }
 }
 
