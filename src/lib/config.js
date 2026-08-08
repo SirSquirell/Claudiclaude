@@ -35,6 +35,13 @@ export const RATE = {
   backoffBaseMs: 2000,
   /** Ceiling so a broken endpoint cannot park us for an hour. */
   backoffMaxMs: 60000,
+  /**
+   * Per-request deadline. Without one, a socket that never answers wedges the
+   * whole sync: the in-flight promise never settles, the module-global `running`
+   * guard never clears, and every later click silently attaches to the dead run.
+   * That reads to the user as "the button does nothing".
+   */
+  timeoutMs: 30000,
 };
 
 /** Price history windows. P50Y for a first backfill, P1M for the daily tail. */
@@ -66,28 +73,47 @@ export function ddMMyyyy(iso) {
   return `${d}/${m}/${y}`;
 }
 
+/**
+ * Base URLs, as DEGIRO reports them from /login/secure/config.
+ *
+ * These are NOT constant across accounts. DEGIRO runs several trading clusters
+ * and an account can sit on `/trading/`, `/trading4/` or another variant; the
+ * config endpoint is the only thing that knows which. Hardcoding one of them
+ * gives a 404 on every other account, which surfaces as an opaque
+ * "DEGIRO returned an error" — so these defaults are a fallback, not truth.
+ */
+export const DEFAULT_URLS = {
+  trading: `${TRADER}/trading/secure/`,
+  reporting: `${TRADER}/reporting/secure/`,
+  productSearch: `${TRADER}/product_search/secure/`,
+  pa: `${TRADER}/pa/secure/`,
+};
+
+/** Join a discovered base (which may or may not end in '/') to a path. */
+const join = (base, path) => `${String(base).replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`;
+
 export const ENDPOINTS = {
   config: () => `${TRADER}/login/secure/config`,
 
-  client: ({ sessionId }) =>
-    `${TRADER}/pa/secure/client?sessionId=${encodeURIComponent(sessionId)}`,
+  client: ({ sessionId, urls = DEFAULT_URLS }) =>
+    `${join(urls.pa, 'client')}?sessionId=${encodeURIComponent(sessionId)}`,
 
-  update: ({ intAccount, sessionId }) =>
-    `${TRADER}/trading/secure/${API_VERSIONS.update}/update/${intAccount};jsessionid=${sessionId}` +
+  update: ({ intAccount, sessionId, urls = DEFAULT_URLS }) =>
+    `${join(urls.trading, `${API_VERSIONS.update}/update/${intAccount}`)};jsessionid=${sessionId}` +
     `?portfolio=0&totalPortfolio=0&cashFunds=0`,
 
-  transactions: ({ intAccount, sessionId, fromDate, toDate }) =>
-    `${TRADER}/reporting/secure/${API_VERSIONS.transactions}/transactions` +
+  transactions: ({ intAccount, sessionId, fromDate, toDate, urls = DEFAULT_URLS }) =>
+    `${join(urls.reporting, `${API_VERSIONS.transactions}/transactions`)}` +
     `?fromDate=${ddMMyyyy(fromDate)}&toDate=${ddMMyyyy(toDate)}` +
     `&groupTransactionsByOrder=false&intAccount=${intAccount}&sessionId=${encodeURIComponent(sessionId)}`,
 
-  accountOverview: ({ intAccount, sessionId, fromDate, toDate }) =>
-    `${TRADER}/reporting/secure/${API_VERSIONS.accountOverview}/accountoverview` +
+  accountOverview: ({ intAccount, sessionId, fromDate, toDate, urls = DEFAULT_URLS }) =>
+    `${join(urls.reporting, `${API_VERSIONS.accountOverview}/accountoverview`)}` +
     `?fromDate=${ddMMyyyy(fromDate)}&toDate=${ddMMyyyy(toDate)}` +
     `&intAccount=${intAccount}&sessionId=${encodeURIComponent(sessionId)}`,
 
-  productsInfo: ({ intAccount, sessionId }) =>
-    `${TRADER}/product_search/secure/${API_VERSIONS.productInfo}/products/info` +
+  productsInfo: ({ intAccount, sessionId, urls = DEFAULT_URLS }) =>
+    `${join(urls.productSearch, `${API_VERSIONS.productInfo}/products/info`)}` +
     `?intAccount=${intAccount}&sessionId=${encodeURIComponent(sessionId)}`,
 
   /**

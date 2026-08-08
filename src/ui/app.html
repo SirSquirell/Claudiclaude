@@ -16,12 +16,38 @@
         </div>
         <div class="actions">
           <button id="btn-sync" type="button">Sync now</button>
+          <button id="btn-diagnose" type="button">Check connection</button>
           <button id="btn-export" type="button">Export JSON</button>
           <button id="btn-wipe" type="button">Wipe &amp; resync</button>
         </div>
       </header>
 
+      <div id="notices"></div>
       <div id="banners"></div>
+
+      <div class="card" id="diagnostics" hidden>
+        <h2>Connection check</h2>
+        <p class="hint" id="diag-summary"></p>
+        <div class="table-scroll">
+          <table id="diag-table">
+            <thead>
+              <tr>
+                <th>Step</th>
+                <th>Result</th>
+                <th>Detail</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="actions" style="margin-top: 12px">
+          <button id="btn-copy-diag" type="button">Copy report</button>
+          <button id="btn-hide-diag" type="button">Hide</button>
+        </div>
+        <p class="hint" style="margin-top: 8px">
+          Safe to share: statuses, counts and field names only — no session id, account number or amounts.
+        </p>
+      </div>
 
       <section class="tiles" id="tiles"></section>
 

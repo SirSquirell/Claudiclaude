@@ -25,15 +25,35 @@ async function main() {
   $('#btn-sync').addEventListener('click', async (e) => {
     if (!inExtension) return;
     e.target.disabled = true;
-    e.target.textContent = 'Syncing…';
+
+    // Show the worker's own checkpoint while it runs, so a slow step is
+    // distinguishable from a stuck one.
+    const poll = setInterval(async () => {
+      try {
+        const st = await send({ type: 'status' });
+        if (st.syncState) $('#status').textContent = st.syncState.message;
+      } catch {
+        /* worker restarting */
+      }
+    }, 400);
+
     try {
       const res = await send({ type: 'sync', force: true });
       if (!res.ok) {
+        // The full message, not a generic one: this is often the only place
+        // the user sees why it failed.
         $('#status').textContent = res.message ?? 'Sync failed.';
+        $('#status').classList.add('down');
         return;
       }
-      await paint(res.result, { lastSyncAt: Date.now() });
+      $('#status').classList.remove('down');
+      const status = await send({ type: 'status', includeDerived: true });
+      if (status.derived) await paint(status.derived, { lastSyncAt: Date.now() });
+    } catch (err) {
+      $('#status').textContent = String(err.message ?? err);
+      $('#status').classList.add('down');
     } finally {
+      clearInterval(poll);
       e.target.disabled = false;
       e.target.textContent = 'Sync';
     }
@@ -44,12 +64,18 @@ async function main() {
     return paint(result, { demo: true });
   }
 
-  const status = await send({ type: 'status' });
-  if (status.lastError) {
+  const status = await send({ type: 'status', includeDerived: true });
+  if (status.syncing) {
+    $('#status').textContent = `Syncing: ${status.syncState?.message ?? '…'}`;
+  } else if (status.lastError) {
     $('#status').textContent = status.lastError.message ?? 'Last sync failed. Open DEGIRO and log in.';
+    $('#status').classList.add('down');
   }
   if (!status.derived) {
-    $('#status').textContent = 'No data yet — press Sync while logged in to DEGIRO.';
+    if (!status.lastError && !status.syncing) {
+      $('#status').textContent = 'No data yet — press Sync while logged in to DEGIRO.';
+    }
+    // "Open full chart" leads to the page with the connection check on it.
     return;
   }
   await paint(status.derived, status);

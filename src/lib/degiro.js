@@ -11,8 +11,8 @@
  * is exactly one queue, module-global, so parallel callers cannot defeat it.
  */
 
-import { ENDPOINTS, HISTORY_START, PRICE_PERIOD, RATE } from './config.js';
-import { parseChartResponse, parseClient, unwrapJsonp } from './parse.js';
+import { DEFAULT_URLS, ENDPOINTS, HISTORY_START, PRICE_PERIOD, RATE } from './config.js';
+import { parseChartResponse, parseClient, parseConfigUrls, unwrapJsonp } from './parse.js';
 
 export class SessionExpiredError extends Error {
   constructor(message = 'DEGIRO session expired') {
@@ -28,6 +28,14 @@ export class DegiroHttpError extends Error {
     this.status = status;
     this.url = url;
     this.body = body;
+  }
+}
+
+export class RequestTimeoutError extends Error {
+  constructor(url, ms) {
+    super(`No response within ${ms / 1000}s from ${url.split('?')[0]}`);
+    this.name = 'RequestTimeoutError';
+    this.url = url;
   }
 }
 
@@ -60,9 +68,7 @@ function enqueue(task) {
 export async function throttledFetch(url, init = {}) {
   let attempt = 0;
   for (;;) {
-    const res = await enqueue(() =>
-      fetch(url, { credentials: 'include', ...init, headers: { Accept: 'application/json, text/plain, */*', ...init.headers } }),
-    );
+    const res = await enqueue(() => fetchWithDeadline(url, init));
 
     if (res.ok) return res;
 
@@ -78,6 +84,34 @@ export async function throttledFetch(url, init = {}) {
     const delay = Math.min(RATE.backoffBaseMs * 2 ** attempt, RATE.backoffMaxMs);
     attempt++;
     await sleep(delay);
+  }
+}
+
+/**
+ * One fetch with a hard deadline.
+ *
+ * There is exactly one request queue in this module, so a socket that never
+ * answers does not just stall its own call — every later request waits behind
+ * it forever and the sync appears to hang with the button stuck on "Syncing…".
+ * An AbortController turns that into an ordinary, reportable error.
+ */
+async function fetchWithDeadline(url, init) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), RATE.timeoutMs);
+  try {
+    return await fetch(url, {
+      credentials: 'include',
+      ...init,
+      signal: controller.signal,
+      headers: { Accept: 'application/json, text/plain, */*', ...init.headers },
+    });
+  } catch (err) {
+    if (err?.name === 'AbortError') throw new RequestTimeoutError(url, RATE.timeoutMs);
+    // A network-level failure (DNS, offline, blocked) arrives as a bare
+    // TypeError; say which endpoint it was so the message is actionable.
+    throw new Error(`Could not reach ${new URL(url).host}: ${err.message}`);
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -104,31 +138,39 @@ async function getJson(url, init) {
 
 // --- endpoints -------------------------------------------------------------
 
-export async function fetchConfig() {
-  return getJson(ENDPOINTS.config());
+/**
+ * Ask DEGIRO which cluster this account lives on. Falls back to the documented
+ * defaults if the call fails, so a config outage degrades rather than blocks.
+ */
+export async function fetchUrls() {
+  try {
+    return parseConfigUrls(await getJson(ENDPOINTS.config()), DEFAULT_URLS);
+  } catch {
+    return { ...DEFAULT_URLS, discovered: false };
+  }
 }
 
-export async function fetchClient({ sessionId }) {
-  return parseClient(await getJson(ENDPOINTS.client({ sessionId })));
+export async function fetchClient({ sessionId, urls }) {
+  return parseClient(await getJson(ENDPOINTS.client({ sessionId, urls })));
 }
 
 /** Current portfolio + cash. Also our cheap "is the session alive" probe. */
-export async function fetchUpdate({ intAccount, sessionId }) {
-  return getJson(ENDPOINTS.update({ intAccount, sessionId }));
+export async function fetchUpdate({ intAccount, sessionId, urls }) {
+  return getJson(ENDPOINTS.update({ intAccount, sessionId, urls }));
 }
 
-export async function fetchTransactions({ intAccount, sessionId, fromDate = HISTORY_START, toDate }) {
-  return getJson(ENDPOINTS.transactions({ intAccount, sessionId, fromDate, toDate }));
+export async function fetchTransactions({ intAccount, sessionId, urls, fromDate = HISTORY_START, toDate }) {
+  return getJson(ENDPOINTS.transactions({ intAccount, sessionId, urls, fromDate, toDate }));
 }
 
-export async function fetchAccountOverview({ intAccount, sessionId, fromDate = HISTORY_START, toDate }) {
-  return getJson(ENDPOINTS.accountOverview({ intAccount, sessionId, fromDate, toDate }));
+export async function fetchAccountOverview({ intAccount, sessionId, urls, fromDate = HISTORY_START, toDate }) {
+  return getJson(ENDPOINTS.accountOverview({ intAccount, sessionId, urls, fromDate, toDate }));
 }
 
 /** POST body is a bare array of productId strings. */
-export async function fetchProductsInfo({ intAccount, sessionId, productIds }) {
+export async function fetchProductsInfo({ intAccount, sessionId, urls, productIds }) {
   if (!productIds.length) return { data: {} };
-  return getJson(ENDPOINTS.productsInfo({ intAccount, sessionId }), {
+  return getJson(ENDPOINTS.productsInfo({ intAccount, sessionId, urls }), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(productIds.map(String)),
