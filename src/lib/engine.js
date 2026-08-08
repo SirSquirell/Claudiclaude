@@ -25,6 +25,13 @@ const STALE_PRICE_DAYS = 10;
 const SPLIT_JUMP_RATIO = 0.4;
 
 /**
+ * A peak worth more than this many times everything ever paid in is not a
+ * history, it is a unit error. Twenty is generous: a genuine twenty-bagger on
+ * the whole account would trip it, and being told so is the right outcome.
+ */
+const IMPLAUSIBLE_MULTIPLE = 20;
+
+/**
  * @typedef {Object} EngineInput
  * @property {Array} transactions   normalised transactions (parse.parseTransactions)
  * @property {Array} cashRows       normalised cash movements (parse.parseCashMovements)
@@ -51,11 +58,13 @@ const SPLIT_JUMP_RATIO = 0.4;
 export function expandSeries(series, days, dayIndex) {
   const close = new Float64Array(days.length);
   const estimated = new Uint8Array(days.length);
+  /** 1 where a real quote exists at or before this day. */
+  const covered = new Uint8Array(days.length);
 
   const points = series?.points ?? [];
   if (points.length === 0) {
     estimated.fill(1);
-    return { close, estimated };
+    return { close, estimated, covered };
   }
 
   // Place each quote on its calendar day.
@@ -76,10 +85,13 @@ export function expandSeries(series, days, dayIndex) {
     const nearest = points[points.length - 1].close;
     close.fill(nearest);
     estimated.fill(1);
-    return { close, estimated };
+    return { close, estimated, covered };
   }
 
-  // Back-fill before the first quote.
+  // Back-fill before the first quote. `covered` stays 0 here on purpose: this
+  // is a guess, and after a reverse split it is a wildly wrong one — the first
+  // available quote is in post-split money while the position is in pre-split
+  // shares. The caller prefers the price actually traded on those days.
   for (let i = 0; i < firstIdx; i++) {
     close[i] = quoted[firstIdx];
     estimated[i] = 1;
@@ -99,9 +111,58 @@ export function expandSeries(series, days, dayIndex) {
       if (daysSinceQuote > STALE_PRICE_DAYS) estimated[i] = 1;
     }
     close[i] = last;
+    covered[i] = 1;
   }
 
-  return { close, estimated };
+  return { close, estimated, covered };
+}
+
+/**
+ * Reconcile a price series against the prices actually paid.
+ *
+ * A transaction is hard evidence: on that day, that instrument changed hands at
+ * that price. If the series disagrees by a large, consistent factor, the two
+ * are not in the same units — a reverse split (the ledger holds pre-split
+ * shares, the series quotes post-split money), a pence-vs-pounds quote, or a
+ * currency mix-up. Multiplying them then produces a number that is wrong by
+ * that factor, and nothing downstream notices.
+ *
+ * The factor is measured per transaction, so a split partway through the
+ * history is handled: each trade's quantity is converted into the units its own
+ * day's quote uses.
+ *
+ * Small deviations are normal — a trade fills intraday, the series is a close —
+ * so only a factor beyond `SPLIT_FACTOR_MIN` counts as a unit mismatch.
+ */
+export function priceFactors(transactions, productId, close, dayIndex, covered) {
+  const out = [];
+  for (const t of transactions) {
+    if (t.productId !== productId) continue;
+    if (!(t.price > 0)) continue;
+    const i = dayIndex.get(t.date);
+    if (i === undefined) continue;
+    // Only where the series genuinely reaches. Before its first quote `close`
+    // holds a back-filled guess, and comparing a fill against a guess would
+    // manufacture exactly the split this is meant to detect.
+    if (covered && !covered[i]) continue;
+    const quoted = close[i];
+    if (!(quoted > 0)) continue;
+    out.push({ date: t.date, index: i, factor: quoted / t.price });
+  }
+  return out;
+}
+
+/** Below this, a difference between quote and fill is just intraday noise. */
+const SPLIT_FACTOR_MIN = 1.5;
+
+/** The factor in force on a given day, from the nearest observation at or before it. */
+function factorAt(factors, index) {
+  let chosen = factors[0];
+  for (const f of factors) {
+    if (f.index <= index) chosen = f;
+    else break;
+  }
+  return chosen?.factor ?? 1;
 }
 
 /**
@@ -165,23 +226,64 @@ export function computePortfolio(input) {
     return iso < start ? 0 : iso > end ? n - 1 : -1;
   };
 
-  // ---- 2. position ledger ------------------------------------------------
+  // ---- 2. price series, before the ledger --------------------------------
+  // The ledger depends on the prices: a reverse split means the quantities in
+  // the transaction history and the quotes in the series are in different
+  // units, and that has to be reconciled before either is used.
+  const productIds = [...new Set(transactions.map((t) => t.productId))];
+  /** @type {Map<string, {close, estimated, covered, meta, series}>} */
+  const priceByProduct = new Map();
+
+  for (const productId of productIds) {
+    const meta = products[productId] ?? { id: productId, name: `Product ${productId}`, currency: baseCurrency };
+    const series = meta.vwdId != null ? prices[meta.vwdId] : null;
+    const expanded =
+      series && series.points?.length
+        ? expandSeries(series, days, dayIndex)
+        : { close: new Float64Array(n), estimated: new Uint8Array(n).fill(1), covered: new Uint8Array(n) };
+    priceByProduct.set(productId, { ...expanded, meta, hasSeries: !!(series && series.points?.length) });
+  }
+
+  // ---- 3. position ledger, in the units the quotes use -------------------
   /** @type {Map<string, Float64Array>} productId -> qty per day */
   const qtyByProduct = new Map();
   const tradeDaysByProduct = new Map();
+  const unitMismatches = [];
 
-  for (const t of transactions) {
-    const i = idxOf(t.date);
-    if (i < 0) continue;
-    let arr = qtyByProduct.get(t.productId);
-    if (!arr) {
-      arr = new Float64Array(n);
-      qtyByProduct.set(t.productId, arr);
-      tradeDaysByProduct.set(t.productId, new Set());
+  for (const productId of productIds) {
+    const arr = new Float64Array(n);
+    const tradeDays = new Set();
+    const { close, covered } = priceByProduct.get(productId);
+
+    const factors = priceFactors(transactions, productId, close, dayIndex, covered).sort((a, b) => a.index - b.index);
+    const mismatched = factors.filter((f) => f.factor >= SPLIT_FACTOR_MIN || f.factor <= 1 / SPLIT_FACTOR_MIN);
+    const rescale = mismatched.length > 0 && mismatched.length >= factors.length / 2;
+
+    for (const t of transactions) {
+      if (t.productId !== productId) continue;
+      const i = idxOf(t.date);
+      if (i < 0) continue;
+      // Convert this trade's quantity into the units its own day's quote uses.
+      const f = rescale ? factorAt(factors, i) : 1;
+      arr[i] += Math.abs(f) > 1e-9 ? t.quantity / f : t.quantity;
+      tradeDays.add(t.date);
     }
-    arr[i] += t.quantity; // deltas first, cumulated below
-    tradeDaysByProduct.get(t.productId).add(t.date);
+
+    if (rescale) {
+      const worst = mismatched.reduce((a, b) => (Math.abs(Math.log(b.factor)) > Math.abs(Math.log(a.factor)) ? b : a));
+      unitMismatches.push({
+        productId,
+        name: priceByProduct.get(productId).meta.name,
+        factor: Math.round(worst.factor * 100) / 100,
+        since: mismatched[0].date,
+        trades: mismatched.length,
+      });
+    }
+
+    qtyByProduct.set(productId, arr);
+    tradeDaysByProduct.set(productId, tradeDays);
   }
+
   for (const arr of qtyByProduct.values()) {
     let running = 0;
     for (let i = 0; i < n; i++) {
@@ -190,6 +292,17 @@ export function computePortfolio(input) {
       if (Math.abs(running) < 1e-9) running = 0;
       arr[i] = running;
     }
+  }
+
+  if (unitMismatches.length) {
+    warn(
+      'warn',
+      'unit-mismatch',
+      `${unitMismatches.length} instrument(s) quote in different units than their trades were booked in — ` +
+        `a share split, or a pence-versus-pounds quote. Quantities were rescaled to match the price series; ` +
+        `without that the historical value would be wrong by that factor.`,
+      { instruments: unitMismatches.slice(0, 20) },
+    );
   }
 
   // ---- 3. cash -----------------------------------------------------------
@@ -287,17 +400,14 @@ export function computePortfolio(input) {
   const nonBaseCurrencies = new Set();
 
   for (const [productId, qty] of qtyByProduct) {
-    const meta = products[productId] ?? { id: productId, name: `Product ${productId}`, currency: baseCurrency };
-    const series = meta.vwdId != null ? prices[meta.vwdId] : null;
+    const { close, estimated: priceEstimated, covered, meta, hasSeries } = priceByProduct.get(productId);
 
-    let close;
-    let priceEstimated;
-    if (series && series.points?.length) {
-      ({ close, estimated: priceEstimated } = expandSeries(series, days, dayIndex));
-    } else {
-      // No price history at all: fall back to the last traded price, forward
-      // filled. Better than a zero, and every day of it is flagged.
-      ({ close, estimated: priceEstimated } = fallbackFromTrades(transactions, productId, days, dayIndex, meta));
+    // What this instrument actually changed hands for, forward-filled. Used on
+    // days the series does not reach — a real price paid beats extrapolating
+    // the first quote backwards, which after a split is off by the split factor.
+    const traded = fallbackFromTrades(transactions, productId, days, dayIndex, meta);
+
+    if (!hasSeries) {
       warn(
         'warn',
         'no-price-series',
@@ -315,9 +425,11 @@ export function computePortfolio(input) {
       const q = qty[i];
       if (q === 0) continue;
       held = true;
-      values[i] = q * close[i];
+      // Prefer a real quote; fall back to the last price actually paid.
+      const price = covered[i] ? close[i] : traded.close[i] || close[i];
+      values[i] = q * price;
       positionsValue[i] += values[i];
-      if (priceEstimated[i]) estimatedDay[i] = 1;
+      if (priceEstimated[i] || !covered[i]) estimatedDay[i] = 1;
     }
 
     if (!held) continue; // fully-closed position that never overlapped the window
@@ -383,6 +495,37 @@ export function computePortfolio(input) {
   for (let i = 0; i < n; i++) {
     if (Math.abs(netExternal[i]) > 0.005) {
       flowEvents.push({ date: days[i], amount: round2(netExternal[i]), index: i });
+    }
+  }
+
+  // ---- 6b. is this even a plausible history? -----------------------------
+  // A portfolio cannot be worth many times everything ever paid into it plus
+  // everything it is worth now. When it is, some quantity is in the wrong units
+  // and the chart is fiction — that has to be said out loud rather than drawn
+  // to a €450 million axis and left for the reader to notice.
+  {
+    let peakIdx = 0;
+    for (let i = 1; i < n; i++) if (value[i] > value[peakIdx]) peakIdx = i;
+    const peak = value[peakIdx];
+    // Anchored on money paid in and on DEGIRO's own total — never on our own
+    // last value, which in a unit error is inflated by the same factor as the
+    // peak and would cancel the check out.
+    const grounded = Math.max(Math.abs(cumulativeDeposited[n - 1]), Math.abs(liveTotal ?? 0), 1);
+    if (peak > grounded * IMPLAUSIBLE_MULTIPLE) {
+      const culprits = byProduct
+        .map((p) => ({ name: p.name, productId: p.productId, at: p.values[peakIdx] }))
+        .filter((p) => p.at > grounded)
+        .sort((a, b) => b.at - a.at)
+        .slice(0, 5)
+        .map((p) => ({ ...p, at: round2(p.at) }));
+      warn(
+        'error',
+        'implausible-history',
+        `Peak reconstructed value of ${round2(peak)} on ${days[peakIdx]} is more than ` +
+          `${IMPLAUSIBLE_MULTIPLE}x everything ever paid in (${round2(cumulativeDeposited[n - 1])}). ` +
+          `That is not a real history — treat every chart except today's totals as wrong until it is explained.`,
+        { peak: round2(peak), peakDate: days[peakIdx], investedTotal: round2(cumulativeDeposited[n - 1]), culprits },
+      );
     }
   }
 
@@ -636,6 +779,12 @@ function aggregateMonthly(days, gross, tax) {
     .map((b) => ({ month: b.month, gross: round2(b.gross), tax: round2(b.tax), net: round2(b.gross + b.tax) }));
 }
 
+/**
+ * The price this instrument actually traded at, forward-filled across the
+ * window. Every day of it is an estimate — it is the last price paid, not a
+ * market close — but it is real evidence about this instrument at this time,
+ * which is more than can be said for extrapolating a future quote backwards.
+ */
 function fallbackFromTrades(transactions, productId, days, dayIndex, meta) {
   const close = new Float64Array(days.length);
   const estimated = new Uint8Array(days.length);
