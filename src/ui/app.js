@@ -159,6 +159,12 @@ function render() {
   if (data.empty) {
     $('#subtitle').textContent = 'Nothing stored yet.';
     banner('info', 'No data yet. Log in to trader.degiro.nl, then press “Sync now”.');
+    // Someone evaluating the extension before trusting it with their account
+    // should be able to see what the charts look like first.
+    banner('info', 'Want to see what it looks like first? Open the demo with sample data.', {
+      href: 'app.html?demo=1',
+      text: 'Open the demo',
+    });
     return;
   }
 
@@ -388,12 +394,19 @@ function renderFooter(r, data) {
   $('#footer-note').textContent = `${bits.join(' · ')}. Personal use only; this is an unofficial API and not sanctioned by DEGIRO.`;
 }
 
-function banner(kind, message) {
+function banner(kind, message, link) {
   const icons = { error: '!', warn: '!', info: 'i', ok: '✓' };
   const el = document.createElement('div');
   el.className = `banner ${kind}`;
   el.innerHTML = `<span class="icon">${icons[kind] ?? 'i'}</span><span></span>`;
   el.lastElementChild.textContent = message;
+  if (link) {
+    const a = document.createElement('a');
+    a.href = link.href;
+    a.textContent = link.text;
+    a.style.marginLeft = '6px';
+    el.lastElementChild.append(' ', a);
+  }
   $('#banners').append(el);
 }
 

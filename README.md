@@ -1,131 +1,125 @@
 # DEGIRO Portfolio History
 
-A personal-use Chrome extension (MV3) that reconstructs your DEGIRO portfolio value
-over time — the chart DEGIRO's own UI does not give you — from your trades, cash
-movements and daily closing prices.
+A Chrome extension that shows what your DEGIRO account has been worth, every day since
+you opened it — the chart DEGIRO's own interface does not give you.
 
-Nothing is snapshotted and nothing is uploaded. The extension reuses the session your
-own browser already holds, reads only your own data, and derives every number locally.
+It reconstructs the history from your trades, cash movements and daily closing prices,
+using the session your browser already holds. No password is asked for, nothing is
+stored anywhere but your own machine, and nothing is sent to anyone but DEGIRO.
 
-![charts](docs/screenshot.png)
+![The charts](docs/screenshot.png)
 
-## Try it in your browser right now
+## Install it
 
-No extension install, no DEGIRO login, no account touched:
+**[→ Step-by-step guide, in Dutch (INSTALL.md)](INSTALL.md)** — no terminal, no Node,
+about two minutes.
 
-```bash
-git clone <this repo> && cd Claudiclaude
-npm run demo
-```
+The short version: **Code → Download ZIP**, unzip somewhere permanent, then
+`chrome://extensions` → **Developer mode** on → **Load unpacked** → pick the unzipped
+folder.
 
-Then open <http://localhost:5173/src/ui/app.html?demo=1>.
+Then click the extension icon → **Open full chart** → **Open the demo** to see the
+charts with sample data before pointing it at your own account. When you're ready: log
+in at [trader.degiro.nl](https://trader.degiro.nl), click the icon, press **Sync**.
 
-That runs the **real engine and the real UI** against generated fixtures. Every chart,
-range button, tooltip and toggle works; only the numbers are made up. It is the fastest
-way to see whether the thing does what you want before pointing it at your account.
+The first sync takes a few minutes — one request per second, deliberately. DEGIRO's API
+is undocumented and hammering it is an account-safety risk, not a matter of politeness.
 
-Requires Node 20+. There are no dependencies to install — Chart.js is vendored.
-
-## Run it against your real account
-
-1. `git clone` this repo somewhere permanent.
-2. Chrome → `chrome://extensions` → turn on **Developer mode** → **Load unpacked** →
-   pick the repo folder.
-3. Open <https://trader.degiro.nl> and log in.
-4. Click the extension icon → **Sync**.
-
-The first sync downloads your whole history and is deliberately slow — one request per
-second, with the price backfill chunked (SPEC §6: hammering DEGIRO's endpoints is an
-account-safety risk). Expect a couple of minutes. Daily syncs after that are a handful
-of requests.
-
-Then **Open full chart** for the page above.
-
-### If it says the session expired
-
-It means exactly that: DEGIRO sessions idle out after roughly half an hour. Open a
-DEGIRO tab, log in, sync again. The extension never asks for, stores, or transmits a
-credential, and it will not attempt a login.
-
-### Read the red banner
-
-The page compares its reconstructed total against the total DEGIRO itself reports. If
-those disagree by even a cent, it says so in red — and you should not trust the history
-either, because the same inputs produced both. See
-[docs/ENDPOINT-REPORT.md](docs/ENDPOINT-REPORT.md) for what usually causes it.
-
-## The charts
+## What you get
 
 | Chart | What it answers |
 |---|---|
-| Portfolio value including cash | What was it worth, any day since the account opened. Triangles mark days money went in or out, so a deposit is never mistaken for a gain. |
-| Result per period | Day/week/month performance with deposits and withdrawals removed. |
-| Cumulative result | The same numbers added up over the selected range. |
-| What the portfolio is made of | Stacked daily value per holding plus cash — how much is stock, how much is sitting uninvested. |
-| Money paid in vs what it is worth | Net deposits against portfolio value. The gap between the lines is growth. |
-| Deposits and withdrawals per month | Net external cashflow. None of it counts as profit. |
-| Dividend per month | Net cash received, with withholding tax below the line. |
-| Holdings | The same series as numbers. |
+| **Portfolio value including cash** | What was it worth on any given day. Triangles on the baseline mark days money went in or out, so a deposit is never mistaken for a gain. |
+| **Result per period** | Day, week or month performance with deposits and withdrawals stripped out. |
+| **Cumulative result** | The same numbers added up over the range you picked. |
+| **What the portfolio is made of** | Stacked daily value per holding — how much is which position, and how much is sitting in cash. |
+| **Money paid in vs what it is worth** | Your net deposits against the market value. The gap between the lines is growth. |
+| **Deposits and withdrawals per month** | Net external cashflow. None of it counts as profit. |
+| **Dividend per month** | Net cash received, with withholding tax below the line. |
+| **Holdings** | The same series as plain numbers. |
 
-Range selector, hover crosshair, and an include/exclude-cash toggle apply to the
-time-series charts.
+Range selector (1M / 3M / 6M / YTD / 1Y / ALL), hover crosshair, and an
+include/exclude-cash toggle.
 
-## How it works
+## The one thing to pay attention to
+
+The page compares its own reconstructed total against the total DEGIRO itself reports.
+**If those disagree by even a cent, it says so in red** — and you should not trust the
+history either, because the same inputs produced both numbers.
+
+That check is the whole quality bar. A portfolio chart that is quietly wrong is worse
+than no chart, so the extension would rather tell you it failed.
+
+Same principle for the yellow warnings: a cash movement whose description it does not
+recognise is reported rather than guessed at, because guessing "deposit" would silently
+turn your own money into profit.
+
+## Status, honestly
+
+Everything in [SPEC.md](SPEC.md) is built, and the engine is covered by 75 tests
+including "a deposit must not register as profit" and the reconciliation check above.
+
+Two things you should know before relying on it:
+
+- **It has not yet been run against a real DEGIRO account.** The fixtures it was built
+  and tested against are generated, not captured, so they prove the code matches the
+  spec — not that the spec matches DEGIRO. Which endpoint fields are assumed rather
+  than verified is written out per endpoint in
+  [docs/ENDPOINT-REPORT.md](docs/ENDPOINT-REPORT.md). The red banner exists precisely
+  because of this.
+- **No currency conversion.** Non-EUR positions are counted at 1:1 and the page says so
+  in red rather than quietly drawing a wrong total.
+
+If you hit either, [docs/CAPTURE.md](docs/CAPTURE.md) explains how to capture a HAR from
+your own session; `tools/har-to-fixtures.mjs` extracts and redacts it, and that replaces
+the guesswork with evidence.
+
+## For developers
+
+```bash
+npm test          # 75 tests, no dependencies to install
+npm run demo      # the whole UI on generated fixtures at localhost:5173
+npm run fixtures  # regenerate the sample data
+```
+
+Chart.js is vendored (MV3 forbids remote scripts), so there is no `npm install` step.
 
 ```
-transactions   ──►  position ledger: quantity per instrument per day  ─┐
-cash movements ──►  cash balance per day, net external cashflow       ─┼─►  value[t]
-vwd daily closes ─► forward-filled price per instrument per day       ─┘
+manifest.json     MV3 manifest
+src/sw.js         service worker: hourly alarm, opportunistic sync, message router
+src/lib/          config, dates, classify, parse, engine, store, degiro, session, sync
+src/ui/           full page, popup, chart builders, design tokens
+vendor/           Chart.js 4.4.7
+fixtures/         generated sample data — see the status note above
+test/             node --test
+tools/            fixture generator, HAR→fixtures converter, dev server, icons
+docs/             endpoint report, HAR capture guide
+```
+
+How it works:
+
+```
+transactions     ──►  position ledger: quantity per instrument per day  ─┐
+cash movements   ──►  cash balance per day, net external cashflow       ─┼─►  value[t]
+vwd daily closes ──►  forward-filled price per instrument per day       ─┘
 
 pnl[t] = (value[t] − value[t−1]) − netExternalCashflow[t]
 ```
 
-The only thing stored is the raw API responses. Every chart number is derived on the
-fly and thrown away, so fixing a bug is a recompute rather than a migration.
+Only the raw API responses are stored. Every chart number is derived on the fly and
+thrown away, so fixing a bug is a recompute rather than a migration.
+`src/lib/engine.js` does all of it and touches nothing else — no network, no database,
+no Chrome APIs — which is what makes it testable.
 
-`src/lib/engine.js` does all of that and touches nothing else — no network, no
-database, no Chrome APIs — which is why it can be tested properly:
+Conventions, and the decisions not worth relitigating, are in [CLAUDE.md](CLAUDE.md).
 
-```bash
-npm test        # 70 tests, including "a deposit must not register as profit"
-                # and "the reconstructed total matches to the cent"
-```
-
-## Status
-
-Phases 1–7 of [SPEC.md](SPEC.md) are implemented. Two caveats worth knowing:
-
-- **`fixtures/` is synthetic.** No HAR was available, so the fixtures reproduce the
-  response *shapes* the spec describes, not DEGIRO's verified field names. The parsers
-  accept several candidate names per field to survive that. What is assumed versus
-  defended is written out per endpoint in
-  [docs/ENDPOINT-REPORT.md](docs/ENDPOINT-REPORT.md); capturing a real HAR
-  ([docs/CAPTURE.md](docs/CAPTURE.md)) replaces the guesses with evidence and is the
-  single highest-value thing you can do next.
-- **No FX.** Non-EUR positions are counted at 1:1 and the page says so in red rather
-  than quietly drawing a wrong total (SPEC §2.2).
-
-## Layout
-
-```
-manifest.json        MV3 manifest
-src/sw.js            service worker: hourly alarm, opportunistic sync, message router
-src/lib/             config, dates, classify, parse, engine, store, degiro, session, sync
-src/ui/              full page, popup, chart builders, design tokens
-vendor/              Chart.js 4.4.7, bundled (MV3 forbids remote scripts)
-fixtures/            generated sample data — see the status note above
-test/                node --test
-tools/               fixture generator, HAR→fixtures converter, dev server, icons
-docs/                endpoint report, HAR capture guide
-```
-
-Conventions and the things not to redesign are in [CLAUDE.md](CLAUDE.md).
-
-## Licence and terms
+## Terms
 
 Personal use. This talks to an unofficial, reverse-engineered API: read-only, to your
 own data, from your own logged-in browser — the mildest form of it, but not sanctioned
-by DEGIRO and liable to break without notice. Do not publish it to the Chrome Web
-Store.
+by DEGIRO and liable to break without notice. Don't publish it to the Chrome Web Store.
 
-Chart.js is MIT licensed; see `vendor/chart.js-LICENSE.md`.
+Everyone who installs it uses their own DEGIRO login; there is no shared data and
+nobody can see anyone else's portfolio.
+
+Chart.js is MIT licensed — see `vendor/chart.js-LICENSE.md`.
