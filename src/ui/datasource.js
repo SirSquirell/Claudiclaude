@@ -84,7 +84,7 @@ export async function loadDemo() {
 
 export async function loadFromExtension() {
   const store = await import('../lib/store.js');
-  const [rawTx, rawCash, rawProducts, prices, liveTotal, live, lastSyncAt, lastError] = await Promise.all([
+  const [rawTx, rawCash, rawProducts, prices, liveTotal, live, lastSyncAt, lastError, urls] = await Promise.all([
     store.getAll('transactions'),
     store.getAll('cashflows'),
     store.getAll('products'),
@@ -93,10 +93,11 @@ export async function loadFromExtension() {
     store.getMeta('liveSnapshot', null),
     store.getMeta('lastSyncAt', 0),
     store.getMeta('lastError', null),
+    store.getMeta('urls', null),
   ]);
 
   if (!rawTx.length && !rawCash.length) {
-    return { result: null, mode: 'extension', empty: true, lastSyncAt, lastError };
+    return { result: null, mode: 'extension', empty: true, lastSyncAt, lastError, urls };
   }
 
   const result = computePortfolio({
@@ -108,7 +109,7 @@ export async function loadFromExtension() {
     liveTotal,
   });
 
-  return { result, mode: 'extension', live, lastSyncAt, lastError };
+  return { result, mode: 'extension', live, lastSyncAt, lastError, urls };
 }
 
 export async function load() {

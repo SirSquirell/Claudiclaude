@@ -687,6 +687,11 @@ function renderFooter(r, data) {
   ];
   if (r.totals.estimatedDays) bits.push(`${r.totals.estimatedDays} days valued on an estimated price`);
   if (data.mode === 'demo') bits.push('demo fixtures');
+  // Which DEGIRO cluster this account is on. Worth showing without having to
+  // run the connection check: it is the first thing to look at when a call
+  // fails with a 404, and it differs per account.
+  const cluster = clusterOf(data.urls);
+  if (cluster) bits.push(`DEGIRO cluster: ${cluster}`);
   $('#footer-note').textContent = `${bits.join(' · ')}. Personal use only; this is an unofficial API and not sanctioned by DEGIRO.`;
 }
 
@@ -774,6 +779,16 @@ function downloadJson(obj, filename) {
   a.download = filename;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/** '/trading4/' out of 'https://trader.degiro.nl/trading4/secure/'. */
+function clusterOf(urls) {
+  if (!urls?.trading) return null;
+  try {
+    return new URL(urls.trading).pathname.split('/').filter(Boolean)[0] ?? null;
+  } catch {
+    return null;
+  }
 }
 
 /** Zero is neither a gain nor a loss, so it stays in the default ink. */
