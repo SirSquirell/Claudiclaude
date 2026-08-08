@@ -379,14 +379,33 @@ async function doSync({ force = false, onProgress = () => {} } = {}) {
     // Tripwire. If what we just fetched is not what the engine read back, the
     // database changed under us mid-sync and the result is quietly wrong —
     // which is exactly how an account once ended up charted as cash-only.
-    if (result.stats.transactions !== transactions.length || result.stats.cashRows !== cashRows.length) {
+    // Two different faults look alike here, and telling the user the wrong one
+    // sends them to a button that cannot help. Rows that collide on their key
+    // never reach storage in the first place; a count that drops between
+    // storing and reading back means something else wrote to the database.
+    const uniqueTx = new Set(transactions.map((t) => t.id)).size;
+    const uniqueCash = new Set(cashRows.map((r) => r.id)).size;
+
+    if (uniqueTx !== transactions.length || uniqueCash !== cashRows.length) {
       const message =
-        `Storage changed during the sync: fetched ${transactions.length} transactions and ` +
-        `${cashRows.length} cash movements, but rebuilt from ${result.stats.transactions} and ` +
-        `${result.stats.cashRows}. Press “Wipe & resync” and let it finish without interrupting it.`;
+        `${transactions.length - uniqueTx + (cashRows.length - uniqueCash)} row(s) shared a storage key and ` +
+        `would have overwritten each other. This is a bug in the extension, not something you can fix — ` +
+        `please report it with the counts below.`;
       await fail('derive', message, {
         fetched: { transactions: transactions.length, cashRows: cashRows.length },
-        stored: { transactions: result.stats.transactions, cashRows: result.stats.cashRows },
+        unique: { transactions: uniqueTx, cashRows: uniqueCash },
+      });
+      return { ok: false, reason: 'key-collision', message };
+    }
+
+    if (result.stats.transactions !== uniqueTx || result.stats.cashRows !== uniqueCash) {
+      const message =
+        `Storage changed during the sync: stored ${uniqueTx} transactions and ${uniqueCash} cash movements, ` +
+        `but rebuilt from ${result.stats.transactions} and ${result.stats.cashRows}. Press “Wipe & resync” ` +
+        `and let it finish without interrupting it.`;
+      await fail('derive', message, {
+        stored: { transactions: uniqueTx, cashRows: uniqueCash },
+        readBack: { transactions: result.stats.transactions, cashRows: result.stats.cashRows },
       });
       return { ok: false, reason: 'storage-race', message };
     }

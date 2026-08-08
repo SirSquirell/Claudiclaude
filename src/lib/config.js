@@ -83,7 +83,12 @@ export const BASE_CURRENCY = 'EUR';
 
 export const STORAGE = {
   dbName: 'degiro-portfolio',
-  dbVersion: 1,
+  /**
+   * 2: row keys changed. The old scheme used DEGIRO's reported id, which is not
+   * unique — rows stored under it must be discarded and re-fetched, or the new
+   * keys would land alongside the old ones and double the cash.
+   */
+  dbVersion: 2,
   stores: ['transactions', 'cashflows', 'products', 'prices', 'derived', 'meta'],
 };
 

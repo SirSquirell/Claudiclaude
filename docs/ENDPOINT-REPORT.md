@@ -17,7 +17,7 @@ evidence. What it proved:
 | Cash funds among positions | `/update` lists `FLATEX_EUR` as a position with `productType: 311`. It is not an instrument, has no `vwdId`, and asking `products/info` about it is pointless. Now skipped. |
 | Reporting endpoint volume | 5 907 cash movements and 871 transactions over ~6 years on one account. A single all-history query is what makes `/transactions` answer 502. |
 | Cash descriptions | 230 rows in one account matched no rule: `Reservation iDEAL` (224) and `Inkomsten uit Securities Lending - <month>` (6). Both now classified — see below. |
-| `orderId` as a row id | Cash rows share an `orderId` across the legs of one order, so using it as a key collapses them. 5 907 fetched became 5 861 stored. Still open. |
+| Row ids are not unique | **Confirmed and fixed.** `/accountoverview` reports `id: 0` on many rows; 5 907 fetched became 5 861 stored, losing 46 movements to key collisions. Worse, 541 rows on that account were byte-identical to another row, so a content hash is no help either. The key is now the reported id plus the row content plus an occurrence counter within the response. |
 
 ### The vwd series is split-adjusted; the transaction ledger is not
 
