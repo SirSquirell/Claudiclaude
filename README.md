@@ -35,11 +35,18 @@ is undocumented and hammering it is an account-safety risk, not a matter of poli
 | **What the portfolio is made of** | Stacked daily value per holding — how much is which position, and how much is sitting in cash. |
 | **Money paid in vs what it is worth** | Your net deposits against the market value. The gap between the lines is growth. |
 | **Deposits and withdrawals per month** | Net external cashflow. None of it counts as profit. |
+| **Month by month** | Every month of every year as a grid. Read across a row for one year, or down a column to compare the same month across years. |
+| **Compare months** | Pick up to three months — November and June, say — and see them side by side per year, with totals, averages and how often each was positive. |
 | **Dividend per month** | Net cash received, with withholding tax below the line. |
 | **Holdings** | The same series as plain numbers. |
 
 Range selector (1M / 3M / 6M / YTD / 1Y / ALL), hover crosshair, and an
 include/exclude-cash toggle.
+
+The month views have a **Euro / Return %** switch, and it is not cosmetic. €500 on a
+small portfolio is a very different month from €500 on a large one, so euros are not
+comparable across years. The percentage is a daily-chained return with deposits removed,
+so a month you paid money into is not flattered by it.
 
 ## The one thing to pay attention to
 
@@ -56,28 +63,53 @@ turn your own money into profit.
 
 ## Status, honestly
 
-Everything in [SPEC.md](SPEC.md) is built, and the engine is covered by 75 tests
-including "a deposit must not register as profit" and the reconciliation check above.
+**Version 0.9.0.** Everything in [SPEC.md](SPEC.md) is built, and the engine is covered
+by 134 tests — including "a deposit must not register as profit", "a split-adjusted
+series must not inflate the position", and the reconciliation check above.
 
-Two things you should know before relying on it:
+It has now been run against two real DEGIRO accounts, and most of what that turned up is
+fixed. The findings are worth reading if you care whether the numbers are right, because
+several of them were the difference between a plausible chart and a true one:
 
-- **It has not yet been run against a real DEGIRO account.** The fixtures it was built
-  and tested against are generated, not captured, so they prove the code matches the
-  spec — not that the spec matches DEGIRO. Which endpoint fields are assumed rather
-  than verified is written out per endpoint in
-  [docs/ENDPOINT-REPORT.md](docs/ENDPOINT-REPORT.md). The red banner exists precisely
-  because of this.
-- **No currency conversion.** Non-EUR positions are counted at 1:1 and the page says so
-  in red rather than quietly drawing a wrong total.
+- **A portfolio charted at €429 million** against €116k ever paid in. The price series
+  are adjusted for share splits; your transaction history is not. Multiplying one by the
+  other is wrong by the cumulative split factor. Every quote is now audited against the
+  price you actually paid on that same day, and the share count converted into the
+  series' units.
+- **Foreign currencies counted 1:1.** One Hong Kong dollar is not one euro. Rates are now
+  derived from your own trades — each foreign transaction states the price in its
+  currency and the euro amount that left your account, so the rate is simply one divided
+  by the other. It returns exactly 1.0000 on euro trades, which is a decent proof it
+  works.
+- **46 cash movements silently lost.** DEGIRO reports `id: 0` on many rows and they
+  overwrote each other in storage.
+- **A portfolio charted as cash-only**, because pressing "Wipe & resync" mid-sync wiped
+  what the sync had already written and it carried on regardless.
+- **59 holdings with no price history**, because their identifier is a `vwdkey` rather
+  than a number and were being requested as the wrong type.
 
-If you hit either, [docs/CAPTURE.md](docs/CAPTURE.md) explains how to capture a HAR from
-your own session; `tools/har-to-fixtures.mjs` extracts and redacts it, and that replaces
-the guesswork with evidence.
+What is still open:
+
+- **`fixtures/` is generated, not captured.** No HAR was ever available, so the demo data
+  reproduces the response *shapes* the spec describes. Real accounts have since confirmed
+  many of them. What is evidence and what is still an assumption is written out per
+  endpoint in [docs/ENDPOINT-REPORT.md](docs/ENDPOINT-REPORT.md).
+- **Some instruments have no price history at all** — usually a delisting. Those
+  positions are valued at the last price they traded at, so their movement between trades
+  is not real. The page says which ones.
+- **A currency you have never traded in has no derived rate**, so it stays at 1:1 and
+  says so in red.
+
+If something looks wrong, press **Check connection**: it walks all seven steps of the
+sync and reports which one broke, with HTTP statuses and row counts but no session id,
+account number or amounts — so the report is safe to paste into an issue.
+[docs/CAPTURE.md](docs/CAPTURE.md) explains how to capture a HAR from your own session
+if you want to close the remaining gaps.
 
 ## For developers
 
 ```bash
-npm test          # 75 tests, no dependencies to install
+npm test          # 134 tests, no dependencies to install
 npm run demo      # the whole UI on generated fixtures at localhost:5173
 npm run fixtures  # regenerate the sample data
 ```
