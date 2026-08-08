@@ -525,3 +525,105 @@ test('securities lending income counts as profit, not as a deposit', () => {
   near(r.pnl[1], 26.17);
   assert.equal(r.totals.invested, 1000, 'lending income is not money you paid in');
 });
+
+// ---------------------------------------------------------------------------
+// Units. Reported from a real account: a portfolio that peaked at EUR 450
+// million against EUR 116k ever paid in, with today's totals correct. One
+// instrument's quantities and quotes were in different units.
+// ---------------------------------------------------------------------------
+
+/** 1-for-100 reverse split: the ledger holds old shares, the series quotes new money. */
+function reverseSplitScenario({ liveTotal = null } = {}) {
+  const days = dayRange('2024-01-01', '2024-01-06');
+  return computePortfolio({
+    products: { 1: { id: '1', name: 'PENNY CORP', symbol: 'PNY', currency: 'EUR', vwdId: '900' } },
+    prices: {
+      900: {
+        start: '2024-01-01',
+        stepDays: 1,
+        points: days.map((_, i) => ({ offsetDays: i, close: 100 })), // adjusted: EUR 100
+      },
+    },
+    // Bought 10 000 shares at EUR 1 — EUR 10 000 of stock, in pre-split shares.
+    transactions: [{ date: '2024-01-02', productId: '1', quantity: 10000, price: 1, currency: 'EUR', fee: 0 }],
+    cashRows: [{ date: '2024-01-01', description: 'Deposit', change: 10000, currency: 'EUR', category: 'DEPOSIT' }],
+    today: '2024-01-06',
+    liveTotal,
+  });
+}
+
+test('a split-adjusted series does not inflate the position by the split factor', () => {
+  const r = reverseSplitScenario();
+  // Naively: 10 000 shares x EUR 100 = EUR 1 000 000 on a EUR 10 000 account.
+  assert.ok(r.positionsValue.every((v) => v < 20000), `values ran away: ${r.positionsValue.join(', ')}`);
+  near(r.positionsValue.at(-1), 10000, 1, 'the position is worth what was paid for it');
+  assert.equal(r.byProduct[0].qty.at(-1), 100, '10 000 pre-split shares are 100 post-split shares');
+});
+
+test('the unit mismatch is reported, not silently corrected', () => {
+  const w = reverseSplitScenario().warnings.find((x) => x.code === 'unit-mismatch');
+  assert.ok(w, 'expected a unit-mismatch warning');
+  assert.equal(w.detail.instruments[0].factor, 100);
+  assert.equal(w.detail.instruments[0].name, 'PENNY CORP');
+});
+
+test('a normal instrument is never rescaled', () => {
+  // Quote and fill differ intraday, as they always do. That must not look like
+  // a split, or every ordinary holding gets mangled.
+  const days = dayRange('2024-01-01', '2024-01-05');
+  const r = computePortfolio({
+    products: { 1: { id: '1', name: 'NORMAL', currency: 'EUR', vwdId: '900' } },
+    prices: { 900: { start: '2024-01-01', stepDays: 1, points: days.map((_, i) => ({ offsetDays: i, close: 101 })) } },
+    transactions: [{ date: '2024-01-02', productId: '1', quantity: 10, price: 100, currency: 'EUR', fee: 0 }],
+    cashRows: [{ date: '2024-01-01', description: 'Deposit', change: 1000, currency: 'EUR', category: 'DEPOSIT' }],
+    today: '2024-01-05',
+  });
+  assert.equal(r.byProduct[0].qty.at(-1), 10, 'a 1% intraday difference is not a split');
+  assert.equal(r.warnings.some((w) => w.code === 'unit-mismatch'), false);
+  near(r.positionsValue.at(-1), 1010);
+});
+
+test('a history worth many times everything paid in is called out', () => {
+  // The engine cannot always repair a unit error, but it must never draw one
+  // silently. This is the tripwire that should have caught the report.
+  const days = dayRange('2024-01-01', '2024-01-05');
+  const r = computePortfolio({
+    products: { 1: { id: '1', name: 'GHOST', currency: 'EUR', vwdId: null } },
+    prices: {},
+    // No price series, so no factor can be measured: quantity stands as booked.
+    transactions: [{ date: '2024-01-02', productId: '1', quantity: 1e6, price: 1000, currency: 'EUR', fee: 0 }],
+    cashRows: [{ date: '2024-01-01', description: 'Deposit', change: 10000, currency: 'EUR', category: 'DEPOSIT' }],
+    today: '2024-01-05',
+  });
+  const w = r.warnings.find((x) => x.code === 'implausible-history');
+  assert.ok(w, 'expected an implausible-history warning');
+  assert.equal(w.level, 'error');
+  assert.equal(w.detail.culprits[0].name, 'GHOST');
+});
+
+test('an ordinary account does not trip the plausibility check', () => {
+  const meta = fixture('meta.json');
+  const r = computePortfolio({
+    transactions: parseTransactions(fixture('transactions.json')),
+    cashRows: parseCashMovements(fixture('accountoverview.json')),
+    products: parseProducts(fixture('products-info.json')),
+    prices: loadPrices(parseChartResponse, meta),
+    today: meta.today,
+  });
+  assert.equal(r.warnings.some((w) => w.code === 'implausible-history'), false);
+  assert.equal(r.warnings.some((w) => w.code === 'unit-mismatch'), false);
+});
+
+test('days before a price series starts use the traded price, not a future quote', () => {
+  // Extrapolating the first quote backwards is what turns a post-split price
+  // into a pre-split valuation.
+  const r = computePortfolio({
+    products: { 1: { id: '1', name: 'LATE SERIES', currency: 'EUR', vwdId: '900' } },
+    prices: { 900: { start: '2024-01-05', stepDays: 1, points: [{ offsetDays: 0, close: 500 }] } },
+    transactions: [{ date: '2024-01-01', productId: '1', quantity: 10, price: 5, currency: 'EUR', fee: 0 }],
+    cashRows: [{ date: '2024-01-01', description: 'Deposit', change: 50, currency: 'EUR', category: 'DEPOSIT' }],
+    today: '2024-01-05',
+  });
+  near(r.positionsValue[0], 50, 0.01, 'day one is valued at the price actually paid');
+  assert.ok(r.estimated[0] === 1, 'and the day is flagged as an estimate');
+});
