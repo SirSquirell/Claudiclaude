@@ -1,0 +1,9 @@
+node_modules/
+*.log
+.DS_Store
+dist/
+*.zip
+screenshots/
+# Real HAR captures and un-redacted responses must never be committed.
+fixtures/real/
+*.har

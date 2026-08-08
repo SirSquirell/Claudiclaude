@@ -1,0 +1,416 @@
+/*
+ * Design tokens and layout.
+ *
+ * The palette is the validated reference instance: categorical slots 1-7 for
+ * holdings, a neutral for cash (deliberately outside the categorical set —
+ * cash is the absence of a position, not another holding), and the blue/red
+ * diverging pair for gains and losses.
+ *
+ * Slots 3, 4 and 5 sit below 3:1 on the light surface. The relief is the
+ * holdings table at the bottom of the page: every series is also readable as
+ * text, so identity never rests on colour alone.
+ */
+
+:root {
+  color-scheme: light;
+
+  --surface-1: #fcfcfb;
+  --page: #f9f9f7;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted: #898781;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --border: rgba(11, 11, 11, 0.1);
+
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  --series-6: #008300;
+  --series-7: #4a3aa7;
+  --series-cash: #8a8880;
+
+  --pos: #2a78d6;
+  --neg: #d03b3b;
+
+  --good: #006300;
+  --warning: #fab219;
+  --critical: #d03b3b;
+
+  --radius: 10px;
+  --font: system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+
+    --surface-1: #1a1a19;
+    --page: #0d0d0d;
+    --text-primary: #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted: #898781;
+    --grid: #2c2c2a;
+    --axis: #383835;
+    --border: rgba(255, 255, 255, 0.1);
+
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+    --series-5: #d55181;
+    --series-6: #008300;
+    --series-7: #9085e9;
+    --series-cash: #6e6c66;
+
+    --pos: #3987e5;
+    --neg: #e66767;
+
+    --good: #0ca30c;
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --surface-1: #1a1a19;
+  --page: #0d0d0d;
+  --text-primary: #ffffff;
+  --text-secondary: #c3c2b7;
+  --text-muted: #898781;
+  --grid: #2c2c2a;
+  --axis: #383835;
+  --border: rgba(255, 255, 255, 0.1);
+
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-6: #008300;
+  --series-7: #9085e9;
+  --series-cash: #6e6c66;
+
+  --pos: #3987e5;
+  --neg: #e66767;
+
+  --good: #0ca30c;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--text-primary);
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.wrap {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 24px 20px 64px;
+}
+
+/* --- header ------------------------------------------------------------- */
+
+header.top {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+h1 {
+  font-size: 19px;
+  font-weight: 600;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.sub {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+button {
+  font: inherit;
+  font-size: 13px;
+  color: var(--text-primary);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+button:hover {
+  border-color: var(--axis);
+}
+
+button[aria-pressed='true'] {
+  background: var(--text-primary);
+  color: var(--surface-1);
+  border-color: var(--text-primary);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* --- stat tiles --------------------------------------------------------- */
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.tile {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+}
+
+.tile .label {
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.tile .value {
+  font-size: 22px;
+  font-weight: 600;
+  margin-top: 4px;
+  letter-spacing: -0.02em;
+  /* A signed amount must never wrap between its sign and its digits. */
+  white-space: nowrap;
+}
+
+.tile .note {
+  color: var(--text-muted);
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.up {
+  color: var(--good);
+}
+
+.down {
+  color: var(--critical);
+}
+
+/* --- controls ----------------------------------------------------------- */
+
+.controls {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.group {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.group > .glabel {
+  color: var(--text-secondary);
+  font-size: 12px;
+  margin-right: 4px;
+}
+
+label.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+/* --- chart cards -------------------------------------------------------- */
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+@media (min-width: 900px) {
+  .grid.two {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.card {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px 12px;
+}
+
+.card h2 {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 2px;
+}
+
+.card p.hint {
+  margin: 0 0 12px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.chart-box {
+  position: relative;
+  height: 300px;
+}
+
+.chart-box.tall {
+  height: 360px;
+}
+
+/* --- banners ------------------------------------------------------------ */
+
+.banner {
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 13px;
+}
+
+.banner .icon {
+  flex: none;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.banner.error {
+  border-left: 4px solid var(--critical);
+}
+
+.banner.warn {
+  border-left: 4px solid var(--warning);
+}
+
+.banner.info {
+  border-left: 4px solid var(--series-1);
+}
+
+.banner.ok {
+  border-left: 4px solid var(--good);
+}
+
+.banner code {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* --- table -------------------------------------------------------------- */
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+th,
+td {
+  text-align: right;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--grid);
+  white-space: nowrap;
+}
+
+th {
+  color: var(--text-secondary);
+  font-weight: 500;
+  font-size: 12px;
+}
+
+th:first-child,
+td:first-child {
+  text-align: left;
+}
+
+.swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  margin-right: 8px;
+  vertical-align: baseline;
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+/* --- popup -------------------------------------------------------------- */
+
+body.popup {
+  width: 320px;
+  padding: 14px;
+  background: var(--surface-1);
+}
+
+body.popup .tiles {
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+body.popup .tile {
+  padding: 10px 12px;
+}
+
+body.popup .tile .value {
+  font-size: 17px;
+}
+
+body.popup .spark {
+  height: 64px;
+  margin-bottom: 12px;
+}
+
+.footer-note {
+  margin-top: 28px;
+  color: var(--text-muted);
+  font-size: 12px;
+}

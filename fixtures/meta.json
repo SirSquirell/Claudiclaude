@@ -1,0 +1,43 @@
+{
+  "generator": "tools/make-fixtures.mjs",
+  "synthetic": true,
+  "note": "Shapes follow SPEC §2. Values are generated, not captured from DEGIRO.",
+  "seed": 20260808,
+  "today": "2026-08-08",
+  "start": "2021-01-04",
+  "intAccount": 9999999,
+  "sessionId": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA.prod_b_128_3",
+  "userToken": "11111111",
+  "liveTotal": 111784.99,
+  "liveCash": 321.02,
+  "livePositionsValue": 111463.97,
+  "charts": [
+    "chart-350009261.json",
+    "chart-360015751.json",
+    "chart-385018452.json",
+    "chart-330015025.json",
+    "chart-365002435.json",
+    "chart-350010440.json",
+    "chart-390000123.json",
+    "chart-340001211.json",
+    "chart-355001982.json",
+    "chart-375004417.json"
+  ],
+  "vwdIds": [
+    "350009261",
+    "360015751",
+    "385018452",
+    "330015025",
+    "365002435",
+    "350010440",
+    "390000123",
+    "340001211",
+    "355001982",
+    "375004417"
+  ],
+  "counts": {
+    "transactions": 87,
+    "cashMovements": 351,
+    "products": 10
+  }
+}
