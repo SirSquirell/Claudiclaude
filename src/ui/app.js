@@ -32,6 +32,8 @@ const state = {
   granularity: 'auto',
   includeCash: true,
   charts: {},
+  diagnostics: null,
+  steps: [],
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -46,6 +48,23 @@ async function init() {
   buildControls();
   wireActions();
   onThemeChange(() => render());
+
+  if (inExtension && !wantsDemo()) {
+    // If a sync is already running (the worker starts one when a DEGIRO tab
+    // loads), say so instead of showing an empty page.
+    try {
+      const st = await send({ type: 'status' });
+      state.steps = st.steps ?? [];
+      if (st.syncing) notice('info', `A sync is already running: ${st.syncState?.message ?? '…'}`);
+      else if (st.lastError) {
+        notice('error', `Last sync failed: ${st.lastError.message ?? st.lastError.reason}`);
+        notice('info', 'Press “Check connection” to see which step broke.');
+      }
+    } catch {
+      notice('error', 'The extension’s background worker did not respond. Try reloading the extension in chrome://extensions.');
+    }
+  }
+
   await refresh();
 }
 
@@ -108,21 +127,85 @@ function wireActions() {
 
   $('#btn-sync').addEventListener('click', async (e) => {
     if (demo || !inExtension) {
-      banner('info', 'Demo mode has nothing to sync. Load the extension in Chrome and open it from the toolbar to sync your real account.');
+      notice('info', 'Demo mode has nothing to sync. Open this page from the extension toolbar to sync your real account.');
+      return;
+    }
+    const btn = e.target;
+    clearNotices();
+    btn.disabled = true;
+
+    // Poll the checkpoint the worker writes on every step. The sync runs in the
+    // service worker, which may outlive or predecease this page, so progress is
+    // read from storage rather than pushed down the message channel.
+    const progress = notice('info', 'Starting…');
+    const poll = setInterval(async () => {
+      try {
+        const st = await send({ type: 'status' });
+        const s = st.syncState;
+        if (!s) return;
+        const step = state.steps.indexOf(s.phase);
+        const n = step >= 0 ? `Step ${step + 1} of ${state.steps.length} · ` : '';
+        btn.textContent = s.pct != null ? `Syncing ${s.pct}%` : 'Syncing…';
+        setNoticeText(progress, `${n}${s.message}`);
+      } catch {
+        /* the worker may be restarting; the next tick will catch up */
+      }
+    }, 400);
+
+    try {
+      const res = await send({ type: 'sync', force: true });
+      clearInterval(poll);
+      clearNotices();
+      if (!res.ok) {
+        notice('error', `Sync failed: ${res.message ?? 'unknown error'}`);
+        notice('info', 'Press “Check connection” to see which step broke.');
+      } else {
+        const c = res.counts ?? {};
+        notice(
+          'ok',
+          `Synced in ${((res.tookMs ?? 0) / 1000).toFixed(1)}s — ${c.transactions ?? 0} transactions, ` +
+            `${c.cashRows ?? 0} cash movements, ${c.instruments ?? 0} instruments, ${c.days ?? 0} days.`,
+        );
+      }
+      await refresh();
+    } catch (err) {
+      clearInterval(poll);
+      clearNotices();
+      notice('error', `Sync failed: ${err.message ?? err}`);
+      notice('info', 'Press “Check connection” to see which step broke.');
+    } finally {
+      clearInterval(poll);
+      btn.disabled = false;
+      btn.textContent = 'Sync now';
+    }
+  });
+
+  $('#btn-diagnose').addEventListener('click', async (e) => {
+    if (!inExtension) {
+      notice('info', 'The connection check only works inside the extension.');
       return;
     }
     e.target.disabled = true;
-    e.target.textContent = 'Syncing…';
+    e.target.textContent = 'Checking…';
+    clearNotices();
     try {
-      const res = await send({ type: 'sync', force: true });
-      if (!res.ok) banner('error', res.message ?? 'Sync failed.');
-      await refresh();
+      state.diagnostics = await send({ type: 'diagnose' });
+      renderDiagnostics(state.diagnostics);
     } catch (err) {
-      banner('error', String(err.message ?? err));
+      notice('error', `Could not run the check: ${err.message ?? err}`);
     } finally {
       e.target.disabled = false;
-      e.target.textContent = 'Sync now';
+      e.target.textContent = 'Check connection';
     }
+  });
+
+  $('#btn-copy-diag').addEventListener('click', async () => {
+    await navigator.clipboard.writeText(JSON.stringify(state.diagnostics, null, 2));
+    notice('ok', 'Report copied to the clipboard.');
+  });
+
+  $('#btn-hide-diag').addEventListener('click', () => {
+    $('#diagnostics').hidden = true;
   });
 
   $('#btn-export').addEventListener('click', async () => {
@@ -394,7 +477,57 @@ function renderFooter(r, data) {
   $('#footer-note').textContent = `${bits.join(' · ')}. Personal use only; this is an unofficial API and not sanctioned by DEGIRO.`;
 }
 
-function banner(kind, message, link) {
+/**
+ * Notices live in their own container.
+ *
+ * Banners are derived from the data and are wiped on every render; notices are
+ * the record of something that *happened* — a sync result, an error — and must
+ * survive the re-render that follows it. Putting both in one container is how
+ * the earlier build managed to print an error and erase it in the same tick.
+ */
+function notice(kind, message, link) {
+  const el = makeBanner(kind, message, link);
+  $('#notices').append(el);
+  return el;
+}
+
+function setNoticeText(el, message) {
+  if (el?.lastElementChild) el.lastElementChild.textContent = message;
+}
+
+function clearNotices() {
+  $('#notices').innerHTML = '';
+}
+
+function renderDiagnostics(report) {
+  const box = $('#diagnostics');
+  box.hidden = false;
+  $('#diag-summary').textContent = report.summary ?? '';
+
+  const cell = (s) => {
+    const bits = [];
+    if (s.status != null) bits.push(`HTTP ${s.status}`);
+    for (const [k, v] of Object.entries(s)) {
+      if (['name', 'ok', 'note', 'status'].includes(k) || v == null) continue;
+      bits.push(`${k}: ${Array.isArray(v) ? v.join(', ') || '—' : typeof v === 'object' ? JSON.stringify(v) : v}`);
+    }
+    return bits.join(' · ');
+  };
+
+  $('#diag-table tbody').innerHTML = (report.steps ?? [])
+    .map(
+      (s) => `<tr>
+        <td>${esc(s.name)}</td>
+        <td class="${s.ok ? 'up' : 'down'}">${s.ok ? '✓ ok' : '✗ failed'}</td>
+        <td style="text-align:left; white-space:normal">${esc(s.note ?? '')}${s.note ? '<br>' : ''}<span class="muted">${esc(cell(s))}</span></td>
+      </tr>`,
+    )
+    .join('');
+
+  box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function makeBanner(kind, message, link) {
   const icons = { error: '!', warn: '!', info: 'i', ok: '✓' };
   const el = document.createElement('div');
   el.className = `banner ${kind}`;
@@ -407,7 +540,12 @@ function banner(kind, message, link) {
     a.style.marginLeft = '6px';
     el.lastElementChild.append(' ', a);
   }
-  $('#banners').append(el);
+  return el;
+}
+
+/** A data-derived banner. Wiped and rebuilt on every render. */
+function banner(kind, message, link) {
+  $('#banners').append(makeBanner(kind, message, link));
 }
 
 function showFatal(err) {

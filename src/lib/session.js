@@ -9,8 +9,8 @@
  * 'log in to DEGIRO' in the popup and stop. Never attempt a login."
  */
 
-import { TRADER } from './config.js';
-import { SessionExpiredError, fetchClient, fetchUpdate } from './degiro.js';
+import { DEFAULT_URLS, TRADER } from './config.js';
+import { SessionExpiredError, fetchClient, fetchUpdate, fetchUrls } from './degiro.js';
 import { getMeta, setMeta } from './store.js';
 
 /** Read JSESSIONID from the browser's own cookie jar. */
@@ -37,10 +37,18 @@ export async function resolveSession({ refresh = false } = {}) {
 
   let intAccount = await getMeta('intAccount');
   let userToken = await getMeta('userToken');
+  let urls = await getMeta('urls');
+
+  // Which trading cluster this account is on is account-specific and can
+  // change; discover it once and cache it alongside the identifiers.
+  if (refresh || !urls) {
+    urls = await fetchUrls();
+    await setMeta('urls', urls);
+  }
 
   if (refresh || intAccount == null || userToken == null) {
     try {
-      const client = await fetchClient({ sessionId });
+      const client = await fetchClient({ sessionId, urls });
       if (client.intAccount == null || client.userToken == null) {
         return { ok: false, reason: 'client-endpoint-shape' };
       }
@@ -55,7 +63,7 @@ export async function resolveSession({ refresh = false } = {}) {
     }
   }
 
-  return { ok: true, sessionId, intAccount, userToken };
+  return { ok: true, sessionId, intAccount, userToken, urls };
 }
 
 /**
@@ -64,7 +72,7 @@ export async function resolveSession({ refresh = false } = {}) {
  */
 export async function checkSession(session) {
   try {
-    const update = await fetchUpdate({ intAccount: session.intAccount, sessionId: session.sessionId });
+    const update = await fetchUpdate({ intAccount: session.intAccount, sessionId: session.sessionId, urls: session.urls });
     return { ok: true, update };
   } catch (err) {
     if (err instanceof SessionExpiredError) return { ok: false, reason: 'expired' };

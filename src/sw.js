@@ -10,6 +10,7 @@
  */
 
 import { SYNC } from './lib/config.js';
+import { localInfo, runDiagnostics } from './lib/diagnose.js';
 import { getStatus, recompute, runSync } from './lib/sync.js';
 import { exportEverything, wipeAll } from './lib/store.js';
 
@@ -50,10 +51,13 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 async function handle(msg) {
   switch (msg?.type) {
     case 'status':
-      return getStatus();
+      return getStatus({ includeDerived: msg.includeDerived === true });
 
     case 'sync':
       return runSync({ force: msg.force === true });
+
+    case 'diagnose':
+      return { ...(await runDiagnostics()), local: await localInfo() };
 
     case 'recompute':
       return recompute();

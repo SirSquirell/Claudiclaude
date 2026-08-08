@@ -57,6 +57,13 @@ totaal dat DEGIRO zelf laat zien. Wijken die af, dan zegt hij dat, want dan klop
 geschiedenis ook niet. Stuur me het bedrag dat erbij staat, daar kan ik uit afleiden
 wat er misgaat.
 
+**Sync doet niks of geeft een fout** — klik op **Check connection** op de hoofdpagina.
+Die loopt alle stappen langs (cookie → welke DEGIRO-server je account gebruikt →
+rekeningnummer → portefeuille → transacties → geldstromen → koersen) en zegt bij welke
+stap het misgaat. **Copy report** zet het op je klembord; daar staat geen sessie,
+rekeningnummer of bedrag in, alleen statuscodes en aantallen, dus dat kun je veilig
+doorsturen.
+
 **Niks werkt** — ga naar `chrome://extensions`, klik bij deze extensie op
 **service worker**, en kopieer wat er in de console staat.
 

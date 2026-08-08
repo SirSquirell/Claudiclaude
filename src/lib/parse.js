@@ -319,6 +319,27 @@ export function parseChartResponse(res) {
 // session identifiers  (pa/secure/client)
 // ---------------------------------------------------------------------------
 
+/**
+ * /login/secure/config -> the base URLs this account actually uses.
+ *
+ * DEGIRO moves accounts between trading clusters (`/trading/`, `/trading4/`,
+ * …), so these must be read rather than assumed. Anything missing falls back to
+ * the documented default in config.js.
+ */
+export function parseConfigUrls(res, defaults) {
+  const data = unwrap(res, ['data']) ?? res ?? {};
+  const take = (key, fallback) => {
+    const v = pick(data, [key]);
+    return typeof v === 'string' && v.startsWith('http') ? v : fallback;
+  };
+  return {
+    trading: take('tradingUrl', defaults.trading),
+    reporting: take('reportingUrl', defaults.reporting),
+    productSearch: take('productSearchUrl', defaults.productSearch),
+    pa: take('paUrl', defaults.pa),
+  };
+}
+
 export function parseClient(res) {
   const data = unwrap(res, ['data']) ?? res ?? {};
   const intAccount = pick(data, ['intAccount', 'int_account']);
