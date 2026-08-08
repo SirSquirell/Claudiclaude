@@ -532,42 +532,107 @@ test('securities lending income counts as profit, not as a deposit', () => {
 // instrument's quantities and quotes were in different units.
 // ---------------------------------------------------------------------------
 
-/** 1-for-100 reverse split: the ledger holds old shares, the series quotes new money. */
-function reverseSplitScenario({ liveTotal = null } = {}) {
-  const days = dayRange('2024-01-01', '2024-01-06');
+/**
+ * The field case: 49 shares bought at EUR 13.44 in 2020 and sold in 2022, whose
+ * series quotes millions because it is adjusted for several reverse splits.
+ * Unadjusted this produced EUR 428 million on a EUR 116k account.
+ */
+function splitAdjustedScenario() {
+  const days = dayRange('2024-01-01', '2024-01-08');
+  // A real, smooth history in adjusted money: 7.0m falling to 2.3m.
+  const curve = [7030800, 7100000, 6900000, 5200000, 4100000, 3000000, 2500000, 2349000];
   return computePortfolio({
-    products: { 1: { id: '1', name: 'PENNY CORP', symbol: 'PNY', currency: 'EUR', vwdId: '900' } },
-    prices: {
-      900: {
-        start: '2024-01-01',
-        stepDays: 1,
-        points: days.map((_, i) => ({ offsetDays: i, close: 100 })), // adjusted: EUR 100
-      },
-    },
-    // Bought 10 000 shares at EUR 1 — EUR 10 000 of stock, in pre-split shares.
-    transactions: [{ date: '2024-01-02', productId: '1', quantity: 10000, price: 1, currency: 'EUR', fee: 0 }],
-    cashRows: [{ date: '2024-01-01', description: 'Deposit', change: 10000, currency: 'EUR', category: 'DEPOSIT' }],
-    today: '2024-01-06',
-    liveTotal,
+    products: { 1: { id: '1', name: 'VISION MARINE', symbol: 'VMAR', currency: 'EUR', vwdId: '900' } },
+    prices: { 900: { start: '2024-01-01', stepDays: 1, points: curve.map((close, i) => ({ offsetDays: i, close })) } },
+    transactions: [
+      { date: '2024-01-01', productId: '1', quantity: 49, price: 13.44, currency: 'EUR', fee: 0 },
+      { date: '2024-01-08', productId: '1', quantity: -49, price: 4.5, currency: 'EUR', fee: 0 },
+    ],
+    cashRows: [{ date: '2024-01-01', description: 'Deposit', change: 1000, currency: 'EUR', category: 'DEPOSIT' }],
+    today: '2024-01-08',
   });
 }
 
-test('a split-adjusted series does not inflate the position by the split factor', () => {
-  const r = reverseSplitScenario();
-  // Naively: 10 000 shares x EUR 100 = EUR 1 000 000 on a EUR 10 000 account.
-  assert.ok(r.positionsValue.every((v) => v < 20000), `values ran away: ${r.positionsValue.join(', ')}`);
-  near(r.positionsValue.at(-1), 10000, 1, 'the position is worth what was paid for it');
-  assert.equal(r.byProduct[0].qty.at(-1), 100, '10 000 pre-split shares are 100 post-split shares');
+test('a split-adjusted series values the position correctly over time', () => {
+  const r = splitAdjustedScenario();
+  // Bought for 49 x 13.44 = 658.56 and sold for 49 x 4.50 = 220.50.
+  near(r.positionsValue[0], 658.56, 0.5, 'worth what it was bought for on day one');
+  near(r.positionsValue[6], 235, 5, 'and tracks the real curve in between');
+  assert.equal(r.positionsValue.at(-1), 0, 'sold on the last day');
+  assert.ok(
+    r.positionsValue.every((v) => v < 1000),
+    `values ran away: ${r.positionsValue.map((v) => v.toFixed(0)).join(', ')}`,
+  );
 });
 
-test('the unit mismatch is reported, not silently corrected', () => {
-  const w = reverseSplitScenario().warnings.find((x) => x.code === 'unit-mismatch');
-  assert.ok(w, 'expected a unit-mismatch warning');
-  assert.equal(w.detail.instruments[0].factor, 100);
-  assert.equal(w.detail.instruments[0].name, 'PENNY CORP');
+test('the rescaling is reported, with the evidence behind it', () => {
+  const w = splitAdjustedScenario().warnings.find((x) => x.code === 'price-scale-adjusted');
+  assert.ok(w, 'expected a price-scale-adjusted warning');
+  const hit = w.detail.instruments[0];
+  assert.equal(hit.symbol, 'VMAR');
+  assert.ok(hit.factor > 100000, `expected a large factor, got ${hit.factor}`);
+  assert.ok(hit.spread < 5, 'a split factor holds steady between trades');
+  assert.equal(hit.sample[0].traded, 13.44);
 });
 
-test('a normal instrument is never rescaled', () => {
+test('a series whose factor will not hold still is thrown away, not rescaled', () => {
+  // No consistent relationship between quotes and fills means the series is not
+  // this instrument. Rescaling it would draw another company under this name.
+  const days = dayRange('2024-01-01', '2024-01-05');
+  const r = computePortfolio({
+    products: { 1: { id: '1', name: 'WRONG SERIES', symbol: 'WRG', currency: 'EUR', vwdId: '900' } },
+    prices: {
+      900: { start: '2024-01-01', stepDays: 1, points: [800, 40, 900, 30, 700].map((close, i) => ({ offsetDays: i, close })) },
+    },
+    transactions: [
+      { date: '2024-01-01', productId: '1', quantity: 10, price: 8, currency: 'EUR', fee: 0 },
+      { date: '2024-01-02', productId: '1', quantity: 10, price: 8, currency: 'EUR', fee: 0 },
+    ],
+    cashRows: [{ date: '2024-01-01', description: 'Deposit', change: 1000, currency: 'EUR', category: 'DEPOSIT' }],
+    today: '2024-01-05',
+  });
+  const w = r.warnings.find((x) => x.code === 'price-series-mismatch');
+  assert.ok(w, 'expected a price-series-mismatch warning');
+  assert.equal(w.level, 'error');
+  assert.equal(r.byProduct[0].qty.at(-1), 20, 'the share count is left exactly as booked');
+  near(r.positionsValue.at(-1), 160, 0.01, 'valued at the price actually paid');
+});
+
+test('a series is judged on price, so fractional shares change nothing', () => {
+  // Buying 0.37 of a share does not change what a share costs, and the audit
+  // compares prices, never quantities.
+  const days = dayRange('2024-01-01', '2024-01-05');
+  const r = computePortfolio({
+    products: { 1: { id: '1', name: 'FRACTIONAL', currency: 'EUR', vwdId: '900' } },
+    prices: { 900: { start: '2024-01-01', stepDays: 1, points: days.map((_, i) => ({ offsetDays: i, close: 700 })) } },
+    transactions: [
+      { date: '2024-01-02', productId: '1', quantity: 0.37, price: 705, currency: 'EUR', fee: 0 },
+      { date: '2024-01-03', productId: '1', quantity: 0.128, price: 698, currency: 'EUR', fee: 0 },
+    ],
+    cashRows: [{ date: '2024-01-01', description: 'Deposit', change: 1000, currency: 'EUR', category: 'DEPOSIT' }],
+    today: '2024-01-05',
+  });
+  assert.equal(r.warnings.some((w) => w.code === 'price-series-mismatch'), false, 'a fraction is not a mismatch');
+  near(r.byProduct[0].qty.at(-1), 0.498, 0.0001, 'fractional quantities survive intact');
+  near(r.positionsValue.at(-1), 0.498 * 700, 0.01);
+});
+
+test('a series is kept when FX alone explains the gap', () => {
+  // A USD instrument counted at 1:1 sits maybe 20% off. That must not be enough
+  // to throw the whole price history away.
+  const days = dayRange('2024-01-01', '2024-01-05');
+  const r = computePortfolio({
+    products: { 1: { id: '1', name: 'US STOCK', currency: 'USD', vwdId: '900' } },
+    prices: { 900: { start: '2024-01-01', stepDays: 1, points: days.map((_, i) => ({ offsetDays: i, close: 118 })) } },
+    transactions: [{ date: '2024-01-02', productId: '1', quantity: 10, price: 100, currency: 'USD', fee: 0 }],
+    cashRows: [{ date: '2024-01-01', description: 'Deposit', change: 2000, currency: 'EUR', category: 'DEPOSIT' }],
+    today: '2024-01-05',
+  });
+  assert.equal(r.warnings.some((w) => w.code === 'price-series-mismatch'), false);
+  near(r.positionsValue.at(-1), 1180);
+});
+
+test('an ordinary instrument keeps its series', () => {
   // Quote and fill differ intraday, as they always do. That must not look like
   // a split, or every ordinary holding gets mangled.
   const days = dayRange('2024-01-01', '2024-01-05');
@@ -578,8 +643,8 @@ test('a normal instrument is never rescaled', () => {
     cashRows: [{ date: '2024-01-01', description: 'Deposit', change: 1000, currency: 'EUR', category: 'DEPOSIT' }],
     today: '2024-01-05',
   });
-  assert.equal(r.byProduct[0].qty.at(-1), 10, 'a 1% intraday difference is not a split');
-  assert.equal(r.warnings.some((w) => w.code === 'unit-mismatch'), false);
+  assert.equal(r.byProduct[0].qty.at(-1), 10, 'a 1% intraday difference proves nothing');
+  assert.equal(r.warnings.some((w) => w.code === 'price-series-mismatch'), false);
   near(r.positionsValue.at(-1), 1010);
 });
 
@@ -611,7 +676,7 @@ test('an ordinary account does not trip the plausibility check', () => {
     today: meta.today,
   });
   assert.equal(r.warnings.some((w) => w.code === 'implausible-history'), false);
-  assert.equal(r.warnings.some((w) => w.code === 'unit-mismatch'), false);
+  assert.equal(r.warnings.some((w) => w.code === 'price-series-mismatch'), false);
 });
 
 test('days before a price series starts use the traded price, not a future quote', () => {
