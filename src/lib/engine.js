@@ -542,6 +542,85 @@ export function buildComposition(result, topN = 6, fromIndex = 0, toIndex = resu
   return { days: slice(result.days), layers };
 }
 
+/**
+ * Month-by-month results laid out as a year × month grid — the shape you need
+ * to compare the same month across years, which a single row of bars over time
+ * cannot show.
+ *
+ * Two numbers per cell, because they answer different questions:
+ *
+ *  - `pnl` is the euro result. Honest, but not comparable across years: €500 on
+ *    a €10k portfolio and €500 on a €120k one are not the same month.
+ *  - `returnPct` is a daily-chained time-weighted return,
+ *    Π(1 + pnl[d]/value[d−1]) − 1. Because `pnl` already has external cashflow
+ *    removed, a month with a big deposit is not flattered by it — which is the
+ *    whole reason to chain daily rather than divide by the month's opening
+ *    value.
+ *
+ * Days where the previous value is zero or negative contribute no return: there
+ * was nothing invested to earn one on.
+ */
+export function monthlyTable(result) {
+  const { days, pnl, value } = result;
+  if (!days?.length) return { years: [], maxAbsPnl: 0, maxAbsPct: 0 };
+
+  const cells = new Map(); // 'YYYY-MM' -> {pnl, factor, hasData}
+  for (let i = 0; i < days.length; i++) {
+    const key = monthKey(days[i]);
+    const cell = cells.get(key) ?? { pnl: 0, factor: 1, hasData: false };
+    cell.pnl += pnl[i];
+    const prev = i === 0 ? 0 : value[i - 1];
+    if (prev > 0) cell.factor *= 1 + pnl[i] / prev;
+    cell.hasData = true;
+    cells.set(key, cell);
+  }
+
+  const years = new Map();
+  for (const [key, cell] of cells) {
+    const [y, m] = key.split('-');
+    const row = years.get(y) ?? { year: y, months: new Array(12).fill(null), pnl: 0, factor: 1 };
+    row.months[Number(m) - 1] = { month: key, pnl: round2(cell.pnl), returnPct: round2((cell.factor - 1) * 100) };
+    row.pnl += cell.pnl;
+    row.factor *= cell.factor;
+    years.set(y, row);
+  }
+
+  const rows = [...years.values()]
+    .sort((a, b) => (a.year < b.year ? -1 : 1))
+    .map((r) => ({
+      year: r.year,
+      months: r.months,
+      total: { pnl: round2(r.pnl), returnPct: round2((r.factor - 1) * 100) },
+    }));
+
+  // Scale bounds for the colour ramp, computed over the cells only — a year
+  // total is the sum of twelve months and would flatten every individual cell.
+  let maxAbsPnl = 0;
+  let maxAbsPct = 0;
+  for (const r of rows) {
+    for (const c of r.months) {
+      if (!c) continue;
+      maxAbsPnl = Math.max(maxAbsPnl, Math.abs(c.pnl));
+      maxAbsPct = Math.max(maxAbsPct, Math.abs(c.returnPct));
+    }
+  }
+
+  const best = (metric) => {
+    let hi = null;
+    let lo = null;
+    for (const r of rows) {
+      for (const c of r.months) {
+        if (!c) continue;
+        if (hi == null || c[metric] > hi[metric]) hi = c;
+        if (lo == null || c[metric] < lo[metric]) lo = c;
+      }
+    }
+    return { best: hi, worst: lo };
+  };
+
+  return { years: rows, maxAbsPnl, maxAbsPct, byPnl: best('pnl'), byPct: best('returnPct') };
+}
+
 function aggregateMonthly(days, gross, tax) {
   const buckets = new Map();
   for (let i = 0; i < days.length; i++) {

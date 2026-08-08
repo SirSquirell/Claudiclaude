@@ -114,6 +114,61 @@
 
       <div class="grid" style="margin-top: 16px">
         <div class="card">
+          <div class="card-head">
+            <div>
+              <h2>Month by month</h2>
+              <p class="hint">
+                Every month of every year, so you can read across a row for one year or down a column to compare
+                the same month across years. Whole history, not the selected range.
+              </p>
+            </div>
+            <div class="group" id="metric-group">
+              <span class="glabel">Show</span>
+            </div>
+          </div>
+          <div class="table-scroll">
+            <table id="months" class="matrix"></table>
+          </div>
+          <div class="scale" id="month-scale"></div>
+          <p class="hint" id="month-note" style="margin-top: 10px"></p>
+        </div>
+      </div>
+
+      <div class="grid" style="margin-top: 16px">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h2>Compare months</h2>
+              <p class="hint" id="compare-hint">
+                Click a month name in the table above — November and June, say — to put them side by side per year.
+              </p>
+            </div>
+            <div class="group">
+              <button id="btn-clear-months" type="button">Clear selection</button>
+            </div>
+          </div>
+          <div class="chart-box" id="compare-box" hidden><canvas id="c-compare"></canvas></div>
+          <div class="table-scroll" id="compare-summary-wrap" hidden>
+            <table id="compare-summary">
+              <thead>
+                <tr>
+                  <th>Month</th>
+                  <th>Years</th>
+                  <th id="th-total">Total</th>
+                  <th id="th-avg">Average</th>
+                  <th>Best</th>
+                  <th>Worst</th>
+                  <th>Positive</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid" style="margin-top: 16px">
+        <div class="card">
           <h2>Dividend per month</h2>
           <p class="hint">Net cash received, with withholding tax shown below the line. Whole history, not the selected range.</p>
           <div class="chart-box"><canvas id="c-dividends"></canvas></div>
