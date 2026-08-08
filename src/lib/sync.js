@@ -29,6 +29,7 @@ import {
   putAll,
   setDerived,
   setMeta,
+  wipeAll,
 } from './store.js';
 
 /**
@@ -79,6 +80,29 @@ export async function runSync(opts = {}) {
     running = null;
   });
   return running;
+}
+
+export const isSyncing = () => running != null;
+
+/**
+ * Wipe every store and start over.
+ *
+ * The wait is the whole point. Wiping while a sync is in flight leaves the
+ * database in a state that looks fine and is not: everything the sync wrote
+ * before the wipe is gone, everything after it survives, and the sync still
+ * reports success. That produced a real report of a portfolio with cash and no
+ * holdings — the transactions had been written just before the wipe and the
+ * cash movements just after, so the position ledger was silently empty.
+ *
+ * Awaiting the in-flight run first is enough; `runSync` then starts a genuinely
+ * new one, because the old promise has settled and cleared the guard.
+ */
+export async function wipeAndResync({ onProgress } = {}) {
+  if (running) {
+    await running.catch(() => {});
+  }
+  await wipeAll();
+  return runSync({ force: true, onProgress });
 }
 
 /**
@@ -301,8 +325,12 @@ async function doSync({ force = false, onProgress = () => {} } = {}) {
     await report('products', 'Fetching product details…', 45);
     const known = new Set((await getAll('products')).map((p) => p.id));
     const needed = new Set();
-    for (const t of await getAll('transactions')) if (!known.has(t.productId)) needed.add(t.productId);
-    for (const p of update.positions) if (!known.has(p.productId)) needed.add(p.productId);
+    // DEGIRO reports cash funds among the positions with ids like FLATEX_EUR.
+    // They are not tradable instruments, have no vwdId, and asking about them
+    // just pollutes the product store.
+    const isInstrument = (pid) => /^\d+$/.test(String(pid));
+    for (const t of await getAll('transactions')) if (isInstrument(t.productId) && !known.has(t.productId)) needed.add(t.productId);
+    for (const p of update.positions) if (isInstrument(p.productId) && !known.has(p.productId)) needed.add(p.productId);
 
     if (needed.size) {
       for (const ids of chunk([...needed])) {
@@ -321,7 +349,7 @@ async function doSync({ force = false, onProgress = () => {} } = {}) {
     const tail = [];
     for (const p of products) {
       if (!p.vwdId) continue;
-      (stored[p.vwdId] ? tail : backfill).push(p.vwdId);
+      (stored[p.vwdId] ? tail : backfill).push({ id: p.vwdId, type: p.vwdIdType || 'issueid' });
     }
 
     const chunks = [
@@ -338,7 +366,7 @@ async function doSync({ force = false, onProgress = () => {} } = {}) {
       const series = await fetchPriceChunk({ vwdIds: c.ids, userToken: session.userToken, period: c.period });
       for (const [vwdId, s] of Object.entries(series)) await mergePriceSeries(vwdId, s);
 
-      const missing = c.ids.filter((id) => !series[id]);
+      const missing = c.ids.filter((v) => !series[v.id]).map((v) => v.id);
       if (missing.length) {
         await setMeta('missingPriceSeries', missing);
       }
@@ -347,6 +375,21 @@ async function doSync({ force = false, onProgress = () => {} } = {}) {
     // --- derive -----------------------------------------------------------
     await report('derive', 'Rebuilding the history…', 92);
     const result = await recompute({ liveTotal: update.totalValue });
+
+    // Tripwire. If what we just fetched is not what the engine read back, the
+    // database changed under us mid-sync and the result is quietly wrong —
+    // which is exactly how an account once ended up charted as cash-only.
+    if (result.stats.transactions !== transactions.length || result.stats.cashRows !== cashRows.length) {
+      const message =
+        `Storage changed during the sync: fetched ${transactions.length} transactions and ` +
+        `${cashRows.length} cash movements, but rebuilt from ${result.stats.transactions} and ` +
+        `${result.stats.cashRows}. Press “Wipe & resync” and let it finish without interrupting it.`;
+      await fail('derive', message, {
+        fetched: { transactions: transactions.length, cashRows: cashRows.length },
+        stored: { transactions: result.stats.transactions, cashRows: result.stats.cashRows },
+      });
+      return { ok: false, reason: 'storage-race', message };
+    }
 
     await setMeta('lastDataDate', today);
     await setMeta('lastSyncAt', Date.now());

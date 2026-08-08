@@ -11,8 +11,8 @@
 
 import { SYNC } from './lib/config.js';
 import { localInfo, runDiagnostics } from './lib/diagnose.js';
-import { getStatus, recompute, runSync } from './lib/sync.js';
-import { exportEverything, wipeAll } from './lib/store.js';
+import { getStatus, recompute, runSync, wipeAndResync } from './lib/sync.js';
+import { exportEverything } from './lib/store.js';
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.alarms.create(SYNC.alarmName, { periodInMinutes: SYNC.alarmPeriodMinutes });
@@ -66,8 +66,10 @@ async function handle(msg) {
       return exportEverything();
 
     case 'wipe':
-      await wipeAll();
-      return { wiped: true };
+      // Deliberately wipe *and* resync in one message: the two must not be
+      // separate round-trips, or a sync can start between them and be wiped
+      // halfway through.
+      return wipeAndResync();
 
     case 'openApp':
       await chrome.tabs.create({ url: chrome.runtime.getURL('src/ui/app.html') });

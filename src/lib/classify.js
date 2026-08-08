@@ -30,6 +30,8 @@ export const CATEGORY = {
   TRADE: 'TRADE',
   FX: 'FX',
   CASH_SWEEP: 'CASH_SWEEP',
+  RESERVATION: 'RESERVATION',
+  SECURITIES_LENDING: 'SECURITIES_LENDING',
   CORPORATE_ACTION: 'CORPORATE_ACTION',
   UNKNOWN: 'UNKNOWN',
 };
@@ -53,6 +55,21 @@ export const CATEGORY_META = {
   [CATEGORY.TRADE]: { external: false, inCash: true },
   [CATEGORY.FX]: { external: false, inCash: true },
   [CATEGORY.CASH_SWEEP]: { external: false, inCash: false },
+  /**
+   * "Reservation iDEAL": DEGIRO fronts you the money so you can trade while an
+   * iDEAL transfer clears, then reverses it when the real deposit lands. Seen
+   * 224 times in one account, 112 positive and 112 negative, summing to exactly
+   * zero, each negative paired next-day with a real DEPOSIT of the same amount.
+   *
+   * external:false — the paired DEPOSIT already counts the money; counting this
+   * too would double every deposit.
+   * inCash:false  — the advance is a receivable, not net worth. Counting it
+   * would put a phantom gain on the day it appears and an equal phantom loss on
+   * the day it reverses.
+   */
+  [CATEGORY.RESERVATION]: { external: false, inCash: false },
+  /** Income from lending out your shares. Internal, like interest. */
+  [CATEGORY.SECURITIES_LENDING]: { external: false, inCash: true },
   [CATEGORY.CORPORATE_ACTION]: { external: false, inCash: true },
   [CATEGORY.UNKNOWN]: { external: false, inCash: true },
 };
@@ -86,6 +103,13 @@ export const RULES = [
 
   // --- interest ---
   { re: /\brente\b|interest|negatieve rente|debetrente/, cat: CATEGORY.INTEREST },
+
+  // --- income from lending shares out; before the generic patterns ---
+  { re: /securities lending|effectenuitleen|inkomsten uit securities/, cat: CATEGORY.SECURITIES_LENDING },
+
+  // --- an advance against an incoming transfer, reversed when it clears ---
+  // Must beat the DEPOSIT rule below: "Reservation iDEAL" contains "ideal".
+  { re: /^reservation |reservering|reservation ideal/, cat: CATEGORY.RESERVATION },
 
   // --- internal transfer between DEGIRO cash and the flatex bank account ---
   {

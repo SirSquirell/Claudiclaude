@@ -4,7 +4,37 @@ SPEC §8 asks for this before any code is written: for each endpoint in §2, sta
 whether the fixtures confirm the path, the parameters and the response shape, and list
 every place the spec is wrong.
 
-**The honest answer up front: nothing here is confirmed.**
+## Confirmed against a real account (2026-08-08)
+
+A full export from a live account settled several of the open questions below.
+No HAR, so request shapes are still unverified, but the *responses* are now
+evidence. What it proved:
+
+| Question | Answer |
+|---|---|
+| vwd `times` anchor | **Confirmed and correct.** With `period=P50Y` the anchor comes back as *today minus fifty years* (`1976-08-08`), and the point offsets are relative to that. Resolved spans of 2008→2026 and 2016→2026 for two instruments. SPEC §2.1 was right and the parser handles it. |
+| `vwdIdentifierType` | **Not always `issueid`.** One holding came back as `vwdkey` with the identifier `US7731211089.TRADE,E`. Requesting it as `issueid:` returns no series at all, so the holding had no prices. Fixed by carrying the type through to the chart URL. |
+| Cash funds among positions | `/update` lists `FLATEX_EUR` as a position with `productType: 311`. It is not an instrument, has no `vwdId`, and asking `products/info` about it is pointless. Now skipped. |
+| Reporting endpoint volume | 5 907 cash movements and 871 transactions over ~6 years on one account. A single all-history query is what makes `/transactions` answer 502. |
+| Cash descriptions | 230 rows in one account matched no rule: `Reservation iDEAL` (224) and `Inkomsten uit Securities Lending - <month>` (6). Both now classified — see below. |
+| `orderId` as a row id | Cash rows share an `orderId` across the legs of one order, so using it as a key collapses them. 5 907 fetched became 5 861 stored. Still open. |
+
+### Reservation iDEAL
+
+Worth writing down, because guessing at it would have been costly. 224 rows,
+112 positive and 112 negative, summing to exactly zero. Each positive is
+followed a few days later by a matching negative *and* a real `iDEAL Deposit`
+of the same amount.
+
+DEGIRO advances the money so you can trade while the transfer clears, then
+reverses the advance when it lands. So it is neither a deposit (the real one is
+already there) nor part of your net worth (it is a receivable). Booking it as
+cash puts a phantom gain on the day it appears and an equal phantom loss on the
+day it reverses — 55 such spikes in this account.
+
+## Everything else: still unconfirmed
+
+**The honest answer for the rest: nothing here is confirmed.**
 
 `fixtures/` contains no captured traffic. There was no HAR to read, and DEGIRO cannot
 be reached without a logged-in browser. So the fixtures were *generated* to match the

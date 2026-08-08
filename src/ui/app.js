@@ -254,8 +254,13 @@ function wireActions() {
       return;
     }
     if (!confirm('Delete every stored response and re-download the full history from DEGIRO?')) return;
-    await send({ type: 'wipe' });
-    await send({ type: 'sync', force: true });
+    clearNotices();
+    notice('info', 'Wiping and re-downloading. Leave this tab open until it finishes.');
+    // One message: the worker waits for any running sync, wipes, then starts a
+    // fresh one. Splitting it lets a wipe land in the middle of a sync.
+    const res = await send({ type: 'wipe' });
+    clearNotices();
+    if (res && res.ok === false) notice('error', `Resync failed: ${res.message ?? 'unknown error'}`);
     await refresh();
   });
 

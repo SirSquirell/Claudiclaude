@@ -489,3 +489,39 @@ test('monthlyTable on the fixture set covers every month in the window', () => {
   // August 2026 is the current, partial month; it still gets a cell.
   assert.ok(table.years.at(-1).months[7], 'the running month is present');
 });
+
+test('an iDEAL reservation and its reversal produce no phantom gain or loss', () => {
+  // Taken from a real account: DEGIRO advances the money on day 1 so you can
+  // trade, then reverses it on day 3 when the actual deposit lands. Booking the
+  // advance as cash puts a +1500 gain on day 1 and a -1500 loss on day 3.
+  const r = computePortfolio({
+    transactions: [],
+    cashRows: [
+      { date: '2024-01-01', description: 'Reservation iDEAL', change: 1500, currency: 'EUR', category: 'RESERVATION' },
+      { date: '2024-01-03', description: 'Reservation iDEAL', change: -1500, currency: 'EUR', category: 'RESERVATION' },
+      { date: '2024-01-03', description: 'iDEAL Deposit', change: 1500, currency: 'EUR', category: 'DEPOSIT' },
+    ],
+    products: {},
+    prices: {},
+    today: '2024-01-04',
+  });
+
+  assert.deepEqual(r.pnl, [0, 0, 0, 0], 'no day may show a gain or a loss');
+  assert.deepEqual(r.cash, [0, 0, 1500, 1500], 'cash only moves when the deposit lands');
+  assert.equal(r.totals.invested, 1500, 'the deposit is counted exactly once');
+});
+
+test('securities lending income counts as profit, not as a deposit', () => {
+  const r = computePortfolio({
+    transactions: [],
+    cashRows: [
+      { date: '2024-01-01', description: 'iDEAL Deposit', change: 1000, currency: 'EUR', category: 'DEPOSIT' },
+      { date: '2024-01-02', description: 'Inkomsten uit Securities Lending - Januari', change: 26.17, currency: 'EUR', category: 'SECURITIES_LENDING' },
+    ],
+    products: {},
+    prices: {},
+    today: '2024-01-02',
+  });
+  near(r.pnl[1], 26.17);
+  assert.equal(r.totals.invested, 1000, 'lending income is not money you paid in');
+});
