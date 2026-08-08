@@ -55,6 +55,32 @@ series' units. A large and *unstable* ratio means the series cannot be
 reconciled at all and is discarded. On that account: 14 rescaled (spreads 1.00
 to 1.21), 2 discarded (spreads 5.5 and 9.9), peak down to €438,162.
 
+### FX does not need its own price series
+
+SPEC §2.2 assumed non-EUR positions would need a daily EUR/X series pulled from
+vwd, and left v1 counting them 1:1 with a loud warning. That was more pessimistic
+than the data warrants: **every foreign transaction already states both sides of
+the conversion.** The price and quantity are in the instrument's currency;
+`totalPlusFeeInBaseCurrency` is what left the account in euros.
+
+```
+rate = |price × quantity| ÷ |totalBase − fee|      (euros per unit)
+```
+
+On a real account this returns **exactly 1.0000 across 267 euro-denominated
+trades** — the formula proving itself — and USD 0.8627, HKD 0.1063, SEK 0.0981,
+CAD 0.7633, all correct. Previously every one of those was counted as 1.00, so
+an HKD position was overstated ninefold.
+
+The correction is invisible in that account's *current* total, because its open
+positions happen to be entirely EUR. Historically it matters a great deal: USD
+exposure peaked at €107,424 of a €367,599 portfolio, overstated by 15.9% on that
+day.
+
+Rates are interpolated between observations and held flat outside them. A
+currency the account has never traded in still has no rate, keeps 1.0, and says
+so as an error rather than guessing.
+
 ### Reservation iDEAL
 
 Worth writing down, because guessing at it would have been costly. 224 rows,

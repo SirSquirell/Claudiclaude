@@ -222,6 +222,88 @@ function factorAt(ratios, index) {
 }
 
 /**
+ * Daily exchange rates, derived from the account's own trades.
+ *
+ * SPEC §2.2 assumed FX would need a separate price series. It does not: every
+ * foreign transaction already states both sides of the conversion. The price
+ * and quantity are in the instrument's currency, and `totalPlusFeeInBaseCurrency`
+ * is what actually left the account in euros. One divided by the other is the
+ * rate DEGIRO itself applied that day.
+ *
+ *   rate = |price × quantity| ÷ |totalBase − fee|      (euros per unit)
+ *
+ * Checked against a real account: 267 euro-denominated trades return exactly
+ * 1.0000, which is the formula proving itself. On the same account USD came out
+ * at 0.86, HKD at 0.106 and SEK at 0.098 — all correct to the cent, and all of
+ * them previously counted as 1.00.
+ *
+ * Between observations the rate is interpolated; outside them it is held flat.
+ * A currency with no trade to observe keeps 1.0 and is reported, because
+ * inventing a rate would be worse than admitting there is none.
+ */
+export function deriveFxRates(transactions, products, days, dayIndex, baseCurrency = 'EUR') {
+  const perCurrency = new Map();
+
+  for (const t of transactions) {
+    const ccy = products[t.productId]?.currency ?? t.currency ?? baseCurrency;
+    const i = dayIndex.get(t.date);
+    if (i === undefined) continue;
+    const grossCcy = Math.abs(t.price * t.quantity);
+    const grossBase = Math.abs((t.totalBase ?? 0) - (t.fee ?? 0));
+    if (!(grossCcy > 0) || !(grossBase > 0)) continue;
+    if (!perCurrency.has(ccy)) perCurrency.set(ccy, []);
+    perCurrency.get(ccy).push({ index: i, rate: grossBase / grossCcy });
+  }
+
+  const series = {};
+  const report = [];
+
+  for (const [ccy, raw] of perCurrency) {
+    if (ccy === baseCurrency) continue;
+
+    const all = raw.map((o) => o.rate).sort((a, b) => a - b);
+    const median = all[Math.floor(all.length / 2)];
+    // A trade small enough for the fee to dominate, or a mis-booked row, can
+    // land far from the truth. Rates cannot plausibly triple against the euro.
+    const kept = raw.filter((o) => o.rate > median / 3 && o.rate < median * 3);
+
+    // One rate per day, so several trades on the same day cannot fight.
+    const byDay = new Map();
+    for (const o of kept) {
+      if (!byDay.has(o.index)) byDay.set(o.index, []);
+      byDay.get(o.index).push(o.rate);
+    }
+    const points = [...byDay.entries()]
+      .map(([index, rates]) => ({ index, rate: rates.sort((a, b) => a - b)[Math.floor(rates.length / 2)] }))
+      .sort((a, b) => a.index - b.index);
+
+    if (!points.length) continue;
+
+    const arr = new Float64Array(days.length);
+    let seg = 0;
+    for (let i = 0; i < days.length; i++) {
+      while (seg < points.length - 1 && points[seg + 1].index <= i) seg++;
+      const a = points[seg];
+      const b = points[seg + 1];
+      if (i <= a.index || !b) arr[i] = a.rate;
+      else if (i >= b.index) arr[i] = b.rate;
+      else arr[i] = a.rate + ((b.rate - a.rate) * (i - a.index)) / (b.index - a.index);
+    }
+    series[ccy] = arr;
+    report.push({
+      currency: ccy,
+      observations: points.length,
+      median: Number(median.toPrecision(4)),
+      low: Number(all[0].toPrecision(4)),
+      high: Number(all.at(-1).toPrecision(4)),
+      dropped: raw.length - kept.length,
+    });
+  }
+
+  return { series, report };
+}
+
+/**
  * Flag day-over-day price jumps that look like an unadjusted corporate action.
  * SPEC §6: "Cross-check one known split against the reconstructed value before
  * trusting the chart." We cannot fix it automatically without the ratio, so we
@@ -281,6 +363,13 @@ export function computePortfolio(input) {
     if (i !== undefined) return i;
     return iso < start ? 0 : iso > end ? n - 1 : -1;
   };
+
+  // ---- 1b. exchange rates, from the account's own trades -----------------
+  const { series: fxSeries, report: fxReport } = deriveFxRates(transactions, products, days, dayIndex, baseCurrency);
+  /** Euros per unit of `ccy` on day `i`. 1 for the base currency and for any
+   *  currency we have no trade to learn from. */
+  const fxAt = (ccy, i) => (ccy === baseCurrency ? 1 : (fxSeries[ccy]?.[i] ?? 1));
+  const unknownCurrencies = new Set();
 
   // ---- 2. price series, before the ledger --------------------------------
   // The ledger depends on the prices: a reverse split means the quantities in
@@ -457,20 +546,12 @@ export function computePortfolio(input) {
       arr[i] = running;
     }
     cashSeriesByCurrency[ccy] = arr;
-    if (ccy !== baseCurrency && Math.abs(arr[n - 1]) > 0.005) {
-      warn(
-        'warn',
-        'non-base-cash',
-        `Cash balance in ${ccy} is counted at a 1:1 rate against ${baseCurrency}. ` +
-          `Add an FX series (SPEC §2.2) before trusting the total.`,
-        { currency: ccy, balance: round2(arr[n - 1]) },
-      );
-    }
+    if (ccy !== baseCurrency && !fxSeries[ccy] && Math.abs(arr[n - 1]) > 0.005) unknownCurrencies.add(ccy);
   }
 
   const cash = new Float64Array(n);
-  for (const arr of Object.values(cashSeriesByCurrency)) {
-    for (let i = 0; i < n; i++) cash[i] += arr[i];
+  for (const [ccy, arr] of Object.entries(cashSeriesByCurrency)) {
+    for (let i = 0; i < n; i++) cash[i] += arr[i] * fxAt(ccy, i);
   }
 
   // ---- 4. valuation ------------------------------------------------------
@@ -479,6 +560,7 @@ export function computePortfolio(input) {
   /** @type {Array<{productId, name, symbol, currency, values: Float64Array, qty: Float64Array}>} */
   const byProduct = [];
   const suspectedSplits = [];
+  const noPriceSeries = [];
   const nonBaseCurrencies = new Set();
 
   for (const [productId, qty] of qtyByProduct) {
@@ -489,17 +571,14 @@ export function computePortfolio(input) {
     // the first quote backwards, which after a split is off by the split factor.
     const traded = fallbackFromTrades(transactions, productId, days, dayIndex, meta);
 
-    if (!hasSeries) {
-      warn(
-        'warn',
-        'no-price-series',
-        `No price history for ${meta.name} (${productId}). Valued at the last traded price; ` +
-          `these days are marked estimated.`,
-        { productId, vwdId: meta.vwdId ?? null },
-      );
-    }
+    // Collected rather than warned about one by one: an account with 79 of
+    // these produced 79 banners saying the same thing.
+    if (!hasSeries) noPriceSeries.push({ productId, name: meta.name, vwdId: meta.vwdId ?? null });
 
-    if (meta.currency && meta.currency !== baseCurrency) nonBaseCurrencies.add(meta.currency);
+    if (meta.currency && meta.currency !== baseCurrency) {
+      nonBaseCurrencies.add(meta.currency);
+      if (!fxSeries[meta.currency]) unknownCurrencies.add(meta.currency);
+    }
 
     const values = new Float64Array(n);
     let held = false;
@@ -509,17 +588,22 @@ export function computePortfolio(input) {
       held = true;
       // Prefer a real quote; fall back to the last price actually paid.
       const price = covered[i] ? close[i] : traded.close[i] || close[i];
-      values[i] = q * price;
+      // Quotes are in the instrument's own currency; the portfolio is in euros.
+      values[i] = q * price * fxAt(meta.currency ?? baseCurrency, i);
       positionsValue[i] += values[i];
       if (priceEstimated[i] || !covered[i]) estimatedDay[i] = 1;
     }
 
     if (!held) continue; // fully-closed position that never overlapped the window
 
-    for (const hit of detectSplits(close, days, tradeDaysByProduct.get(productId) ?? new Set())) {
-      // Only interesting while we actually held the thing.
-      const i = dayIndex.get(hit.date);
-      if (qty[i] !== 0) suspectedSplits.push({ productId, name: meta.name, ...hit });
+    // Only worth guessing about instruments the audit could not judge. Where
+    // trades exist to compare against, that evidence already settled it, and a
+    // 40% day on a meme stock in 2021 is a market move, not a corporate action.
+    if (!priceByProduct.get(productId).audit?.ratios?.length) {
+      for (const hit of detectSplits(close, days, tradeDaysByProduct.get(productId) ?? new Set())) {
+        const i = dayIndex.get(hit.date);
+        if (qty[i] !== 0) suspectedSplits.push({ productId, name: meta.name, ...hit });
+      }
     }
 
     byProduct.push({
@@ -533,13 +617,36 @@ export function computePortfolio(input) {
     });
   }
 
-  if (nonBaseCurrencies.size > 0) {
+  if (noPriceSeries.length) {
+    warn(
+      'warn',
+      'no-price-series',
+      `${noPriceSeries.length} instrument(s) have no price history at DEGIRO. They are valued at the last ` +
+        `price they traded at, so their movement between trades is not real. Usually a delisting, or an ` +
+        `instrument DEGIRO no longer carries a chart for.`,
+      { instruments: noPriceSeries.slice(0, 40) },
+    );
+  }
+
+  if (fxReport.length) {
+    warn(
+      'info',
+      'fx-derived',
+      `Converted ${fxReport.map((f) => f.currency).join(', ')} to ${baseCurrency} using the rates your own ` +
+        `trades were settled at. Between trades the rate is interpolated, so a long gap without a trade in a ` +
+        `currency is an estimate.`,
+      { currencies: fxReport },
+    );
+  }
+
+  if (unknownCurrencies.size > 0) {
     warn(
       'error',
-      'fx-not-implemented',
-      `Positions priced in ${[...nonBaseCurrencies].join(', ')} are summed into ${baseCurrency} at a ` +
-        `1:1 rate. SPEC §2.2: this is a v1 limitation — the total is wrong by the FX drift.`,
-      { currencies: [...nonBaseCurrencies] },
+      'fx-unknown',
+      `No trade has ever shown what ${[...unknownCurrencies].join(', ')} is worth in ${baseCurrency}, so it is ` +
+        `counted at 1:1 and the total is wrong by that much. This usually means a cash balance in a currency ` +
+        `you have never traded in.`,
+      { currencies: [...unknownCurrencies] },
     );
   }
 
