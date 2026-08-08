@@ -292,10 +292,12 @@ export function parseChartResponse(res) {
   for (const s of seriesList) {
     const id = String(s?.id ?? '');
     // We only want the price series; the bare `issueid:NNN` series carries
-    // instrument metadata, not points.
-    const m = /^price:issueid:(\d+)$/.exec(id) || /^price:(\d+)$/.exec(id);
+    // instrument metadata, not points. The identifier type varies — `issueid`
+    // for most things, `vwdkey` for others — and the key we return has to be
+    // the raw identifier, because that is what products store as `vwdId`.
+    const m = /^price:(?:issueid|vwdkey|vwdid):(.+)$/.exec(id) || /^price:(.+)$/.exec(id);
     if (!m) continue;
-    const vwdId = m[1];
+    const vwdId = decodeURIComponent(m[1]);
 
     const { start, stepDays } = parseTimesAnchor(s.times);
     if (!start) continue;

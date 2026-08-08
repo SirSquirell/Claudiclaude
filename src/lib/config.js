@@ -137,12 +137,22 @@ export const ENDPOINTS = {
     `?intAccount=${intAccount}&sessionId=${encodeURIComponent(sessionId)}`,
 
   /**
-   * vwd daily closes. `vwdIds` is an array; each id contributes two series
-   * params exactly like the real UI sends them.
+   * vwd daily closes. Each instrument contributes two series params, exactly
+   * like the real UI sends them.
+   *
+   * `vwdIds` accepts either a bare id (assumed `issueid`) or `{id, type}`. The
+   * type matters: DEGIRO returns `vwdIdentifierType: 'vwdkey'` for some
+   * instruments, whose identifier looks like `US7731211089.TRADE,E` rather than
+   * a number. Requesting those as `issueid:` silently returns no series, which
+   * shows up as a holding with no price history.
    */
   chart: ({ vwdIds, userToken, period = PRICE_PERIOD.backfill }) => {
     const series = vwdIds
-      .flatMap((id) => [`series=issueid:${id}`, `series=price:issueid:${id}`])
+      .map((v) => (typeof v === 'object' ? v : { id: v, type: 'issueid' }))
+      .flatMap(({ id, type = 'issueid' }) => {
+        const ref = `${type}:${encodeURIComponent(id)}`;
+        return [`series=${ref}`, `series=price:${ref}`];
+      })
       .join('&');
     return (
       `${CHARTING}/hchart/v1/deGiro/data.js` +

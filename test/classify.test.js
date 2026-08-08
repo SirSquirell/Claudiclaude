@@ -66,3 +66,37 @@ test('classification ignores case and diacritics', () => {
   assert.equal(classifyCashRow({ description: 'IDEAL DEPOSIT' }), CATEGORY.DEPOSIT);
   assert.equal(classifyCashRow({ description: 'RENTE' }), CATEGORY.INTEREST);
 });
+
+// ---------------------------------------------------------------------------
+// Wordings found in a real account export, which the rule table did not know.
+// ---------------------------------------------------------------------------
+
+test('"Reservation iDEAL" is an advance, not a deposit', () => {
+  // DEGIRO fronts the money while the transfer clears and reverses it the next
+  // day, alongside the real deposit. Counting it as a deposit would double
+  // every deposit; counting it as cash would invent a gain then a matching loss.
+  assert.equal(classifyCashRow({ description: 'Reservation iDEAL' }), CATEGORY.RESERVATION);
+  assert.equal(isExternal(CATEGORY.RESERVATION), false);
+  assert.equal(affectsCash(CATEGORY.RESERVATION), false);
+});
+
+test('the reservation rule beats the deposit rule', () => {
+  assert.notEqual(classifyCashRow({ description: 'Reservation iDEAL' }), CATEGORY.DEPOSIT);
+});
+
+test('securities lending income is internal, and lands in P/L', () => {
+  for (const d of [
+    'Inkomsten uit Securities Lending - December',
+    'Inkomsten uit Securities Lending - Mei',
+    'Securities Lending Income',
+  ]) {
+    assert.equal(classifyCashRow({ description: d }), CATEGORY.SECURITIES_LENDING, d);
+  }
+  assert.equal(isExternal(CATEGORY.SECURITIES_LENDING), false);
+  assert.equal(affectsCash(CATEGORY.SECURITIES_LENDING), true);
+});
+
+test('a failed deposit is still external, so the reversal is not read as a loss', () => {
+  assert.equal(classifyCashRow({ description: 'Storting mislukt; IDEAL@1234 EUR' }), CATEGORY.DEPOSIT);
+  assert.equal(classifyCashRow({ description: 'iDEAL storting' }), CATEGORY.DEPOSIT);
+});
