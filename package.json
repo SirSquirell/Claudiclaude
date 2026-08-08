@@ -1,6 +1,6 @@
 {
   "name": "degiro-portfolio-history",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "private": true,
   "description": "Chrome MV3 extension that reconstructs DEGIRO portfolio value over time from transactions, cash movements and daily prices.",
   "type": "module",

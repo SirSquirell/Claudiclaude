@@ -27,11 +27,28 @@ export function openDb() {
   if (dbPromise) return dbPromise;
   dbPromise = new Promise((resolve, reject) => {
     const req = indexedDB.open(STORAGE.dbName, STORAGE.dbVersion);
-    req.onupgradeneeded = () => {
+    req.onupgradeneeded = (event) => {
       const db = req.result;
       for (const name of STORAGE.stores) {
         if (!db.objectStoreNames.contains(name)) {
           db.createObjectStore(name, { keyPath: KEY_PATHS[name] ?? 'id' });
+        }
+      }
+
+      // v2 changed how a row's key is derived. Records written under the old
+      // scheme would not be overwritten by their replacements, they would sit
+      // beside them and double every amount, so they are dropped and re-fetched.
+      // Safe by SPEC §1.2: only the raw API responses are truth, and those come
+      // back from DEGIRO. The watermark goes too, or the refetch would only
+      // cover the last few days.
+      if (event.oldVersion > 0 && event.oldVersion < 2) {
+        const upgrade = req.transaction;
+        for (const name of ['transactions', 'cashflows', 'derived']) {
+          if (db.objectStoreNames.contains(name)) upgrade.objectStore(name).clear();
+        }
+        if (db.objectStoreNames.contains('meta')) {
+          upgrade.objectStore('meta').delete('lastDataDate');
+          upgrade.objectStore('meta').delete('lastSyncAt');
         }
       }
     };

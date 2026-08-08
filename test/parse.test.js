@@ -200,3 +200,65 @@ test('a percent-encoded identifier is decoded back to the stored form', () => {
   });
   assert.deepEqual(Object.keys(parsed), ['AMC.BATS,E']);
 });
+
+// ---------------------------------------------------------------------------
+// Storage keys. A real account lost 46 of 5907 cash movements because DEGIRO
+// reports id 0 on many rows and they collapsed onto each other in IndexedDB.
+// ---------------------------------------------------------------------------
+
+test('rows sharing a reported id still get distinct keys', () => {
+  const parsed = parseCashMovements({
+    data: {
+      cashMovements: [
+        { date: '2024-10-18', id: 0, description: 'Valuta Debitering', change: -10, currency: 'USD' },
+        { date: '2024-10-18', id: 0, description: 'Valuta Creditering', change: 11, currency: 'EUR' },
+        { date: '2024-10-18', id: 0, description: 'DEGIRO Transactiekosten', change: -0.5, currency: 'EUR' },
+      ],
+    },
+  });
+  assert.equal(parsed.length, 3);
+  assert.equal(new Set(parsed.map((r) => r.id)).size, 3, 'three rows must occupy three keys');
+});
+
+test('rows identical in every field still get distinct keys', () => {
+  // 541 rows on the reported account were byte-identical to another row — an FX
+  // leg repeated across a basket order. A content hash alone would lose them.
+  const one = { date: '2024-10-18', id: 0, description: 'Valuta Debitering', change: -10, currency: 'USD' };
+  const parsed = parseCashMovements({ data: { cashMovements: [one, { ...one }, { ...one }] } });
+  assert.equal(new Set(parsed.map((r) => r.id)).size, 3);
+});
+
+test('the same response parsed twice yields the same keys', () => {
+  // Otherwise every re-sync duplicates the overlap window instead of updating it.
+  const res = {
+    data: {
+      cashMovements: [
+        { date: '2024-10-18', id: 0, description: 'A', change: -10, currency: 'EUR' },
+        { date: '2024-10-18', id: 0, description: 'A', change: -10, currency: 'EUR' },
+        { date: '2024-10-19', id: 5, description: 'B', change: 3, currency: 'EUR' },
+      ],
+    },
+  };
+  assert.deepEqual(
+    parseCashMovements(res).map((r) => r.id),
+    parseCashMovements(res).map((r) => r.id),
+  );
+});
+
+test('transactions get the same protection', () => {
+  const parsed = parseTransactions({
+    data: [
+      { id: 0, productId: 5, date: '2024-01-02', buysell: 'B', quantity: 10, price: 2 },
+      { id: 0, productId: 5, date: '2024-01-02', buysell: 'B', quantity: 10, price: 2 },
+    ],
+  });
+  assert.equal(new Set(parsed.map((t) => t.id)).size, 2);
+});
+
+test('the reported id is kept for debugging, just not as the key', () => {
+  const [row] = parseCashMovements({
+    data: { cashMovements: [{ date: '2024-10-18', id: 1000060328, description: 'A', change: 1, currency: 'EUR' }] },
+  });
+  assert.equal(row.sourceId, 1000060328);
+  assert.notEqual(row.id, '1000060328');
+});

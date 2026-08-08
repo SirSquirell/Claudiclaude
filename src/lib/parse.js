@@ -28,6 +28,27 @@ export function num(value) {
   return Number.isFinite(n) ? n : 0;
 }
 
+/**
+ * A storage key that is unique per row and stable across syncs.
+ *
+ * DEGIRO's own `id` is not unique on the account-overview feed: a real account
+ * returned `id: 0` on dozens of rows, which collapsed them onto one another in
+ * IndexedDB and quietly lost 46 movements. Nor is the content unique — 541 rows
+ * on that same account were identical in every field, which is what an FX leg
+ * repeated across a basket order looks like.
+ *
+ * So the key is the reported id plus the row's content plus how many times that
+ * exact combination has already been seen in this response. Rows for a given
+ * day always arrive from the same request window, so the ordering — and
+ * therefore the count — is reproducible on the next sync.
+ */
+function stableKey(seen, parts) {
+  const base = parts.map((p) => String(p ?? '').replace(/\|/g, '/')).join('|');
+  const nth = seen.get(base) ?? 0;
+  seen.set(base, nth + 1);
+  return nth === 0 ? base : `${base}|${nth}`;
+}
+
 /** First non-nullish value among the candidate keys. */
 function pick(obj, keys, fallback = undefined) {
   for (const k of keys) {
@@ -73,6 +94,7 @@ export function parseTransactions(res) {
   const rows = unwrap(res, ['data', 'transactions', 'data.transactions']) ?? [];
   if (!Array.isArray(rows)) return [];
 
+  const seen = new Map();
   return rows
     .map((r) => {
       const date = isoDayOf(pick(r, ['date', 'transactionDate', 'valueDate']));
@@ -85,7 +107,16 @@ export function parseTransactions(res) {
       if (bs.startsWith('B') && quantity < 0) quantity = Math.abs(quantity);
 
       return {
-        id: String(pick(r, ['id', 'transactionId'], `${date}-${pick(r, ['productId'], '?')}-${quantity}`)),
+        // Same reasoning as the cash rows: never trust the reported id to be
+        // unique on its own.
+        id: stableKey(seen, [
+          date,
+          pick(r, ['id', 'transactionId'], ''),
+          pick(r, ['productId'], ''),
+          quantity,
+          pick(r, ['price'], ''),
+        ]),
+        sourceId: pick(r, ['id', 'transactionId'], null),
         date,
         productId: String(pick(r, ['productId', 'product_id', 'id'], '')),
         quantity,
@@ -118,12 +149,22 @@ export function parseCashMovements(res) {
     ]) ?? [];
   if (!Array.isArray(rows)) return [];
 
+  const seen = new Map();
   return rows
-    .map((r, i) => {
+    .map((r) => {
       const date = isoDayOf(pick(r, ['date', 'valueDate']));
       if (!date) return null;
       const row = {
-        id: String(pick(r, ['id', 'orderId'], `cash-${date}-${i}`)),
+        id: stableKey(seen, [
+          date,
+          pick(r, ['id', 'orderId'], ''),
+          pick(r, ['productId'], ''),
+          pick(r, ['currency'], ''),
+          pick(r, ['change', 'amount'], ''),
+          pick(r, ['description'], ''),
+        ]),
+        /** DEGIRO's own id, kept for debugging; not unique, so not the key. */
+        sourceId: pick(r, ['id', 'orderId'], null),
         date,
         productId: pick(r, ['productId', 'product_id'], null),
         description: String(pick(r, ['description', 'text', 'label'], '')),
