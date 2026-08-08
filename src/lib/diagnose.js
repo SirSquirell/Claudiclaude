@@ -16,9 +16,9 @@
  * Everything added here has to keep that true.
  */
 
-import { DEFAULT_URLS, ENDPOINTS, HISTORY_START } from './config.js';
+import { DEFAULT_URLS, ENDPOINTS } from './config.js';
 import { SessionExpiredError, fetchUrls, throttledFetch } from './degiro.js';
-import { todayISO } from './dates.js';
+import { subMonths, todayISO } from './dates.js';
 import { parseCashMovements, parseChartResponse, parseProducts, parseTransactions, parseUpdate, unwrapJsonp } from './parse.js';
 import { readSessionId } from './session.js';
 import { getMeta } from './store.js';
@@ -46,6 +46,10 @@ export async function runDiagnostics() {
   };
 
   const today = todayISO();
+  // A twelve-month window, not the whole history: asking the reporting
+  // endpoints for everything is exactly what makes them answer 502, and the
+  // point here is to see the response *shape*, not to count every row.
+  const from = subMonths(today, 12);
 
   // --- 1. the cookie ------------------------------------------------------
   let sessionId = null;
@@ -133,7 +137,7 @@ export async function runDiagnostics() {
   // --- 5. transactions ----------------------------------------------------
   const tx = await tryJson(
     'transactions',
-    ENDPOINTS.transactions({ intAccount, sessionId, urls, fromDate: HISTORY_START, toDate: today }),
+    ENDPOINTS.transactions({ intAccount, sessionId, urls, fromDate: from, toDate: today }),
   );
   let productIds = [];
   if (tx.ok) {
@@ -147,7 +151,8 @@ export async function runDiagnostics() {
       distinctProducts: productIds.length,
       rowKeys: topKeys(sample, 20),
       quantityKey: whichKey(sample, ['quantity', 'size', 'amount']),
-      note: parsed.length === 0 ? 'No transactions parsed. Either the account has none, or the row shape changed.' : '',
+      window: `${from} .. ${today}`,
+      note: parsed.length === 0 ? 'No transactions in the last 12 months, or the row shape changed.' : 'Last 12 months only — the sync fetches the full history a year at a time.',
     });
   } else {
     add('transactions', false, tx);
@@ -156,7 +161,7 @@ export async function runDiagnostics() {
   // --- 6. cash movements, and the classifier ------------------------------
   const cash = await tryJson(
     'accountoverview',
-    ENDPOINTS.accountOverview({ intAccount, sessionId, urls, fromDate: HISTORY_START, toDate: today }),
+    ENDPOINTS.accountOverview({ intAccount, sessionId, urls, fromDate: from, toDate: today }),
   );
   if (cash.ok) {
     const parsed = parseCashMovements(cash.body);

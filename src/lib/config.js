@@ -17,8 +17,28 @@ export const API_VERSIONS = {
   productInfo: 'v5',
 };
 
-/** Earliest date we ever ask DEGIRO about. Before any DEGIRO account existed. */
-export const HISTORY_START = '2013-01-01';
+/**
+ * Where a first sync starts looking.
+ *
+ * Asking for everything since 2013 makes the reporting endpoints time out and
+ * answer 502 on busy accounts, and most people do not care about that far back
+ * anyway. 2019 is the default.
+ *
+ * It is a starting point, not a floor: sync.js walks further back a year at a
+ * time while it keeps finding rows (see HISTORY_FLOOR). Without that, an
+ * account opened before this date would silently lose its early positions and
+ * the SPEC §6 reconciliation would fail with no explanation.
+ */
+export const HISTORY_START = '2019-01-01';
+
+/** Hard stop for the backwards walk. DEGIRO itself did not exist before this. */
+export const HISTORY_FLOOR = '2008-01-01';
+
+/**
+ * How many consecutive empty years end the backwards walk. One is too eager: a
+ * year with no trades and no deposits is perfectly ordinary.
+ */
+export const EMPTY_YEARS_BEFORE_STOP = 2;
 
 /**
  * SPEC §6: "max 1 request/second, chunked, with exponential backoff on non-200.

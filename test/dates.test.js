@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { addDays, dayRange, daysBetween, isoDayOf, monthKey, startOfWeek, weekKey } from '../src/lib/dates.js';
+import { addDays, dayRange, daysBetween, isoDayOf, monthKey, splitWindows, startOfWeek, subMonths, weekKey } from '../src/lib/dates.js';
 
 test('addDays crosses month, year and leap boundaries', () => {
   assert.equal(addDays('2024-02-28', 1), '2024-02-29');
@@ -48,4 +48,55 @@ test('startOfWeek returns the Monday', () => {
 
 test('monthKey', () => {
   assert.equal(monthKey('2026-08-08'), '2026-08');
+});
+
+// ---------------------------------------------------------------------------
+// Splitting a date range. The reporting endpoints answer a multi-year window
+// with a 502, so the sync asks a year at a time — and the slices must not
+// overlap, or a row on a boundary date is counted twice.
+// ---------------------------------------------------------------------------
+
+test('splitWindows cuts a range into consecutive, non-overlapping slices', () => {
+  const w = splitWindows('2019-01-01', '2021-06-30', 12);
+  assert.deepEqual(w, [
+    { from: '2019-01-01', to: '2019-12-31' },
+    { from: '2020-01-01', to: '2020-12-31' },
+    { from: '2021-01-01', to: '2021-06-30' },
+  ]);
+});
+
+test('splitWindows never overlaps and never leaves a gap', () => {
+  for (const months of [1, 3, 6, 12]) {
+    const w = splitWindows('2019-03-15', '2026-08-08', months);
+    assert.equal(w[0].from, '2019-03-15');
+    assert.equal(w.at(-1).to, '2026-08-08');
+    for (let i = 1; i < w.length; i++) {
+      assert.equal(w[i].from, addDays(w[i - 1].to, 1), `gap or overlap at slice ${i} (${months}m)`);
+    }
+  }
+});
+
+test('splitWindows handles a range shorter than one window', () => {
+  assert.deepEqual(splitWindows('2026-08-01', '2026-08-08', 12), [{ from: '2026-08-01', to: '2026-08-08' }]);
+  assert.deepEqual(splitWindows('2026-08-08', '2026-08-08', 12), [{ from: '2026-08-08', to: '2026-08-08' }]);
+});
+
+test('splitWindows returns nothing for an inverted range', () => {
+  assert.deepEqual(splitWindows('2026-08-08', '2026-01-01', 12), []);
+});
+
+test('splitWindows clamps a month-end start rather than skipping a day', () => {
+  // 31 Jan + 1 month must not land on 3 March.
+  const w = splitWindows('2024-01-31', '2024-06-30', 1);
+  for (let i = 1; i < w.length; i++) {
+    assert.equal(w[i].from, addDays(w[i - 1].to, 1));
+  }
+  assert.equal(w.at(-1).to, '2024-06-30');
+});
+
+test('subMonths clamps to the last day of a shorter month', () => {
+  assert.equal(subMonths('2024-03-31', 1), '2024-02-29');
+  assert.equal(subMonths('2023-03-31', 1), '2023-02-28');
+  assert.equal(subMonths('2024-01-15', 12), '2023-01-15');
+  assert.equal(subMonths('2024-01-15', 13), '2022-12-15');
 });
