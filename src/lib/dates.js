@@ -115,6 +115,31 @@ export function isoDayOf(value) {
   return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
 }
 
+/**
+ * Cut an inclusive date window into consecutive, non-overlapping slices of at
+ * most `months` each.
+ *
+ * The reporting endpoints answer a wide date range with a 502: the query times
+ * out on DEGIRO's side, and asking again changes nothing. Splitting the window
+ * is the fix. Slices must not overlap, or a row on a boundary date is counted
+ * twice.
+ */
+export function splitWindows(from, to, months = 12) {
+  if (from > to) return [];
+  const out = [];
+  let start = from;
+  while (start <= to) {
+    const [y, m, d] = start.split('-').map(Number);
+    const total = y * 12 + (m - 1) + months;
+    const lastDay = new Date(Date.UTC(Math.floor(total / 12), (total % 12) + 1, 0)).getUTCDate();
+    let end = addDays(fromEpoch(Date.UTC(Math.floor(total / 12), total % 12, Math.min(d, lastDay))), -1);
+    if (end > to) end = to;
+    out.push({ from: start, to: end });
+    start = addDays(end, 1);
+  }
+  return out;
+}
+
 /** Human label for an axis tick: '5 Mar 2024'. */
 export function formatDay(iso, locale = 'nl-NL') {
   return new Intl.DateTimeFormat(locale, {

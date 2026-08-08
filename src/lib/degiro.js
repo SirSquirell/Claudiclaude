@@ -65,7 +65,7 @@ function enqueue(task) {
  * 401/403 are not transient: they mean the cookie is gone, so we stop rather
  * than retry (SPEC §3.1: "Never attempt a login").
  */
-export async function throttledFetch(url, init = {}) {
+export async function throttledFetch(url, init = {}, { retries = RATE.maxRetries } = {}) {
   let attempt = 0;
   for (;;) {
     const res = await enqueue(() => fetchWithDeadline(url, init));
@@ -76,8 +76,11 @@ export async function throttledFetch(url, init = {}) {
       throw new SessionExpiredError(`DEGIRO returned ${res.status}`);
     }
 
+    // A 502 from the reporting endpoints is usually the query timing out on
+    // DEGIRO's side, not a blip — repeating it unchanged just wastes 30s. The
+    // caller lowers `retries` and narrows the date window instead.
     const retryable = res.status === 429 || res.status >= 500;
-    if (!retryable || attempt >= RATE.maxRetries) {
+    if (!retryable || attempt >= retries) {
       throw new DegiroHttpError(res.status, url, await safeText(res));
     }
 
@@ -123,8 +126,8 @@ async function safeText(res) {
   }
 }
 
-async function getJson(url, init) {
-  const res = await throttledFetch(url, init);
+async function getJson(url, init, opts) {
+  const res = await throttledFetch(url, init, opts);
   const text = await res.text();
   if (!text) return null;
   try {
@@ -159,12 +162,12 @@ export async function fetchUpdate({ intAccount, sessionId, urls }) {
   return getJson(ENDPOINTS.update({ intAccount, sessionId, urls }));
 }
 
-export async function fetchTransactions({ intAccount, sessionId, urls, fromDate = HISTORY_START, toDate }) {
-  return getJson(ENDPOINTS.transactions({ intAccount, sessionId, urls, fromDate, toDate }));
+export async function fetchTransactions({ intAccount, sessionId, urls, fromDate = HISTORY_START, toDate }, opts) {
+  return getJson(ENDPOINTS.transactions({ intAccount, sessionId, urls, fromDate, toDate }), undefined, opts);
 }
 
-export async function fetchAccountOverview({ intAccount, sessionId, urls, fromDate = HISTORY_START, toDate }) {
-  return getJson(ENDPOINTS.accountOverview({ intAccount, sessionId, urls, fromDate, toDate }));
+export async function fetchAccountOverview({ intAccount, sessionId, urls, fromDate = HISTORY_START, toDate }, opts) {
+  return getJson(ENDPOINTS.accountOverview({ intAccount, sessionId, urls, fromDate, toDate }), undefined, opts);
 }
 
 /** POST body is a bare array of productId strings. */

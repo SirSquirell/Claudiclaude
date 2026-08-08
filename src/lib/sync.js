@@ -13,11 +13,11 @@
  *    meta.syncState after each step and the next run picks up where it stopped.
  */
 
-import { HISTORY_START, PRICE_PERIOD, SYNC } from './config.js';
+import { EMPTY_YEARS_BEFORE_STOP, HISTORY_FLOOR, HISTORY_START, PRICE_PERIOD, SYNC } from './config.js';
 import { chunk, fetchAccountOverview, fetchPriceChunk, fetchProductsInfo, fetchTransactions } from './degiro.js';
-import { SessionExpiredError } from './degiro.js';
+import { DegiroHttpError, SessionExpiredError } from './degiro.js';
 import { computePortfolio } from './engine.js';
-import { addDays, todayISO } from './dates.js';
+import { addDays, splitWindows, subMonths, todayISO } from './dates.js';
 import { parseCashMovements, parseProducts, parseTransactions, parseUpdate } from './parse.js';
 import { SESSION_MESSAGES, checkSession, resolveSession } from './session.js';
 import {
@@ -79,6 +79,91 @@ export async function runSync(opts = {}) {
     running = null;
   });
   return running;
+}
+
+/**
+ * Widest date window we ask the reporting endpoints for in one request.
+ *
+ * DEGIRO answers a multi-year range with a 502: their query times out, and
+ * since nothing about the request changed, retrying is pure waste. A year at a
+ * time goes through on the accounts we have seen; anything that still fails
+ * gets halved by `fetchWindowed` below.
+ */
+const REPORTING_WINDOW_MONTHS = 12;
+
+/** Stop halving here. Below a month, a 502 is not about the window size. */
+const MIN_WINDOW_MONTHS = 1;
+
+/**
+ * Fetch one reporting endpoint across a date range, a window at a time,
+ * narrowing any window the server chokes on.
+ *
+ * @param {(args: {fromDate: string, toDate: string}, opts: object) => Promise<any>} fetchFn
+ * @param {(raw: any) => Array} parseFn
+ */
+export async function fetchWindowed({ fetchFn, parseFn, session, fromDate, toDate, onWindow }) {
+  const rows = [];
+  const queue = splitWindows(fromDate, toDate, REPORTING_WINDOW_MONTHS).map((w) => ({
+    ...w,
+    months: REPORTING_WINDOW_MONTHS,
+  }));
+
+  let done = 0;
+  while (queue.length) {
+    const w = queue.shift();
+    try {
+      // One retry only: a 502 here means "too much data", and the fix is a
+      // narrower window, not the same question asked louder.
+      const raw = await fetchFn({ ...session, fromDate: w.from, toDate: w.to }, { retries: 1 });
+      rows.push(...parseFn(raw));
+      done++;
+      await onWindow?.(w, done, done + queue.length);
+    } catch (err) {
+      const tooMuch = err instanceof DegiroHttpError && err.status >= 500;
+      if (!tooMuch || w.months <= MIN_WINDOW_MONTHS) throw err;
+
+      // Split this window in half and put both halves back at the front.
+      const months = Math.max(MIN_WINDOW_MONTHS, Math.floor(w.months / 2));
+      const halves = splitWindows(w.from, w.to, months).map((h) => ({ ...h, months }));
+      queue.unshift(...halves);
+    }
+  }
+
+  return rows;
+}
+
+/**
+ * Keep stepping a year further back while rows keep turning up, so an account
+ * older than HISTORY_START still reconstructs completely.
+ *
+ * Only worth doing on a first sync — afterwards the watermark covers it.
+ */
+export async function extendBackwards({ fetchFn, parseFn, session, before, onWindow }) {
+  const rows = [];
+  let emptyYears = 0;
+  let end = addDays(before, -1);
+
+  while (end >= HISTORY_FLOOR && emptyYears < EMPTY_YEARS_BEFORE_STOP) {
+    const start = subMonths(end, 12);
+    const from = start < HISTORY_FLOOR ? HISTORY_FLOOR : start;
+    let found;
+    try {
+      const raw = await fetchFn({ ...session, fromDate: from, toDate: end }, { retries: 1 });
+      found = parseFn(raw);
+    } catch (err) {
+      // A failure this far back is not worth failing the whole sync over; we
+      // already have everything from HISTORY_START onwards.
+      if (err instanceof DegiroHttpError) break;
+      throw err;
+    }
+
+    rows.push(...found);
+    emptyYears = found.length ? 0 : emptyYears + 1;
+    await onWindow?.(from, rows.length);
+    end = addDays(from, -1);
+  }
+
+  return rows;
 }
 
 /** Steps the UI knows about, so it can show "3 of 6" rather than a spinner. */
@@ -156,19 +241,54 @@ async function doSync({ force = false, onProgress = () => {} } = {}) {
 
     // --- transactions & cash movements ----------------------------------
     const watermark = await getMeta('lastDataDate', null);
+    const firstSync = !watermark;
     const fromDate = watermark ? addDays(watermark, -OVERLAP_DAYS) : HISTORY_START;
 
     await report('transactions', 'Fetching transactions…', 15);
-    const transactions = parseTransactions(
-      await fetchTransactions({ ...session, fromDate, toDate: today }),
-    );
+    const transactions = await fetchWindowed({
+      fetchFn: fetchTransactions,
+      parseFn: parseTransactions,
+      session,
+      fromDate,
+      toDate: today,
+      onWindow: (w, i, total) =>
+        report('transactions', `Fetching transactions… ${w.from.slice(0, 4)} (${i}/${total})`, 15 + Math.round((i / total) * 10)),
+    });
+    if (firstSync) {
+      transactions.push(
+        ...(await extendBackwards({
+          fetchFn: fetchTransactions,
+          parseFn: parseTransactions,
+          session,
+          before: HISTORY_START,
+          onWindow: (from, n) => report('transactions', `Checking for older transactions… ${from.slice(0, 4)} (${n} so far)`, 25),
+        })),
+      );
+    }
     await putAll('transactions', transactions);
     await report('transactions', `Fetched ${transactions.length} transactions.`, 25);
 
     await report('cashflows', 'Fetching cash movements…', 30);
-    const cashRows = parseCashMovements(
-      await fetchAccountOverview({ ...session, fromDate, toDate: today }),
-    );
+    const cashRows = await fetchWindowed({
+      fetchFn: fetchAccountOverview,
+      parseFn: parseCashMovements,
+      session,
+      fromDate,
+      toDate: today,
+      onWindow: (w, i, total) =>
+        report('cashflows', `Fetching cash movements… ${w.from.slice(0, 4)} (${i}/${total})`, 30 + Math.round((i / total) * 10)),
+    });
+    if (firstSync) {
+      cashRows.push(
+        ...(await extendBackwards({
+          fetchFn: fetchAccountOverview,
+          parseFn: parseCashMovements,
+          session,
+          before: HISTORY_START,
+          onWindow: (from, n) => report('cashflows', `Checking for older cash movements… ${from.slice(0, 4)} (${n} so far)`, 40),
+        })),
+      );
+    }
     await putAll('cashflows', cashRows);
     const unknown = cashRows.filter((r) => r.category === 'UNKNOWN').length;
     await report(
