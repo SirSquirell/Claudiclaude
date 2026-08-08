@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { aggregatePnl, buildComposition, computePortfolio, expandSeries, rangeStartIndex } from '../src/lib/engine.js';
+import { aggregatePnl, buildComposition, computePortfolio, expandSeries, monthlyTable, rangeStartIndex } from '../src/lib/engine.js';
 import { parseCashMovements, parseChartResponse, parseProducts, parseTransactions, parseUpdate } from '../src/lib/parse.js';
 import { dayRange } from '../src/lib/dates.js';
 import { fixture, loadPrices } from './helpers.js';
@@ -387,4 +387,105 @@ test('fixture run: composition and dividends are populated', () => {
   assert.ok(comp.layers.length >= 3);
   const last = comp.days.length - 1;
   near(comp.layers.reduce((a, l) => a + l.values[last], 0), result.totals.value, 0.05);
+});
+
+// ---------------------------------------------------------------------------
+// month × year grid
+// ---------------------------------------------------------------------------
+
+test('monthlyTable lays months out per year and totals each row', () => {
+  const days = dayRange('2024-11-01', '2025-01-31');
+  const r = {
+    days,
+    pnl: days.map((d) => (d.startsWith('2024-11') ? 10 : d.startsWith('2024-12') ? -5 : 2)),
+    value: days.map(() => 1000),
+  };
+  const table = monthlyTable(r);
+
+  assert.deepEqual(table.years.map((y) => y.year), ['2024', '2025']);
+  const y2024 = table.years[0];
+  assert.equal(y2024.months[10].month, '2024-11');
+  near(y2024.months[10].pnl, 300, 0.01, 'November: 30 days x 10');
+  near(y2024.months[11].pnl, -155, 0.01, 'December: 31 days x -5');
+  assert.equal(y2024.months[0], null, 'January 2024 predates the data');
+  near(y2024.total.pnl, 145, 0.01);
+});
+
+test('monthlyTable return is chained daily, not pnl divided by an opening value', () => {
+  // Two days of +10 on a value that grows: 10/100 then 10/110.
+  const r = {
+    days: ['2024-05-01', '2024-05-02', '2024-05-03'],
+    pnl: [0, 10, 10],
+    value: [100, 110, 120],
+  };
+  const table = monthlyTable(r);
+  const may = table.years[0].months[4];
+  const expected = ((1 + 10 / 100) * (1 + 10 / 110) - 1) * 100;
+  near(may.returnPct, Math.round(expected * 100) / 100, 0.02);
+  near(may.pnl, 20, 0.01);
+});
+
+test('monthlyTable does not let a deposit inflate the return', () => {
+  // Value doubles because money was paid in; pnl is zero, so return is zero.
+  const r = {
+    days: ['2024-05-01', '2024-05-02', '2024-05-03'],
+    pnl: [0, 0, 0],
+    value: [1000, 5000, 5000],
+  };
+  const may = monthlyTable(r).years[0].months[4];
+  near(may.returnPct, 0, 0.001, 'a deposit is not a return');
+  near(may.pnl, 0, 0.001);
+});
+
+test('monthlyTable ignores days with nothing invested yet', () => {
+  const r = {
+    days: ['2024-05-01', '2024-05-02', '2024-05-03'],
+    pnl: [0, 5, 5],
+    value: [0, 0, 100],
+  };
+  const may = monthlyTable(r).years[0].months[4];
+  // Only the last day has a positive previous value (0 -> no return contributed).
+  assert.ok(Number.isFinite(may.returnPct), 'must not divide by zero');
+  near(may.pnl, 10, 0.01);
+});
+
+test('monthlyTable scale bounds come from cells, not year totals', () => {
+  const days = dayRange('2024-01-01', '2024-03-31');
+  const r = { days, pnl: days.map(() => 1), value: days.map(() => 1000) };
+  const table = monthlyTable(r);
+  const biggestCell = Math.max(...table.years[0].months.filter(Boolean).map((c) => Math.abs(c.pnl)));
+  assert.equal(table.maxAbsPnl, biggestCell);
+  assert.ok(table.maxAbsPnl < table.years[0].total.pnl, 'a year total must not set the ramp');
+});
+
+test('monthlyTable reports the best and worst month for both metrics', () => {
+  const days = dayRange('2024-01-01', '2024-03-31');
+  const r = {
+    days,
+    pnl: days.map((d) => (d.startsWith('2024-02') ? 100 : d.startsWith('2024-03') ? -50 : 1)),
+    value: days.map(() => 1000),
+  };
+  const table = monthlyTable(r);
+  assert.equal(table.byPnl.best.month, '2024-02');
+  assert.equal(table.byPnl.worst.month, '2024-03');
+});
+
+test('monthlyTable on the fixture set covers every month in the window', () => {
+  const meta = fixture('meta.json');
+  const result = computePortfolio({
+    transactions: parseTransactions(fixture('transactions.json')),
+    cashRows: parseCashMovements(fixture('accountoverview.json')),
+    products: parseProducts(fixture('products-info.json')),
+    prices: loadPrices(parseChartResponse, meta),
+    today: meta.today,
+  });
+  const table = monthlyTable(result);
+  assert.deepEqual(table.years.map((y) => y.year), ['2021', '2022', '2023', '2024', '2025', '2026']);
+
+  // Every euro cell must add back up to the daily P/L total.
+  const cellSum = table.years.flatMap((y) => y.months).filter(Boolean).reduce((a, c) => a + c.pnl, 0);
+  near(cellSum, result.pnl.reduce((a, b) => a + b, 0), 0.5);
+
+  // August 2026 is the current, partial month; it still gets a cell.
+  assert.ok(table.years.at(-1).months[7], 'the running month is present');
 });

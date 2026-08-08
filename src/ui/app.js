@@ -5,7 +5,7 @@
  * an external cashflow."
  */
 
-import { aggregatePnl, buildComposition, rangeStartIndex } from '../lib/engine.js';
+import { aggregatePnl, buildComposition, monthlyTable, rangeStartIndex } from '../lib/engine.js';
 import { monthKey } from '../lib/dates.js';
 import {
   compositionChart,
@@ -13,10 +13,11 @@ import {
   depositChart,
   dividendChart,
   investedVsValueChart,
+  monthCompareChart,
   pnlChart,
   valueChart,
 } from './charts.js';
-import { fmtEurCents, fmtPct, fmtSigned, onThemeChange, tokens } from './theme.js';
+import { alpha, fmtEurCents, fmtPct, fmtSigned, onThemeChange, tokens } from './theme.js';
 import { inExtension, load, send, wantsDemo } from './datasource.js';
 
 const RANGES = ['1M', '3M', '6M', 'YTD', '1Y', 'ALL'];
@@ -34,7 +35,16 @@ const state = {
   charts: {},
   diagnostics: null,
   steps: [],
+  /** 'pnl' (euros) or 'returnPct' (time-weighted return). */
+  metric: 'pnl',
+  /** Month numbers 1-12 picked for the comparison chart. */
+  selectedMonths: [],
 };
+
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** Three is the readable limit for grouped bars, and for telling hues apart. */
+const MAX_COMPARE = 3;
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -118,6 +128,31 @@ function buildControls() {
 
   $('#toggle-cash').addEventListener('change', (e) => {
     state.includeCash = e.target.checked;
+    render();
+  });
+
+  // Euros or percent, for the month grid and the comparison.
+  const metricGroup = $('#metric-group');
+  for (const m of [
+    { key: 'pnl', label: 'Euro' },
+    { key: 'returnPct', label: 'Return %' },
+  ]) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = m.label;
+    b.setAttribute('aria-pressed', String(m.key === state.metric));
+    b.addEventListener('click', () => {
+      state.metric = m.key;
+      for (const other of metricGroup.querySelectorAll('button')) {
+        other.setAttribute('aria-pressed', String(other === b));
+      }
+      render();
+    });
+    metricGroup.append(b);
+  }
+
+  $('#btn-clear-months').addEventListener('click', () => {
+    state.selectedMonths = [];
     render();
   });
 }
@@ -313,6 +348,10 @@ function render() {
     state.charts.dividends = dividendChart($('#c-dividends'), r.dividendsByMonth, t);
   }
 
+  const months = monthlyTable(r);
+  renderMonthMatrix(months, t);
+  renderMonthCompare(months, t);
+
   renderHoldings(r, composition, t);
   renderFooter(r, data);
 }
@@ -414,6 +453,180 @@ function renderBanners(data, r) {
     if (w.code === 'no-data') continue;
     banner(w.level === 'error' ? 'error' : 'warn', w.message);
   }
+}
+
+// ---------------------------------------------------------------------------
+// month × year grid, and the month comparison
+// ---------------------------------------------------------------------------
+
+const isPct = () => state.metric === 'returnPct';
+const fmtMetric = (v) => (isPct() ? `${v > 0 ? '+' : ''}${v.toFixed(1)}%` : fmtSigned(v));
+
+/**
+ * Diverging tint: blue for a gain, red for a loss, nothing at zero.
+ *
+ * Kept as a light wash rather than a saturated block — the number in the cell
+ * is the real content and has to stay readable, so the colour is a second
+ * channel on top of it, never the only one. Magnitude is square-rooted so a
+ * quiet month is still visibly non-zero next to an outlier.
+ */
+function divergingTint(value, maxAbs, t) {
+  if (!value || !maxAbs) return 'transparent';
+  const strength = Math.min(1, Math.sqrt(Math.abs(value) / maxAbs));
+  return alpha(value > 0 ? t.pos : t.neg, 0.08 + strength * 0.42);
+}
+
+function renderMonthMatrix(months, t) {
+  const table = $('#months');
+  const maxAbs = isPct() ? months.maxAbsPct : months.maxAbsPnl;
+  const extremes = isPct() ? months.byPct : months.byPnl;
+  const extremeKeys = new Set([extremes?.best?.month, extremes?.worst?.month].filter(Boolean));
+
+  if (!months.years.length) {
+    table.innerHTML = '';
+    $('#month-note').textContent = 'No completed months yet.';
+    $('#month-scale').innerHTML = '';
+    return;
+  }
+
+  const head =
+    `<thead><tr><th class="year">Year</th>` +
+    MONTH_NAMES.map(
+      (m, i) =>
+        `<th><button type="button" class="month-pick" data-month="${i + 1}" aria-pressed="${state.selectedMonths.includes(i + 1)}">${m}</button></th>`,
+    ).join('') +
+    `<th class="total">Year</th></tr></thead>`;
+
+  const body = months.years
+    .map((row) => {
+      const cells = row.months
+        .map((c) => {
+          if (!c) return `<td class="cell empty">·</td>`;
+          const v = c[state.metric];
+          const cls = `cell${extremeKeys.has(c.month) ? ' extreme' : ''}`;
+          return `<td class="${cls}" style="background:${divergingTint(v, maxAbs, t)}" title="${esc(c.month)}: ${esc(fmtEurCents(c.pnl))} · ${c.returnPct.toFixed(2)}%">${esc(fmtMetric(v))}</td>`;
+        })
+        .join('');
+      return `<tr><td class="year">${esc(row.year)}</td>${cells}<td class="total">${esc(fmtMetric(row.total[state.metric]))}</td></tr>`;
+    })
+    .join('');
+
+  table.innerHTML = `${head}<tbody>${body}</tbody>`;
+
+  for (const btn of table.querySelectorAll('.month-pick')) {
+    btn.addEventListener('click', () => toggleMonth(Number(btn.dataset.month)));
+  }
+
+  // A diverging ramp needs its legend, or the tints are decoration.
+  const steps = [-1, -0.6, -0.25, 0, 0.25, 0.6, 1];
+  $('#month-scale').innerHTML =
+    `<span>${esc(fmtMetric(-maxAbs))}</span>` +
+    `<span class="ramp">${steps
+      .map((s) => `<span style="background:${s === 0 ? 'transparent' : divergingTint(s, 1, t)}"></span>`)
+      .join('')}</span>` +
+    `<span>${esc(fmtMetric(maxAbs))}</span>` +
+    `<span class="muted">· loss ← no change → gain</span>`;
+
+  const note = isPct()
+    ? 'Return is chained daily and excludes deposits and withdrawals, so a month you paid money in is not flattered by it.'
+    : 'Euro results are not comparable across years on their own — €500 on a small portfolio is a very different month from €500 on a large one. Switch to Return % for that.';
+  $('#month-note').textContent = `${note} Best and worst month are outlined.`;
+}
+
+function toggleMonth(month) {
+  const i = state.selectedMonths.indexOf(month);
+  if (i >= 0) state.selectedMonths.splice(i, 1);
+  else {
+    state.selectedMonths.push(month);
+    // Oldest choice drops out rather than silently ignoring the new click.
+    if (state.selectedMonths.length > MAX_COMPARE) state.selectedMonths.shift();
+  }
+  render();
+}
+
+/**
+ * Colour for each selected month.
+ *
+ * Twelve months do not fit seven categorical slots, so a plain `month % 7`
+ * silently gives April and November the same hue — and those are exactly the
+ * kind of pair someone compares. Each month keeps a preferred slot so the
+ * colour is stable across selections, but a collision inside the current
+ * selection pushes the later month to the next free slot. Two series on screen
+ * are never the same colour.
+ */
+function monthColours(picked, t) {
+  const used = new Set();
+  const out = new Map();
+  for (const m of picked) {
+    let slot = (m - 1) % t.series.length;
+    while (used.has(slot)) slot = (slot + 1) % t.series.length;
+    used.add(slot);
+    out.set(m, t.series[slot]);
+  }
+  return out;
+}
+
+function renderMonthCompare(months, t) {
+  const box = $('#compare-box');
+  const wrap = $('#compare-summary-wrap');
+  const picked = [...state.selectedMonths].sort((a, b) => a - b);
+
+  if (!picked.length) {
+    box.hidden = true;
+    wrap.hidden = true;
+    $('#compare-hint').textContent =
+      'Click a month name in the table above — November and June, say — to put them side by side per year.';
+    return;
+  }
+
+  box.hidden = false;
+  wrap.hidden = false;
+  $('#compare-hint').textContent = `Comparing ${picked.map((m) => MONTH_NAMES[m - 1]).join(' vs ')} across every year. Click a month name again to remove it (up to ${MAX_COMPARE}).`;
+
+  const years = months.years.map((y) => y.year);
+  const colours = monthColours(picked, t);
+  const series = picked.map((m) => ({
+    label: MONTH_NAMES[m - 1],
+    month: m,
+    colour: colours.get(m),
+    values: months.years.map((y) => y.months[m - 1]?.[state.metric] ?? null),
+  }));
+
+  state.charts.compare = monthCompareChart($('#c-compare'), { years, series }, state.metric, t);
+
+  // The two aggregate columns mean different things per metric; say which.
+  $('#th-total').textContent = isPct() ? 'Compounded' : 'Total';
+  $('#th-avg').textContent = isPct() ? 'Average (geometric)' : 'Average';
+
+  $('#compare-summary tbody').innerHTML = series
+    .map((s) => {
+      const vals = s.values.filter((v) => v != null);
+      if (!vals.length) {
+        return `<tr><td>${esc(s.label)}</td><td colspan="6" class="muted">no data</td></tr>`;
+      }
+      // Percentages compound; euros add. Summing returns would claim that
+      // +10% twice is +20%.
+      const total = isPct()
+        ? (vals.reduce((a, b) => a * (1 + b / 100), 1) - 1) * 100
+        : vals.reduce((a, b) => a + b, 0);
+      const avg = isPct()
+        ? (Math.sign(1 + total / 100) * Math.abs(1 + total / 100) ** (1 / vals.length) - 1) * 100
+        : total / vals.length;
+      const best = Math.max(...vals);
+      const worst = Math.min(...vals);
+      const positive = vals.filter((v) => v > 0).length;
+      const swatch = `<span class="swatch" style="background:${s.colour}"></span>`;
+      return `<tr>
+        <td>${swatch}${esc(s.label)}</td>
+        <td>${vals.length}</td>
+        <td class="${signClass(total)}">${esc(fmtMetric(total))}</td>
+        <td class="${signClass(avg)}">${esc(fmtMetric(avg))}</td>
+        <td>${esc(fmtMetric(best))}</td>
+        <td>${esc(fmtMetric(worst))}</td>
+        <td>${positive} of ${vals.length}</td>
+      </tr>`;
+    })
+    .join('');
 }
 
 /**

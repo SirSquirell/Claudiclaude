@@ -473,6 +473,51 @@ export function dividendChart(ctx, rows, t) {
 }
 
 // ---------------------------------------------------------------------------
+// 8. Compare specific months across years — grouped bars, one group per year
+// ---------------------------------------------------------------------------
+
+/**
+ * @param {{years: string[], series: Array<{label: string, month: number, values: (number|null)[]}>}} data
+ * @param {'pnl'|'returnPct'} metric
+ */
+export function monthCompareChart(ctx, data, metric, t) {
+  const money = metric === 'pnl';
+  const opts = baseOptions(t);
+  opts.plugins.legend.display = true;
+  opts.scales.y.grid.color = (c) => (c.tick.value === 0 ? t.axis : t.grid);
+  opts.scales.y.ticks.callback = (v) => (money ? fmtEur(v) : `${v}%`);
+  opts.plugins.tooltip.callbacks = {
+    title: (items) => `${items[0].dataset.label} ${items[0].label}`,
+    label: (item) =>
+      item.parsed.y == null
+        ? 'no data'
+        : money
+          ? fmtSigned(item.parsed.y)
+          : `${item.parsed.y > 0 ? '+' : ''}${item.parsed.y.toFixed(2)}%`,
+  };
+
+  return new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: data.years,
+      datasets: data.series.map((s, i) => ({
+        label: s.label,
+        data: s.values,
+        // The caller resolves the hue per month and guarantees no two selected
+        // months collide; deselecting June must not repaint November.
+        backgroundColor: alpha(s.colour, 0.85),
+        borderRadius: 4,
+        borderSkipped: 'middle',
+        borderColor: t.surface,
+        borderWidth: { left: 1, right: 1 },
+        maxBarThickness: 46,
+      })),
+    },
+    options: opts,
+  });
+}
+
+// ---------------------------------------------------------------------------
 // popup sparkline
 // ---------------------------------------------------------------------------
 
