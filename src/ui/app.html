@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DEGIRO Portfolio History</title>
+    <link rel="icon" href="../../icons/icon-32.png" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="top">
+        <div>
+          <h1>Portfolio history</h1>
+          <div class="sub" id="subtitle">Loading…</div>
+        </div>
+        <div class="actions">
+          <button id="btn-sync" type="button">Sync now</button>
+          <button id="btn-export" type="button">Export JSON</button>
+          <button id="btn-wipe" type="button">Wipe &amp; resync</button>
+        </div>
+      </header>
+
+      <div id="banners"></div>
+
+      <section class="tiles" id="tiles"></section>
+
+      <div class="controls">
+        <div class="group" id="range-group">
+          <span class="glabel">Range</span>
+        </div>
+        <div class="group" id="gran-group">
+          <span class="glabel">Results per</span>
+        </div>
+        <label class="check">
+          <input type="checkbox" id="toggle-cash" checked />
+          Include cash in the value chart
+        </label>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <h2>Portfolio value including cash</h2>
+          <p class="hint">
+            Daily total, reconstructed from your trades, cash movements and daily closing prices.
+            Triangles on the baseline mark days money went in (up) or out (down).
+          </p>
+          <div class="chart-box tall"><canvas id="c-value"></canvas></div>
+        </div>
+      </div>
+
+      <div class="grid two" style="margin-top: 16px">
+        <div class="card">
+          <h2>Result per period</h2>
+          <p class="hint">Value change with deposits and withdrawals removed, so only performance is left.</p>
+          <div class="chart-box"><canvas id="c-pnl"></canvas></div>
+        </div>
+        <div class="card">
+          <h2>Cumulative result</h2>
+          <p class="hint">The same numbers, added up over the selected range.</p>
+          <div class="chart-box"><canvas id="c-cum"></canvas></div>
+        </div>
+      </div>
+
+      <div class="grid" style="margin-top: 16px">
+        <div class="card">
+          <h2>What the portfolio is made of</h2>
+          <p class="hint">
+            Stacked daily value per holding, with cash at the top. The largest positions get their own band;
+            the rest are folded into “Other”.
+          </p>
+          <div class="chart-box tall"><canvas id="c-comp"></canvas></div>
+        </div>
+      </div>
+
+      <div class="grid two" style="margin-top: 16px">
+        <div class="card">
+          <h2>Money paid in vs what it is worth</h2>
+          <p class="hint">The gap between the two lines is growth — everything that is not your own deposits.</p>
+          <div class="chart-box"><canvas id="c-invested"></canvas></div>
+        </div>
+        <div class="card">
+          <h2>Deposits and withdrawals per month</h2>
+          <p class="hint">Net external cashflow. Nothing here counts as profit or loss.</p>
+          <div class="chart-box"><canvas id="c-deposits"></canvas></div>
+        </div>
+      </div>
+
+      <div class="grid" style="margin-top: 16px">
+        <div class="card">
+          <h2>Dividend per month</h2>
+          <p class="hint">Net cash received, with withholding tax shown below the line. Whole history, not the selected range.</p>
+          <div class="chart-box"><canvas id="c-dividends"></canvas></div>
+        </div>
+      </div>
+
+      <div class="grid" style="margin-top: 16px">
+        <div class="card">
+          <h2>Holdings</h2>
+          <p class="hint">
+            The same series as the stacked chart, as numbers — so nothing depends on telling two colours apart.
+          </p>
+          <div class="table-scroll">
+            <table id="holdings">
+              <thead>
+                <tr>
+                  <th>Instrument</th>
+                  <th>Quantity</th>
+                  <th>Value</th>
+                  <th>Share</th>
+                  <th>Currency</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <p class="footer-note" id="footer-note"></p>
+    </div>
+
+    <script src="../../vendor/chart.umd.js"></script>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

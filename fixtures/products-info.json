@@ -1,0 +1,364 @@
+{
+  "data": {
+    "331868": {
+      "id": "331868",
+      "name": "ASML HOLDING",
+      "isin": "NL0010273215",
+      "symbol": "ASML",
+      "contractSize": 1,
+      "productType": "STOCK",
+      "productTypeId": 1,
+      "tradable": true,
+      "category": "B",
+      "currency": "EUR",
+      "exchangeId": "710",
+      "onlyEodPrices": false,
+      "orderTimeTypes": [
+        "DAY",
+        "GTC"
+      ],
+      "buyOrderTypes": [
+        "LIMIT",
+        "MARKET"
+      ],
+      "sellOrderTypes": [
+        "LIMIT",
+        "MARKET"
+      ],
+      "productBitTypes": [],
+      "closePrice": 783.38,
+      "closePriceDate": "2026-08-08",
+      "feedQuality": "R",
+      "orderBookDepth": 0,
+      "vwdIdentifierType": "issueid",
+      "vwdId": "350009261",
+      "qualitySwitchable": false,
+      "qualitySwitchFree": false,
+      "vwdModuleId": 21
+    },
+    "331873": {
+      "id": "331873",
+      "name": "ING GROEP",
+      "isin": "NL0011821202",
+      "symbol": "INGA",
+      "contractSize": 1,
+      "productType": "STOCK",
+      "productTypeId": 1,
+      "tradable": true,
+      "category": "B",
+      "currency": "EUR",
+      "exchangeId": "710",
+      "onlyEodPrices": false,
+      "orderTimeTypes": [
+        "DAY",
+        "GTC"
+      ],
+      "buyOrderTypes": [
+        "LIMIT",
+        "MARKET"
+      ],
+      "sellOrderTypes": [
+        "LIMIT",
+        "MARKET"
+      ],
+      "productBitTypes": [],
+      "closePrice": 9.75,
+      "closePriceDate": "2026-08-08",
+      "feedQuality": "R",
+      "orderBookDepth": 0,
+      "vwdIdentifierType": "issueid",
+      "vwdId": "350010440",
+      "qualitySwitchable": false,
+      "qualitySwitchFree": false,
+      "vwdModuleId": 21
+    },
+    "1153605": {
+      "id": "1153605",
+      "name": "VANGUARD FTSE AW",
+      "isin": "IE00B3RBWM25",
+      "symbol": "VWRL",
+      "contractSize": 1,
+      "productType": "STOCK",
+      "productTypeId": 1,
+      "tradable": true,
+      "category": "B",
+      "currency": "EUR",
+      "exchangeId": "710",
+      "onlyEodPrices": false,
+      "orderTimeTypes": [
+        "DAY",
+        "GTC"
+      ],
+      "buyOrderTypes": [
+        "LIMIT",
+        "MARKET"
+      ],
+      "sellOrderTypes": [
+        "LIMIT",
+        "MARKET"
+      ],
+      "productBitTypes": [],
+      "closePrice": 99.37,
+      "closePriceDate": "2026-08-08",
+      "feedQuality": "R",
+      "orderBookDepth": 0,
+      "vwdIdentifierType": "issueid",
+      "vwdId": "360015751",
+      "qualitySwitchable": false,
+      "qualitySwitchFree": false,
+      "vwdModuleId": 21
+    },
+    "1490855": {
+      "id": "1490855",
+      "name": "ISHARES CORE MSCI WORLD",
+      "isin": "IE00B4L5Y983",
+      "symbol": "IWDA",
+      "contractSize": 1,
+      "productType": "STOCK",
+      "productTypeId": 1,
+      "tradable": true,
+      "category": "B",
+      "currency": "EUR",
+      "exchangeId": "710",
+      "onlyEodPrices": false,
+      "orderTimeTypes": [
+        "DAY",
+        "GTC"
+      ],
+      "buyOrderTypes": [
+        "LIMIT",
+        "MARKET"
+      ],
+      "sellOrderTypes": [
+        "LIMIT",
+        "MARKET"
+      ],
+      "productBitTypes": [],
+      "closePrice": 83.62,
+      "closePriceDate": "2026-08-08",
+      "feedQuality": "R",
+      "orderBookDepth": 0,
+      "vwdIdentifierType": "issueid",
+      "vwdId": "330015025",
+      "qualitySwitchable": false,
+      "qualitySwitchFree": false,
+      "vwdModuleId": 21
+    },
+    "2964828": {
+      "id": "2964828",
+      "name": "SHELL PLC",
+      "isin": "GB00BP6MXD84",
+      "symbol": "SHELL",
+      "contractSize": 1,
+      "productType": "STOCK",
+      "productTypeId": 1,
+      "tradable": true,
+      "category": "B",
+      "currency": "EUR",
+      "exchangeId": "710",
+      "onlyEodPrices": false,
+      "orderTimeTypes": [
+        "DAY",
+        "GTC"
+      ],
+      "buyOrderTypes": [
+        "LIMIT",
+        "MARKET"
+      ],
+      "sellOrderTypes": [
+        "LIMIT",
+        "MARKET"
+      ],
+      "productBitTypes": [],
+      "closePrice": 40.02,
+      "closePriceDate": "2026-08-08",
+      "feedQuality": "R",
+      "orderBookDepth": 0,
+      "vwdIdentifierType": "issueid",
+      "vwdId": "340001211",
+      "qualitySwitchable": false,
+      "qualitySwitchFree": false,
+      "vwdModuleId": 21
+    },
+    "4587473": {
+      "id": "4587473",
+      "name": "ADYEN",
+      "isin": "NL0012969182",
+      "symbol": "ADYEN",
+      "contractSize": 1,
+      "productType": "STOCK",
+      "productTypeId": 1,
+      "tradable": true,
+      "category": "B",
+      "currency": "EUR",
+      "exchangeId": "710",
+      "onlyEodPrices": false,
+      "orderTimeTypes": [
+        "DAY",
+        "GTC"
+      ],
+      "buyOrderTypes": [
+        "LIMIT",
+        "MARKET"
+      ],
+      "sellOrderTypes": [
+        "LIMIT",
+        "MARKET"
+      ],
+      "productBitTypes": [],
+      "closePrice": 2711.89,
+      "closePriceDate": "2026-08-08",
+      "feedQuality": "R",
+      "orderBookDepth": 0,
+      "vwdIdentifierType": "issueid",
+      "vwdId": "385018452",
+      "qualitySwitchable": false,
+      "qualitySwitchFree": false,
+      "vwdModuleId": 21
+    },
+    "5462588": {
+      "id": "5462588",
+      "name": "WOLTERS KLUWER",
+      "isin": "NL0000395903",
+      "symbol": "WKL",
+      "contractSize": 1,
+      "productType": "STOCK",
+      "productTypeId": 1,
+      "tradable": true,
+      "category": "B",
+      "currency": "EUR",
+      "exchangeId": "710",
+      "onlyEodPrices": false,
+      "orderTimeTypes": [
+        "DAY",
+        "GTC"
+      ],
+      "buyOrderTypes": [
+        "LIMIT",
+        "MARKET"
+      ],
+      "sellOrderTypes": [
+        "LIMIT",
+        "MARKET"
+      ],
+      "productBitTypes": [],
+      "closePrice": 111.26,
+      "closePriceDate": "2026-08-08",
+      "feedQuality": "R",
+      "orderBookDepth": 0,
+      "vwdIdentifierType": "issueid",
+      "vwdId": "355001982",
+      "qualitySwitchable": false,
+      "qualitySwitchFree": false,
+      "vwdModuleId": 21
+    },
+    "8449524": {
+      "id": "8449524",
+      "name": "ARGENX SE",
+      "isin": "NL0010832176",
+      "symbol": "ARGX",
+      "contractSize": 1,
+      "productType": "STOCK",
+      "productTypeId": 1,
+      "tradable": true,
+      "category": "B",
+      "currency": "EUR",
+      "exchangeId": "710",
+      "onlyEodPrices": false,
+      "orderTimeTypes": [
+        "DAY",
+        "GTC"
+      ],
+      "buyOrderTypes": [
+        "LIMIT",
+        "MARKET"
+      ],
+      "sellOrderTypes": [
+        "LIMIT",
+        "MARKET"
+      ],
+      "productBitTypes": [],
+      "closePrice": 996.46,
+      "closePriceDate": "2026-08-08",
+      "feedQuality": "R",
+      "orderBookDepth": 0,
+      "vwdIdentifierType": "issueid",
+      "vwdId": "375004417",
+      "qualitySwitchable": false,
+      "qualitySwitchFree": false,
+      "vwdModuleId": 21
+    },
+    "9057130": {
+      "id": "9057130",
+      "name": "BE SEMICONDUCTOR",
+      "isin": "NL0012866412",
+      "symbol": "BESI",
+      "contractSize": 1,
+      "productType": "STOCK",
+      "productTypeId": 1,
+      "tradable": true,
+      "category": "B",
+      "currency": "EUR",
+      "exchangeId": "710",
+      "onlyEodPrices": false,
+      "orderTimeTypes": [
+        "DAY",
+        "GTC"
+      ],
+      "buyOrderTypes": [
+        "LIMIT",
+        "MARKET"
+      ],
+      "sellOrderTypes": [
+        "LIMIT",
+        "MARKET"
+      ],
+      "productBitTypes": [],
+      "closePrice": 319.91,
+      "closePriceDate": "2026-08-08",
+      "feedQuality": "R",
+      "orderBookDepth": 0,
+      "vwdIdentifierType": "issueid",
+      "vwdId": "390000123",
+      "qualitySwitchable": false,
+      "qualitySwitchFree": false,
+      "vwdModuleId": 21
+    },
+    "17461000": {
+      "id": "17461000",
+      "name": "PROSUS",
+      "isin": "NL0013654783",
+      "symbol": "PRX",
+      "contractSize": 1,
+      "productType": "STOCK",
+      "productTypeId": 1,
+      "tradable": true,
+      "category": "B",
+      "currency": "EUR",
+      "exchangeId": "710",
+      "onlyEodPrices": false,
+      "orderTimeTypes": [
+        "DAY",
+        "GTC"
+      ],
+      "buyOrderTypes": [
+        "LIMIT",
+        "MARKET"
+      ],
+      "sellOrderTypes": [
+        "LIMIT",
+        "MARKET"
+      ],
+      "productBitTypes": [],
+      "closePrice": 69.1,
+      "closePriceDate": "2026-08-08",
+      "feedQuality": "R",
+      "orderBookDepth": 0,
+      "vwdIdentifierType": "issueid",
+      "vwdId": "365002435",
+      "qualitySwitchable": false,
+      "qualitySwitchFree": false,
+      "vwdModuleId": 21
+    }
+  }
+}

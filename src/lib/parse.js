@@ -1,0 +1,331 @@
+/**
+ * Raw DEGIRO / vwd JSON  ->  the engine's plain input types.
+ *
+ * SPEC §5: "Reads fixtures/ first and derives the actual response shapes from
+ * them. Does not trust the field names in this spec."
+ *
+ * We have no real HAR yet, so every extractor here is written defensively:
+ * a list of candidate field names per value, numbers coerced from both
+ * '1.234,56' and '1234.56', and the container located by shape rather than by a
+ * single hard-coded path. When a real capture lands, tighten these — but the
+ * loose version should already swallow most drift.
+ *
+ * Pure module: no I/O, no Chrome APIs.
+ */
+
+import { isoDayOf } from './dates.js';
+import { classifyCashRow } from './classify.js';
+
+/** Coerce anything DEGIRO calls a number into a real number. */
+export function num(value) {
+  if (value == null || value === '') return 0;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+  let s = String(value).trim().replace(/[\s\u00a0\u202f]/g, '');
+  // European format: '1.234,56' -> '1234.56'. Only when a comma is present.
+  if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+  s = s.replace(/[^0-9eE+\-.]/g, '');
+  const n = Number.parseFloat(s);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/** First non-nullish value among the candidate keys. */
+function pick(obj, keys, fallback = undefined) {
+  for (const k of keys) {
+    if (obj != null && obj[k] != null && obj[k] !== '') return obj[k];
+  }
+  return fallback;
+}
+
+/**
+ * Find the payload array/object inside a response whose envelope we are not
+ * sure about. Tries the given paths in order, then falls back to the first
+ * array-valued property.
+ */
+function unwrap(res, paths) {
+  for (const path of paths) {
+    let cur = res;
+    let ok = true;
+    for (const key of path.split('.')) {
+      if (cur == null || typeof cur !== 'object' || !(key in cur)) {
+        ok = false;
+        break;
+      }
+      cur = cur[key];
+    }
+    if (ok && cur != null) return cur;
+  }
+  if (Array.isArray(res)) return res;
+  if (res && typeof res === 'object') {
+    for (const v of Object.values(res)) if (Array.isArray(v)) return v;
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// transactions  (reporting/secure/v4/transactions)
+// ---------------------------------------------------------------------------
+
+/**
+ * @returns {Array<{id, date, productId, quantity, price, currency, fee, totalBase}>}
+ * `quantity` is signed: positive for a buy, negative for a sell.
+ */
+export function parseTransactions(res) {
+  const rows = unwrap(res, ['data', 'transactions', 'data.transactions']) ?? [];
+  if (!Array.isArray(rows)) return [];
+
+  return rows
+    .map((r) => {
+      const date = isoDayOf(pick(r, ['date', 'transactionDate', 'valueDate']));
+      if (!date) return null;
+
+      let quantity = num(pick(r, ['quantity', 'size', 'amount'], 0));
+      // Some responses report an unsigned quantity plus a buysell flag.
+      const bs = String(pick(r, ['buysell', 'buySell', 'side'], '')).toUpperCase();
+      if (bs.startsWith('S') && quantity > 0) quantity = -quantity;
+      if (bs.startsWith('B') && quantity < 0) quantity = Math.abs(quantity);
+
+      return {
+        id: String(pick(r, ['id', 'transactionId'], `${date}-${pick(r, ['productId'], '?')}-${quantity}`)),
+        date,
+        productId: String(pick(r, ['productId', 'product_id', 'id'], '')),
+        quantity,
+        price: num(pick(r, ['price', 'tradedPrice'], 0)),
+        currency: String(pick(r, ['currency', 'productCurrency'], 'EUR')),
+        fee: num(pick(r, ['feeInBaseCurrency', 'fee', 'totalFeesInBaseCurrency'], 0)),
+        totalBase: num(
+          pick(r, ['totalPlusFeeInBaseCurrency', 'totalInBaseCurrency', 'totalPlusAllFeesInBaseCurrency', 'total'], 0),
+        ),
+      };
+    })
+    .filter((t) => t && t.productId)
+    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+}
+
+// ---------------------------------------------------------------------------
+// cash movements  (reporting/secure/v6/accountoverview)
+// ---------------------------------------------------------------------------
+
+/**
+ * @returns {Array<{id, date, productId, description, currency, change, type, category}>}
+ */
+export function parseCashMovements(res) {
+  const rows =
+    unwrap(res, [
+      'data.cashMovements',
+      'cashMovements',
+      'data.values',
+      'data',
+    ]) ?? [];
+  if (!Array.isArray(rows)) return [];
+
+  return rows
+    .map((r, i) => {
+      const date = isoDayOf(pick(r, ['date', 'valueDate']));
+      if (!date) return null;
+      const row = {
+        id: String(pick(r, ['id', 'orderId'], `cash-${date}-${i}`)),
+        date,
+        productId: pick(r, ['productId', 'product_id'], null),
+        description: String(pick(r, ['description', 'text', 'label'], '')),
+        currency: String(pick(r, ['currency', 'ccy'], 'EUR')),
+        change: num(pick(r, ['change', 'amount', 'value'], 0)),
+        type: String(pick(r, ['type', 'transactionType'], '')),
+      };
+      row.productId = row.productId == null ? null : String(row.productId);
+      row.category = classifyCashRow(row);
+      return row;
+    })
+    .filter(Boolean)
+    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+}
+
+// ---------------------------------------------------------------------------
+// product metadata  (product_search/secure/v5/products/info)
+// ---------------------------------------------------------------------------
+
+/** @returns {Record<string, {id,name,symbol,isin,currency,vwdId,productType,closePrice,closePriceDate}>} */
+export function parseProducts(res) {
+  const data = unwrap(res, ['data', 'products']) ?? res;
+  if (!data || typeof data !== 'object') return {};
+  const entries = Array.isArray(data) ? data.map((p) => [pick(p, ['id']), p]) : Object.entries(data);
+
+  const out = {};
+  for (const [key, p] of entries) {
+    if (!p || typeof p !== 'object') continue;
+    const id = String(pick(p, ['id', 'productId'], key));
+    out[id] = {
+      id,
+      name: String(pick(p, ['name', 'productName'], id)),
+      symbol: String(pick(p, ['symbol', 'ticker'], '')),
+      isin: String(pick(p, ['isin'], '')),
+      currency: String(pick(p, ['currency', 'productCurrency'], 'EUR')),
+      // vwdId is what the charting host keys on. vwdIdentifierType is usually
+      // 'issueid'; when it is not, the chart request needs a different prefix.
+      vwdId: pick(p, ['vwdId', 'vwdIdentifier', 'vwdid'], null),
+      vwdIdType: String(pick(p, ['vwdIdentifierType'], 'issueid')),
+      productType: String(pick(p, ['productType', 'productTypeId'], 'UNKNOWN')),
+      closePrice: num(pick(p, ['closePrice', 'lastPrice'], 0)),
+      closePriceDate: isoDayOf(pick(p, ['closePriceDate'], null)),
+    };
+    if (out[id].vwdId != null) out[id].vwdId = String(out[id].vwdId);
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// current portfolio  (trading/secure/v5/update)
+// ---------------------------------------------------------------------------
+
+/**
+ * DEGIRO's update endpoint uses a name/value-pair encoding:
+ *   { value: [ { name: 'size', value: 10 }, ... ] }
+ * Flatten it back into an ordinary object.
+ */
+function flattenPairs(entry) {
+  const src = entry?.value;
+  if (!Array.isArray(src)) return { ...entry };
+  const out = {};
+  for (const pair of src) {
+    if (pair && typeof pair === 'object' && 'name' in pair) out[pair.name] = pair.value;
+  }
+  return out;
+}
+
+/**
+ * @returns {{positions: Array<{productId, size, price, value}>, totalValue: number|null,
+ *            totalCash: number|null, cash: Record<string, number>}}
+ */
+export function parseUpdate(res) {
+  const positions = [];
+  const portfolioRows = unwrap(res, ['portfolio.value', 'portfolio']) ?? [];
+  if (Array.isArray(portfolioRows)) {
+    for (const row of portfolioRows) {
+      const f = flattenPairs(row);
+      const productId = String(pick(f, ['id', 'productId'], row?.id ?? ''));
+      if (!productId) continue;
+      const size = num(pick(f, ['size', 'qty', 'quantity'], 0));
+      if (size === 0) continue; // closed positions still show up with size 0
+      positions.push({
+        productId,
+        size,
+        price: num(pick(f, ['price'], 0)),
+        value: num(pick(f, ['value', 'valueInEur'], 0)),
+      });
+    }
+  }
+
+  const totalRows = unwrap(res, ['totalPortfolio.value', 'totalPortfolio']) ?? [];
+  const totals = Array.isArray(totalRows)
+    ? flattenPairs({ value: totalRows })
+    : totalRows && typeof totalRows === 'object'
+      ? totalRows
+      : {};
+
+  const cash = {};
+  const cashRows = unwrap(res, ['cashFunds.value', 'cashFunds']) ?? [];
+  if (Array.isArray(cashRows)) {
+    for (const row of cashRows) {
+      const f = flattenPairs(row);
+      const ccy = String(pick(f, ['currencyCode', 'currency'], ''));
+      if (ccy) cash[ccy] = num(pick(f, ['value'], 0));
+    }
+  }
+
+  const totalValue = pick(totals, ['reportNetliq', 'totalvalue', 'total', 'netliq']);
+  const totalCash = pick(totals, ['totalCash', 'reportCashBal', 'cash']);
+
+  return {
+    positions,
+    totalValue: totalValue == null ? null : num(totalValue),
+    totalCash: totalCash == null ? null : num(totalCash),
+    cash,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// vwd price series  (charting.vwdservices.com/hchart/v1/deGiro/data.js)
+// ---------------------------------------------------------------------------
+
+/**
+ * SPEC §2.1, and the single most bug-prone conversion in the project:
+ *
+ *   "Series data comes back as [[x, y], ...] where x is an offset in resolution
+ *    units from series.times (e.g. "2021-01-04/P1D"), not a timestamp."
+ *
+ * So x=0 means the day named in `times`, x=1 the next resolution step, and the
+ * step is whatever the ISO-8601 period after the slash says.
+ */
+export function parseTimesAnchor(times) {
+  const raw = String(times ?? '');
+  const [startPart, periodPart = 'P1D'] = raw.split('/');
+  const start = isoDayOf(startPart);
+  const m = /^P(?:(\d+)Y)?(?:(\d+)M)?(?:(\d+)W)?(?:(\d+)D)?$/.exec(periodPart);
+  let stepDays = 1;
+  if (m) {
+    const [, y, mo, w, d] = m.map((v) => (v == null ? 0 : Number(v)));
+    // Only daily resolution is used by this extension; anything coarser is
+    // approximated so a surprise resolution still plots roughly right.
+    stepDays = (y || 0) * 365 + (mo || 0) * 30 + (w || 0) * 7 + (d || 0) || 1;
+  }
+  return { start, stepDays };
+}
+
+/** Strip a JSONP wrapper if the endpoint decided to send one anyway. */
+export function unwrapJsonp(text) {
+  if (typeof text !== 'string') return text;
+  const trimmed = text.trim();
+  if (trimmed.startsWith('{') || trimmed.startsWith('[')) return JSON.parse(trimmed);
+  const m = /^[^(]*\((.*)\)\s*;?\s*$/s.exec(trimmed);
+  if (m) return JSON.parse(m[1]);
+  throw new Error('vwd response is neither JSON nor JSONP');
+}
+
+/**
+ * @returns {Record<string, Array<{date: string, close: number}>>} keyed by vwdId
+ */
+export function parseChartResponse(res) {
+  const body = typeof res === 'string' ? unwrapJsonp(res) : res;
+  const seriesList = unwrap(body, ['series', 'data.series']) ?? [];
+  const out = {};
+  if (!Array.isArray(seriesList)) return out;
+
+  for (const s of seriesList) {
+    const id = String(s?.id ?? '');
+    // We only want the price series; the bare `issueid:NNN` series carries
+    // instrument metadata, not points.
+    const m = /^price:issueid:(\d+)$/.exec(id) || /^price:(\d+)$/.exec(id);
+    if (!m) continue;
+    const vwdId = m[1];
+
+    const { start, stepDays } = parseTimesAnchor(s.times);
+    if (!start) continue;
+
+    const points = [];
+    const data = Array.isArray(s.data) ? s.data : [];
+    for (const point of data) {
+      if (!Array.isArray(point) || point.length < 2) continue;
+      const [offset, close] = point;
+      if (!Number.isFinite(offset) || !Number.isFinite(close)) continue;
+      points.push({ offsetDays: offset * stepDays, close });
+    }
+    points.sort((a, b) => a.offsetDays - b.offsetDays);
+
+    out[vwdId] = { start, stepDays, points };
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// session identifiers  (pa/secure/client)
+// ---------------------------------------------------------------------------
+
+export function parseClient(res) {
+  const data = unwrap(res, ['data']) ?? res ?? {};
+  const intAccount = pick(data, ['intAccount', 'int_account']);
+  const userToken = pick(data, ['id', 'userToken']);
+  return {
+    intAccount: intAccount == null ? null : Number(intAccount),
+    userToken: userToken == null ? null : String(userToken),
+    displayName: String(pick(data, ['displayName', 'username'], '')),
+  };
+}
