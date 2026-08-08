@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { aggregatePnl, buildComposition, computePortfolio, expandSeries, monthlyTable, rangeStartIndex } from '../src/lib/engine.js';
+import { aggregatePnl, buildComposition, computePortfolio, deriveFxRates, expandSeries, monthlyTable, rangeStartIndex } from '../src/lib/engine.js';
 import { parseCashMovements, parseChartResponse, parseProducts, parseTransactions, parseUpdate } from '../src/lib/parse.js';
 import { dayRange } from '../src/lib/dates.js';
 import { fixture, loadPrices } from './helpers.js';
@@ -196,37 +196,112 @@ test('an unclassified cash row is reported, not silently swallowed', () => {
   assert.equal(r.cash[1], 995, 'it still moves the balance');
 });
 
-test('a non-EUR position raises a loud FX warning', () => {
-  // SPEC §2.2: "Do not silently mix currencies; a wrong chart is worse than an
-  // incomplete one."
+test('a foreign position is converted at the rate its own trade settled at', () => {
+  // 10 shares at USD 100 that cost EUR 860 means 0.86 EUR to the dollar. The
+  // position is worth EUR 860, not EUR 1000.
   const r = computePortfolio({
     products: { 1: { id: '1', name: 'US STOCK', currency: 'USD', vwdId: '900' } },
-    prices: { 900: { start: '2024-01-01', stepDays: 1, points: [{ offsetDays: 0, close: 100 }] } },
-    transactions: [{ date: '2024-01-01', productId: '1', quantity: 1, price: 100, currency: 'USD', fee: 0 }],
-    cashRows: [{ date: '2024-01-01', description: 'Deposit', change: 200, currency: 'EUR', category: 'DEPOSIT' }],
-    today: '2024-01-02',
+    prices: { 900: { start: '2024-01-01', stepDays: 1, points: [0, 1, 2].map((i) => ({ offsetDays: i, close: 100 })) } },
+    transactions: [
+      { date: '2024-01-01', productId: '1', quantity: 10, price: 100, currency: 'USD', fee: -2, totalBase: -862 },
+    ],
+    cashRows: [{ date: '2024-01-01', description: 'Deposit', change: 1000, currency: 'EUR', category: 'DEPOSIT' }],
+    today: '2024-01-03',
   });
-  const w = r.warnings.find((x) => x.code === 'fx-not-implemented');
-  assert.ok(w, 'expected an FX warning');
-  assert.equal(w.level, 'error');
-  assert.deepEqual(w.detail.currencies, ['USD']);
+  near(r.positionsValue.at(-1), 860, 1, 'valued in euros, not dollars-as-euros');
+  const w = r.warnings.find((x) => x.code === 'fx-derived');
+  assert.ok(w, 'expected the derived rates to be reported');
+  assert.equal(w.detail.currencies[0].currency, 'USD');
+  near(w.detail.currencies[0].median, 0.86, 0.01);
 });
 
-test('a price jump with no trade is flagged as a possible split', () => {
+test('the derivation returns exactly 1 for the base currency', () => {
+  // The strongest self-check there is: on a real account 267 euro trades all
+  // came back at 1.0000. Anything else means the formula is wrong.
+  const days = dayRange('2024-01-01', '2024-01-03');
+  const dayIndex = new Map(days.map((d, i) => [d, i]));
+  const { series, report } = deriveFxRates(
+    [{ date: '2024-01-01', productId: '1', quantity: 10, price: 50, fee: -2, totalBase: -502 }],
+    { 1: { id: '1', currency: 'EUR' } },
+    days,
+    dayIndex,
+    'EUR',
+  );
+  assert.deepEqual(report, [], 'the base currency needs no conversion');
+  assert.equal(series.EUR, undefined);
+});
+
+test('rates are interpolated between trades and held flat outside them', () => {
+  const days = dayRange('2024-01-01', '2024-01-05');
+  const dayIndex = new Map(days.map((d, i) => [d, i]));
+  const { series } = deriveFxRates(
+    [
+      { date: '2024-01-02', productId: '1', quantity: 1, price: 100, fee: 0, totalBase: -80 },
+      { date: '2024-01-04', productId: '1', quantity: 1, price: 100, fee: 0, totalBase: -90 },
+    ],
+    { 1: { id: '1', currency: 'USD' } },
+    days,
+    dayIndex,
+  );
+  near(series.USD[0], 0.8, 0.001, 'flat before the first observation');
+  near(series.USD[1], 0.8, 0.001);
+  near(series.USD[2], 0.85, 0.001, 'halfway between the two');
+  near(series.USD[3], 0.9, 0.001);
+  near(series.USD[4], 0.9, 0.001, 'flat after the last observation');
+});
+
+test('a fee-dominated trade does not drag the rate off', () => {
+  const days = dayRange('2024-01-01', '2024-01-03');
+  const dayIndex = new Map(days.map((d, i) => [d, i]));
+  const { series, report } = deriveFxRates(
+    [
+      { date: '2024-01-01', productId: '1', quantity: 100, price: 100, fee: 0, totalBase: -8600 },
+      { date: '2024-01-02', productId: '1', quantity: 100, price: 100, fee: 0, totalBase: -8600 },
+      // One nonsense row an order of magnitude out.
+      { date: '2024-01-03', productId: '1', quantity: 1, price: 1, fee: 0, totalBase: -50 },
+    ],
+    { 1: { id: '1', currency: 'USD' } },
+    days,
+    dayIndex,
+  );
+  assert.equal(report[0].dropped, 1, 'the outlier is dropped, not averaged in');
+  near(series.USD[2], 0.86, 0.01);
+});
+
+test('a currency no trade has ever priced is reported, not guessed at', () => {
   const r = computePortfolio({
-    products: { 1: { id: '1', name: 'SPLITTER', currency: 'EUR', vwdId: '900' } },
+    products: {},
+    prices: {},
+    transactions: [],
+    cashRows: [
+      { date: '2024-01-01', description: 'Deposit', change: 1000, currency: 'EUR', category: 'DEPOSIT' },
+      { date: '2024-01-01', description: 'Valuta Creditering', change: 500, currency: 'HKD', category: 'FX' },
+    ],
+    today: '2024-01-02',
+  });
+  const w = r.warnings.find((x) => x.code === 'fx-unknown');
+  assert.ok(w, 'expected an fx-unknown warning');
+  assert.equal(w.level, 'error');
+  assert.deepEqual(w.detail.currencies, ['HKD']);
+});
+
+test('the split heuristic stays quiet when trades already settled the question', () => {
+  // A 40% day on a meme stock in 2021 is a market move. Where trades exist to
+  // audit against, that evidence decides — guessing on top is just noise, and a
+  // real account produced 23 such banners with nothing to act on.
+  const r = computePortfolio({
+    products: { 1: { id: '1', name: 'VOLATILE', currency: 'EUR', vwdId: '900' } },
     prices: { 900: { start: '2024-01-01', stepDays: 1, points: [
       { offsetDays: 0, close: 400 },
       { offsetDays: 1, close: 400 },
-      { offsetDays: 2, close: 100 }, // 4-for-1, unadjusted
+      { offsetDays: 2, close: 100 },
     ] } },
     transactions: [{ date: '2024-01-01', productId: '1', quantity: 1, price: 400, currency: 'EUR', fee: 0 }],
     cashRows: [{ date: '2024-01-01', description: 'Deposit', change: 400, currency: 'EUR', category: 'DEPOSIT' }],
     today: '2024-01-03',
   });
-  const w = r.warnings.find((x) => x.code === 'suspected-split');
-  assert.ok(w, 'expected a split warning');
-  assert.equal(w.detail.hits[0].date, '2024-01-03');
+  assert.equal(r.warnings.some((w) => w.code === 'suspected-split'), false);
+  near(r.positionsValue.at(-1), 100, 0.01, 'the quote is trusted, because the trade agreed with it');
 });
 
 test('a product with no price series falls back to the traded price and warns', () => {

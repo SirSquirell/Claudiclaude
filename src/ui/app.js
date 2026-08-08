@@ -465,8 +465,11 @@ function renderBanners(data, r) {
     seen.set(w.code, group);
   }
   for (const w of seen.values()) {
-    const suffix = w.count > 1 ? ` (${w.count} instruments)` : '';
-    banner(w.level === 'error' ? 'error' : 'warn', w.message + suffix);
+    // The engine aggregates its own repeats now; this only catches anything
+    // that still slips through, and says how many rather than naming one.
+    const suffix = w.count > 1 ? ` (${w.count}×)` : '';
+    const kind = w.level === 'error' ? 'error' : w.level === 'info' ? 'info' : 'warn';
+    banner(kind, w.message + suffix);
   }
 }
 
