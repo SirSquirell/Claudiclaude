@@ -592,3 +592,67 @@ export function holdingsPieChart(ctx, { labels, values, colours }, t) {
     options: opts,
   });
 }
+
+/**
+ * The cumulative result as candles.
+ *
+ * Drawn with two floating bar datasets rather than a charting plugin: a thin
+ * one spanning low to high for the wick, a thick one spanning open to close for
+ * the body. Chart.js draws `[min, max]` bars natively, so this needs nothing in
+ * `vendor/` beyond what is already there.
+ *
+ * Blue for up and red for down, not the green and red of a trading terminal.
+ * That pair is the single worst one for colour-vision deficiency, and this
+ * project's diverging pair was chosen and validated against exactly that. The
+ * hint under the chart says which way is which, so direction never rests on
+ * hue alone.
+ */
+export function candleChart(ctx, data, t) {
+  const opts = baseOptions(t);
+  opts.scales.y.grid.color = (c) => (c.tick.value === 0 ? t.axis : t.grid);
+  opts.scales.y.ticks.callback = (v) => fmtEur(v);
+  opts.plugins.tooltip.callbacks = {
+    title: (items) => items[0].label,
+    label: (item) => {
+      const c = data.candles[item.dataIndex];
+      return [
+        `Open  ${fmtSigned(c.open)}`,
+        `High  ${fmtSigned(c.high)}`,
+        `Low   ${fmtSigned(c.low)}`,
+        `Close ${fmtSigned(c.close)}`,
+      ];
+    },
+  };
+  // One tooltip per candle, not one per dataset — the wick and the body are the
+  // same thing drawn twice.
+  opts.plugins.tooltip.filter = (item) => item.datasetIndex === 1;
+
+  const colour = (c) => (c.up ? t.pos : t.neg);
+
+  return new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: data.labels,
+      datasets: [
+        {
+          label: 'Range',
+          data: data.candles.map((c) => [c.low, c.high]),
+          backgroundColor: data.candles.map((c) => alpha(colour(c), 0.45)),
+          barPercentage: 0.14,
+          categoryPercentage: 0.9,
+          grouped: false,
+        },
+        {
+          label: 'Open to close',
+          data: data.candles.map((c) => [Math.min(c.open, c.close), Math.max(c.open, c.close)]),
+          backgroundColor: data.candles.map((c) => alpha(colour(c), 0.85)),
+          borderRadius: 2,
+          barPercentage: 0.62,
+          categoryPercentage: 0.9,
+          grouped: false,
+        },
+      ],
+    },
+    options: opts,
+  });
+}

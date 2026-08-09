@@ -11,6 +11,43 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.12.0] — 2026-08-09
+
+### Added
+
+- **Drag across the value chart to zoom.** The six range buttons reached six windows and nothing
+  between them — March 2024 was unreachable, so was the fortnight around a crash. A drag sets a
+  custom range in the same state the buttons drive, so every chart follows it, and it gives the
+  arbitrary start-and-end date the page never had. A drag under two days is a click and does not
+  zoom. The selected window is stated above the chart with a Back button, because a zoom you
+  cannot leave is a trap.
+- **Candles on the cumulative result**, at Week or Month. Each candle opens where the last one
+  closed and spans the highest and lowest the result reached inside the period — which is exactly
+  what the line hides: a month that ended flat after a 12 % drawdown looks identical to a month
+  that did nothing.
+
+  Two things about it are deliberate. It is built on the **deposit-free** curve, because a candle
+  on portfolio value would say a deposit was volatility: the high of a month is its maximum daily
+  total, so paying €10 000 in on the 12th grows a long upper wick where nothing swung. And it is
+  blue-up/red-down rather than the green and red of a trading terminal, because that pair is the
+  worst there is for colour-vision deficiency and this project's diverging pair was validated
+  against exactly that.
+
+  At Day granularity the toggle is disabled and says why. A day has one number, so a daily candle
+  is a flat dash — four times the ink for the same value, and a chart that looks like it is
+  describing volatility while describing nothing.
+- **Unrecognised API fields are kept instead of dropped.** `parseUpdate` flattened every pair
+  DEGIRO sends in `totalPortfolio` and returned two of them; `parseProducts` named ten fields and
+  dropped the rest. So margin data has been arriving on every sync since the first release and
+  nobody has ever seen it, and an option's contract size, strike, expiry and call/put identity
+  were thrown away before reaching disk — which is why a 50 MB export could not answer whether
+  DEGIRO returns `contractSize` at all. Your next export answers all of it.
+
+### Fixed
+
+- A `display` value on a class overrides the browser's `[hidden] { display: none }`, so an
+  element could be visible while holding the hidden attribute. Found while testing the zoom.
+
 ## [0.11.0] — 2026-08-09
 
 Safety and honesty, plus two things to look at. **Press "Wipe & resync" after updating.**

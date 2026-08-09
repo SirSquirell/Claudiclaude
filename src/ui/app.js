@@ -5,9 +5,10 @@
  * an external cashflow."
  */
 
-import { aggregatePnl, buildComposition, monthlyTable, rangeEndIndex, rangeStartIndex } from '../lib/engine.js';
+import { aggregatePnl, buildComposition, candleSeries, monthlyTable, rangeEndIndex, rangeStartIndex } from '../lib/engine.js';
 import { monthKey, weekKey } from '../lib/dates.js';
 import {
+  candleChart,
   compositionChart,
   cumulativeChart,
   depositChart,
@@ -44,6 +45,8 @@ const state = {
   selectedCells: [],
   /** 'table' or 'share' — how the holdings card is drawn. */
   holdingsView: 'table',
+  /** 'line' or 'candles' — how the cumulative result is drawn. */
+  cumulativeView: 'line',
 };
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -157,6 +160,23 @@ function buildControls() {
       render();
     });
     metricGroup.append(b);
+  }
+
+  const cumGroup = $('#cum-view');
+  for (const v of [
+    { key: 'line', label: 'Line' },
+    { key: 'candles', label: 'Candles' },
+  ]) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = v.label;
+    b.dataset.key = v.key;
+    b.setAttribute('aria-pressed', String(v.key === state.cumulativeView));
+    b.addEventListener('click', () => {
+      state.cumulativeView = v.key;
+      render();
+    });
+    cumGroup.append(b);
   }
 
   const holdingsGroup = $('#holdings-view');
@@ -372,7 +392,7 @@ function render() {
 
   const agg = aggregatePnl(r.days, r.pnl, gran, from, to);
   state.charts.pnl = pnlChart($('#c-pnl'), agg, t);
-  state.charts.cum = cumulativeChart($('#c-cum'), agg, t);
+  renderCumulative(r, gran, from, to, agg, t);
 
   // One composition, used twice: once for the stacked chart and once to colour
   // the holdings table. Both must agree on which colour is which holding.
@@ -516,6 +536,42 @@ function renderZoomState(r, from, to) {
     }
     render();
   });
+}
+
+/**
+ * The cumulative result, as a line or as candles.
+ *
+ * Candles need four numbers and a day has one, so at day granularity every
+ * candle would be a flat dash — four times the ink for the same value, and a
+ * chart that looks like it is describing volatility while describing nothing.
+ * The toggle is therefore tied to "Results per", and says why when it cannot
+ * be used rather than drawing dashes.
+ */
+function renderCumulative(r, gran, from, to, agg, t) {
+  const canCandle = gran === 'week' || gran === 'month';
+  const showCandles = canCandle && state.cumulativeView === 'candles';
+
+  for (const b of $('#cum-view').querySelectorAll('button')) {
+    const candles = b.dataset.key === 'candles';
+    b.disabled = candles && !canCandle;
+    b.setAttribute('aria-pressed', String(b.dataset.key === (showCandles ? 'candles' : 'line')));
+  }
+
+  if (showCandles) {
+    const data = candleSeries(r.days, r.pnl, gran, from, to);
+    state.charts.cum = candleChart($('#c-cum'), data, t);
+    $('#cum-hint').textContent =
+      `Each candle opens where the last one closed and spans the highest and lowest the result reached inside the ` +
+      `${gran}. Blue closed up, red closed down. Deposits and withdrawals are already out, so a long wick is a ` +
+      `swing and not money arriving.`;
+    return;
+  }
+
+  state.charts.cum = cumulativeChart($('#c-cum'), agg, t);
+  $('#cum-hint').textContent = canCandle
+    ? 'The same numbers, added up over the selected range.'
+    : 'The same numbers, added up over the selected range. Candles need a period with a high and a low, so they ' +
+      'need Week or Month — a single day has one number and would draw a flat dash.';
 }
 
 function autoGranularity(nDays) {

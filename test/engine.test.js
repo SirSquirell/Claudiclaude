@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { aggregatePnl, buildComposition, computePortfolio, deriveContractSizes, deriveFxRates, expandSeries, monthlyTable, rangeEndIndex, rangeStartIndex } from '../src/lib/engine.js';
+import { aggregatePnl, buildComposition, candleSeries, computePortfolio, deriveContractSizes, deriveFxRates, expandSeries, monthlyTable, rangeEndIndex, rangeStartIndex } from '../src/lib/engine.js';
 import { parseCashMovements, parseChartResponse, parseProducts, parseTransactions, parseUpdate } from '../src/lib/parse.js';
 import { dayRange } from '../src/lib/dates.js';
 import { fixture, loadPrices } from './helpers.js';
@@ -1029,4 +1029,54 @@ test('a dragged range that starts before the history clamps to its first day', (
   const days = dayRange('2024-06-01', '2024-06-30');
   assert.equal(rangeStartIndex(days, '2020-01-01..2024-06-10'), 0);
   assert.equal(days[rangeEndIndex(days, '2020-01-01..2024-06-10')], '2024-06-10');
+});
+
+
+// ---------------------------------------------------------------------------
+// Candles on the cumulative result
+// ---------------------------------------------------------------------------
+
+test('a month holding only a deposit draws a flat candle', () => {
+  // THE test for this feature. A candle on portfolio value would say the
+  // deposit was volatility: the high of the month is its maximum daily total,
+  // so paying money in on the 12th raises it and the candle grows a long upper
+  // wick where nothing swung. Built on the deposit-free curve, it must be flat.
+  const days = dayRange('2024-01-01', '2024-01-31');
+  const r = computePortfolio({
+    products: {},
+    transactions: [],
+    cashRows: [
+      { date: '2024-01-01', description: 'iDEAL Deposit', change: 1000, currency: 'EUR', category: 'DEPOSIT' },
+      { date: '2024-01-12', description: 'iDEAL Deposit', change: 50000, currency: 'EUR', category: 'DEPOSIT' },
+    ],
+    today: '2024-01-31',
+  });
+  const { candles } = candleSeries(r.days, r.pnl, 'month', 0, r.days.length - 1);
+  assert.equal(candles.length, 1);
+  const c = candles[0];
+  assert.deepEqual(
+    [c.open, c.high, c.low, c.close],
+    [0, 0, 0, 0],
+    'EUR 50,000 arriving is not a swing, and the candle must not draw one',
+  );
+});
+
+test('a candle spans the highest and lowest the result reached inside the bucket', () => {
+  const days = dayRange('2024-01-01', '2024-01-04');
+  // +100 up, then -300 down, then +50 back up: high +100, low -200, close -150.
+  const pnl = [0, 100, -300, 50];
+  const { candles, labels } = candleSeries(days, pnl, 'month', 0, 3);
+  assert.deepEqual(labels, ['2024-01']);
+  assert.deepEqual([candles[0].open, candles[0].high, candles[0].low, candles[0].close], [0, 100, -200, -150]);
+  assert.equal(candles[0].up, false, 'it closed below where it opened');
+});
+
+test('each candle opens where the previous one closed', () => {
+  const days = dayRange('2024-01-01', '2024-02-29');
+  const pnl = days.map((d) => (d.startsWith('2024-01') ? 10 : -5));
+  const { candles } = candleSeries(days, pnl, 'month', 0, days.length - 1);
+  assert.equal(candles.length, 2);
+  assert.equal(candles[1].open, candles[0].close, 'a gap between them would be a break in the curve');
+  assert.equal(candles[0].up, true);
+  assert.equal(candles[1].up, false);
 });

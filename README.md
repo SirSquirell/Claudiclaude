@@ -31,7 +31,7 @@ is undocumented and hammering it is an account-safety risk, not a matter of poli
 |---|---|
 | **Portfolio value including cash** | What was it worth on any given day. Triangles on the baseline mark days money went in or out, so a deposit is never mistaken for a gain. |
 | **Result per period** | Day, week or month performance with deposits and withdrawals stripped out. |
-| **Cumulative result** | The same numbers added up over the range you picked. |
+| **Cumulative result** | The same numbers added up over the range you picked, as a line or as candles — each candle spans the high and low the result reached inside the week or month. |
 | **What the portfolio is made of** | Stacked daily value per holding — how much is which position, and how much is sitting in cash. |
 | **Money paid in vs what it is worth** | Your net deposits against the market value. The gap between the lines is growth. |
 | **Deposits and withdrawals per month** | Net external cashflow. None of it counts as profit. |
@@ -40,8 +40,9 @@ is undocumented and hammering it is an account-safety risk, not a matter of poli
 | **Dividend per month** | Net cash received, with withholding tax below the line. |
 | **Holdings** | The same series as plain numbers. |
 
-Range selector (1M / 3M / 6M / YTD / 1Y / ALL), a day/week/month granularity that applies to
-every chart, hover crosshair, and an include/exclude-cash toggle.
+Range selector (1M / 3M / 6M / YTD / 1Y / ALL) plus **drag across the value chart** to zoom into
+any stretch, a day/week/month granularity that applies to every chart, hover crosshair, and an
+include/exclude-cash toggle.
 
 The month views have a **Euro / Return %** switch, and it is not cosmetic. €500 on a
 small portfolio is a very different month from €500 on a large one, so euros are not
@@ -70,8 +71,8 @@ turn your own money into profit.
 
 ## Status, honestly
 
-**Version 0.11.0.** Everything in [SPEC.md](SPEC.md) is built, and the engine is covered
-by 151 tests — including "a deposit must not register as profit", "a closed round trip
+**Version 0.12.0.** Everything in [SPEC.md](SPEC.md) is built, and the engine is covered
+by 160 tests — including "a deposit must not register as profit", "a closed round trip
 holds nothing", "an option trade is not an exchange rate", and the reconciliation check
 above. Release notes are in [CHANGELOG.md](CHANGELOG.md).
 
@@ -126,7 +127,7 @@ if you want to close the remaining gaps.
 ## For developers
 
 ```bash
-npm test                       # 151 tests + a leak check, no dependencies to install
+npm test                       # 160 tests + a leak check, no dependencies to install
 npm run demo                   # the whole UI on generated fixtures at localhost:5173
 npm run fixtures               # regenerate the sample data
 npm run audit path/to/export   # run the engine over a real export and check its invariants

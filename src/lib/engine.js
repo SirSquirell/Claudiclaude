@@ -1197,6 +1197,56 @@ export function computePortfolio(input) {
  *
  * @returns {{labels: string[], pnl: number[], cumulative: number[], starts: string[]}}
  */
+/**
+ * The cumulative result as candles: open, high, low and close per bucket.
+ *
+ * **Built on the deposit-free curve, and that is the whole point.** A candle on
+ * portfolio value would say a deposit was volatility: the high of a month is
+ * its maximum daily total, so paying 10 000 in on the 12th raises it by 10 000
+ * and the candle draws a long upper wick where nothing swung — money arrived.
+ * That is SPEC §1.4 rebuilt inside a new chart, by the project whose reason for
+ * existing is that error. The running sum of `pnl` already has external
+ * cashflow removed, so a long wick here means what a long wick means.
+ *
+ * A day has one number, so a daily candle is a flat dash: four times the ink
+ * for the same value, and a chart that looks like it is describing volatility
+ * while describing nothing. The caller only offers this at week and month.
+ */
+export function candleSeries(days, pnl, granularity = 'month', fromIndex = 0, toIndex = days.length - 1) {
+  const keyFn = granularity === 'week' ? weekKey : monthKey;
+  const labelStart = granularity === 'week' ? startOfWeek : (d) => `${d.slice(0, 7)}-01`;
+
+  const buckets = new Map();
+  let running = 0;
+  for (let i = Math.max(0, fromIndex); i <= toIndex && i < days.length; i++) {
+    const k = keyFn(days[i]);
+    let b = buckets.get(k);
+    if (!b) {
+      // The bucket opens where the previous one closed, so the candles form one
+      // continuous curve rather than a row of independent little charts.
+      b = { key: k, start: labelStart(days[i]), open: running, high: running, low: running, close: running };
+      buckets.set(k, b);
+    }
+    running += pnl[i];
+    b.high = Math.max(b.high, running);
+    b.low = Math.min(b.low, running);
+    b.close = running;
+  }
+
+  const ordered = [...buckets.values()].sort((a, b) => (a.start < b.start ? -1 : 1));
+  return {
+    labels: ordered.map((b) => b.key),
+    starts: ordered.map((b) => b.start),
+    candles: ordered.map((b) => ({
+      open: round2(b.open),
+      high: round2(b.high),
+      low: round2(b.low),
+      close: round2(b.close),
+      up: b.close >= b.open,
+    })),
+  };
+}
+
 export function aggregatePnl(days, pnl, granularity = 'day', fromIndex = 0, toIndex = days.length - 1) {
   const keyFn =
     granularity === 'week' ? weekKey : granularity === 'month' ? monthKey : (d) => d;
