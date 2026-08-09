@@ -247,6 +247,19 @@ after a 12% mid-month drawdown looks identical to a month that did nothing.
 So the story is: **the candle toggle is available when "Results per" is Week or Month, and is
 disabled with a reason at Day.** It fits the granularity control that became global in 0.10.0.
 
+**Which chart gets candles: one.** Asked to pick rather than apply it everywhere, and the answer
+is narrower than it first looks.
+
+| Chart | Candles? | |
+|---|---|---|
+| **Cumulative result** | **Yes** | The deposit-free equity curve. Open, high, low and close of a running total that already has external cashflow removed — this is the one place all four numbers mean what a candle means. |
+| Portfolio value including cash | **No** | Its high is raised by a deposit, so the wick would be cashflow drawn as a swing. Fixing that turns it into the chart above, so build that one instead of two. |
+| Result per period | No | Already one bar per bucket. A candle would encode the same bucket twice. |
+| Composition, deposits, dividend, month grid, holdings | No | Part-to-whole and categorical. A candle needs a period with a beginning and an end; a slice does not have one. |
+
+One toggle, on one chart, where the four numbers are true. A candle on a chart whose high moves
+when money arrives is not a stylistic choice, it is a wrong number drawn in a familiar shape.
+
 *Two decisions to make before building:*
 
 - **No new dependency needed.** Chart.js has no candlestick type, but it draws floating bars —
