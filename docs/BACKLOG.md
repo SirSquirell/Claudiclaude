@@ -106,7 +106,27 @@ data, is an open question (§3, US-03).
 This must be stated in the story. Promising a correct historical chart for an options
 account is promising something the available data does not support.
 
-### 1.6 We persist parsed products, not raw responses
+### 1.6 The ledger and the classifier are clean — two suspicions ruled out
+
+Both answered from the export, and both came back negative. Recorded because a negative
+result here is what keeps the sprint small.
+
+**B2 — expiring options do produce closing transactions.** Of 169 option products ever traded,
+every one that DEGIRO no longer reports has a net quantity of **exactly zero** in our ledger.
+Zero phantom positions, options or otherwise, against 27 still-open option positions. So expiry,
+assignment and exercise all settle through the transaction feed and the position ledger is
+correct. Option *quantities* over time are reconstructible; only the *price* between trades is
+estimated for the 82 products with no series, and that is already flagged.
+
+**B5 — a written premium is not booked as external cashflow.** All 8 088 cash movements
+classify; **not one is `UNKNOWN`**. Every row attached to an option product lands in `TRADE`
+(370), `FEE` (364) or `FX` (150) — all `external: false`. Nothing option-related reaches
+`DEPOSIT` or `WITHDRAWAL`.
+
+So the first account's total is too high by the contract multiplier and by nothing else. There is no second
+defect hiding behind it.
+
+### 1.7 We persist parsed products, not raw responses
 
 `sync.js:338` stores `parseProducts(...)` output. Every field the parser does not pick is
 discarded before it reaches disk — which is why a 50 MB export cannot answer whether DEGIRO
@@ -163,14 +183,24 @@ Root cause is established. What is still open is one decision:
   option products, but entangled with the exchange rate at the trade date). They agree where
   both exist, which makes a cross-check possible in the same shape as the existing split-factor
   audit.
-- **Do we round to an integer?** Measured values land on 99,7 and 103,0. Contract sizes are
-  integers, so rounding is defensible — but it is a judgement call, and it is the kind of
-  judgement that hides a real error. Recommend measuring, rounding, and *reporting the residual*,
-  so a contract that does not round cleanly becomes a visible warning rather than a silent guess.
 - **What happens to an option with neither source?** Per CLAUDE.md rule 4: flag it, do not guess.
 
-*Needed from you:* a decision on rounding, and confirmation that a flagged-but-unvalued option
-is acceptable behaviour rather than a blocker.
+**B6 — rounding policy. Decided, no user input needed.**
+
+Measure the multiplier per product. If the measurement falls within a fixed tolerance of a whole
+number, take the whole number. If it does not, do not guess: flag the instrument and say so in the
+UI, exactly as an unrecognised cash row is handled.
+
+The reasoning is that a contract size is a whole number by definition — it is a count of shares per
+contract. So `99,7` is measurement noise from a snapshot price a few seconds stale, and `103` is
+real. A measurement landing on, say, `87,3` is neither, and that is precisely the case where
+rounding would manufacture a plausible wrong number. Rounding is not a hardcoded value; it is the
+use of a structural fact. No contract size is ever written into the source.
+
+The tolerance itself **is** a threshold, so per §3/US-01 it is a fixed constant in `config.js`,
+reviewed by a human, and explicitly not derived from the data it polices.
+
+*Needed from you:* nothing. Overrule it if you disagree.
 
 ### US-03 — Calls & puts
 
@@ -358,21 +388,51 @@ Two items need a decision before the sprint starts:
 
 ---
 
-## 6. Open blockers
+## 6. Reverting a single story
+
+The DoD asks that a change can be safely reverted. That works, with one convention and two
+caveats worth knowing before the sprint rather than during an incident.
+
+**The convention.** Each story lands as exactly one merge commit on `main`, with its identifier in
+the subject — `S1/US-02: …`. Undoing that story is then `git revert -m 1 <merge-sha>`, which removes
+the whole story and nothing else, and leaves the revert itself in the history. Each release gets a
+tag (`v0.10.0`) so a whole version can be dropped back in one step too.
+
+**Caveat 1 — the chained stories cannot be reverted independently.** S1 → S2 → S3 are causally
+linked: S2 removes derivatives from the FX derivation, which is only correct because S1 taught the
+code what a derivative is. Revert S1 alone and you get a state that is neither the old behaviour nor
+the new one, and that nothing has ever tested. **Revert a chain from the top down**, or not at all.
+S5 and S8 touch only the UI and revert freely.
+
+**Caveat 2 — reverting code does not un-migrate storage.** If a story changes the IndexedDB schema,
+rolling the code back leaves the new schema on disk. This is survivable here, and by design: only
+raw API responses are truth (CLAUDE.md rule 2), so **revert + Wipe & resync** always recovers. It
+does mean a storage-touching story's revert instruction is two steps, not one, and the changelog
+entry should say so.
+
+**What "undeploy" cannot mean.** There is no server and no auto-update. Users run an unpacked folder
+or a downloaded ZIP, so there is no remote kill switch — a revert reaches someone only when they
+pull or re-download. If a release turns out to be wrong, the honest move is a fast follow-up version
+plus telling people to resync, not a silent rollback.
+
+## 7. Open blockers
 
 | # | Blocker | Blocks |
 |---|---|---|
 | B1 | Does `products/info` return `contractSize`? Needs a raw response or HAR — our export discards it | US-02 approach choice (measure vs read) |
-| B2 | Does an expiring option produce a closing transaction? | US-03 out-of-scope half |
+| ~~B2~~ | ~~Closing transaction on expiry?~~ **Answered: yes, zero phantom positions** | — |
 | B3 | Is GME −4,0941 a real short position? | US-05 |
 | ~~B4~~ | ~~Which slicer, which chart?~~ **Answered: "Results per", scoped to 2 of 8 charts** | US-06 |
 | B8 | Should the KPI tiles follow the range, or stay all-time? | US-06 |
 | B9 | US-08: replace the summary table, colour by selection order, keep both modes? | US-08 |
-| B5 | Is a written premium also booked as external cashflow? | US-03 |
-| B6 | Rounding policy for measured multipliers | US-02 |
+| ~~B5~~ | ~~Premium booked as external cashflow?~~ **Answered: no, and zero `UNKNOWN` rows** | — |
+| ~~B6~~ | ~~Rounding policy~~ **Decided: round to whole numbers within tolerance, flag the rest** | — |
 | B7 | Flag sparse FX gaps, or fetch a real FX series? | US-04 |
 
 B1 does not block the sprint: the multiplier is measurable from data we already hold, and that is
 the more robust route anyway since it is verified against DEGIRO's own numbers rather than trusted
-from a field. B3 and B4 need a human. B2 and B5 I can answer from this export if you want that
-before the sprint rather than during it.
+from a field.
+
+Remaining: **B3** and **B8** are one-line answers from you, **B7** and **B9** are choices where a
+recommendation is on the table, and **B1** only matters if we later prefer reading the field over
+measuring it.
