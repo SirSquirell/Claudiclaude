@@ -285,13 +285,53 @@ when money arrives is not a stylistic choice, it is a wrong number drawn in a fa
 
 ---
 
+## 3e. B11 — a contract size measured through an interpolated rate lands on the wrong integer
+
+**Found by the synthetic account on the day it was built, which is the argument for having it.**
+
+`deriveContractSizes` divides the settled ratio by `fxAt(currency, tradeDate)`. Between two
+observed rates that value is a straight line, and a straight line is a few percent away from the
+real path. That error lands directly on the contract size, and then it is rounded:
+
+| Contract | True size | Measured | Rounded to |
+|---|---:|---:|---:|
+| `CTS C130.00 19JUN26` (USD) | 100 | 101,896 | **102** |
+| `ALP C220.00 18DEC26` (CHF) | 100 | 103,104 | **103** |
+| the four EUR options | 10 / 100 / 103 | exact | correct |
+
+Only the non-euro ones are wrong, and euro trades have no rate to interpolate. The verdict comes
+back `measured`, so nothing warns: every valuation of that option is then quietly 2–3% out, and
+the reconciliation attributes it to "prices differ".
+
+**Not fixed here.** It is a money path, it was found at the end of a long session, and the
+existing tolerance is not the problem — 101,896 is 0,1% from 102 and legitimately rounds there.
+The measurement has to get better, not the rounding.
+
+*Directions, in order of how much they are worth:*
+
+1. **Measure where the rate is observed.** Prefer an instrument's trades that fall near a real FX
+   observation, and widen the uncertainty for ones that do not. Principled: measure where you can
+   see, rather than where you have interpolated.
+2. **Cancel the rate out.** For two trades in the same currency on the same day, the rate divides
+   away; a stock in that currency has size 1, so its ratio *is* the rate that day. Exact where the
+   data allows it, silent where it does not.
+3. **Report uncertainty rather than a number.** If more than one integer fits the measurement once
+   FX error is allowed for, the honest answer is `unresolved`, which is what CLAUDE.md rule 4 says
+   to do with anything that would otherwise be a guess.
+
+*Acceptance:* `npm run audit:synthetic` measures 10, 100 and 103 correctly in every currency,
+where the generator states the truth and the engine is never told it.
+
+---
+
 ## 4. Shape of 0.11, if it were decided today
 
 | | | Why here |
 |---|---|---|
 | 1 | Keep unrecognised fields from the API | Blocks everything else; cheapest item in the list |
 | 2 | Spike: look at what margin and option data actually arrives | Written outcome, half a day, no code |
-| 3 | T-1 guards + allowlist inversion | Closes a hole that is open right now |
+| 3 | B11: contract size measured through an interpolated rate | A money path that is silently wrong today, found by the synthetic account |
+| 4 | T-1 guards + allowlist inversion | Closes a hole that is open right now |
 | 4 | US-11 diagnostics share | Makes the safe path the easy path |
 | 5 | US-03 second half: option identity and expiry pricing | Needs 1 and 2 |
 | 6 | US-12 drag-to-zoom the value chart | Independent; also closes the arbitrary-date-range gap |

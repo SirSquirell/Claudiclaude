@@ -10,7 +10,9 @@
     "icons": "node tools/make-icons.mjs",
     "demo": "node tools/serve.mjs",
     "audit": "node tools/audit-export.mjs",
-    "check:leaks": "node tools/check-leaks.mjs"
+    "check:leaks": "node tools/check-leaks.mjs",
+    "account": "node tools/make-account.mjs",
+    "audit:synthetic": "node tools/make-account.mjs --out /tmp/synthetic-account.json && node tools/audit-export.mjs /tmp/synthetic-account.json"
   },
   "engines": {
     "node": ">=20"

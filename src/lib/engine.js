@@ -447,18 +447,27 @@ export function deriveFxRates(transactions, products, days, dayIndex, baseCurren
     chosen.set(ccy, { raw: lowest, source: 'trades', dropped: raw.length - lowest.length });
   }
 
-  // Pence and pounds are the same currency. Either one gives the other, which
-  // is how a GBP cash balance stops being counted at 1:1.
+  // Pence and pounds are the same currency, so their observations are pooled
+  // rather than chosen between. Picking one loses the other: an account that
+  // trades in pence but converts in pounds has a three-year-old GBX trade and a
+  // GBP conversion from this week, and taking the trade prices today's holding
+  // at a rate from 2023.
   for (const [from, to, factor] of [
     ['GBP', 'GBX', 1 / 100],
     ['GBX', 'GBP', 100],
   ]) {
-    if (chosen.has(from) && !chosen.has(to)) {
-      const src = chosen.get(from);
+    if (!chosen.has(from)) continue;
+    const src = chosen.get(from);
+    const converted = src.raw.map((o) => ({ ...o, rate: o.rate * factor }));
+    const existing = chosen.get(to);
+    if (!existing) {
+      chosen.set(to, { raw: converted, source: from.toLowerCase(), dropped: 0 });
+    } else if (src.source === 'conversions' && existing.source !== 'conversions') {
+      // A stated rate outranks an inferred one, so the pooled set is led by it.
       chosen.set(to, {
-        raw: src.raw.map((o) => ({ ...o, rate: o.rate * factor })),
-        source: `${from.toLowerCase()}`,
-        dropped: 0,
+        raw: [...existing.raw, ...converted],
+        source: `${existing.source}+${from.toLowerCase()}`,
+        dropped: existing.dropped,
       });
     }
   }

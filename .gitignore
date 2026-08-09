@@ -18,3 +18,8 @@ exports/
 # Local list of names the leak check should refuse. Never committed: a list of
 # names kept to guard against names in commits is the thing it guards against.
 .leakwords
+
+# Bug-report exports from testers. Read them from wherever they are; they never
+# enter the working tree. tools/audit-export.mjs refuses a path inside the repo.
+*.json.zip
+bug-reports/
