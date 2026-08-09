@@ -214,19 +214,53 @@ export async function mergePriceSeries(vwdId, incoming) {
  * The session cookie is not in this list because it is never stored: it is read
  * from the cookie jar per request and never written to disk.
  */
+/**
+ * Meta keys the export may carry. CLAUDE.md rule 7: what leaves the machine is
+ * declared, and anything undeclared is redacted.
+ *
+ * This list is deliberately an allowlist. 0.10.0 shipped the inverse — four
+ * named keys to strip — and that shape encodes its own next failure: a key added
+ * to the store tomorrow is exported by default, and keeps being exported until
+ * somebody remembers. It leaked `displayName`, `intAccount` and `userToken`
+ * exactly that way, because nobody had listed them.
+ *
+ * Everything here answers "what state was the sync in", which is what a bug
+ * report needs. Nothing here says who you are.
+ */
+export const EXPORTABLE_META = [
+  'lastDataDate',
+  'lastError',
+  'lastSyncAt',
+  'liveSnapshot',
+  'liveTotal',
+  'missingPriceSeries',
+  'syncLog',
+  'syncState',
+  'urls',
+];
+
+/**
+ * Keys known to identify the account holder. Not consulted by `redactMeta` —
+ * anything outside `EXPORTABLE_META` is redacted whether it is listed here or
+ * not. It exists so the leak guard and the classification test have something
+ * to check new keys against, and so the decision is recorded rather than
+ * implied by an absence.
+ */
 export const IDENTIFYING_META = ['displayName', 'intAccount', 'userToken', 'clientId'];
 
 /**
- * Strip the identifying rows from a meta store. Pure, so it is tested for real
- * rather than by a test that reimplements it — `exportEverything` needs
- * IndexedDB and this is the part that has to be right.
+ * Keep only the declared rows. Pure, so it is tested for real rather than by a
+ * test that reimplements it — `exportEverything` needs IndexedDB, and this is
+ * the part that has to be right.
  *
- * Values, dates and instrument names stay: they are the whole point of the file.
+ * Portfolio values, dates and instrument names stay: they are the point of the
+ * file, and no redaction makes them safe. That is a property of the export
+ * itself, said plainly in the README.
  */
 export function redactMeta(rows) {
-  const drop = new Set(IDENTIFYING_META);
+  const allow = new Set(EXPORTABLE_META);
   if (!Array.isArray(rows)) return rows;
-  return rows.map((row) => (drop.has(row?.key) ? { ...row, value: '[redacted]' } : row));
+  return rows.map((row) => (allow.has(row?.key) ? row : { ...row, value: '[redacted]' }));
 }
 
 /** SPEC §4: "Ship an 'export JSON' ... button." */
@@ -234,6 +268,6 @@ export async function exportEverything() {
   const out = { exportedAt: new Date().toISOString(), version: STORAGE.dbVersion };
   for (const name of STORAGE.stores) out[name] = await getAll(name);
   out.meta = redactMeta(out.meta);
-  out.redacted = IDENTIFYING_META;
+  out.exportedMetaKeys = EXPORTABLE_META;
   return out;
 }

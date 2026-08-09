@@ -13,6 +13,7 @@ import {
   depositChart,
   dividendChart,
   investedVsValueChart,
+  holdingsPieChart,
   monthCompareChart,
   pnlChart,
   valueChart,
@@ -41,6 +42,8 @@ const state = {
   selectedMonths: [],
   /** 'YYYY-MM' keys picked for the specific-months comparison. */
   selectedCells: [],
+  /** 'table' or 'share' — how the holdings card is drawn. */
+  holdingsView: 'table',
 };
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -154,6 +157,25 @@ function buildControls() {
       render();
     });
     metricGroup.append(b);
+  }
+
+  const holdingsGroup = $('#holdings-view');
+  for (const v of [
+    { key: 'table', label: 'Table' },
+    { key: 'share', label: 'Share' },
+  ]) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = v.label;
+    b.setAttribute('aria-pressed', String(v.key === state.holdingsView));
+    b.addEventListener('click', () => {
+      state.holdingsView = v.key;
+      for (const other of holdingsGroup.querySelectorAll('button')) {
+        other.setAttribute('aria-pressed', String(other === b));
+      }
+      render();
+    });
+    holdingsGroup.append(b);
   }
 
   $('#btn-clear-months').addEventListener('click', () => {
@@ -845,6 +867,60 @@ function renderHoldings(r, composition, t) {
     </tr>`;
 
   $('#holdings tbody').innerHTML = body + cashRow;
+
+  renderHoldingsShare(composition, rows, t, r);
+}
+
+/**
+ * The same holdings as a share of the whole, for people who read a ring faster
+ * than a column of numbers.
+ *
+ * Two things it deliberately does not do. It does not rank close values — that
+ * is what the table is for, and it is one click away carrying the same colours.
+ * And it does not draw liabilities: a written option has a negative value, a
+ * share of a whole cannot be below zero, and folding one in by its absolute size
+ * would draw a debt as though it were an asset. They are named underneath
+ * instead.
+ */
+function renderHoldingsShare(composition, rows, t, r) {
+  const share = state.holdingsView === 'share';
+  $('#holdings-table-wrap').hidden = share;
+  $('#holdings-pie-box').hidden = !share;
+  if (!share) {
+    $('#holdings-hint').textContent =
+      'The same series as the stacked chart, as numbers — so nothing depends on telling two colours apart.';
+    return;
+  }
+
+  // The composition's layers, not every holding. Drawing one slice per position
+  // gives eleven of them, and everything past the seventh categorical slot
+  // repeats a hue — two slices in the same colour is worse than no chart. The
+  // layers are already ranked and folded into "Other", which is the same
+  // grouping the stacked chart uses, so the two agree slice for slice.
+  const slices = composition.layers
+    .map((layer, i) => ({
+      label: layer.label,
+      value: layer.values.at(-1) ?? 0,
+      colour: layer.key === '__cash__' ? t.cash : t.series[i % t.series.length],
+    }))
+    .filter((s) => s.value > 0);
+
+  const liabilities = rows.filter((p) => p.current < 0);
+
+  state.charts.holdingsPie = holdingsPieChart(
+    $('#c-holdings-pie'),
+    { labels: slices.map((s) => s.label), values: slices.map((s) => s.value), colours: slices.map((s) => s.colour) },
+    t,
+  );
+
+  const owed = liabilities.reduce((a, p) => a + p.current, 0);
+  const cashNote = r.totals.cash < 0 ? ` Cash is ${fmtEurCents(r.totals.cash)} and is left out for the same reason.` : '';
+  $('#holdings-hint').textContent = liabilities.length
+    ? `Share of what the account owns. ${liabilities.length} written position(s) worth ${fmtEurCents(owed)} are not ` +
+      `shown — a share of a whole cannot be negative, and drawing a liability as a slice would read as an asset.` +
+      `${cashNote} Switch to Table for the full picture.`
+    : `Share of what the account owns.${cashNote} Switch to Table to compare values that sit close together — a ring ` +
+      `is for reading proportions at a glance, not for ranking.`;
 }
 
 function renderFooter(r, data) {

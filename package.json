@@ -5,11 +5,12 @@
   "description": "Chrome MV3 extension that reconstructs DEGIRO portfolio value over time from transactions, cash movements and daily prices.",
   "type": "module",
   "scripts": {
-    "test": "node --test \"test/*.test.js\"",
+    "test": "node tools/check-leaks.mjs && node --test \"test/*.test.js\"",
     "fixtures": "node tools/make-fixtures.mjs",
     "icons": "node tools/make-icons.mjs",
     "demo": "node tools/serve.mjs",
-    "audit": "node tools/audit-export.mjs"
+    "audit": "node tools/audit-export.mjs",
+    "check:leaks": "node tools/check-leaks.mjs"
   },
   "engines": {
     "node": ">=20"

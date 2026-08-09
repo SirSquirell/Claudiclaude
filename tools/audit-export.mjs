@@ -15,12 +15,25 @@
  * account beyond instrument names already visible in the UI.
  */
 import { readFileSync } from 'node:fs';
+import { resolve, relative } from 'node:path';
 import { computePortfolio } from '../src/lib/engine.js';
 
 const paths = process.argv.slice(2);
 if (!paths.length) {
   console.error('usage: node tools/audit-export.mjs <export.json> [...]');
   process.exit(2);
+}
+
+// An export inside the repository is one `git add -A` away from being published.
+// Read it from wherever it already is; there is never a reason to copy it here.
+const repo = resolve(new URL('..', import.meta.url).pathname);
+for (const p of paths) {
+  const rel = relative(repo, resolve(p));
+  if (!rel.startsWith('..')) {
+    console.error(`refusing to read ${p}: it is inside the repository.`);
+    console.error('Keep account exports outside the working tree — see CLAUDE.md rule 7.');
+    process.exit(2);
+  }
 }
 
 let failures = 0;

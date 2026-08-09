@@ -11,6 +11,29 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [Unreleased] — 0.11
+
+### Security
+
+- **The export declares what it may carry instead of what it must strip.** 0.10.0 shipped a
+  denylist of four keys, which meant a key added to the store tomorrow would be exported by
+  default — the exact shape that leaked `displayName` in the first place. It is now an
+  allowlist, and a test fails when a meta key is written that nobody has classified. Verified
+  by adding one and watching it fail.
+- **`npm test` now refuses account data in the repository.** A blunt pattern check for exports,
+  identifying keys set to literals, account-like numbers, and names from a local (never
+  committed) `.leakwords` file. Checked against the two incidents that actually happened: a
+  pasted account number and a tester's name in a document. Zero findings on a clean tree.
+- **`npm run audit` refuses a path inside the repository**, so an export cannot be staged by
+  accident.
+
+### Added
+
+- **Holdings toggle between a table and a share ring.** The ring uses the same grouping and the
+  same colours as the stacked composition chart, so the two agree slice for slice. Written
+  positions are not drawn and are named underneath instead: a share of a whole cannot be
+  negative, and a liability drawn as a slice reads as an asset.
+
 ## [0.10.0] — 2026-08-09
 
 The options release. Three separately-reported problems turned out to be one defect, and a

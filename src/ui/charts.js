@@ -547,3 +547,48 @@ export function sparkline(ctx, values, t) {
     },
   });
 }
+
+/**
+ * Current holdings as a share of the whole.
+ *
+ * A part-to-whole read at a glance, and nothing more: it is the wrong shape for
+ * comparing two close values, which is why the table it toggles with is one
+ * click away and carries the same colours. Segments are already grouped into
+ * the composition's top layers plus "Other", so the slice count stays readable.
+ *
+ * Negative positions are not here, and cannot be. A written option is a
+ * liability — a share of a whole cannot be below zero, and folding one in by its
+ * absolute value would draw a debt as if it were an asset. The caller says so in
+ * words instead.
+ */
+export function holdingsPieChart(ctx, { labels, values, colours }, t) {
+  const opts = baseOptions(t);
+  delete opts.scales;
+  opts.plugins.legend.display = true;
+  opts.plugins.legend.position = 'right';
+  opts.plugins.tooltip.callbacks = {
+    label: (item) => {
+      const total = item.dataset.data.reduce((a, b) => a + b, 0) || 1;
+      return `${item.label} — ${fmtEur(item.parsed)} (${((item.parsed / total) * 100).toFixed(1)}%)`;
+    },
+  };
+
+  return new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [
+        {
+          data: values,
+          backgroundColor: colours.map((c) => alpha(c, 0.85)),
+          // A 2px surface gap between segments, the same spacer the stacked
+          // chart uses, rather than an outline.
+          borderColor: t.surface,
+          borderWidth: 2,
+          hoverOffset: 6,
+        },
+      ],
+    },
+    options: opts,
+  });
+}

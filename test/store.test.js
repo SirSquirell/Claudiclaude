@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { mergeSeriesPoints, redactMeta } from '../src/lib/store.js';
+import { EXPORTABLE_META, IDENTIFYING_META, mergeSeriesPoints, redactMeta } from '../src/lib/store.js';
 import { addDays } from '../src/lib/dates.js';
 
 /** Helper: build a series from {isoDay: close} pairs against an anchor. */
@@ -74,25 +74,53 @@ test('merging an empty incoming series changes nothing', () => {
   assert.deepEqual(asDays(merged), { '2026-01-01': 1, '2026-01-02': 2 });
 });
 
-test('the export carries no name, account number or token', () => {
-  // Every defect in this project has been reported by sending this file to
-  // someone else. Portfolio values are the point of it; an identity is not.
+test('the export carries only what it declares', () => {
   const out = redactMeta([
     { key: 'displayName', value: 'Jane Q. Investor' },
     { key: 'intAccount', value: 9999999 },
     { key: 'userToken', value: '000000' },
     { key: 'liveTotal', value: 115553.37 },
     { key: 'lastDataDate', value: '2026-08-08' },
+    { key: 'somethingAddedNextYear', value: 'who knows' },
   ]);
   const byKey = Object.fromEntries(out.map((r) => [r.key, r.value]));
   assert.equal(byKey.displayName, '[redacted]');
   assert.equal(byKey.intAccount, '[redacted]');
   assert.equal(byKey.userToken, '[redacted]');
+  assert.equal(
+    byKey.somethingAddedNextYear,
+    '[redacted]',
+    'a key nobody has classified must not ship by default — that is how the last one leaked',
+  );
   assert.equal(byKey.liveTotal, 115553.37, 'the numbers are what the file is for');
   assert.equal(byKey.lastDataDate, '2026-08-08');
 });
 
-test('redaction leaves a meta store it does not recognise alone', () => {
+test('every meta key the code writes has been classified', async () => {
+  // The point of this test is that it fails on the ADDITION of a key, not that
+  // it confirms the four we already know about. Adding setMeta('whatever') and
+  // walking away is the exact mistake that shipped in 0.10.0.
+  const { readdirSync, readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+
+  const dir = new URL('../src/lib/', import.meta.url).pathname;
+  const written = new Set();
+  for (const file of readdirSync(dir).filter((f) => f.endsWith('.js'))) {
+    const src = readFileSync(join(dir, file), 'utf8');
+    for (const m of src.matchAll(/setMeta\(\s*'([A-Za-z0-9_]+)'/g)) written.add(m[1]);
+  }
+
+  assert.ok(written.size > 0, 'expected to find some setMeta calls to check');
+  const classified = new Set([...EXPORTABLE_META, ...IDENTIFYING_META]);
+  const unclassified = [...written].filter((k) => !classified.has(k));
+  assert.deepEqual(
+    unclassified,
+    [],
+    `these meta keys are neither exportable nor identifying — decide, in store.js: ${unclassified.join(', ')}`,
+  );
+});
+
+test('the redaction leaves a meta store it does not recognise alone', () => {
   assert.equal(redactMeta(undefined), undefined);
   assert.deepEqual(redactMeta([]), []);
 });

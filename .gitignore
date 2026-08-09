@@ -14,3 +14,7 @@ fixtures/real/
 degiro-portfolio-*.json
 *-export.json
 exports/
+
+# Local list of names the leak check should refuse. Never committed: a list of
+# names kept to guard against names in commits is the thing it guards against.
+.leakwords

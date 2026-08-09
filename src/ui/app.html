@@ -178,11 +178,17 @@
 
       <div class="grid" style="margin-top: 16px">
         <div class="card">
-          <h2>Holdings</h2>
-          <p class="hint">
-            The same series as the stacked chart, as numbers — so nothing depends on telling two colours apart.
-          </p>
-          <div class="table-scroll">
+          <div class="card-head">
+            <div>
+              <h2>Holdings</h2>
+              <p class="hint" id="holdings-hint">
+                The same series as the stacked chart, as numbers — so nothing depends on telling two colours apart.
+              </p>
+            </div>
+            <div class="group" id="holdings-view"></div>
+          </div>
+          <div class="chart-box" id="holdings-pie-box" hidden><canvas id="c-holdings-pie"></canvas></div>
+          <div class="table-scroll" id="holdings-table-wrap">
             <table id="holdings">
               <thead>
                 <tr>

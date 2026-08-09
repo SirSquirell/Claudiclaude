@@ -97,6 +97,6 @@ test('a vwdkey instrument is requested under its own identifier type', () => {
 });
 
 test('a bare id still means issueid', () => {
-  const url = ENDPOINTS.chart({ vwdIds: ['350009261'], userToken: '9' });
-  assert.ok(url.includes('series=price:issueid:350009261'));
+  const url = ENDPOINTS.chart({ vwdIds: ['350009261'], userToken: '9' }); // leak-check: ok — a vwd issue id from the spec
+  assert.ok(url.includes('series=price:issueid:350009261')); // leak-check: ok
 });
