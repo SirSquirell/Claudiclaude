@@ -43,6 +43,7 @@ for (const path of paths) {
     prices,
     today: meta.lastDataDate,
     liveTotal: meta.liveTotal ?? null,
+    livePositions: meta.liveSnapshot?.positions ?? null,
   });
 
   console.log(`\n=== ${path.split('/').pop()} — ${d.transactions.length} transactions, ${d.products.length} products ===`);
@@ -91,7 +92,8 @@ for (const path of paths) {
 
   const rec = r.reconciliation;
   if (rec) {
-    console.log(`   ${rec.ok ? 'PASS' : 'INFO'}  reconciliation — ours ${rec.reconstructed}, DEGIRO ${rec.live}, off by ${(rec.reconstructed - rec.live).toFixed(2)}`);
+    console.log(`   ${rec.ok ? 'PASS' : 'INFO'}  reconciliation — ours ${rec.reconstructed}, DEGIRO ${rec.live}, off by ${(rec.reconstructed - rec.live).toFixed(2)}${rec.positionsAgree ? ' (every share count agrees; prices differ)' : ' (POSITIONS DISAGREE)'}`);
+    for (const a of (rec.attribution ?? []).slice(0, 4)) console.log(`         ${a.name.slice(0, 34).padEnd(34)} ours ${String(a.ours).padStart(10)}  DEGIRO ${String(a.theirs).padStart(10)}  ${a.diff > 0 ? '+' : ''}${a.diff}`);
   } else {
     console.log('   INFO  reconciliation — no live total in this export, skipped');
   }

@@ -54,6 +54,9 @@ export async function recompute({ liveTotal = null } = {}) {
 
   const products = Object.fromEntries(rawProducts.map((p) => [p.id, p]));
   const total = liveTotal ?? (await getMeta('liveTotal', null));
+  // DEGIRO states the size of every open position. The engine checks ours
+  // against it: if today's position is wrong, so is every day behind it.
+  const snapshot = await getMeta('liveSnapshot', null);
 
   const result = computePortfolio({
     transactions: rawTx,
@@ -62,6 +65,7 @@ export async function recompute({ liveTotal = null } = {}) {
     prices,
     today: todayISO(),
     liveTotal: total,
+    livePositions: snapshot?.positions ?? null,
   });
 
   await setDerived(result);
