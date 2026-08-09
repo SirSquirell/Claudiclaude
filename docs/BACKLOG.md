@@ -438,6 +438,88 @@ DoD item *"automated tests zijn succesvol"* means something here.
 
 ---
 
+### US-11 — Testing must not be able to leak an account *(new, refined, first in the next sprint)*
+
+**As a tester I want to be able to report a bug without handing over my portfolio, and as a
+developer I want a mistake during testing to be structurally impossible rather than merely
+noticed afterwards.**
+
+#### Why this is a story and not a checklist
+
+Three times in one sprint, sensitive data moved because of testing:
+
+| | What moved | Caught by |
+|---|---|---|
+| 1 | The **Export** button shipped `displayName`, `intAccount` and `userToken` — and that file is how every defect in this project gets reported | reading the export while debugging |
+| 2 | A real account number and user token were copied **into a test file** | grepping for them afterwards |
+| 3 | `docs/BACKLOG.md` named both testers with their holdings and amounts beneath | grepping for them afterwards |
+
+All three are fixed. **None of them was prevented.** Every one was found by someone happening
+to look, and two were introduced by the person who then found them. That is the actual defect:
+the project has no mechanism that makes leaking harder than not leaking.
+
+#### The structural problem, stated precisely
+
+`IDENTIFYING_META` in `store.js` is a **denylist**. It names the four keys that must be
+redacted, which means a key added to the meta store tomorrow is exported by default and stays
+exported until someone remembers. The fix that was shipped in 0.10.0 encodes its own next
+failure.
+
+Requirements:
+
+1. **Invert it to an allowlist.** The export declares which meta keys may leave; anything not
+   named is redacted. A new key is then safe until someone decides otherwise, instead of
+   exposed until someone notices. A test fails when an unclassified key appears, so the
+   decision has to be made rather than defaulted. *This is roughly ten lines and closes the
+   hole the last fix left open.*
+2. **A bug report should not require sending a portfolio.** Today the only way to report a
+   defect is to send everything: every holding, every amount, every date. Most of what has
+   actually been diagnosed this sprint needed *shapes and relationships*, not amounts — the
+   contract size is a ratio, the exchange rate is a ratio, the fabricated position is a count
+   against a count. A **"Share diagnostics"** export carrying counts, ratios, verdicts, warning
+   codes and instrument *types* — but no amounts, no names, no instrument identities — would
+   have been enough to find all four defects in 0.10.0. Verify that claim against the real
+   exports before building it; if it does not hold, say which defect needed the amounts.
+3. **A guard that runs before a commit lands**, not after. Refuse a diff that contains a
+   `degiro-portfolio-*.json`, a meta key from the identifying set, or a long digit run inside
+   `test/`. It does not have to be clever — the three real incidents would all have been caught
+   by a dumb pattern check.
+4. **Test data is synthetic by construction.** No literal copied out of a real export may enter
+   `test/`. A generator that produces account-shaped data removes the temptation, which is what
+   actually caused incident 2: the real value was on screen and pasting it was the path of
+   least resistance.
+5. **The audit tool refuses to read an export from inside the repository**, so the file cannot
+   be staged by accident. It reads from wherever the file already is and writes nothing.
+6. **Findings are attributed to accounts, never to people.** Already true after the scrub; it
+   needs to stay true, which means it belongs in CLAUDE.md as a rule rather than in one
+   person's memory.
+7. **`diagnose.js` keeps its contract under test.** Its output is already designed to be
+   pasteable — session id length rather than value, no amounts — but nothing enforces it, and
+   it is the one output explicitly meant to be handed to a stranger.
+
+#### Acceptance criteria
+
+- ☐ An unclassified meta key is redacted from the export, and a test fails until it is classified.
+- ☐ A diagnostics-only share option exists, and it is demonstrated — against the two real
+  exports — that each 0.10.0 defect is diagnosable from it, or it is documented which is not.
+- ☐ A commit containing an account export, an identifying meta value, or a real account number
+  in `test/` is refused.
+- ☐ `npm run audit` refuses a path inside the repository.
+- ☐ `diagnose.js` output is asserted to contain no session id, account number or amount.
+- ☐ The rule that findings name accounts and not people is in CLAUDE.md.
+
+#### Out of scope
+
+Rewriting the git history to remove what earlier revisions still contain. That is a separate
+decision with a force push attached, and it is the repository owner's call, not a story.
+
+#### Note on what cannot be fixed
+
+An export that is useful for reconstructing a portfolio contains that portfolio. Requirement 2
+reduces how often the full file is needed; it does not make the full file safe. The honest end
+state is that the full export stays a thing you send to someone you trust, and the README says
+so.
+
 ### US-10 — Trade Republic *(backlog, not refined)*
 
 Raised during the 0.10.0 sprint and deliberately parked. One note so refinement starts in the
