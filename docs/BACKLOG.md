@@ -253,13 +253,10 @@ Every negative position in this account is a short option. Once US-03 values opt
 this story has almost nothing left. The acceptance criteria (`quantity = -1`, `< -1`, `= 0`) are
 worth keeping as *tests* on US-03 rather than as a separate story.
 
-One thing does not dissolve: the holdings screenshot shows **GameStop Corp. Class A, −4,0941
-shares** — a negative *fractional stock* position, which is not an option and not obviously
-legitimate. It could be a genuine short, a securities-lending artifact, or our ledger dropping a
-buy.
-
-*Needed:* whether the first tester actually holds a short GME position. If not, this is a separate ledger bug
-and gets its own story.
+One thing does not dissolve, and it turned out to be the biggest find of the refinement: the
+holdings screenshot shows **GameStop Corp. Class A, −4,0941 shares**. **B3 is answered — it is not
+a short position and the first tester does not hold it.** It is fabricated by the split rescaling, and it is
+the same defect as the phantom holdings on the second account. Moved to US-09.
 
 ### US-06 — Graph slicers
 
@@ -324,6 +321,82 @@ they do not follow from the request:
 
 *Needed:* a yes or no on those three. Nothing else is unclear, and it is small enough to fit
 alongside US-06 in this sprint.
+
+### US-09 — Phantom holdings and the share count we display *(new)*
+
+Reported on the second test account: holdings that are no longer held, and *"17k shares in
+something he doesn't own"*. **Reproduced in the first account's export, and it is a fabricated position, not a
+display artefact.**
+
+`GameStop Corp. Class A` — 19 transactions, all in early 2021, buys and sells cancelling to a raw
+ledger net of **exactly 0**. The engine's final quantity is **−4,094054**. DEGIRO does not report the
+position at all. It appears in the holdings table at −€ 67,84 and it is in the total.
+
+**The engine manufactures a position out of a ledger that closes.** The mechanism is in
+`computePortfolio`:
+
+```js
+const f = useFactor ? factorAt(entry.audit.ratios, i) : 1;
+arr[i] += Number.isFinite(f) && Math.abs(f) > 1e-12 ? t.quantity / f : t.quantity;
+```
+
+Each trade is divided by the split factor in force on *its own day*, so that `qty × price` is
+dimensionally sound against a split-adjusted series. But when trades on different days fall into
+different factor regimes, the buys and the sells are divided by different numbers and no longer
+cancel. 19 shares in and 19 shares out leave a residual of −4,09.
+
+`clusterFactors` (REGIME_TOLERANCE 1.25) was added to stop precisely this — it fixed an earlier
+€0,47 ghost — but it narrows the spread rather than guaranteeing closure. **A position that closes
+must close regardless of what the factors do**, and today nothing enforces that.
+
+**Confirmed on the second account, and it is the reported "17k".** `Bed Bath & Beyond` on the second account's
+export: bought 26 and 17 on 2022-08-16, sold 43 on 2022-08-22 — a clean round trip, **raw ledger net
+0**. The engine holds **17,362971728699264**, DEGIRO reports nothing, and it sits in the holdings
+table at € 69,22.
+
+One fabricated position per account, in both cases from a ledger that closes:
+
+| Account | Instrument | Engine | Ledger | DEGIRO | Invented value |
+|---|---|---:|---:|---|---:|
+| the first tester (303 products) | GameStop Corp. Class A | −4,0941 | 0 | absent | −€ 67,84 |
+| the second tester (149 products) | Bed Bath & Beyond | 17,3630 | 0 | absent | € 69,22 |
+
+**The magnitude was misread, and that is a second defect.** It is 17,36 *shares*, not 17 000. The
+holdings table formats with `nl-NL` and up to four decimals (`app.js:681`), so `17,363` sits in a
+column directly beneath `2.000` and `1.159` — where the separator means thousands. The number is
+genuinely ambiguous, and it cost a round of diagnosis in a bug report. Share counts should not be
+rendered in a format where the decimal separator can be read as a grouping separator.
+
+The value defect is real either way: € 69,22 of a position that does not exist, in the total.
+
+*Direction (to be settled in the sprint, not here):* apply the factor as a step change to the
+accumulated position at a regime boundary, rather than as a per-trade divisor. Closure is then
+preserved by construction instead of by luck.
+
+**Two acceptance tests, both available from this export:**
+
+1. If the raw ledger nets to zero for a product, the engine's quantity is exactly zero. *(GameStop:
+   currently fails.)*
+2. For every open position, the engine's quantity equals DEGIRO's reported `size`. *(All others:
+   currently pass, 1 of 27 fails.)*
+
+The second one is worth keeping permanently as a red warning naming the instrument, in the same
+class as the reconciliation banner — *if today's position is wrong, the history is wrong too*. It
+would have caught the 17k the day it appeared.
+
+**Separately, the holdings table shows the converted quantity, not the share count.** `app.js:678`
+renders `p.qty.at(-1)`, which is in the price series' units. Where a factor is below 1 the displayed
+count is inflated even when the value is right. The converted quantity should stay internal.
+
+**B10 — does DEGIRO book a split as a transaction pair?** Strong prior evidence that it does not:
+the €429 million case showed 49 shares at an adjusted quote of 7 030 800 against € 538,92 actually
+paid, which only holds if the ledger is *un*adjusted. That is one instrument, so it is evidence
+rather than proof, and it should be checked against the 18 rescaled instruments on the second account
+during the sprint. It does not block the acceptance tests above: closure must hold whichever way the
+answer falls.
+
+*Scale of the machinery involved:* the second account rescales **18** instruments and rejects **3**;
+the first account's rescales 3. This code path fires often, so a defect in it is not an edge case.
 
 ### US-07 — Options & margin dashboard
 
@@ -421,7 +494,8 @@ plus telling people to resync, not a silent rollback.
 |---|---|---|
 | B1 | Does `products/info` return `contractSize`? Needs a raw response or HAR — our export discards it | US-02 approach choice (measure vs read) |
 | ~~B2~~ | ~~Closing transaction on expiry?~~ **Answered: yes, zero phantom positions** | — |
-| B3 | Is GME −4,0941 a real short position? | US-05 |
+| ~~B3~~ | ~~Is GME −4,0941 a real short?~~ **Answered: no — fabricated by the split rescaling** | now US-09 |
+| B10 | Does DEGIRO book a split as a transaction pair? the first account's rescaled instruments are all closed | US-09 |
 | ~~B4~~ | ~~Which slicer, which chart?~~ **Answered: "Results per", scoped to 2 of 8 charts** | US-06 |
 | B8 | Should the KPI tiles follow the range, or stay all-time? | US-06 |
 | B9 | US-08: replace the summary table, colour by selection order, keep both modes? | US-08 |
