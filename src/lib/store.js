@@ -204,9 +204,36 @@ export async function mergePriceSeries(vwdId, incoming) {
 
 // --- export ----------------------------------------------------------------
 
+/**
+ * Keys that identify the person rather than describe the account.
+ *
+ * The export exists to be sent to someone else — it is how every defect in this
+ * project has been reported — so it must not carry anything the recipient has no
+ * business holding. Nothing here is needed to reconstruct or audit a portfolio.
+ *
+ * The session cookie is not in this list because it is never stored: it is read
+ * from the cookie jar per request and never written to disk.
+ */
+export const IDENTIFYING_META = ['displayName', 'intAccount', 'userToken', 'clientId'];
+
+/**
+ * Strip the identifying rows from a meta store. Pure, so it is tested for real
+ * rather than by a test that reimplements it — `exportEverything` needs
+ * IndexedDB and this is the part that has to be right.
+ *
+ * Values, dates and instrument names stay: they are the whole point of the file.
+ */
+export function redactMeta(rows) {
+  const drop = new Set(IDENTIFYING_META);
+  if (!Array.isArray(rows)) return rows;
+  return rows.map((row) => (drop.has(row?.key) ? { ...row, value: '[redacted]' } : row));
+}
+
 /** SPEC §4: "Ship an 'export JSON' ... button." */
 export async function exportEverything() {
   const out = { exportedAt: new Date().toISOString(), version: STORAGE.dbVersion };
   for (const name of STORAGE.stores) out[name] = await getAll(name);
+  out.meta = redactMeta(out.meta);
+  out.redacted = IDENTIFYING_META;
   return out;
 }

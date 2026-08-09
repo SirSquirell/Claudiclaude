@@ -179,4 +179,11 @@ by DEGIRO and liable to break without notice. Don't publish it to the Chrome Web
 Everyone who installs it uses their own DEGIRO login; there is no shared data and
 nobody can see anyone else's portfolio.
 
+There are no API keys or stored credentials: the extension uses the session cookie your
+browser already holds, read per request and never written to disk, logged, or exported.
+Requests go to `trader.degiro.nl` and `charting.vwdservices.com` and nowhere else. The
+**Export JSON** file — the one to send with a bug report — has your name, account number
+and user token redacted; it still contains your holdings and amounts, so share it with
+someone you trust.
+
 Chart.js is MIT licensed — see `vendor/chart.js-LICENSE.md`.

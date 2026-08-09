@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { mergeSeriesPoints } from '../src/lib/store.js';
+import { mergeSeriesPoints, redactMeta } from '../src/lib/store.js';
 import { addDays } from '../src/lib/dates.js';
 
 /** Helper: build a series from {isoDay: close} pairs against an anchor. */
@@ -72,4 +72,27 @@ test('merging an empty incoming series changes nothing', () => {
   const stored = series('2026-01-01', { '2026-01-01': 1, '2026-01-02': 2 });
   const merged = mergeSeriesPoints(stored, { start: '2026-01-01', stepDays: 1, points: [] });
   assert.deepEqual(asDays(merged), { '2026-01-01': 1, '2026-01-02': 2 });
+});
+
+test('the export carries no name, account number or token', () => {
+  // Every defect in this project has been reported by sending this file to
+  // someone else. Portfolio values are the point of it; an identity is not.
+  const out = redactMeta([
+    { key: 'displayName', value: 'Jane Q. Investor' },
+    { key: 'intAccount', value: 9999999 },
+    { key: 'userToken', value: '000000' },
+    { key: 'liveTotal', value: 115553.37 },
+    { key: 'lastDataDate', value: '2026-08-08' },
+  ]);
+  const byKey = Object.fromEntries(out.map((r) => [r.key, r.value]));
+  assert.equal(byKey.displayName, '[redacted]');
+  assert.equal(byKey.intAccount, '[redacted]');
+  assert.equal(byKey.userToken, '[redacted]');
+  assert.equal(byKey.liveTotal, 115553.37, 'the numbers are what the file is for');
+  assert.equal(byKey.lastDataDate, '2026-08-08');
+});
+
+test('redaction leaves a meta store it does not recognise alone', () => {
+  assert.equal(redactMeta(undefined), undefined);
+  assert.deepEqual(redactMeta([]), []);
 });

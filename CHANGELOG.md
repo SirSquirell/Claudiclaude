@@ -66,6 +66,19 @@ these fixes.
 - **Compare specific months.** Click a cell in the grid — September 2025 against November 2020,
   up to four. Clicking a month name still compares that month across every year.
 
+### Security
+
+- **The exported JSON no longer carries your name, account number or user token.** That file is
+  how every defect in this project has been reported, so it gets sent to other people; it was
+  shipping `displayName`, `intAccount` and `userToken` along with the numbers. Those are now
+  redacted. Values, dates and instrument names stay — they are what the file is for.
+
+  Nothing else was exposed. This extension has no API keys: it uses the session cookie your
+  browser already holds, which is read per request and never stored, logged or exported. The
+  connection check reports the length of that cookie and never its value. Requests go to
+  `trader.degiro.nl` and `charting.vwdservices.com` and nowhere else, and the content security
+  policy forbids loading any remote script.
+
 ### Changed
 
 - The month comparison drops its aggregate columns when specific months are picked. Averaging
