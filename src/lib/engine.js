@@ -65,6 +65,15 @@ const CONTRACT_SIZE_TOLERANCE = 0.03;
 const CONTRACT_SIZE_SPREAD = 1.5;
 
 /**
+ * How close a trade must sit to a stated exchange rate for its contract-size
+ * measurement to be trusted. Inside this window the rate is the one DEGIRO
+ * applied, or a short interpolation between two of them; outside it, a straight
+ * line across months carries percents of error, and a contract size is an
+ * integer that a percent of error can move to the wrong one.
+ */
+const FX_OBSERVATION_WINDOW = 20;
+
+/**
  * How far a quote may sit from the price actually paid before the series is
  * disowned. Wide on purpose: a fill is intraday against a close, and a non-EUR
  * instrument is counted at 1:1 until FX exists, which is another ~20% on top.
@@ -325,7 +334,21 @@ export function fxFromConversions(cashRows, dayIndex, baseCurrency = 'EUR') {
  * On a real account that put the total €39 758,03 above what DEGIRO reported,
  * with 27 written puts booked as if each contract covered a single share.
  */
-export function deriveContractSizes(transactions, products, fxAt, baseCurrency = 'EUR') {
+export function deriveContractSizes(transactions, products, fxAt, baseCurrency = 'EUR', observedAt = {}, dayIndex = null) {
+  // Where a rate was actually stated, the measurement is exact. Between two
+  // observations it rides an interpolated rate, and that error lands straight on
+  // the contract size: a true 100 measured through a rate 2% out reads 102 and
+  // rounds there, silently, with the verdict still saying "measured". So a trade
+  // near an observation is worth more than one far from it, and if any of an
+  // instrument's trades are near enough, the far ones are not used at all.
+  const nearObservation = (ccy, date) => {
+    if (ccy === baseCurrency) return true; // no rate, no error
+    const seen = observedAt[ccy];
+    const i = dayIndex?.get(date);
+    if (!seen?.length || i === undefined) return false;
+    return seen.some((o) => Math.abs(o - i) <= FX_OBSERVATION_WINDOW);
+  };
+
   const perProduct = new Map();
   for (const t of transactions) {
     const meta = products[t.productId];
@@ -335,13 +358,18 @@ export function deriveContractSizes(transactions, products, fxAt, baseCurrency =
     if (!(grossCcy > 0) || !(grossBase > 0)) continue;
     const rate = fxAt(ccy, t.date);
     if (!(rate > 0)) continue;
-    if (!perProduct.has(t.productId)) perProduct.set(t.productId, []);
-    perProduct.get(t.productId).push(grossBase / grossCcy / rate);
+    if (!perProduct.has(t.productId)) perProduct.set(t.productId, { near: [], far: [] });
+    const bucket = nearObservation(ccy, t.date) ? 'near' : 'far';
+    perProduct.get(t.productId)[bucket].push(grossBase / grossCcy / rate);
   }
 
   const sizes = {};
   const report = [];
-  for (const [productId, measured] of perProduct) {
+  for (const [productId, buckets] of perProduct) {
+    // Trades near a stated rate if there are any; otherwise all of them, with
+    // the reduced confidence recorded rather than hidden.
+    const measured = buckets.near.length ? buckets.near : buckets.far;
+    const anchored = buckets.near.length > 0;
     const sorted = measured.slice().sort((a, b) => a - b);
     const median = sorted[Math.floor(sorted.length / 2)];
     if (!(median > 0)) continue;
@@ -364,6 +392,7 @@ export function deriveContractSizes(transactions, products, fxAt, baseCurrency =
       size: rounded,
       residualPct: Number((residual * 100).toPrecision(3)),
       observations: measured.length,
+      anchored,
       spread: Number(spread.toPrecision(3)),
     };
 
@@ -474,6 +503,8 @@ export function deriveFxRates(transactions, products, days, dayIndex, baseCurren
 
   const series = {};
   const report = [];
+  /** Days on which a rate was actually observed, per currency. */
+  const observedAt = {};
 
   for (const [ccy, { raw, source, dropped }] of chosen) {
     // One rate per day, so two conversions on one day cannot fight.
@@ -498,6 +529,7 @@ export function deriveFxRates(transactions, products, days, dayIndex, baseCurren
       else arr[i] = a.rate + ((b.rate - a.rate) * (i - a.index)) / (b.index - a.index);
     }
     series[ccy] = arr;
+    observedAt[ccy] = points.map((p) => p.index);
 
     // How far this currency is ever extrapolated or interpolated, so the UI can
     // say which stretches of the chart rest on a straight line.
@@ -519,7 +551,7 @@ export function deriveFxRates(transactions, products, days, dayIndex, baseCurren
     });
   }
 
-  return { series, report };
+  return { series, report, observedAt };
 }
 
 /**
@@ -585,7 +617,7 @@ export function computePortfolio(input) {
   };
 
   // ---- 1b. exchange rates, from the account's own trades -----------------
-  const { series: fxSeries, report: fxReport } = deriveFxRates(transactions, products, days, dayIndex, baseCurrency, cashRows);
+  const { series: fxSeries, report: fxReport, observedAt: fxObservedAt } = deriveFxRates(transactions, products, days, dayIndex, baseCurrency, cashRows);
   /** Euros per unit of `ccy` on day `i`. 1 for the base currency and for any
    *  currency we have no trade to learn from. */
   const fxAt = (ccy, i) => (ccy === baseCurrency ? 1 : (fxSeries[ccy]?.[i] ?? 1));
@@ -600,6 +632,8 @@ export function computePortfolio(input) {
     products,
     (ccy, date) => fxAt(ccy, dayIndex.get(date) ?? 0),
     baseCurrency,
+    fxObservedAt,
+    dayIndex,
   );
   const unitsOf = (productId) => contractSizes[productId] ?? 1;
   const unresolvedSizes = contractReport.filter((r) => r.verdict === 'unresolved');
@@ -904,6 +938,19 @@ export function computePortfolio(input) {
         `${baseCurrency}, so it is counted at 1:1 and the total is wrong by that much. This usually means a cash ` +
         `balance in a currency you have never traded or converted.`,
       { currencies: [...unknownCurrencies] },
+    );
+  }
+
+  const unanchoredSizes = contractReport.filter((r) => r.verdict === 'measured' && !r.anchored);
+  if (unanchoredSizes.length) {
+    warn(
+      'warn',
+      'contract-size-unanchored',
+      `${unanchoredSizes.length} instrument(s) had no stated exchange rate near any of their trades, so how many ` +
+        `shares one contract covers was measured through an interpolated rate. It is the best available answer and ` +
+        `it is a whole number, but a rate a few percent out moves it to the neighbouring one — treat their value as ` +
+        `approximate. Converting more often in that currency would settle it.`,
+      { instruments: unanchoredSizes.slice(0, 25) },
     );
   }
 

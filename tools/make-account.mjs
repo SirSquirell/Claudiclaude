@@ -198,11 +198,14 @@ for (const [n, ccy, amt] of [
   [30, 'CHF', 8000], [610, 'CHF', 5000],
 ]) convert(d(n), ccy, amt);
 
-// One conversion per currency near the end, so every rate has a recent
-// observation. Without it the engine holds the last rate flat while the true
-// rate keeps drifting, and the reconciliation is off by the drift rather than
-// by a defect — which would make this fixture prove nothing.
-for (const ccy of ['USD', 'SEK', 'GBP', 'CHF']) convert(trading.at(-1), ccy, 1000);
+// A realistic cadence. A real account converts often — one of them books 915
+// USD conversions — so nearly every trade sits close to a stated rate, which is
+// what makes a contract size measurable. Roughly monthly here, plus one on the
+// last trading day so no rate is extrapolated to today.
+for (const ccy of ['USD', 'SEK', 'GBP', 'CHF']) {
+  for (let n = 40; n < days.length - 3; n += 31) convert(d(n), ccy, 800 + (n % 7) * 50);
+  convert(trading.at(-1), ccy, 1000);
+}
 
 // Stocks, held to today.
 trade(d(6), '1001', 300);

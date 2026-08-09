@@ -745,6 +745,26 @@ test('a contract size is measured, not assumed, and rounded to a whole number', 
   assert.equal(report.every((r) => r.verdict === 'measured'), true);
 });
 
+test('a contract size measured through a guessed rate is flagged, not trusted silently', () => {
+  // A rate interpolated across months is a few percent out, and a few percent
+  // moves a contract size of 100 to 102. It is still the best answer available —
+  // calling it unresolved would fall back to one share per contract, which is a
+  // hundredfold error instead of a two percent one — so it is used and said out
+  // loud.
+  const days = dayRange('2024-01-01', '2024-06-30');
+  const idx = new Map(days.map((d, i) => [d, i]));
+  const products = { 1: { id: '1', name: 'FAR OPT', currency: 'USD', productType: 'OPTION' } };
+  const transactions = [
+    { date: '2024-04-01', productId: '1', quantity: -1, price: 10, currency: 'USD', fee: 0, totalBase: 900 },
+  ];
+  const far = deriveContractSizes(transactions, products, () => 0.9, 'EUR', { USD: [0] }, idx);
+  assert.equal(far.report[0].anchored, false, 'the only observation is three months away');
+
+  const anchored = deriveContractSizes(transactions, products, () => 0.9, 'EUR', { USD: [idx.get('2024-04-02')] }, idx);
+  assert.equal(anchored.report[0].anchored, true, 'a rate stated the next day anchors it');
+  assert.equal(anchored.sizes['1'], 100);
+});
+
 test('a contract size that will not repeat is reported, never guessed', () => {
   // A contract size is fixed, so two trades in the same instrument have to
   // produce the same number. One that does not is not a measurement.

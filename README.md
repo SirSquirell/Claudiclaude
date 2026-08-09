@@ -70,8 +70,8 @@ turn your own money into profit.
 
 ## Status, honestly
 
-**Version 0.10.0.** Everything in [SPEC.md](SPEC.md) is built, and the engine is covered
-by 147 tests — including "a deposit must not register as profit", "a closed round trip
+**Version 0.11.0.** Everything in [SPEC.md](SPEC.md) is built, and the engine is covered
+by 151 tests — including "a deposit must not register as profit", "a closed round trip
 holds nothing", "an option trade is not an exchange rate", and the reconciliation check
 above. Release notes are in [CHANGELOG.md](CHANGELOG.md).
 
@@ -126,10 +126,11 @@ if you want to close the remaining gaps.
 ## For developers
 
 ```bash
-npm test                       # 147 tests, no dependencies to install
+npm test                       # 151 tests + a leak check, no dependencies to install
 npm run demo                   # the whole UI on generated fixtures at localhost:5173
 npm run fixtures               # regenerate the sample data
 npm run audit path/to/export   # run the engine over a real export and check its invariants
+npm run audit:synthetic        # same invariants over a generated account — no real data needed
 ```
 
 `npm run audit` is the one that matters. It runs the real engine over an account exported

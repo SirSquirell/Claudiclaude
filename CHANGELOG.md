@@ -11,7 +11,48 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
-## [Unreleased] — 0.11
+## [0.11.0] — 2026-08-09
+
+Safety and honesty, plus two things to look at. **Press "Wipe & resync" after updating.**
+
+### Fixed
+
+- **A contract size measured through a guessed exchange rate landed on the wrong whole number.**
+  How many shares one option contract covers is worked out from what the account actually paid,
+  divided by the rate that day. Between two rates DEGIRO stated, that rate is a straight line —
+  and a line a couple of percent off moves a contract size of 100 to 102, which then rounds
+  there and reports itself as measured. Every valuation of that option was quietly a few percent
+  out, and only non-euro instruments were affected, because a euro trade has no rate to guess.
+  Measurements now prefer trades that sit near a rate DEGIRO actually stated; where none does,
+  the number is still used — falling back to one share per contract would be a hundredfold error
+  instead of a two percent one — but it says so.
+- **Pence and pounds are pooled rather than chosen between.** An account that trades in GBX but
+  converts in GBP was pricing today's holding off a three-year-old trade instead of this week's
+  conversion.
+
+### Added
+
+- **Holdings toggle between a table and a share ring.** Same grouping and same colours as the
+  stacked chart, so the two agree slice for slice. Written positions are not drawn and are named
+  underneath instead: a share of a whole cannot be negative, and a liability drawn as a slice
+  reads as an asset.
+- **`npm run audit:synthetic`** — builds a complete account out of nothing and runs every
+  invariant over it. Long and short calls and puts, contract sizes 1, 10, 100 and 103, a currency
+  reached only through options, GBX against GBP, a split-adjusted round trip that must close, and
+  a delisted instrument. **This is the first time a call has been run through this engine at
+  all**, and it found both defects fixed above on the day it was built.
+
+### Security
+
+- **The export declares what it may carry** instead of listing what to strip. The previous shape
+  meant a field added tomorrow would be exported by default — which is exactly how it leaked a
+  name and an account number. A test now fails when a key nobody has classified is written.
+- **`npm test` refuses account data in the repository**, and `npm run audit` refuses to read an
+  export from inside it.
+- **The repository history was rewritten** to remove tester names and identifiers that earlier
+  revisions carried.
+
+
 
 ### Security
 
