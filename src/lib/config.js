@@ -9,6 +9,15 @@
 export const TRADER = 'https://trader.degiro.nl';
 export const CHARTING = 'https://charting.vwdservices.com';
 
+/**
+ * The only host a discovered base URL may live on, and the same one the
+ * manifest grants permission for. DEGIRO's clusters differ by *path*
+ * (`/trading/`, `/trading4/`), never by hostname, so this is exact rather than
+ * a suffix match — see `parseConfigUrls`, which is the one place a response
+ * decides where a later request goes.
+ */
+export const TRADER_HOST = 'trader.degiro.nl';
+
 /** Reporting API versions. Bump these when DEGIRO drifts. */
 export const API_VERSIONS = {
   update: 'v5',

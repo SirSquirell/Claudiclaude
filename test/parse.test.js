@@ -6,6 +6,7 @@ import {
   parseCashMovements,
   parseChartResponse,
   parseClient,
+  parseConfigUrls,
   parseProducts,
   parseTimesAnchor,
   parseTransactions,
@@ -316,4 +317,64 @@ test('parseProducts carries the fields it does not name', () => {
 test('a product with nothing unrecognised carries no extra at all', () => {
   const out = parseProducts({ data: { 1: { id: '1', name: 'PLAIN', currency: 'EUR' } } });
   assert.equal(out['1'].extra, undefined, 'an empty object on every product is noise');
+});
+
+// ---------------------------------------------------------------------------
+// parseConfigUrls — the one response that decides where later requests go
+// ---------------------------------------------------------------------------
+
+const DEFAULTS = {
+  trading: 'https://trader.degiro.nl/trading/secure/',
+  reporting: 'https://trader.degiro.nl/reporting/secure/',
+  productSearch: 'https://trader.degiro.nl/product_search/secure/',
+  pa: 'https://trader.degiro.nl/pa/secure/',
+};
+
+test('a discovered cluster URL on the right host is used', () => {
+  // The whole reason this endpoint is consulted: an account can sit on
+  // /trading4/ and hardcoding /trading/ 404s every request it makes.
+  const out = parseConfigUrls({ data: { tradingUrl: 'https://trader.degiro.nl/trading4/secure/' } }, DEFAULTS);
+  assert.equal(out.trading, 'https://trader.degiro.nl/trading4/secure/');
+});
+
+test('a base URL on another host is refused, not followed', () => {
+  // Every request built from this carries the session id in its query string,
+  // so following a foreign host puts a live session in someone else's log.
+  for (const hostile of [
+    'https://trader.degiro.nl.evil.example/trading/secure/',
+    'https://evil.example/trading/secure/',
+    'https://charting.vwdservices.com/trading/secure/',
+  ]) {
+    const out = parseConfigUrls({ data: { tradingUrl: hostile } }, DEFAULTS);
+    assert.equal(out.trading, DEFAULTS.trading, `refused: ${hostile}`);
+  }
+});
+
+test('a plaintext base URL is refused', () => {
+  // startsWith('http') accepted this, which is a downgrade to a wire anyone on
+  // the path can read and rewrite.
+  const out = parseConfigUrls({ data: { tradingUrl: 'http://trader.degiro.nl/trading/secure/' } }, DEFAULTS);
+  assert.equal(out.trading, DEFAULTS.trading);
+});
+
+test('anything that is not a URL falls back rather than throwing', () => {
+  for (const junk of [null, 42, '', 'not a url', 'httpsomething', '//trader.degiro.nl/x']) {
+    const out = parseConfigUrls({ data: { paUrl: junk } }, DEFAULTS);
+    assert.equal(out.pa, DEFAULTS.pa, `fell back for ${JSON.stringify(junk)}`);
+  }
+});
+
+test('every base URL is checked, not just the first', () => {
+  const out = parseConfigUrls({
+    data: {
+      tradingUrl: 'https://trader.degiro.nl/trading4/secure/',
+      reportingUrl: 'https://evil.example/reporting/secure/',
+      productSearchUrl: 'http://trader.degiro.nl/product_search/secure/',
+      paUrl: 'https://trader.degiro.nl/pa4/secure/',
+    },
+  }, DEFAULTS);
+  assert.equal(out.trading, 'https://trader.degiro.nl/trading4/secure/');
+  assert.equal(out.reporting, DEFAULTS.reporting, 'foreign host');
+  assert.equal(out.productSearch, DEFAULTS.productSearch, 'plaintext');
+  assert.equal(out.pa, 'https://trader.degiro.nl/pa4/secure/');
 });

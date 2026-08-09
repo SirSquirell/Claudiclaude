@@ -15,6 +15,7 @@
 
 import { isoDayOf } from './dates.js';
 import { classifyCashRow } from './classify.js';
+import { TRADER_HOST } from './config.js';
 
 /** Coerce anything DEGIRO calls a number into a real number. */
 export function num(value) {
@@ -404,9 +405,34 @@ export function parseChartResponse(res) {
  */
 export function parseConfigUrls(res, defaults) {
   const data = unwrap(res, ['data']) ?? res ?? {};
+  // This is the only place in the extension where a *response* decides where a
+  // later request is sent, and every one of those requests carries the session
+  // id in its query string — `?sessionId=` and `;jsessionid=`. So a base URL
+  // that arrived over the wire is checked before it is trusted.
+  //
+  // `startsWith('http')` was not a check. It accepts `http://` — a plaintext
+  // downgrade — and it accepts any host in the world, which would put a live
+  // session id in someone else's access log. The cookie would not follow (the
+  // manifest grants two hosts and no more) but the id in the query string is
+  // already sent by the time CORS refuses the answer, and a session id is the
+  // account until it expires.
+  //
+  // Rejecting falls back to the documented default, which is exactly what
+  // `fetchUrls` already does when the call fails outright. A DEGIRO that moves
+  // to a new hostname therefore degrades to the defaults rather than following
+  // the new host, and that needs a manifest change anyway.
   const take = (key, fallback) => {
     const v = pick(data, [key]);
-    return typeof v === 'string' && v.startsWith('http') ? v : fallback;
+    if (typeof v !== 'string') return fallback;
+    let url;
+    try {
+      url = new URL(v);
+    } catch {
+      return fallback;
+    }
+    if (url.protocol !== 'https:') return fallback;
+    if (url.host !== TRADER_HOST) return fallback;
+    return v;
   };
   return {
     trading: take('tradingUrl', defaults.trading),
