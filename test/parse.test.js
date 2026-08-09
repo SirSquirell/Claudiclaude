@@ -262,3 +262,58 @@ test('the reported id is kept for debugging, just not as the key', () => {
   assert.equal(row.sourceId, 1000060328);
   assert.notEqual(row.id, '1000060328');
 });
+
+
+// ---------------------------------------------------------------------------
+// Keeping what we do not recognise (CLAUDE.md rule 2, in the parse layer)
+// ---------------------------------------------------------------------------
+
+test('parseUpdate keeps every totalPortfolio field, not just the two it reads', () => {
+  // Margin data has been arriving on every sync since the first release and
+  // nobody has ever seen it, because two fields were picked out of this object
+  // and the rest discarded three lines later.
+  const res = {
+    totalPortfolio: {
+      value: [
+        { name: 'reportNetliq', value: 115553.37 },
+        { name: 'totalCash', value: -11821.19 },
+        { name: 'reportMargin', value: 24000 },
+        { name: 'freeSpaceNew', value: 8100.5 },
+        { name: 'marginCallStatus', value: 'NO_MARGIN_CALL' },
+      ],
+    },
+  };
+  const out = parseUpdate(res);
+  assert.equal(out.totalValue, 115553.37);
+  assert.equal(out.totalCash, -11821.19);
+  assert.equal(out.totals.reportMargin, 24000, 'a field nobody parses is still kept');
+  assert.equal(out.totals.freeSpaceNew, 8100.5);
+  assert.equal(out.totals.marginCallStatus, 'NO_MARGIN_CALL');
+});
+
+test('parseProducts carries the fields it does not name', () => {
+  const out = parseProducts({
+    data: {
+      1: {
+        id: '1',
+        name: 'ADY P700.00 18DEC26',
+        currency: 'EUR',
+        productType: 'OPTION',
+        contractSize: 100,
+        strike: 700,
+        expirationDate: '2026-12-18',
+        optionRights: 'P',
+      },
+    },
+  });
+  assert.equal(out['1'].productType, 'OPTION');
+  assert.equal(out['1'].extra.contractSize, 100, 'the answer to a question a 50MB export could not settle');
+  assert.equal(out['1'].extra.strike, 700);
+  assert.equal(out['1'].extra.optionRights, 'P');
+  assert.equal('name' in out['1'].extra, false, 'a field the parser names is not duplicated');
+});
+
+test('a product with nothing unrecognised carries no extra at all', () => {
+  const out = parseProducts({ data: { 1: { id: '1', name: 'PLAIN', currency: 'EUR' } } });
+  assert.equal(out['1'].extra, undefined, 'an empty object on every product is noise');
+});

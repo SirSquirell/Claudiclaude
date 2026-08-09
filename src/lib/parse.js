@@ -184,7 +184,28 @@ export function parseCashMovements(res) {
 // product metadata  (product_search/secure/v5/products/info)
 // ---------------------------------------------------------------------------
 
-/** @returns {Record<string, {id,name,symbol,isin,currency,vwdId,productType,closePrice,closePriceDate}>} */
+/** Fields `parseProducts` names. Anything else is carried in `extra`. */
+const NAMED_PRODUCT_FIELDS = [
+  'id', 'productId', 'name', 'productName', 'symbol', 'ticker', 'isin',
+  'currency', 'productCurrency', 'vwdId', 'vwdIdentifier', 'vwdid',
+  'vwdIdentifierType', 'productType', 'productTypeId', 'closePrice',
+  'lastPrice', 'closePriceDate',
+];
+
+/** The part of a response this parser does not claim. */
+function rest(obj, named) {
+  if (!obj || typeof obj !== 'object') return undefined;
+  const skip = new Set(named);
+  const out = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (skip.has(k)) continue;
+    if (v === null || typeof v === 'object') continue; // keep it flat and small
+    out[k] = v;
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
+/** @returns {Record<string, {id,name,symbol,isin,currency,vwdId,productType,closePrice,closePriceDate,extra}>} */
 export function parseProducts(res) {
   const data = unwrap(res, ['data', 'products']) ?? res;
   if (!data || typeof data !== 'object') return {};
@@ -207,6 +228,11 @@ export function parseProducts(res) {
       productType: String(pick(p, ['productType', 'productTypeId'], 'UNKNOWN')),
       closePrice: num(pick(p, ['closePrice', 'lastPrice'], 0)),
       closePriceDate: isoDayOf(pick(p, ['closePriceDate'], null)),
+      // Whatever this parser does not name. An option's contract size, strike,
+      // expiry and whether it is a call or a put are all candidates, and none
+      // of them could be answered from a 50 MB export because they were thrown
+      // away here before ever reaching disk.
+      extra: rest(p, NAMED_PRODUCT_FIELDS),
     };
     if (out[id].vwdId != null) out[id].vwdId = String(out[id].vwdId);
   }
@@ -280,6 +306,13 @@ export function parseUpdate(res) {
     totalValue: totalValue == null ? null : num(totalValue),
     totalCash: totalCash == null ? null : num(totalCash),
     cash,
+    // Everything else DEGIRO put in totalPortfolio, kept rather than dropped.
+    // Two fields were being picked out of this object and the rest discarded
+    // three lines later — which is why margin data has been arriving on every
+    // sync since the first release and nobody has ever seen it. CLAUDE.md rule
+    // 2 says only the raw response is truth; that was being violated here, in
+    // the parse layer, upstream of the storage it was written about.
+    totals,
   };
 }
 
