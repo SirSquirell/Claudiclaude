@@ -496,21 +496,71 @@ Default-deny on anything leaving the machine, no real values in `test/`, and fin
 accounts rather than people are now **CLAUDE.md rule 7**. Rules get checked on every story;
 backlog items get done once and forgotten.
 
-### US-10 — Trade Republic *(backlog, not refined)*
+### US-10 — Trade Republic *(refined)*
 
-Raised during the 0.10.0 sprint and deliberately parked. One note so refinement starts in the
-right place: `engine.js` takes plain arrays of transactions, cash movements, products and price
-series and knows nothing about DEGIRO. A second broker is therefore a new *adapter* — session,
-fetch, parse, classify — and not an engine change. Protecting that boundary is most of the work.
+**As someone who does not hold everything at DEGIRO, I want the same chart for a Trade Republic
+account.**
 
-Questions to open with:
+#### The question that decides whether this is possible at all
 
-- Does Trade Republic expose anything a logged-in browser can read, or is it app-only with a
-  device-bound token? This decides whether the project is possible at all in this shape.
-- What identifies an instrument, and is there a daily price series to be had?
-- Cash descriptions will need their own rule table; `classify.js` is DEGIRO's vocabulary.
-- **Is there an equivalent of DEGIRO's own reported total?** Without one there is nothing to
-  reconcile against, and the acceptance test this whole project rests on does not exist.
+Everything this project does rests on one thing: **a logged-in browser session that can be
+replayed.** DEGIRO hands the browser a `JSESSIONID` cookie, and every endpoint accepts it. That
+is why the extension needs no password, stores no credential, and can be honest about it.
+
+Trade Republic is app-first. Its web client authenticates with a phone number and a PIN, then a
+device-bound token, and the session is carried over a websocket rather than as a cookie on
+ordinary REST calls. **If that token cannot be read from an ordinary logged-in tab the way a
+cookie can, this story is not "harder" — it is a different product**, one that would have to ask
+for credentials, which the README explicitly promises it never will.
+
+**So the first task is not to build anything. It is to answer one question:** open a logged-in
+Trade Republic web session, and see whether an extension with `cookies` and `host_permissions`
+can reach account data using only what the browser already holds. A day, and the answer is yes or
+no. Everything below is conditional on yes.
+
+#### If yes: what the shape of the work actually is
+
+The good news, and the reason this is worth refining rather than dismissing: **`engine.js` has
+never heard of DEGIRO.** It takes transactions, cash movements, products and price series as
+plain arrays and returns plain arrays. Nothing in it names a broker.
+
+So a second broker is a second **adapter** — `session`, `degiro` (fetch), `parse`, `classify` —
+and not an engine change. Protecting that boundary is most of the work, and most of the risk:
+the temptation will be to reach into the engine for one broker-specific special case, and the
+first one of those makes the second one inevitable.
+
+Four things a new adapter has to supply, and each has a way of being absent:
+
+1. **A transaction ledger** with a signed quantity, a price, a currency and what actually settled
+   in euros. That last field is what this project measures exchange rates and contract sizes
+   from; without it, both become guesses.
+2. **A cash ledger with categories.** `classify.js` is DEGIRO's vocabulary in Dutch and English.
+   Trade Republic's wording is its own, so this is a new rule table, and CLAUDE.md rule 4 applies
+   unchanged: an unmatched row is `UNKNOWN` and is surfaced, never assumed to be a deposit.
+3. **A daily price series per instrument.** DEGIRO leans on vwd. If Trade Republic offers only
+   live quotes and no history, the chart cannot be reconstructed backwards at all — which is the
+   whole product.
+4. **An account total to reconcile against.** This is the one people skip. SPEC §6 makes the
+   comparison against the broker's own figure the acceptance test of the entire project. Without
+   an equivalent, there is no check, and a plausible wrong chart is exactly what this codebase
+   exists to avoid.
+
+#### Acceptance criteria
+
+- ☐ The spike is written up first, with a yes or no on browser-session access, and the story is
+  dropped rather than half-built if the answer is no.
+- ☐ `engine.js` is unchanged. Not "barely changed" — unchanged. If the engine needs a new input,
+  that is a finding worth its own discussion, not a patch.
+- ☐ `npm run audit` runs against a Trade Republic export and every invariant holds.
+- ☐ A reconciliation anchor exists, or the limitation is stated on the page in the same red the
+  DEGIRO one uses.
+- ☐ An unrecognised cash description is `UNKNOWN` and visible, exactly as it is today.
+
+#### What is deliberately not in scope
+
+One extension holding two brokers at once. Two accounts, two sets of instruments, two currencies
+of record, and a combined total nobody can reconcile against anything. SPEC §7 already stops at
+one account; this stops at one broker per install until there is a reason.
 
 ## 5. Definition of Done — reconciling the two versions
 
