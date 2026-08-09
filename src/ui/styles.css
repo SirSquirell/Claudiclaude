@@ -440,6 +440,31 @@ table.matrix td.extreme {
   outline-offset: -2px;
 }
 
+/* Every cell is clickable, so the button has to disappear into the cell —
+   a grid of 80 buttons that look like buttons is unreadable as a heatmap. */
+button.cell-pick {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  width: 100%;
+  text-align: right;
+  cursor: pointer;
+}
+
+button.cell-pick:focus-visible {
+  outline: 2px solid var(--text-primary);
+  outline-offset: 2px;
+}
+
+/* Picked reads as a ring so the diverging tint underneath still means what it
+   means. The colour is set inline, matching this month's bar in the chart. */
+table.matrix td.picked {
+  outline: 3px solid var(--text-primary);
+  outline-offset: -3px;
+}
+
 button.month-pick {
   font: inherit;
   font-size: 12px;

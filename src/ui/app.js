@@ -6,7 +6,7 @@
  */
 
 import { aggregatePnl, buildComposition, monthlyTable, rangeStartIndex } from '../lib/engine.js';
-import { monthKey } from '../lib/dates.js';
+import { monthKey, weekKey } from '../lib/dates.js';
 import {
   compositionChart,
   cumulativeChart,
@@ -37,14 +37,19 @@ const state = {
   steps: [],
   /** 'pnl' (euros) or 'returnPct' (time-weighted return). */
   metric: 'pnl',
-  /** Month numbers 1-12 picked for the comparison chart. */
+  /** Month numbers 1-12 picked for the across-years comparison. */
   selectedMonths: [],
+  /** 'YYYY-MM' keys picked for the specific-months comparison. */
+  selectedCells: [],
 };
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 /** Three is the readable limit for grouped bars, and for telling hues apart. */
 const MAX_COMPARE = 3;
+
+/** Specific months are one bar each, so a fourth still reads cleanly. */
+const MAX_COMPARE_CELLS = 4;
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -153,6 +158,7 @@ function buildControls() {
 
   $('#btn-clear-months').addEventListener('click', () => {
     state.selectedMonths = [];
+    state.selectedCells = [];
     render();
   });
 }
@@ -314,15 +320,26 @@ function render() {
   const gran = state.granularity === 'auto' ? autoGranularity(to - from + 1) : state.granularity;
   markAutoGranularity(gran);
 
+  // "Results per" used to reach only the two result charts, so pressing Month
+  // left the largest chart on the page — the one directly beneath the control —
+  // unchanged, and pressing Day did nothing at all whenever Auto had already
+  // chosen day. It now applies to every time series. A value is a level, so a
+  // bucket takes the observation it ended on; a flow is summed, which the
+  // aggregators already do.
+  const ends = bucketEnds(r.days, from, to, gran);
+  const atEnds = (arr) => ends.map((i) => arr[i]);
+
   destroyCharts();
 
   state.charts.value = valueChart(
     $('#c-value'),
     {
-      days: slice(r.days),
-      value: slice(r.value),
-      positionsValue: slice(r.positionsValue),
-      netExternal: slice(r.netExternal),
+      days: atEnds(r.days),
+      value: atEnds(r.value),
+      positionsValue: atEnds(r.positionsValue),
+      // A flow is summed over the bucket, or a deposit inside a month would
+      // vanish unless it happened to land on the last day of it.
+      netExternal: sumInBuckets(r.netExternal, ends, from),
       includeCash: state.includeCash,
     },
     t,
@@ -335,11 +352,11 @@ function render() {
   // One composition, used twice: once for the stacked chart and once to colour
   // the holdings table. Both must agree on which colour is which holding.
   const composition = buildComposition(r, 6, from, to);
-  state.charts.comp = compositionChart($('#c-comp'), composition, t);
+  state.charts.comp = compositionChart($('#c-comp'), downsampleComposition(composition, ends, from), t);
 
   state.charts.invested = investedVsValueChart(
     $('#c-invested'),
-    { days: slice(r.days), value: slice(r.value), cumulativeDeposited: slice(r.cumulativeDeposited) },
+    { days: atEnds(r.days), value: atEnds(r.value), cumulativeDeposited: atEnds(r.cumulativeDeposited) },
     t,
   );
 
@@ -359,6 +376,51 @@ function render() {
 
   renderHoldings(r, composition, t);
   renderFooter(r, data);
+}
+
+/**
+ * The index of the last day in each bucket, over the selected range.
+ *
+ * A portfolio value is a level, not a flow: a month's worth of it is the value
+ * it ended on, never a sum or an average. The final bucket always ends on the
+ * last day in range, so the newest point is today rather than the last complete
+ * month.
+ */
+function bucketEnds(days, from, to, gran) {
+  if (gran === 'day') {
+    const out = [];
+    for (let i = from; i <= to; i++) out.push(i);
+    return out;
+  }
+  const key = gran === 'week' ? weekKey : monthKey;
+  const out = [];
+  for (let i = from; i <= to; i++) {
+    if (i === to || key(days[i]) !== key(days[i + 1])) out.push(i);
+  }
+  return out;
+}
+
+/** The composition is a stack of levels, so it samples on the same bucket ends. */
+function downsampleComposition(composition, ends, from) {
+  const pick = ends.map((i) => i - from);
+  return {
+    ...composition,
+    days: pick.map((i) => composition.days[i]),
+    layers: composition.layers.map((l) => ({ ...l, values: pick.map((i) => l.values[i]) })),
+  };
+}
+
+/** Sum a flow over each bucket, so nothing inside one is lost. */
+function sumInBuckets(arr, ends, from) {
+  const out = [];
+  let start = from;
+  for (const end of ends) {
+    let total = 0;
+    for (let i = start; i <= end; i++) total += arr[i];
+    out.push(total);
+    start = end + 1;
+  }
+  return out;
 }
 
 function autoGranularity(nDays) {
@@ -521,8 +583,13 @@ function renderMonthMatrix(months, t) {
         .map((c) => {
           if (!c) return `<td class="cell empty">·</td>`;
           const v = c[state.metric];
-          const cls = `cell${extremeKeys.has(c.month) ? ' extreme' : ''}`;
-          return `<td class="${cls}" style="background:${divergingTint(v, maxAbs, t)}" title="${esc(c.month)}: ${esc(fmtEurCents(c.pnl))} · ${c.returnPct.toFixed(2)}%">${esc(fmtMetric(v))}</td>`;
+          // A picked cell is ringed in the same hue as its bar in the chart
+          // below, so the grid and the comparison read as one thing — and so
+          // the ring cannot be confused with the best/worst outline.
+          const pick = state.selectedCells.indexOf(c.month);
+          const cls = `cell${extremeKeys.has(c.month) ? ' extreme' : ''}${pick >= 0 ? ' picked' : ''}`;
+          const ring = pick >= 0 ? `;outline-color:${t.series[pick % t.series.length]}` : '';
+          return `<td class="${cls}" style="background:${divergingTint(v, maxAbs, t)}${ring}" title="${esc(c.month)}: ${esc(fmtEurCents(c.pnl))} · ${c.returnPct.toFixed(2)}%"><button type="button" class="cell-pick" data-cell="${esc(c.month)}" aria-pressed="${pick >= 0}">${esc(fmtMetric(v))}</button></td>`;
         })
         .join('');
       return `<tr><td class="year">${esc(row.year)}</td>${cells}<td class="total">${esc(fmtMetric(row.total[state.metric]))}</td></tr>`;
@@ -533,6 +600,9 @@ function renderMonthMatrix(months, t) {
 
   for (const btn of table.querySelectorAll('.month-pick')) {
     btn.addEventListener('click', () => toggleMonth(Number(btn.dataset.month)));
+  }
+  for (const btn of table.querySelectorAll('.cell-pick')) {
+    btn.addEventListener('click', () => toggleCell(btn.dataset.cell));
   }
 
   // A diverging ramp needs its legend, or the tints are decoration.
@@ -551,6 +621,64 @@ function renderMonthMatrix(months, t) {
   $('#month-note').textContent = `${note} Best and worst month are outlined.`;
 }
 
+/**
+ * Compare specific months — September 2025 against November 2020.
+ *
+ * A different question from the across-years view, and a weaker one: twelve
+ * Septembers are a pattern, one September against one November is two numbers.
+ * So the aggregate columns are gone. Averaging a single observation, or
+ * reporting "1 of 1 positive", would dress two data points up as evidence.
+ * What replaces them is where each month sits in the whole history, which is
+ * context a single month can actually carry.
+ *
+ * Colour follows selection order here rather than the month, because two
+ * Septembers in different years have nothing to distinguish them by month.
+ */
+function renderCellCompare(months, t) {
+  const all = months.years.flatMap((y) => y.months.filter(Boolean));
+  const byKey = new Map(all.map((c) => [c.month, c]));
+  const picked = state.selectedCells.filter((k) => byKey.has(k));
+
+  const ranked = all.slice().sort((a, b) => b[state.metric] - a[state.metric]);
+  const rankOf = new Map(ranked.map((c, i) => [c.month, i + 1]));
+
+  $('#compare-hint').textContent =
+    `Comparing ${picked.map(labelForCell).join(' vs ')}, ranked against all ${all.length} months on record — ` +
+    `the best was ${labelForCell(ranked[0].month)} at ${fmtMetric(ranked[0][state.metric])}. Click a month again ` +
+    `to remove it, or a month name in the header to compare one month across every year (up to ${MAX_COMPARE_CELLS}).`;
+
+  $('#compare-box').hidden = false;
+  $('#compare-summary-wrap').hidden = false;
+
+  const series = picked.map((key, i) => ({
+    label: labelForCell(key),
+    colour: t.series[i % t.series.length],
+    values: [byKey.get(key)[state.metric]],
+  }));
+  state.charts.compare = monthCompareChart($('#c-compare'), { years: [''], series }, state.metric, t);
+
+  $('#compare-summary thead').innerHTML =
+    `<tr><th>Month</th><th>Result</th><th>Return</th><th>Rank</th></tr>`;
+  $('#compare-summary tbody').innerHTML = picked
+    .map((key, i) => {
+      const c = byKey.get(key);
+      const swatch = `<span class="swatch" style="background:${t.series[i % t.series.length]}"></span>`;
+      return `<tr>
+        <td>${swatch}${esc(labelForCell(key))}</td>
+        <td class="${signClass(c.pnl)}">${esc(fmtSigned(c.pnl))}</td>
+        <td class="${signClass(c.returnPct)}">${esc(fmtPct(c.returnPct))}</td>
+        <td>${rankOf.get(key)} of ${all.length}</td>
+      </tr>`;
+    })
+    .join('');
+}
+
+/** '2025-09' -> 'Sep 2025'. */
+function labelForCell(key) {
+  const [y, m] = key.split('-');
+  return `${MONTH_NAMES[Number(m) - 1]} ${y}`;
+}
+
 function toggleMonth(month) {
   const i = state.selectedMonths.indexOf(month);
   if (i >= 0) state.selectedMonths.splice(i, 1);
@@ -558,6 +686,21 @@ function toggleMonth(month) {
     state.selectedMonths.push(month);
     // Oldest choice drops out rather than silently ignoring the new click.
     if (state.selectedMonths.length > MAX_COMPARE) state.selectedMonths.shift();
+    // The two comparisons answer different questions and share one chart, so
+    // picking a column name puts it in that mode.
+    state.selectedCells = [];
+  }
+  render();
+}
+
+/** Pick one specific month — September 2025 against November 2020. */
+function toggleCell(key) {
+  const i = state.selectedCells.indexOf(key);
+  if (i >= 0) state.selectedCells.splice(i, 1);
+  else {
+    state.selectedCells.push(key);
+    if (state.selectedCells.length > MAX_COMPARE_CELLS) state.selectedCells.shift();
+    state.selectedMonths = [];
   }
   render();
 }
@@ -589,11 +732,14 @@ function renderMonthCompare(months, t) {
   const wrap = $('#compare-summary-wrap');
   const picked = [...state.selectedMonths].sort((a, b) => a - b);
 
+  if (state.selectedCells.length) return renderCellCompare(months, t);
+
   if (!picked.length) {
     box.hidden = true;
     wrap.hidden = true;
     $('#compare-hint').textContent =
-      'Click a month name in the table above — November and June, say — to put them side by side per year.';
+      'Click a single month in the grid to compare specific months — September 2025 against November 2020. ' +
+      'Click a month name in the header instead to compare that month across every year.';
     return;
   }
 
@@ -612,6 +758,10 @@ function renderMonthCompare(months, t) {
 
   state.charts.compare = monthCompareChart($('#c-compare'), { years, series }, state.metric, t);
 
+  // Cell mode rewrites this header, so put the across-years one back.
+  $('#compare-summary thead').innerHTML =
+    `<tr><th>Month</th><th>Years</th><th id="th-total">Total</th><th id="th-avg">Average</th>` +
+    `<th>Best</th><th>Worst</th><th>Positive</th></tr>`;
   // The two aggregate columns mean different things per metric; say which.
   $('#th-total').textContent = isPct() ? 'Compounded' : 'Total';
   $('#th-avg').textContent = isPct() ? 'Average (geometric)' : 'Average';

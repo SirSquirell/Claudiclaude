@@ -32,6 +32,39 @@ const SPLIT_JUMP_RATIO = 0.4;
 const IMPLAUSIBLE_MULTIPLE = 20;
 
 /**
+ * How long an exchange rate may go unobserved before the stretch between two
+ * observations is called an estimate. A quote older than ten days is already
+ * flagged (`STALE_PRICE_DAYS`); leaving a rate unflagged for years while doing
+ * that to prices was never defensible, and euros are what the whole page is
+ * denominated in. A quarter is about as long as a straight line between two
+ * rates stays honest.
+ */
+const STALE_FX_DAYS = 92;
+
+/**
+ * How far a measured contract size may sit from a whole number before it is
+ * disowned rather than rounded. A contract size counts shares, so it is an
+ * integer; 99.7 is a stale snapshot price and 103 is a corporate action. A
+ * measurement landing on 87.3 is neither, and rounding it would manufacture a
+ * plausible wrong number.
+ */
+const CONTRACT_SIZE_TOLERANCE = 0.03;
+
+/**
+ * How far measurements of one instrument's contract size may disagree with each
+ * other. This is the check that carries the weight: a contract size is fixed, so
+ * every trade in the same instrument has to produce the same number, and a
+ * measurement that will not repeat is not a measurement. Distance from a whole
+ * number cannot tell "87 after a corporate action" from "wrong"; disagreement
+ * between two trades can.
+ *
+ * Loose enough to absorb an interpolated exchange rate — ordinary USD shares
+ * measure 0.999 with observations 17% apart, and none of that is a contract
+ * size. Tight enough that a hundred one day and forty the next does not pass.
+ */
+const CONTRACT_SIZE_SPREAD = 1.5;
+
+/**
  * How far a quote may sit from the price actually paid before the series is
  * disowned. Wide on purpose: a fill is intraday against a close, and a non-EUR
  * instrument is counted at 1:1 until FX exists, which is another ~20% on top.
@@ -182,101 +215,267 @@ export function auditSeries(transactions, productId, close, dayIndex, covered) {
   if (median >= TRUST_BAND[0] && median <= TRUST_BAND[1]) return { ratios, median, verdict: 'ok', spread };
   if (spread > MAX_FACTOR_SPREAD) return { ratios, median, spread, verdict: 'reject' };
 
-  // Smooth the factor within a split regime. Two trades either side of the same
-  // split differ only by intraday noise, and using each one's own raw ratio
-  // means a buy and its matching sell no longer cancel — a fully closed
-  // position is left holding a sliver of a share, worth real money once
-  // multiplied by a seven-figure adjusted quote.
+  // Smooth the factor within a split regime, so the conversion does not wobble
+  // between one trade and the next. A genuine split is a jump far larger than
+  // the tolerance and keeps its own regime.
   return { ratios: clusterFactors(ratios), median, spread, verdict: 'rescale' };
 }
 
 /**
- * Collapse near-equal factors onto one value per regime, so trades within a
- * regime share a factor exactly. A genuine split shows up as a jump far larger
- * than this tolerance and keeps its own cluster.
+ * Collapse near-equal factors onto one value per regime.
+ *
+ * Each day is reduced to a single ratio first. A factor converts units, and
+ * units cannot change between two fills on the same day — but a volatile day
+ * easily spans more than the regime tolerance, so clustering the raw fills
+ * would hand two halves of the same purchase two different factors.
  */
 function clusterFactors(ratios) {
   const REGIME_TOLERANCE = 1.25;
-  const clusters = [];
-  for (const r of [...ratios].sort((a, b) => a.ratio - b.ratio)) {
-    const last = clusters.at(-1);
-    if (last && r.ratio / last[0].ratio <= REGIME_TOLERANCE) last.push(r);
-    else clusters.push([r]);
-  }
-  const factorOf = new Map();
-  for (const c of clusters) {
-    const mid = c.map((r) => r.ratio).sort((a, b) => a - b)[Math.floor(c.length / 2)];
-    for (const r of c) factorOf.set(r, mid);
-  }
-  return ratios.map((r) => ({ ...r, ratio: factorOf.get(r) ?? r.ratio }));
-}
+  const mid = (xs) => xs.slice().sort((a, b) => a - b)[Math.floor(xs.length / 2)];
 
-/** The factor in force on a day, from the nearest trade at or before it. */
-function factorAt(ratios, index) {
-  let chosen = ratios[0];
+  const perDay = new Map();
   for (const r of ratios) {
-    if (r.index <= index) chosen = r;
-    else break;
+    if (!perDay.has(r.index)) perDay.set(r.index, []);
+    perDay.get(r.index).push(r.ratio);
   }
-  return chosen?.ratio ?? 1;
+  const days = [...perDay].map(([index, rs]) => ({ index, ratio: mid(rs) }));
+
+  const clusters = [];
+  for (const d of days.slice().sort((a, b) => a.ratio - b.ratio)) {
+    const last = clusters.at(-1);
+    if (last && d.ratio / last[0].ratio <= REGIME_TOLERANCE) last.push(d);
+    else clusters.push([d]);
+  }
+
+  const factorOfDay = new Map();
+  for (const c of clusters) {
+    const f = mid(c.map((d) => d.ratio));
+    for (const d of c) factorOfDay.set(d.index, f);
+  }
+  return ratios.map((r) => ({ ...r, ratio: factorOfDay.get(r.index) ?? r.ratio }));
 }
 
 /**
- * Daily exchange rates, derived from the account's own trades.
- *
- * SPEC §2.2 assumed FX would need a separate price series. It does not: every
- * foreign transaction already states both sides of the conversion. The price
- * and quantity are in the instrument's currency, and `totalPlusFeeInBaseCurrency`
- * is what actually left the account in euros. One divided by the other is the
- * rate DEGIRO itself applied that day.
- *
- *   rate = |price × quantity| ÷ |totalBase − fee|      (euros per unit)
- *
- * Checked against a real account: 267 euro-denominated trades return exactly
- * 1.0000, which is the formula proving itself. On the same account USD came out
- * at 0.86, HKD at 0.106 and SEK at 0.098 — all correct to the cent, and all of
- * them previously counted as 1.00.
- *
- * Between observations the rate is interpolated; outside them it is held flat.
- * A currency with no trade to observe keeps 1.0 and is reported, because
- * inventing a rate would be worse than admitting there is none.
+ * The factor in force on each day, from the nearest trade at or before it, held
+ * flat before the first trade and after the last.
  */
-export function deriveFxRates(transactions, products, days, dayIndex, baseCurrency = 'EUR') {
-  const perCurrency = new Map();
+function factorByDay(ratios, n) {
+  const out = new Float64Array(n).fill(1);
+  if (!ratios?.length) return out;
+  let k = 0;
+  let current = ratios[0].ratio;
+  for (let i = 0; i < n; i++) {
+    while (k < ratios.length && ratios[k].index <= i) current = ratios[k++].ratio;
+    out[i] = Number.isFinite(current) && Math.abs(current) > 1e-12 ? current : 1;
+  }
+  return out;
+}
 
+/**
+ * Every currency conversion DEGIRO booked, as a dated rate.
+ *
+ * A conversion is two cash rows: one leg out in the foreign currency, one leg
+ * in in euros. They carry consecutive `sourceId`s and the same `productId`,
+ * which pairs them exactly even on a day holding several conversions in
+ * several currencies. Dividing one leg by the other is the rate DEGIRO itself
+ * applied, to the cent, on a known date.
+ *
+ * This is the only unambiguous rate in the data. A trade states its rate too,
+ * but multiplied by the instrument's contract size, and there is no way to
+ * separate the two without already knowing one of them.
+ */
+export function fxFromConversions(cashRows, dayIndex, baseCurrency = 'EUR') {
+  const rows = cashRows
+    .filter((c) => c.category === 'FX' && Number.isFinite(Number(c.sourceId)) && Math.abs(c.change) > 0)
+    .sort((a, b) => Number(a.sourceId) - Number(b.sourceId));
+
+  const out = [];
+  for (let i = 0; i < rows.length - 1; i++) {
+    const a = rows[i];
+    const b = rows[i + 1];
+    if (Number(b.sourceId) - Number(a.sourceId) !== 1) continue;
+    if (String(a.productId ?? '') !== String(b.productId ?? '')) continue;
+    if ((a.currency === baseCurrency) === (b.currency === baseCurrency)) continue;
+
+    const [base, other] = a.currency === baseCurrency ? [a, b] : [b, a];
+    const index = dayIndex.get(other.date);
+    if (index === undefined) continue;
+    out.push({ currency: other.currency, index, rate: Math.abs(base.change) / Math.abs(other.change) });
+    i++; // both legs consumed
+  }
+  return out;
+}
+
+/**
+ * How many shares one unit of an instrument covers, measured per product.
+ *
+ * A share is one share. An option contract is a hundred of them, or ten, or —
+ * after a corporate action — a hundred and three. The number is not derivable
+ * from the exchange, the underlying or the product type, and hardcoding a table
+ * of contract sizes would be wrong for exactly the instrument that matters, so
+ * it is measured from what the account actually paid:
+ *
+ *   |totalBase − fee| ÷ |price × quantity| = contractSize × rate
+ *
+ * With the rate known from currency conversions, the contract size falls out.
+ * It counts shares, so it is a whole number; a measurement that will not round
+ * to one within `CONTRACT_SIZE_TOLERANCE` is reported rather than guessed at.
+ *
+ * Without this every option was valued at a tenth to a hundredth of its size.
+ * On a real account that put the total €39 758,03 above what DEGIRO reported,
+ * with 27 written puts booked as if each contract covered a single share.
+ */
+export function deriveContractSizes(transactions, products, fxAt, baseCurrency = 'EUR') {
+  const perProduct = new Map();
   for (const t of transactions) {
-    const ccy = products[t.productId]?.currency ?? t.currency ?? baseCurrency;
-    const i = dayIndex.get(t.date);
-    if (i === undefined) continue;
+    const meta = products[t.productId];
+    const ccy = meta?.currency ?? t.currency ?? baseCurrency;
     const grossCcy = Math.abs(t.price * t.quantity);
     const grossBase = Math.abs((t.totalBase ?? 0) - (t.fee ?? 0));
     if (!(grossCcy > 0) || !(grossBase > 0)) continue;
-    if (!perCurrency.has(ccy)) perCurrency.set(ccy, []);
-    perCurrency.get(ccy).push({ index: i, rate: grossBase / grossCcy });
+    const rate = fxAt(ccy, t.date);
+    if (!(rate > 0)) continue;
+    if (!perProduct.has(t.productId)) perProduct.set(t.productId, []);
+    perProduct.get(t.productId).push(grossBase / grossCcy / rate);
+  }
+
+  const sizes = {};
+  const report = [];
+  for (const [productId, measured] of perProduct) {
+    const sorted = measured.slice().sort((a, b) => a - b);
+    const median = sorted[Math.floor(sorted.length / 2)];
+    if (!(median > 0)) continue;
+
+    const rounded = Math.round(median);
+    const residual = rounded > 0 ? Math.abs(median - rounded) / rounded : Infinity;
+    const spread = sorted.at(-1) / sorted[0];
+    const agrees = spread <= CONTRACT_SIZE_SPREAD;
+    // One is the overwhelming case and needs no reporting; anything else is a
+    // claim about the instrument and is written down with its evidence.
+    if (rounded === 1 && residual <= CONTRACT_SIZE_TOLERANCE && agrees) continue;
+
+    const meta = products[productId] ?? {};
+    const row = {
+      productId,
+      name: meta.name ?? `Product ${productId}`,
+      symbol: meta.symbol || meta.name || productId,
+      productType: meta.productType ?? 'UNKNOWN',
+      measured: Number(median.toPrecision(6)),
+      size: rounded,
+      residualPct: Number((residual * 100).toPrecision(3)),
+      observations: measured.length,
+      spread: Number(spread.toPrecision(3)),
+    };
+
+    if (!(rounded >= 1) || residual > CONTRACT_SIZE_TOLERANCE || !agrees) {
+      report.push({ ...row, size: null, verdict: 'unresolved' });
+      continue;
+    }
+    sizes[productId] = rounded;
+    report.push({ ...row, verdict: 'measured' });
+  }
+  return { sizes, report };
+}
+
+/** Split observations into regimes an order of magnitude apart. */
+function rateClusters(rates) {
+  const sorted = rates.slice().sort((a, b) => a.rate - b.rate);
+  const groups = [];
+  for (const r of sorted) {
+    const last = groups.at(-1);
+    if (last && r.rate / last[0].rate <= 3) last.push(r);
+    else groups.push([r]);
+  }
+  return groups;
+}
+
+/**
+ * Daily exchange rates, from the account's own books.
+ *
+ * Two sources, in order of how much they can be trusted:
+ *
+ *  1. **Currency conversions.** Exact, dated, and independent of anything else
+ *     — see `fxFromConversions`. Used whenever the account has any.
+ *  2. **Trades**, as a fallback: `|totalBase − fee| ÷ |price × quantity|`. For a
+ *     share that is the rate. For a derivative it is the rate times the
+ *     contract size, so the observations for one currency cluster at the rate,
+ *     ten times it, a hundred times it. The lowest cluster is taken, since a
+ *     contract size is never below one.
+ *
+ * Deriving from trades alone is what put CHF at 107 and DKK at 13.39 on a real
+ * account — a hundredfold, because the median landed on the option cluster and
+ * the outlier filter then discarded the correct observations as noise. A
+ * DKK position was charted at €1 040 993.
+ *
+ * GBX is pence and GBP is pounds, so either gives the other. Between
+ * observations the rate is interpolated and outside them it is held flat; a gap
+ * longer than `STALE_FX_DAYS` is reported, because a straight line across five
+ * years is a guess with a confident face on it. A currency with nothing to
+ * observe keeps 1.0 and says so.
+ */
+export function deriveFxRates(transactions, products, days, dayIndex, baseCurrency = 'EUR', cashRows = []) {
+  const conversions = new Map();
+  for (const o of fxFromConversions(cashRows, dayIndex, baseCurrency)) {
+    if (o.currency === baseCurrency) continue;
+    if (!conversions.has(o.currency)) conversions.set(o.currency, []);
+    conversions.get(o.currency).push(o);
+  }
+
+  const trades = new Map();
+  for (const t of transactions) {
+    const ccy = products[t.productId]?.currency ?? t.currency ?? baseCurrency;
+    if (ccy === baseCurrency) continue;
+    const index = dayIndex.get(t.date);
+    if (index === undefined) continue;
+    const grossCcy = Math.abs(t.price * t.quantity);
+    const grossBase = Math.abs((t.totalBase ?? 0) - (t.fee ?? 0));
+    if (!(grossCcy > 0) || !(grossBase > 0)) continue;
+    if (!trades.has(ccy)) trades.set(ccy, []);
+    trades.get(ccy).push({ index, rate: grossBase / grossCcy });
+  }
+
+  /** @type {Map<string, {points: Array<{index, rate}>, source: string, dropped: number}>} */
+  const chosen = new Map();
+  for (const ccy of new Set([...conversions.keys(), ...trades.keys()])) {
+    if (conversions.has(ccy)) {
+      chosen.set(ccy, { raw: conversions.get(ccy), source: 'conversions', dropped: 0 });
+      continue;
+    }
+    const raw = trades.get(ccy) ?? [];
+    if (!raw.length) continue;
+    const lowest = rateClusters(raw)[0];
+    chosen.set(ccy, { raw: lowest, source: 'trades', dropped: raw.length - lowest.length });
+  }
+
+  // Pence and pounds are the same currency. Either one gives the other, which
+  // is how a GBP cash balance stops being counted at 1:1.
+  for (const [from, to, factor] of [
+    ['GBP', 'GBX', 1 / 100],
+    ['GBX', 'GBP', 100],
+  ]) {
+    if (chosen.has(from) && !chosen.has(to)) {
+      const src = chosen.get(from);
+      chosen.set(to, {
+        raw: src.raw.map((o) => ({ ...o, rate: o.rate * factor })),
+        source: `${from.toLowerCase()}`,
+        dropped: 0,
+      });
+    }
   }
 
   const series = {};
   const report = [];
 
-  for (const [ccy, raw] of perCurrency) {
-    if (ccy === baseCurrency) continue;
-
-    const all = raw.map((o) => o.rate).sort((a, b) => a - b);
-    const median = all[Math.floor(all.length / 2)];
-    // A trade small enough for the fee to dominate, or a mis-booked row, can
-    // land far from the truth. Rates cannot plausibly triple against the euro.
-    const kept = raw.filter((o) => o.rate > median / 3 && o.rate < median * 3);
-
-    // One rate per day, so several trades on the same day cannot fight.
+  for (const [ccy, { raw, source, dropped }] of chosen) {
+    // One rate per day, so two conversions on one day cannot fight.
     const byDay = new Map();
-    for (const o of kept) {
+    for (const o of raw) {
       if (!byDay.has(o.index)) byDay.set(o.index, []);
       byDay.get(o.index).push(o.rate);
     }
     const points = [...byDay.entries()]
       .map(([index, rates]) => ({ index, rate: rates.sort((a, b) => a - b)[Math.floor(rates.length / 2)] }))
       .sort((a, b) => a.index - b.index);
-
     if (!points.length) continue;
 
     const arr = new Float64Array(days.length);
@@ -290,13 +489,24 @@ export function deriveFxRates(transactions, products, days, dayIndex, baseCurren
       else arr[i] = a.rate + ((b.rate - a.rate) * (i - a.index)) / (b.index - a.index);
     }
     series[ccy] = arr;
+
+    // How far this currency is ever extrapolated or interpolated, so the UI can
+    // say which stretches of the chart rest on a straight line.
+    let widestGap = points[0].index;
+    for (let k = 1; k < points.length; k++) widestGap = Math.max(widestGap, points[k].index - points[k - 1].index);
+    widestGap = Math.max(widestGap, days.length - 1 - points.at(-1).index);
+
+    const all = points.map((p) => p.rate).sort((a, b) => a - b);
     report.push({
       currency: ccy,
+      source,
       observations: points.length,
-      median: Number(median.toPrecision(4)),
+      median: Number(all[Math.floor(all.length / 2)].toPrecision(4)),
       low: Number(all[0].toPrecision(4)),
       high: Number(all.at(-1).toPrecision(4)),
-      dropped: raw.length - kept.length,
+      dropped,
+      widestGapDays: widestGap,
+      stale: widestGap > STALE_FX_DAYS,
     });
   }
 
@@ -335,6 +545,7 @@ export function computePortfolio(input) {
     prices = {},
     today = todayISO(),
     liveTotal = null,
+    livePositions = null,
     baseCurrency = 'EUR',
   } = input ?? {};
 
@@ -365,11 +576,24 @@ export function computePortfolio(input) {
   };
 
   // ---- 1b. exchange rates, from the account's own trades -----------------
-  const { series: fxSeries, report: fxReport } = deriveFxRates(transactions, products, days, dayIndex, baseCurrency);
+  const { series: fxSeries, report: fxReport } = deriveFxRates(transactions, products, days, dayIndex, baseCurrency, cashRows);
   /** Euros per unit of `ccy` on day `i`. 1 for the base currency and for any
    *  currency we have no trade to learn from. */
   const fxAt = (ccy, i) => (ccy === baseCurrency ? 1 : (fxSeries[ccy]?.[i] ?? 1));
   const unknownCurrencies = new Set();
+
+  // ---- 1b. how many shares one unit of each instrument covers -------------
+  // Needs the rates above and nothing else, and everything downstream needs it:
+  // an option contract is not one share, and valuing it as one understates the
+  // position by its contract size.
+  const { sizes: contractSizes, report: contractReport } = deriveContractSizes(
+    transactions,
+    products,
+    (ccy, date) => fxAt(ccy, dayIndex.get(date) ?? 0),
+    baseCurrency,
+  );
+  const unitsOf = (productId) => contractSizes[productId] ?? 1;
+  const unresolvedSizes = contractReport.filter((r) => r.verdict === 'unresolved');
 
   // ---- 2. price series, before the ledger --------------------------------
   // The ledger depends on the prices: a reverse split means the quantities in
@@ -420,7 +644,15 @@ export function computePortfolio(input) {
     }
   }
 
-  // ---- 3b. position ledger, in the units its own quotes use --------------
+  // ---- 3b. position ledger, exactly as booked ----------------------------
+  // The share count stays in the units DEGIRO booked it in, untouched. Where a
+  // series quotes in other units the conversion happens at valuation, on the
+  // price. Dividing each trade instead used to leave a closed round trip
+  // holding a sliver of a share — 17.36 shares of a bankrupt company on one
+  // real account — because two fills on one volatile day were measured against
+  // one daily close and landed in different regimes. Converting the price
+  // cannot do that: a position that nets to zero is worth zero whatever the
+  // factor does.
   /** @type {Map<string, Float64Array>} productId -> qty per day */
   const qtyByProduct = new Map();
   const tradeDaysByProduct = new Map();
@@ -434,14 +666,7 @@ export function computePortfolio(input) {
       qtyByProduct.set(t.productId, arr);
       tradeDaysByProduct.set(t.productId, new Set());
     }
-    // Convert this trade into the units its own day's quote uses. For an
-    // ordinary instrument the factor is 1 and nothing moves; for a
-    // split-adjusted series it is the split factor in force that day, so a
-    // split partway through the history is handled trade by trade.
-    const entry = priceByProduct.get(t.productId);
-    const useFactor = entry?.audit?.verdict === 'rescale';
-    const f = useFactor ? factorAt(entry.audit.ratios, i) : 1;
-    arr[i] += Number.isFinite(f) && Math.abs(f) > 1e-12 ? t.quantity / f : t.quantity;
+    arr[i] += t.quantity;
     tradeDaysByProduct.get(t.productId).add(t.date);
   }
   for (const arr of qtyByProduct.values()) {
@@ -459,8 +684,8 @@ export function computePortfolio(input) {
       'warn',
       'price-scale-adjusted',
       `${rescaled.length} instrument(s) quote in different units than their trades were booked in — a share ` +
-        `split, or pence versus pounds. The quoted history is real; the share counts were converted into its ` +
-        `units so the two can be multiplied. Without this the value would be wrong by that factor.`,
+        `split, or pence versus pounds. The quoted history is real; the quotes were converted back into the ` +
+        `units your shares are booked in. Without this the value would be wrong by that factor.`,
       { instruments: rescaled.slice(0, 25) },
     );
   }
@@ -580,6 +805,14 @@ export function computePortfolio(input) {
       if (!fxSeries[meta.currency]) unknownCurrencies.add(meta.currency);
     }
 
+    // A quote in different units than the ledger is divided back into the
+    // ledger's units, so quantity x price is dimensionally sound. A price the
+    // account actually paid is already in those units and is left alone.
+    const audit = priceByProduct.get(productId).audit;
+    const unit = audit?.verdict === 'rescale' ? factorByDay(audit.ratios, n) : null;
+    // A quote is per share. One unit of this instrument covers this many.
+    const shares = unitsOf(productId);
+
     const values = new Float64Array(n);
     let held = false;
     for (let i = 0; i < n; i++) {
@@ -587,9 +820,10 @@ export function computePortfolio(input) {
       if (q === 0) continue;
       held = true;
       // Prefer a real quote; fall back to the last price actually paid.
-      const price = covered[i] ? close[i] : traded.close[i] || close[i];
+      const quoted = covered[i] || !traded.close[i];
+      const price = quoted ? (unit ? close[i] / unit[i] : close[i]) : traded.close[i];
       // Quotes are in the instrument's own currency; the portfolio is in euros.
-      values[i] = q * price * fxAt(meta.currency ?? baseCurrency, i);
+      values[i] = q * price * shares * fxAt(meta.currency ?? baseCurrency, i);
       positionsValue[i] += values[i];
       if (priceEstimated[i] || !covered[i]) estimatedDay[i] = 1;
     }
@@ -612,6 +846,7 @@ export function computePortfolio(input) {
       symbol: meta.symbol || meta.name,
       currency: meta.currency ?? baseCurrency,
       productType: meta.productType ?? 'UNKNOWN',
+      contractSize: shares,
       values,
       qty,
     });
@@ -629,13 +864,26 @@ export function computePortfolio(input) {
   }
 
   if (fxReport.length) {
+    const fromConversions = fxReport.filter((f) => f.source === 'conversions').length;
     warn(
       'info',
       'fx-derived',
-      `Converted ${fxReport.map((f) => f.currency).join(', ')} to ${baseCurrency} using the rates your own ` +
-        `trades were settled at. Between trades the rate is interpolated, so a long gap without a trade in a ` +
-        `currency is an estimate.`,
+      `Converted ${fxReport.map((f) => f.currency).join(', ')} to ${baseCurrency}${
+        fromConversions ? `, ${fromConversions} of them at the rate DEGIRO itself applied when it moved the money` : ''
+      }. Between observations the rate is interpolated.`,
       { currencies: fxReport },
+    );
+  }
+
+  const staleFx = fxReport.filter((f) => f.stale);
+  if (staleFx.length) {
+    warn(
+      'warn',
+      'fx-stale',
+      `${staleFx.map((f) => `${f.currency} (${f.widestGapDays} days)`).join(', ')} went that long without a rate ` +
+        `to observe, so the euro value of anything held in it over that stretch is a straight line between two ` +
+        `points rather than the real rate.`,
+      { currencies: staleFx },
     );
   }
 
@@ -643,10 +891,21 @@ export function computePortfolio(input) {
     warn(
       'error',
       'fx-unknown',
-      `No trade has ever shown what ${[...unknownCurrencies].join(', ')} is worth in ${baseCurrency}, so it is ` +
-        `counted at 1:1 and the total is wrong by that much. This usually means a cash balance in a currency ` +
-        `you have never traded in.`,
+      `Nothing in your account has ever shown what ${[...unknownCurrencies].join(', ')} is worth in ` +
+        `${baseCurrency}, so it is counted at 1:1 and the total is wrong by that much. This usually means a cash ` +
+        `balance in a currency you have never traded or converted.`,
       { currencies: [...unknownCurrencies] },
+    );
+  }
+
+  if (unresolvedSizes.length) {
+    warn(
+      'error',
+      'contract-size-unresolved',
+      `${unresolvedSizes.length} instrument(s) do not settle at a whole number of shares per unit — what the ` +
+        `account paid does not divide cleanly by the quoted price. They are valued as one share per unit, which ` +
+        `is a guess, so treat their value as unknown rather than small.`,
+      { instruments: unresolvedSizes.slice(0, 25) },
     );
   }
 
@@ -719,22 +978,96 @@ export function computePortfolio(input) {
   }
 
   // ---- 7. reconciliation -------------------------------------------------
+  // Two checks, and the first one is the strict one. Quantities are ours to get
+  // right: DEGIRO states the size of every open position, and any disagreement
+  // is a defect in the ledger with no innocent explanation. Values are not
+  // wholly ours — a quote is a price at a moment, and DEGIRO's own two sources
+  // disagree with each other on illiquid instruments, where /update carries a
+  // last trade that can be older than the daily close. So the total is still
+  // reported to the cent, but the residual is attributed per position rather
+  // than left as a number to shrug at.
+  const positionMismatches = [];
+  if (Array.isArray(livePositions) && livePositions.length) {
+    const held = new Map(byProduct.map((p) => [String(p.productId), p]));
+    for (const live of livePositions) {
+      const id = String(live.productId ?? live.id ?? '');
+      // /update lists the cash funds among the positions — 'EUR', 'FLATEX_EUR'.
+      // They are balances, not instruments, and they are counted as cash.
+      if (!products[id]) continue;
+      const theirs = Number(live.size ?? live.quantity);
+      if (!Number.isFinite(theirs)) continue;
+      const ours = held.get(id)?.qty[n - 1] ?? 0;
+      if (Math.abs(ours - theirs) > 1e-6) {
+        positionMismatches.push({
+          productId: id,
+          name: products[id]?.name ?? held.get(id)?.name ?? `Product ${id}`,
+          ours: Number(ours.toPrecision(10)),
+          theirs,
+        });
+      }
+    }
+    for (const p of byProduct) {
+      const q = p.qty[n - 1];
+      if (Math.abs(q) < 1e-9) continue;
+      const id = String(p.productId);
+      if (!products[id]) continue;
+      if (!livePositions.some((l) => String(l.productId ?? l.id ?? '') === id)) {
+        positionMismatches.push({ productId: id, name: p.name, ours: Number(q.toPrecision(10)), theirs: 0 });
+      }
+    }
+  }
+
+  if (positionMismatches.length) {
+    warn(
+      'error',
+      'position-mismatch',
+      `${positionMismatches.length} position(s) do not match what DEGIRO reports you hold: ` +
+        `${positionMismatches.slice(0, 4).map((m) => `${m.name} (${m.ours} vs ${m.theirs})`).join(', ')}` +
+        `${positionMismatches.length > 4 ? ', and more' : ''}. The share counts come from your transaction ` +
+        `history, so a difference means the history is incomplete or misread — and the whole chart rests on it.`,
+      { positions: positionMismatches.slice(0, 25) },
+    );
+  }
+
   const reconstructed = value[n - 1];
   let reconciliation = null;
   if (liveTotal != null && Number.isFinite(liveTotal)) {
     const diff = reconstructed - liveTotal;
+    const attribution = [];
+    if (Array.isArray(livePositions) && livePositions.length) {
+      const theirValue = new Map(livePositions.map((l) => [String(l.productId ?? l.id ?? ''), Number(l.value)]));
+      for (const p of byProduct) {
+        if (Math.abs(p.qty[n - 1]) < 1e-9) continue;
+        const mine = p.values[n - 1];
+        const theirs = theirValue.get(String(p.productId));
+        if (!Number.isFinite(theirs)) continue;
+        if (Math.abs(mine - theirs) > 0.5) {
+          attribution.push({ name: p.name, ours: round2(mine), theirs: round2(theirs), diff: round2(mine - theirs) });
+        }
+      }
+      attribution.sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff));
+    }
+
     reconciliation = {
       reconstructed: round2(reconstructed),
       live: round2(liveTotal),
       diff: round2(diff),
       ok: Math.abs(diff) < 0.01,
+      positionsAgree: positionMismatches.length === 0,
+      attribution: attribution.slice(0, 10),
     };
+
     if (!reconciliation.ok) {
+      const led = attribution[0];
       warn(
-        'error',
+        positionMismatches.length ? 'error' : 'warn',
         'reconciliation-failed',
         `Reconstructed total ${round2(reconstructed)} does not match DEGIRO's ${round2(liveTotal)} ` +
-          `(off by ${round2(diff)}). SPEC §6: if today is wrong, the history is wrong too.`,
+          `(off by ${round2(diff)}).` +
+          (positionMismatches.length
+            ? ' Your positions do not match either, so the history is wrong — see above.'
+            : ` Every share count matches what DEGIRO reports, so this is a difference in prices, not in the ledger` +
+              (led ? `; the largest is ${led.name} at ${led.diff}, where DEGIRO's last trade and the daily close disagree.` : '.')),
         reconciliation,
       );
     }
@@ -761,6 +1094,7 @@ export function computePortfolio(input) {
       symbol: p.symbol,
       currency: p.currency,
       productType: p.productType,
+      contractSize: p.contractSize,
       values: Array.from(p.values, round2),
       qty: Array.from(p.qty),
       current: round2(p.values[n - 1]),
@@ -789,6 +1123,8 @@ export function computePortfolio(input) {
       estimatedDays: estimatedDay.reduce((a, b) => a + b, 0),
     },
     stats: { unclassified, categoryTotals: mapValues(categoryTotals, round2), transactions: transactions.length, cashRows: cashRows.length },
+    fx: fxReport,
+    contracts: contractReport,
     reconciliation,
     warnings,
     computedAt: new Date().toISOString(),
