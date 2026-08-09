@@ -18,6 +18,13 @@ older file has neither field, and the tool says so rather than reporting the can
 "DEGIRO does not send `contractSize`" concluded from a file that could not have contained it is a
 wrong answer to a blocker, which is worse than no answer.
 
+**The wipe is not optional, and only half of it is obvious.** `totals` rides on `liveSnapshot`,
+which `sync.js` rewrites on every run, so an ordinary sync produces it. `extra` does not:
+`sync.js:330` fetches product metadata only for ids it does not already hold, so every instrument
+already in the store keeps the row it was written with — without `extra` — for as long as the
+database survives. An ordinary sync on 0.12.0 therefore answers the margin question and none of the
+option questions, and it does so without any sign that half the answer is missing.
+
 ## What the output may contain
 
 Names, coverage and shapes. Not amounts. The tool prints a value only where its shape says it is a
@@ -50,8 +57,9 @@ Candidates: `reportMargin`, `reportOverallMargin`, `freeSpaceNew`, `reportDefici
   from transactions; it is a broker's own risk calculation over positions we can see but rules we
   cannot. Half a dashboard that guesses a margin requirement is the plausible-wrong-number failure
   this project exists to avoid.
-- **Present but zero everywhere** → the account has no margin, which is not the same as DEGIRO not
-  sending it. Needs an account that does. Danny's is the candidate.
+- **Present but zero everywhere** → that account has no margin, which is not the same as DEGIRO not
+  sending it. Needs an account that does — the options account with 27 written puts is the one to
+  look at, since a written put is the textbook case for a margin requirement.
 
 ### 2. Does `extra` carry `contractSize`? *(B1)*
 
