@@ -650,6 +650,55 @@ test('the rescaling is reported, with the evidence behind it', () => {
   assert.equal(hit.sample[0].traded, 13.44);
 });
 
+test('a round trip on a split-adjusted series closes to exactly zero', () => {
+  // Found on two real accounts. Bought 26 and 17 on one day at different fills,
+  // sold all 43 six days later; the ledger nets to zero and the position is gone.
+  // Dividing each trade by the factor measured from its own fill left 17.36
+  // shares of a bankrupt company on the books, worth EUR 69 that never existed.
+  // A factor converts units. It cannot differ between two fills on one day, and
+  // whatever it does, a position that closes has to close.
+  const days = dayRange('2024-01-01', '2024-01-10');
+  const r = computePortfolio({
+    products: { 1: { id: '1', name: 'ROUND TRIP', symbol: 'RTP', currency: 'EUR', vwdId: '900' } },
+    prices: {
+      900: {
+        start: '2024-01-01',
+        stepDays: 1,
+        // Quoted in units about a thousand times smaller than the fills.
+        points: days.map((_, i) => ({ offsetDays: i, close: i < 5 ? 0.02 : 0.0096 })),
+      },
+    },
+    transactions: [
+      { date: '2024-01-01', productId: '1', quantity: 26, price: 15.67, currency: 'EUR', fee: 0 },
+      { date: '2024-01-01', productId: '1', quantity: 17, price: 26.5, currency: 'EUR', fee: 0 },
+      { date: '2024-01-06', productId: '1', quantity: -43, price: 9.61, currency: 'EUR', fee: 0 },
+    ],
+    cashRows: [{ date: '2024-01-01', description: 'Deposit', change: 2000, currency: 'EUR', category: 'DEPOSIT' }],
+    today: '2024-01-10',
+  });
+
+  const p = r.byProduct[0];
+  assert.equal(p.qty.at(-1), 0, 'the position was sold in full and must read exactly 0');
+  assert.equal(p.values.at(-1), 0, 'a position that does not exist cannot be worth anything');
+  assert.equal(r.positionsValue.at(-1), 0, 'and it must not reach the portfolio total');
+});
+
+test('the ledger reports the shares actually booked, not the price series units', () => {
+  // The holdings table shows this number. A share count converted into a price
+  // series' units is not a share count, and reads as a different position.
+  const days = dayRange('2024-01-01', '2024-01-05');
+  const r = computePortfolio({
+    products: { 1: { id: '1', name: 'ADJUSTED', symbol: 'ADJ', currency: 'EUR', vwdId: '900' } },
+    prices: { 900: { start: '2024-01-01', stepDays: 1, points: days.map((_, i) => ({ offsetDays: i, close: 0.05 })) } },
+    transactions: [{ date: '2024-01-02', productId: '1', quantity: 40, price: 50, currency: 'EUR', fee: 0 }],
+    cashRows: [{ date: '2024-01-01', description: 'Deposit', change: 5000, currency: 'EUR', category: 'DEPOSIT' }],
+    today: '2024-01-05',
+  });
+  assert.equal(r.byProduct[0].qty.at(-1), 40, '40 shares were bought, so the ledger says 40');
+  // 40 shares that cost 50 each are worth 2000, whatever units the series quotes in.
+  near(r.positionsValue.at(-1), 2000, 0.01, 'and the valuation still converts correctly');
+});
+
 test('a series whose factor will not hold still is thrown away, not rescaled', () => {
   // No consistent relationship between quotes and fills means the series is not
   // this instrument. Rescaling it would draw another company under this name.

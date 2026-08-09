@@ -182,43 +182,60 @@ export function auditSeries(transactions, productId, close, dayIndex, covered) {
   if (median >= TRUST_BAND[0] && median <= TRUST_BAND[1]) return { ratios, median, verdict: 'ok', spread };
   if (spread > MAX_FACTOR_SPREAD) return { ratios, median, spread, verdict: 'reject' };
 
-  // Smooth the factor within a split regime. Two trades either side of the same
-  // split differ only by intraday noise, and using each one's own raw ratio
-  // means a buy and its matching sell no longer cancel — a fully closed
-  // position is left holding a sliver of a share, worth real money once
-  // multiplied by a seven-figure adjusted quote.
+  // Smooth the factor within a split regime, so the conversion does not wobble
+  // between one trade and the next. A genuine split is a jump far larger than
+  // the tolerance and keeps its own regime.
   return { ratios: clusterFactors(ratios), median, spread, verdict: 'rescale' };
 }
 
 /**
- * Collapse near-equal factors onto one value per regime, so trades within a
- * regime share a factor exactly. A genuine split shows up as a jump far larger
- * than this tolerance and keeps its own cluster.
+ * Collapse near-equal factors onto one value per regime.
+ *
+ * Each day is reduced to a single ratio first. A factor converts units, and
+ * units cannot change between two fills on the same day — but a volatile day
+ * easily spans more than the regime tolerance, so clustering the raw fills
+ * would hand two halves of the same purchase two different factors.
  */
 function clusterFactors(ratios) {
   const REGIME_TOLERANCE = 1.25;
+  const mid = (xs) => xs.slice().sort((a, b) => a - b)[Math.floor(xs.length / 2)];
+
+  const perDay = new Map();
+  for (const r of ratios) {
+    if (!perDay.has(r.index)) perDay.set(r.index, []);
+    perDay.get(r.index).push(r.ratio);
+  }
+  const days = [...perDay].map(([index, rs]) => ({ index, ratio: mid(rs) }));
+
   const clusters = [];
-  for (const r of [...ratios].sort((a, b) => a.ratio - b.ratio)) {
+  for (const d of days.slice().sort((a, b) => a.ratio - b.ratio)) {
     const last = clusters.at(-1);
-    if (last && r.ratio / last[0].ratio <= REGIME_TOLERANCE) last.push(r);
-    else clusters.push([r]);
+    if (last && d.ratio / last[0].ratio <= REGIME_TOLERANCE) last.push(d);
+    else clusters.push([d]);
   }
-  const factorOf = new Map();
+
+  const factorOfDay = new Map();
   for (const c of clusters) {
-    const mid = c.map((r) => r.ratio).sort((a, b) => a - b)[Math.floor(c.length / 2)];
-    for (const r of c) factorOf.set(r, mid);
+    const f = mid(c.map((d) => d.ratio));
+    for (const d of c) factorOfDay.set(d.index, f);
   }
-  return ratios.map((r) => ({ ...r, ratio: factorOf.get(r) ?? r.ratio }));
+  return ratios.map((r) => ({ ...r, ratio: factorOfDay.get(r.index) ?? r.ratio }));
 }
 
-/** The factor in force on a day, from the nearest trade at or before it. */
-function factorAt(ratios, index) {
-  let chosen = ratios[0];
-  for (const r of ratios) {
-    if (r.index <= index) chosen = r;
-    else break;
+/**
+ * The factor in force on each day, from the nearest trade at or before it, held
+ * flat before the first trade and after the last.
+ */
+function factorByDay(ratios, n) {
+  const out = new Float64Array(n).fill(1);
+  if (!ratios?.length) return out;
+  let k = 0;
+  let current = ratios[0].ratio;
+  for (let i = 0; i < n; i++) {
+    while (k < ratios.length && ratios[k].index <= i) current = ratios[k++].ratio;
+    out[i] = Number.isFinite(current) && Math.abs(current) > 1e-12 ? current : 1;
   }
-  return chosen?.ratio ?? 1;
+  return out;
 }
 
 /**
@@ -420,7 +437,15 @@ export function computePortfolio(input) {
     }
   }
 
-  // ---- 3b. position ledger, in the units its own quotes use --------------
+  // ---- 3b. position ledger, exactly as booked ----------------------------
+  // The share count stays in the units DEGIRO booked it in, untouched. Where a
+  // series quotes in other units the conversion happens at valuation, on the
+  // price. Dividing each trade instead used to leave a closed round trip
+  // holding a sliver of a share — 17.36 shares of a bankrupt company on one
+  // real account — because two fills on one volatile day were measured against
+  // one daily close and landed in different regimes. Converting the price
+  // cannot do that: a position that nets to zero is worth zero whatever the
+  // factor does.
   /** @type {Map<string, Float64Array>} productId -> qty per day */
   const qtyByProduct = new Map();
   const tradeDaysByProduct = new Map();
@@ -434,14 +459,7 @@ export function computePortfolio(input) {
       qtyByProduct.set(t.productId, arr);
       tradeDaysByProduct.set(t.productId, new Set());
     }
-    // Convert this trade into the units its own day's quote uses. For an
-    // ordinary instrument the factor is 1 and nothing moves; for a
-    // split-adjusted series it is the split factor in force that day, so a
-    // split partway through the history is handled trade by trade.
-    const entry = priceByProduct.get(t.productId);
-    const useFactor = entry?.audit?.verdict === 'rescale';
-    const f = useFactor ? factorAt(entry.audit.ratios, i) : 1;
-    arr[i] += Number.isFinite(f) && Math.abs(f) > 1e-12 ? t.quantity / f : t.quantity;
+    arr[i] += t.quantity;
     tradeDaysByProduct.get(t.productId).add(t.date);
   }
   for (const arr of qtyByProduct.values()) {
@@ -459,8 +477,8 @@ export function computePortfolio(input) {
       'warn',
       'price-scale-adjusted',
       `${rescaled.length} instrument(s) quote in different units than their trades were booked in — a share ` +
-        `split, or pence versus pounds. The quoted history is real; the share counts were converted into its ` +
-        `units so the two can be multiplied. Without this the value would be wrong by that factor.`,
+        `split, or pence versus pounds. The quoted history is real; the quotes were converted back into the ` +
+        `units your shares are booked in. Without this the value would be wrong by that factor.`,
       { instruments: rescaled.slice(0, 25) },
     );
   }
@@ -580,6 +598,12 @@ export function computePortfolio(input) {
       if (!fxSeries[meta.currency]) unknownCurrencies.add(meta.currency);
     }
 
+    // A quote in different units than the ledger is divided back into the
+    // ledger's units, so quantity x price is dimensionally sound. A price the
+    // account actually paid is already in those units and is left alone.
+    const audit = priceByProduct.get(productId).audit;
+    const unit = audit?.verdict === 'rescale' ? factorByDay(audit.ratios, n) : null;
+
     const values = new Float64Array(n);
     let held = false;
     for (let i = 0; i < n; i++) {
@@ -587,7 +611,8 @@ export function computePortfolio(input) {
       if (q === 0) continue;
       held = true;
       // Prefer a real quote; fall back to the last price actually paid.
-      const price = covered[i] ? close[i] : traded.close[i] || close[i];
+      const quoted = covered[i] || !traded.close[i];
+      const price = quoted ? (unit ? close[i] / unit[i] : close[i]) : traded.close[i];
       // Quotes are in the instrument's own currency; the portfolio is in euros.
       values[i] = q * price * fxAt(meta.currency ?? baseCurrency, i);
       positionsValue[i] += values[i];
