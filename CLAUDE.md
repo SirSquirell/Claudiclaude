@@ -37,6 +37,18 @@ architecture that §1 and §3 of the spec already settled.
    last value against DEGIRO's own total. If it is off by a cent, the history is wrong
    too and the UI says so in red. Do not soften this into a tolerance.
 
+7. **Anything that leaves the machine is default-deny.** The export, the diagnostics and
+   anything else a user can hand to someone else declares what it *may* carry; whatever is
+   not declared is redacted. A denylist encodes its own next failure — the field added
+   tomorrow ships by default and keeps shipping until somebody remembers. This is not
+   hypothetical: the 0.10.0 export leaked `displayName`, `intAccount` and `userToken`
+   because nobody had listed them.
+
+   Two corollaries, both from real incidents in this project rather than from principle:
+   **no value copied out of a real account may enter `test/`** — build it synthetically, or
+   the value on screen will get pasted — and **findings name accounts, never people**. "The
+   first account" is as useful as a name and cannot identify anyone.
+
 ## Layout
 
 ```
