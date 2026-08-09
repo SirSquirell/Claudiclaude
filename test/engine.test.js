@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { aggregatePnl, buildComposition, computePortfolio, deriveFxRates, expandSeries, monthlyTable, rangeStartIndex } from '../src/lib/engine.js';
+import { aggregatePnl, buildComposition, computePortfolio, deriveContractSizes, deriveFxRates, expandSeries, monthlyTable, rangeStartIndex } from '../src/lib/engine.js';
 import { parseCashMovements, parseChartResponse, parseProducts, parseTransactions, parseUpdate } from '../src/lib/parse.js';
 import { dayRange } from '../src/lib/dates.js';
 import { fixture, loadPrices } from './helpers.js';
@@ -648,6 +648,176 @@ test('the rescaling is reported, with the evidence behind it', () => {
   assert.ok(hit.factor > 100000, `expected a large factor, got ${hit.factor}`);
   assert.ok(hit.spread < 5, 'a split factor holds steady between trades');
   assert.equal(hit.sample[0].traded, 13.44);
+});
+
+// ---------------------------------------------------------------------------
+// Exchange rates and contract sizes
+// ---------------------------------------------------------------------------
+
+/** Two legs of one conversion: consecutive sourceIds, same productId. */
+const conversion = (sourceId, date, ccy, out, eurIn, productId = 'X') => [
+  { id: `${sourceId}`, sourceId, date, productId, currency: ccy, change: out, category: 'FX', description: 'Valuta Debitering' },
+  { id: `${sourceId + 1}`, sourceId: sourceId + 1, date, productId, currency: 'EUR', change: eurIn, category: 'FX', description: 'Valuta Creditering' },
+];
+
+test('a currency conversion states the rate outright', () => {
+  const days = dayRange('2024-01-01', '2024-01-03');
+  const idx = new Map(days.map((d, i) => [d, i]));
+  const rows = [...conversion(100, '2024-01-02', 'CHF', -1800, 1933.78)];
+  const { series } = deriveFxRates([], {}, days, idx, 'EUR', rows);
+  near(series.CHF[1], 1.07432, 0.00001, 'euros in divided by francs out');
+});
+
+test('conversions in several currencies on one day do not cross-pair', () => {
+  const days = dayRange('2024-01-01', '2024-01-03');
+  const idx = new Map(days.map((d, i) => [d, i]));
+  const rows = [
+    ...conversion(200, '2024-01-02', 'CHF', -415, 444.93, 'a'),
+    ...conversion(300, '2024-01-02', 'SEK', 948.2, -82.54, 'b'),
+  ];
+  const { series } = deriveFxRates([], {}, days, idx, 'EUR', rows);
+  near(series.CHF[1], 1.07211, 0.0001);
+  near(series.SEK[1], 0.08704, 0.0001);
+});
+
+test('an option trade must not be read as an exchange rate', () => {
+  // The bug this replaces: for a derivative, |totalBase - fee| / |price x qty|
+  // is the rate times the contract size. Where every trade in a currency was an
+  // option the median landed on that cluster and CHF came out at 107.
+  const days = dayRange('2024-01-01', '2024-01-05');
+  const idx = new Map(days.map((d, i) => [d, i]));
+  const products = {
+    1: { id: '1', name: 'SHARE', currency: 'CHF' },
+    2: { id: '2', name: 'OPTION', currency: 'CHF', productType: 'OPTION' },
+  };
+  const transactions = [
+    { date: '2024-01-02', productId: '1', quantity: 10, price: 100, currency: 'CHF', fee: 0, totalBase: -1070 },
+    { date: '2024-01-03', productId: '2', quantity: -1, price: 5, currency: 'CHF', fee: 0, totalBase: 535 },
+    { date: '2024-01-04', productId: '2', quantity: -2, price: 4, currency: 'CHF', fee: 0, totalBase: 856 },
+  ];
+  const { series } = deriveFxRates(transactions, products, days, idx, 'EUR', []);
+  near(series.CHF[2], 1.07, 0.01, 'the lowest cluster is the rate, not the option cluster');
+});
+
+test('pence and pounds are the same currency', () => {
+  const days = dayRange('2024-01-01', '2024-01-03');
+  const idx = new Map(days.map((d, i) => [d, i]));
+  const { series, report } = deriveFxRates([], {}, days, idx, 'EUR', [
+    ...conversion(400, '2024-01-02', 'GBP', -1000, 1172.07),
+  ]);
+  near(series.GBP[1], 1.17207, 0.00001);
+  near(series.GBX[1], 0.0117207, 0.0000001, 'a hundred pence to the pound');
+  assert.equal(report.find((r) => r.currency === 'GBX').source, 'gbp');
+});
+
+test('a rate nobody has observed for years is called an estimate', () => {
+  const days = dayRange('2020-01-01', '2024-01-01');
+  const idx = new Map(days.map((d, i) => [d, i]));
+  const { report } = deriveFxRates([], {}, days, idx, 'EUR', [
+    ...conversion(500, '2020-01-02', 'HKD', -1000, 115),
+  ]);
+  const hkd = report.find((r) => r.currency === 'HKD');
+  assert.equal(hkd.stale, true, 'one observation cannot describe four years');
+  assert.ok(hkd.widestGapDays > 1000);
+});
+
+test('a contract size is measured, not assumed, and rounded to a whole number', () => {
+  // Real contract sizes seen on one account: 10, 100, and 103 on a contract
+  // adjusted for a corporate action. No table of sizes could hold that.
+  const days = dayRange('2024-01-01', '2024-01-05');
+  const products = {
+    1: { id: '1', name: 'ADY P700', currency: 'EUR', productType: 'OPTION' },
+    2: { id: '2', name: 'BMW P56', currency: 'EUR', productType: 'OPTION' },
+    3: { id: '3', name: 'RND P38.81', currency: 'EUR', productType: 'OPTION' },
+    4: { id: '4', name: 'PLAIN SHARE', currency: 'EUR' },
+  };
+  const transactions = [
+    { date: '2024-01-02', productId: '1', quantity: -1, price: 29.85, currency: 'EUR', fee: 0, totalBase: 298.5 },
+    { date: '2024-01-02', productId: '2', quantity: -1, price: 2.43, currency: 'EUR', fee: 0, totalBase: 243 },
+    { date: '2024-01-02', productId: '3', quantity: -1, price: 7.71, currency: 'EUR', fee: 0, totalBase: 794.13 },
+    { date: '2024-01-02', productId: '4', quantity: 10, price: 20, currency: 'EUR', fee: 0, totalBase: -200 },
+  ];
+  const { sizes, report } = deriveContractSizes(transactions, products, () => 1);
+  assert.equal(sizes['1'], 10);
+  assert.equal(sizes['2'], 100);
+  assert.equal(sizes['3'], 103, 'a corporate action leaves a size that is not round');
+  assert.equal(sizes['4'], undefined, 'an ordinary share needs no entry and no banner');
+  assert.equal(report.every((r) => r.verdict === 'measured'), true);
+});
+
+test('a contract size that will not repeat is reported, never guessed', () => {
+  // A contract size is fixed, so two trades in the same instrument have to
+  // produce the same number. One that does not is not a measurement.
+  const products = { 1: { id: '1', name: 'ODD', currency: 'EUR', productType: 'OPTION' } };
+  const transactions = [
+    { date: '2024-01-02', productId: '1', quantity: -1, price: 10, currency: 'EUR', fee: 0, totalBase: 1000 },
+    { date: '2024-01-03', productId: '1', quantity: -1, price: 10, currency: 'EUR', fee: 0, totalBase: 400 },
+  ];
+  const { sizes, report } = deriveContractSizes(transactions, products, () => 1);
+  assert.equal(sizes['1'], undefined, '100 one day and 40 the next settles nothing');
+  assert.equal(report[0].verdict, 'unresolved');
+  assert.ok(report[0].spread > 2);
+});
+
+test('a contract size lands on a whole number or it is not used', () => {
+  const products = { 1: { id: '1', name: 'HALF', currency: 'EUR', productType: 'OPTION' } };
+  const transactions = [
+    { date: '2024-01-02', productId: '1', quantity: -1, price: 10, currency: 'EUR', fee: 0, totalBase: 125 },
+    { date: '2024-01-03', productId: '1', quantity: -1, price: 10, currency: 'EUR', fee: 0, totalBase: 125 },
+  ];
+  const { sizes, report } = deriveContractSizes(transactions, products, () => 1);
+  assert.equal(sizes['1'], undefined, '12.5 shares per contract is not a share count');
+  assert.equal(report[0].verdict, 'unresolved');
+});
+
+test('a written option is valued at its full contract size', () => {
+  const days = dayRange('2024-01-01', '2024-01-05');
+  const r = computePortfolio({
+    products: { 1: { id: '1', name: 'WKL P70', symbol: 'WKL', currency: 'EUR', productType: 'OPTION' } },
+    transactions: [
+      // Sold two contracts for 12.95 each; 2590 landed, so one contract is 100.
+      { date: '2024-01-02', productId: '1', quantity: -2, price: 12.95, currency: 'EUR', fee: 0, totalBase: 2590 },
+    ],
+    cashRows: [
+      { date: '2024-01-01', description: 'Deposit', change: 10000, currency: 'EUR', category: 'DEPOSIT' },
+      { date: '2024-01-02', description: 'Verkoop 2 @ 12,95 EUR', change: 2590, currency: 'EUR', category: 'TRADE' },
+    ],
+    today: '2024-01-05',
+  });
+  assert.equal(r.byProduct[0].contractSize, 100);
+  near(r.byProduct[0].values.at(-1), -2590, 0.01, 'the liability is the full contract, not two shares');
+  near(r.totals.value, 10000, 0.01, 'premium in, liability out: the account is unchanged');
+});
+
+test('a position DEGIRO does not report is an error, not a rounding note', () => {
+  const days = dayRange('2024-01-01', '2024-01-05');
+  const r = computePortfolio({
+    products: { 1: { id: '1', name: 'GHOST', currency: 'EUR' } },
+    transactions: [{ date: '2024-01-02', productId: '1', quantity: 5, price: 10, currency: 'EUR', fee: 0, totalBase: -50 }],
+    cashRows: [{ date: '2024-01-01', description: 'Deposit', change: 1000, currency: 'EUR', category: 'DEPOSIT' }],
+    today: '2024-01-05',
+    livePositions: [{ productId: '1', size: 3, price: 10, value: 30 }],
+  });
+  const w = r.warnings.find((x) => x.code === 'position-mismatch');
+  assert.ok(w, 'expected a position-mismatch warning');
+  assert.equal(w.level, 'error');
+  assert.equal(w.detail.positions[0].ours, 5);
+  assert.equal(w.detail.positions[0].theirs, 3);
+});
+
+test('a cash fund among the positions is not mistaken for a holding', () => {
+  const days = dayRange('2024-01-01', '2024-01-05');
+  const r = computePortfolio({
+    products: { 1: { id: '1', name: 'SHARE', currency: 'EUR' } },
+    transactions: [{ date: '2024-01-02', productId: '1', quantity: 5, price: 10, currency: 'EUR', fee: 0, totalBase: -50 }],
+    cashRows: [{ date: '2024-01-01', description: 'Deposit', change: 1000, currency: 'EUR', category: 'DEPOSIT' }],
+    today: '2024-01-05',
+    livePositions: [
+      { productId: '1', size: 5, price: 10, value: 50 },
+      { productId: 'FLATEX_EUR', size: 950, price: 1, value: 950 },
+    ],
+  });
+  assert.equal(r.warnings.some((x) => x.code === 'position-mismatch'), false, 'a balance is not an instrument');
 });
 
 test('a round trip on a split-adjusted series closes to exactly zero', () => {
