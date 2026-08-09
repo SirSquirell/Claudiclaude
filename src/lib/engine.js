@@ -1434,8 +1434,30 @@ function mapValues(obj, fn) {
 /**
  * Resolve a range button ('1W','1M','3M','YTD','1Y','ALL') to a start index.
  */
+/**
+ * The last index of a selected range. Only a dragged selection ends anywhere
+ * but today; the buttons all run to the newest day.
+ */
+export function rangeEndIndex(days, range) {
+  if (!days.length) return 0;
+  if (typeof range === 'string' && range.includes('..')) {
+    const to = range.split('..')[1];
+    for (let i = days.length - 1; i >= 0; i--) if (days[i] <= to) return i;
+    return 0;
+  }
+  return days.length - 1;
+}
+
 export function rangeStartIndex(days, range) {
   if (!days.length) return 0;
+  // A dragged selection, as 'YYYY-MM-DD..YYYY-MM-DD'. The six buttons only
+  // reach six windows; everything between them — March 2024, the fortnight
+  // around a crash — was unreachable.
+  if (typeof range === 'string' && range.includes('..')) {
+    const from = range.split('..')[0];
+    const i = days.findIndex((d) => d >= from);
+    return i < 0 ? 0 : i;
+  }
   const last = days[days.length - 1];
   let from;
   switch (range) {

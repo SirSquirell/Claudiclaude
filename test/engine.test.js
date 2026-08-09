@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { aggregatePnl, buildComposition, computePortfolio, deriveContractSizes, deriveFxRates, expandSeries, monthlyTable, rangeStartIndex } from '../src/lib/engine.js';
+import { aggregatePnl, buildComposition, computePortfolio, deriveContractSizes, deriveFxRates, expandSeries, monthlyTable, rangeEndIndex, rangeStartIndex } from '../src/lib/engine.js';
 import { parseCashMovements, parseChartResponse, parseProducts, parseTransactions, parseUpdate } from '../src/lib/parse.js';
 import { dayRange } from '../src/lib/dates.js';
 import { fixture, loadPrices } from './helpers.js';
@@ -1005,4 +1005,28 @@ test('days before a price series starts use the traded price, not a future quote
   });
   near(r.positionsValue[0], 50, 0.01, 'day one is valued at the price actually paid');
   assert.ok(r.estimated[0] === 1, 'and the day is flagged as an estimate');
+});
+
+
+test('a dragged range selects an arbitrary window, not one of six', () => {
+  // The six buttons reach six windows; March 2024 and the fortnight around a
+  // crash were unreachable between them.
+  const days = dayRange('2024-01-01', '2024-12-31');
+  const from = rangeStartIndex(days, '2024-03-01..2024-03-31');
+  const to = rangeEndIndex(days, '2024-03-01..2024-03-31');
+  assert.equal(days[from], '2024-03-01');
+  assert.equal(days[to], '2024-03-31');
+  assert.equal(to - from + 1, 31);
+});
+
+test('a button range still runs to the newest day', () => {
+  const days = dayRange('2024-01-01', '2024-12-31');
+  assert.equal(rangeEndIndex(days, '3M'), days.length - 1);
+  assert.equal(rangeEndIndex(days, 'ALL'), days.length - 1);
+});
+
+test('a dragged range that starts before the history clamps to its first day', () => {
+  const days = dayRange('2024-06-01', '2024-06-30');
+  assert.equal(rangeStartIndex(days, '2020-01-01..2024-06-10'), 0);
+  assert.equal(days[rangeEndIndex(days, '2020-01-01..2024-06-10')], '2024-06-10');
 });

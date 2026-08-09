@@ -5,7 +5,7 @@
  * an external cashflow."
  */
 
-import { aggregatePnl, buildComposition, monthlyTable, rangeStartIndex } from '../lib/engine.js';
+import { aggregatePnl, buildComposition, monthlyTable, rangeEndIndex, rangeStartIndex } from '../lib/engine.js';
 import { monthKey, weekKey } from '../lib/dates.js';
 import {
   compositionChart,
@@ -336,7 +336,7 @@ function render() {
 
   // --- range window -----------------------------------------------------
   const from = rangeStartIndex(r.days, state.range);
-  const to = r.days.length - 1;
+  const to = rangeEndIndex(r.days, state.range);
   const slice = (arr) => arr.slice(from, to + 1);
 
   const gran = state.granularity === 'auto' ? autoGranularity(to - from + 1) : state.granularity;
@@ -348,6 +348,9 @@ function render() {
   // chosen day. It now applies to every time series. A value is a level, so a
   // bucket takes the observation it ended on; a flow is summed, which the
   // aggregators already do.
+  renderZoomState(r, from, to);
+  wireZoom();
+
   const ends = bucketEnds(r.days, from, to, gran);
   const atEnds = (arr) => ends.map((i) => arr[i]);
 
@@ -443,6 +446,76 @@ function sumInBuckets(arr, ends, from) {
     start = end + 1;
   }
   return out;
+}
+
+/**
+ * Drag across the value chart to select a stretch of it.
+ *
+ * The six range buttons reach six windows and nothing between them — there was
+ * no way to look at March 2024, or at the fortnight around a crash. A drag sets
+ * a custom range in the same state the buttons drive, so every chart on the
+ * page follows it, and it also gives the arbitrary start-and-end date that was
+ * otherwise missing entirely.
+ */
+function wireZoom() {
+  const canvas = $('#c-value');
+  if (!canvas || canvas.dataset.zoomWired) return;
+  canvas.dataset.zoomWired = '1';
+
+  let anchor = null;
+  const dayAt = (event) => {
+    const chart = state.charts.value;
+    if (!chart) return null;
+    const area = chart.chartArea;
+    const x = event.offsetX;
+    if (x < area.left || x > area.right) return null;
+    const labels = chart.data.labels ?? [];
+    if (!labels.length) return null;
+    const frac = (x - area.left) / Math.max(1, area.right - area.left);
+    return labels[Math.min(labels.length - 1, Math.max(0, Math.round(frac * (labels.length - 1))))];
+  };
+
+  canvas.addEventListener('pointerdown', (e) => {
+    anchor = dayAt(e);
+    if (anchor) canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener('pointerup', (e) => {
+    const end = dayAt(e);
+    const start = anchor;
+    anchor = null;
+    if (!start || !end) return;
+    // A click is not a drag. Below this it is someone reading the tooltip.
+    if (Math.abs(new Date(end) - new Date(start)) < 2 * 86400000) return;
+    const [from, to] = start <= end ? [start, end] : [end, start];
+    zoomTo(`${from}..${to}`);
+  });
+}
+
+function zoomTo(range) {
+  state.zoomFrom = state.range;
+  state.range = range;
+  for (const b of $('#range-group').querySelectorAll('button')) b.setAttribute('aria-pressed', 'false');
+  render();
+}
+
+/** Say what is selected, and offer the way back. A zoom you cannot leave is a trap. */
+function renderZoomState(r, from, to) {
+  const box = $('#zoom-state');
+  if (!box) return;
+  const dragged = typeof state.range === 'string' && state.range.includes('..');
+  box.hidden = !dragged;
+  if (!dragged) return;
+  box.innerHTML =
+    `<span>Zoomed to <strong>${esc(r.days[from])}</strong> — <strong>${esc(r.days[to])}</strong> ` +
+    `<span class="muted">(${to - from + 1} days)</span></span> <button type="button" id="btn-unzoom">Back</button>`;
+  $('#btn-unzoom').addEventListener('click', () => {
+    state.range = state.zoomFrom ?? 'ALL';
+    state.zoomFrom = null;
+    for (const b of $('#range-group').querySelectorAll('button')) {
+      b.setAttribute('aria-pressed', String(b.textContent === state.range));
+    }
+    render();
+  });
 }
 
 function autoGranularity(nDays) {
