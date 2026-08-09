@@ -227,10 +227,22 @@ granularity a candle would have open = high = low = close: a flat dash, four tim
 same one number, and a chart that looks like it is telling you about volatility while telling you
 nothing.
 
-**At week or month granularity it is real and it is worth having.** A week has five daily closes,
-which give a genuine open, high, low and close for that week. That is a true statement about the
-period, and it is exactly the thing the line chart hides — a month that ended flat after a 12%
-drawdown mid-month looks identical to a month that did nothing.
+**At week or month granularity there are four numbers to be had — but not from the value series.**
+A week has five daily closes, so an open, high, low and close can be formed. The trap is which
+series they come from.
+
+**A candle built on portfolio value would say a deposit was volatility.** The "high" of a month is
+the maximum daily total, and paying €10 000 in on the 12th raises that maximum by €10 000. The
+candle then draws a long upper wick that reads as a swing, when nothing swung — money arrived.
+That is the exact error this project exists to avoid, SPEC §1.4, rebuilt inside a new chart.
+
+So the candle has to be formed on a series with external cashflow already removed. The engine
+computes one: `pnl` is the daily change with deposits and withdrawals stripped, and its running
+sum is a deposit-free value line. **Open, high, low and close come from that**, and then a long
+wick means what a long wick means.
+
+Worth having on those terms, because it is exactly what the line hides: a month that ended flat
+after a 12% mid-month drawdown looks identical to a month that did nothing.
 
 So the story is: **the candle toggle is available when "Results per" is Week or Month, and is
 disabled with a reason at Day.** It fits the granularity control that became global in 0.10.0.
@@ -248,8 +260,11 @@ disabled with a reason at Day.** It fits the granularity control that became glo
 
 *Acceptance criteria:*
 
-- ☐ At Week or Month, each candle's open, high, low and close are the first, highest, lowest and
-  last daily value in that bucket, verified against the underlying series.
+- ☐ Each candle's four numbers come from the deposit-free series, not from portfolio value. The
+  test that matters: **a month containing a large deposit and no market movement draws a flat
+  candle**, not a long wick. If that test does not exist, the feature is not done.
+- ☐ At Week or Month, open, high, low and close are the first, highest, lowest and last value in
+  that bucket, verified against the underlying series.
 - ☐ At Day the toggle is disabled and says why, rather than drawing flat dashes.
 - ☐ The hover tooltip names all four numbers.
 - ☐ Colour stays with the validated diverging pair, and the direction is stated in words as well
