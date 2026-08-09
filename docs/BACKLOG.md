@@ -127,8 +127,9 @@ of an inference chain.
 | US-03 Calls & puts | **Confirmed and split.** Valuation is sprint work; expiry/assignment/margin is not. |
 | US-04 Currency conversion | **Confirmed**, root cause found (§1.2). DKK and CHF, not just DKK. Plus GBP (§1.4). |
 | US-05 Negative positions | **Mostly dissolves into US-03.** One open question remains. See §3. |
-| US-06 Graph slicers | **Needs specifics.** Strong hypothesis, not confirmed. See §3. |
+| US-06 Graph slicers | **Confirmed.** "Results per" drives 2 of 8 charts. See §3. |
 | US-07 Options & margin tab | **Valid, next sprint.** Depends on US-03 landing first. |
+| US-08 Compare arbitrary months | **New, in scope.** Three decisions first. See §3. |
 
 ---
 
@@ -232,24 +233,67 @@ and gets its own story.
 
 ### US-06 — Graph slicers
 
-The slicers are wired: `rangeStartIndex` is applied to the value chart, P/L, cumulative,
-composition, invested-vs-value and deposits. So *"slicers don't work"* is not reproducible as
-written, and I do not want to build against a guess.
+**B4 answered: the "Results per" group** (Auto / Day / Week / Month), not the range buttons.
 
-Two concrete hypotheses, both visible in the screenshot:
+It is wired, but to two of the eight charts. `state.granularity` feeds `aggregatePnl` only, which
+draws *Result per period* and *Cumulative result*. Every other chart on the page — including
+*Portfolio value including cash*, the largest thing on screen and the one directly beneath the
+control — ignores it entirely.
 
-1. **The KPI tiles ignore the range.** `renderTiles(r)` is called with the whole history before the
-   range window is computed. With **1M** selected, the tiles still read *TOTAL RESULT +€ 97 842,64
-   (+170,25%)* — an all-time number sitting directly above a one-month selector. That reads as a
-   broken slicer and it is the most likely thing being reported.
-2. **"Results per" does not change the value chart.** It only feeds `aggregatePnl`, so the value
-   chart stays daily whichever button is pressed. Whether that is a bug depends on what is expected.
+Two consequences, both of which read as a dead button:
 
-Also by design, and possibly the actual complaint: the dividend chart, the month grid and the month
-comparison deliberately ignore the range.
+- With **Range 1M**, `autoGranularity` resolves to `day` (≤ 45 days). Pressing **Day** then changes
+  literally nothing, because Auto had already chosen it. That is the exact state in the screenshot.
+- Pressing **Month** does change the two result charts, but the eye is on the value chart, which
+  stays daily.
 
-*Needed:* one screenshot with a range selected and an arrow pointing at what is wrong, or a
-sentence naming the chart and what was expected. Any of the three is a different fix.
+So the control is not broken so much as **silently scoped**. It sits in the global toolbar and
+behaves like a local one.
+
+*Decision needed, and the two options are different products:*
+
+1. **Make it global.** Apply granularity to every time series: values take the period-end
+   observation, flows are summed over the bucket. The control then does what its placement
+   promises.
+2. **Make its scope visible.** Move it beside the two result charts, or relabel it.
+
+*Recommendation:* option 1. The complaint is that pressing a button does nothing visible, and
+option 2 keeps that true. The one residual is that Day-under-Auto(day) is still a no-op; the
+`Auto (day)` label already discloses that, which is enough.
+
+The KPI tiles ignoring the range is a separate, still-open question — `renderTiles(r)` is called
+with the whole history before the range window is computed, so **1M** leaves *TOTAL RESULT
++€ 97 842,64 (+170,25 %)* on screen. Not what was reported, but worth deciding while we are here:
+should the tiles follow the range, or are they deliberately all-time?
+
+### US-08 — Compare any two months, not the same month across years *(new)*
+
+Requested during refinement. Today you click a **month name** and get that month across every year
+— all Septembers side by side. Wanted: click a **cell** in the grid and compare specific months,
+e.g. September 2025 against November 2020.
+
+This is a small change to state (`state.selectedMonths` holds month numbers 1–12; it would hold
+`YYYY-MM` keys) and a larger change to what the view *means*. Three things need deciding, because
+they do not follow from the request:
+
+1. **The summary table stops making sense.** Its columns — count, total, average, best, worst,
+   *"X of N positive"* — are aggregates over years. Pick one specific month and every column
+   collapses to the same number, with *"1 of 1 positive"* underneath. It has to be replaced, not
+   carried over. *Recommendation:* per selected month show the euro result, the return %, and its
+   rank over the whole history (*"3rd best of 81 months"*), which gives a single month context
+   without inventing an average from one observation.
+2. **Colour.** `monthColours()` assigns a stable preferred slot per month number and shifts on a
+   clash, so that a month keeps its colour between selections. Select September 2025 *and*
+   September 2024 and that rule has nothing to say. *Recommendation:* colour by selection order for
+   this view. It breaks "colour follows the entity" only within a view where the entity is the
+   selection itself, and it keeps the hard rule — no two visible series share a colour.
+3. **Does the existing mode stay?** You said it does not have to. *Recommendation:* keep both.
+   They answer different questions and only one of them carries any weight — twelve Septembers is a
+   pattern, one September against one November is two data points. Keeping the across-years mode
+   costs nothing and stops the new view from being read as evidence it cannot be.
+
+*Needed:* a yes or no on those three. Nothing else is unclear, and it is small enough to fit
+alongside US-06 in this sprint.
 
 ### US-07 — Options & margin dashboard
 
@@ -277,8 +321,9 @@ Order by causality instead:
 | 2 | FX derived from non-derivative trades only; GBX ↔ GBP | Depends on 1 to know what a derivative is |
 | 3 | Reconciliation to zero on both test accounts | The acceptance test for 1 and 2 |
 | 4 | Real fixtures from this export → regression tests | DoD requires automated tests; also closes the gap from the sprint review |
-| 5 | Slicers / KPI tiles (US-06) | Independent, small, no dependency |
-| 6 | Decide the CHANGELOG mechanism | DoD requires it to be decided during refinement |
+| 5 | "Results per" applies to every chart (US-06) | Independent, small, no dependency |
+| 6 | Compare arbitrary months by cell (US-08) | Independent, same area of the UI as 5 |
+| 7 | Decide the CHANGELOG mechanism | DoD requires it to be decided during refinement |
 
 Deferred to 0.11.0: US-07, and the expiry/assignment/margin half of US-03.
 
@@ -320,7 +365,9 @@ Two items need a decision before the sprint starts:
 | B1 | Does `products/info` return `contractSize`? Needs a raw response or HAR — our export discards it | US-02 approach choice (measure vs read) |
 | B2 | Does an expiring option produce a closing transaction? | US-03 out-of-scope half |
 | B3 | Is GME −4,0941 a real short position? | US-05 |
-| B4 | Which slicer, which chart, what was expected? | US-06 |
+| ~~B4~~ | ~~Which slicer, which chart?~~ **Answered: "Results per", scoped to 2 of 8 charts** | US-06 |
+| B8 | Should the KPI tiles follow the range, or stay all-time? | US-06 |
+| B9 | US-08: replace the summary table, colour by selection order, keep both modes? | US-08 |
 | B5 | Is a written premium also booked as external cashflow? | US-03 |
 | B6 | Rounding policy for measured multipliers | US-02 |
 | B7 | Flag sparse FX gaps, or fetch a real FX series? | US-04 |
