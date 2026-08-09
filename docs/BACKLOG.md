@@ -1,7 +1,7 @@
 # Backlog 0.10.0 — refinement
 
 Refinement of the user stories in *Claudiclaude — Portfolio & Options User Stories v2*,
-against the account export `degiro-portfolio-2026-08-08.json` (the first tester, 1 457 transactions,
+against the account export `degiro-portfolio-2026-08-08.json` (first account, 1 457 transactions,
 8 088 cash movements, 303 products, 181 price series).
 
 This document does not describe a solution. It records what the data proves, what is still
@@ -204,7 +204,7 @@ reviewed by a human, and explicitly not derived from the data it polices.
 
 ### US-03 — Calls & puts
 
-the first account's note — *"voor puts kunnen we uitgaan van dagwaarde om de portfolio waarde te bepalen"* —
+The options tester's note — *"voor puts kunnen we uitgaan van dagwaarde om de portfolio waarde te bepalen"* —
 is the right model and is what the engine already does for stocks. With the multiplier applied it
 extends to options unchanged.
 
@@ -227,7 +227,7 @@ Those need answers we do not have:
 - **Margin.** `/update` may report margin fields we do not parse. Unknown until we look at a raw
   response.
 
-*Needed:* the first account's confirmation on the premium question, and agreement on the split. The reference
+*Needed:* confirmation from the tester on the premium question, and agreement on the split. The reference
 data the story asks for has now been supplied and is sufficient for the in-scope half.
 
 ### US-04 — Currency conversion
@@ -255,7 +255,7 @@ worth keeping as *tests* on US-03 rather than as a separate story.
 
 One thing does not dissolve, and it turned out to be the biggest find of the refinement: the
 holdings screenshot shows **GameStop Corp. Class A, −4,0941 shares**. **B3 is answered — it is not
-a short position and the first tester does not hold it.** It is fabricated by the split rescaling, and it is
+a short position and the account does not hold it.** It is fabricated by the split rescaling, and it is
 the same defect as the phantom holdings on the second account. Moved to US-09.
 
 ### US-06 — Graph slicers
@@ -358,8 +358,8 @@ One fabricated position per account, in both cases from a ledger that closes:
 
 | Account | Instrument | Engine | Ledger | DEGIRO | Invented value |
 |---|---|---:|---:|---|---:|
-| the first tester (303 products) | GameStop Corp. Class A | −4,0941 | 0 | absent | −€ 67,84 |
-| the second tester (149 products) | Bed Bath & Beyond | 17,3630 | 0 | absent | € 69,22 |
+| First account (303 products) | GameStop Corp. Class A | −4,0941 | 0 | absent | −€ 67,84 |
+| Second account (149 products) | Bed Bath & Beyond | 17,3630 | 0 | absent | € 69,22 |
 
 **The magnitude was misread, and that is a second defect.** It is 17,36 *shares*, not 17 000. The
 holdings table formats with `nl-NL` and up to four decimals (`app.js:681`), so `17,363` sits in a
@@ -396,11 +396,11 @@ during the sprint. It does not block the acceptance tests above: closure must ho
 answer falls.
 
 *Scale of the machinery involved:* the second account rescales **18** instruments and rejects **3**;
-the first account's rescales 3. This code path fires often, so a defect in it is not an edge case.
+the first account rescales 3. This code path fires often, so a defect in it is not an edge case.
 
 ### US-07 — Options & margin dashboard
 
-Agreed, and the first account's framing is right — the dashboard is built around buy-and-hold stocks. But the
+Agreed, and the tester's framing is right — the dashboard is built around buy-and-hold stocks. But the
 margin half depends on data we have not confirmed exists, and the whole thing must sit on the final
 valuation model rather than lead it.
 
@@ -472,7 +472,7 @@ Two items need a decision before the sprint starts:
   updated in the same commit as the change. The README already carries a Status section that
   duplicates part of this; it should link to the changelog instead of repeating it.
 - **"Gebruikers hebben de wijziging zelf getest" and "expliciet akkoord bevonden."** This makes
-  the first tester and you a release gate. Fine, but it means 0.10.0 cannot ship on a green test suite alone,
+  the testers and you a release gate. Fine, but it means 0.10.0 cannot ship on a green test suite alone,
   and both of you need a **Wipe & resync** run before sign-off. Worth agreeing who does what.
 
 ---

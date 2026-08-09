@@ -7,3 +7,10 @@ screenshots/
 # Real HAR captures and un-redacted responses must never be committed.
 fixtures/real/
 *.har
+
+# Account exports. These carry real holdings and amounts and must never be
+# committed, not even redacted — the audit tool reads them from wherever they
+# already are.
+degiro-portfolio-*.json
+*-export.json
+exports/
