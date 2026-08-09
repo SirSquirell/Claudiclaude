@@ -163,6 +163,100 @@ than implied.
 
 ---
 
+## 3b. Zeus — what a competing extension has that we do not
+
+Checked against the store listing and its own screenshots. Its feature list is portfolio value
+graphs, performance graphs, dividends, an allocation chart, annual reports, weekly and monthly
+results, a dark theme and a language switch.
+
+**We already have** the value graphs, performance, dividends, allocation, weekly and monthly
+results, and a dark theme.
+
+**It has three things we do not:**
+
+| | | Worth having? |
+|---|---|---|
+| **Annual reports** | A per-year summary as a document, not a chart row | Probably. Our month grid has the numbers; it does not have a report you can read or hand to an accountant. |
+| **Language switch** | English / Dutch | Cheap and real. The whole UI is English while both testers and the install guide are Dutch. |
+| **Trade markers on the chart** | *"Buy TSLA: 3245,88"* with an arrow at the day it happened | **Yes, and this is the good one.** We mark deposits and withdrawals with triangles and mark nothing for trades. Seeing where a purchase lands against the value line is the question people actually ask of this chart. |
+| **An arbitrary date range** | `01/19/2020 – 02/05/2020`, typed | Yes — and it is the same feature as the zoom below, from the other end. |
+
+**One thing it does that we should not copy.** Its bottom-right chart plots "Value in €" on the
+left axis and "Percentage" on the right. Two scales on one plot invent a correlation out of an
+arbitrary alignment; it is the single most common charting mistake and CLAUDE.md already forbids
+it. Two charts, or one indexed to a common base.
+
+---
+
+## 3c. US-12 — Zoom the value chart *(new, refined)*
+
+**As a user I want to zoom into a stretch of the chart the way I can on any stock chart, so I can
+look at a fortnight without losing the shape of the year.**
+
+The range buttons jump between six fixed windows. Everything between them is unreachable: there
+is no way to look at March 2024, or at the fortnight around a crash.
+
+*Two ways to build it, and the cheap one is better:*
+
+1. **Drag to select on the chart itself.** Drag across a stretch, the range becomes that stretch,
+   a "back" affordance restores the previous one. No new dependency, it reuses the range state
+   `rangeStartIndex` already drives, and it closes the arbitrary-date-range gap in §3b at the
+   same time.
+2. **Wheel and pinch zoom**, which needs `chartjs-plugin-zoom` vendored alongside Chart.js. MV3
+   forbids remote scripts, so it is another file in `vendor/` and another thing to keep current.
+
+*Recommendation: 1 first.* It answers the request, and if wheel-zoom is still wanted afterwards it
+can be added on top of the same state.
+
+*Acceptance criteria:*
+
+- ☐ Dragging across the value chart narrows every chart on the page, not just the one dragged —
+  the range is global, as the buttons are.
+- ☐ The selected range is visible as text, and there is one click back to where you were.
+- ☐ A range narrower than the granularity's bucket does not produce an empty chart.
+- ☐ The keyboard reaches it: a zoom that needs a mouse is a zoom half the users do not have.
+
+## 3d. US-13 — Candles on the value chart *(new, refined — read the caveat first)*
+
+**As a user I want a candlestick view of the portfolio, like the charts I am used to.**
+
+**A candle needs four numbers: open, high, low, close. We hold one per day.** The portfolio value
+is a daily total reconstructed from daily closing prices — there is no intraday portfolio value
+anywhere in this project, and there is no way to get one from DEGIRO's daily series. So at **day**
+granularity a candle would have open = high = low = close: a flat dash, four times the ink for the
+same one number, and a chart that looks like it is telling you about volatility while telling you
+nothing.
+
+**At week or month granularity it is real and it is worth having.** A week has five daily closes,
+which give a genuine open, high, low and close for that week. That is a true statement about the
+period, and it is exactly the thing the line chart hides — a month that ended flat after a 12%
+drawdown mid-month looks identical to a month that did nothing.
+
+So the story is: **the candle toggle is available when "Results per" is Week or Month, and is
+disabled with a reason at Day.** It fits the granularity control that became global in 0.10.0.
+
+*Two decisions to make before building:*
+
+- **No new dependency needed.** Chart.js has no candlestick type, but it draws floating bars —
+  `[low, high]` for the wick and `[open, close]` for the body is a candle, in two datasets, with
+  the library already vendored. Prefer that to vendoring `chartjs-chart-financial`.
+- **Colour is a genuine conflict.** Trading convention is green up, red down. This project's
+  diverging pair is blue up, red down, chosen and validated for colour-vision deficiency — and
+  red/green is the single worst pair for exactly that. Recommend keeping blue/red and saying so
+  in the hint, rather than shipping a chart that eight percent of men cannot read because it
+  looks more familiar to the other ninety-two.
+
+*Acceptance criteria:*
+
+- ☐ At Week or Month, each candle's open, high, low and close are the first, highest, lowest and
+  last daily value in that bucket, verified against the underlying series.
+- ☐ At Day the toggle is disabled and says why, rather than drawing flat dashes.
+- ☐ The hover tooltip names all four numbers.
+- ☐ Colour stays with the validated diverging pair, and the direction is stated in words as well
+  as hue.
+
+---
+
 ## 4. Shape of 0.11, if it were decided today
 
 | | | Why here |
@@ -172,6 +266,10 @@ than implied.
 | 3 | T-1 guards + allowlist inversion | Closes a hole that is open right now |
 | 4 | US-11 diagnostics share | Makes the safe path the easy path |
 | 5 | US-03 second half: option identity and expiry pricing | Needs 1 and 2 |
-| 6 | US-07 options and margin dashboard | Needs 5; the UI sits on the model, not the reverse |
+| 6 | US-12 drag-to-zoom the value chart | Independent; also closes the arbitrary-date-range gap |
+| 7 | US-13 candle toggle at week and month | Small once 1 is not in the way; needs no new dependency |
+| 8 | US-07 options and margin dashboard | Needs 5; the UI sits on the model, not the reverse |
 
-Still unscheduled: US-10 (Trade Republic), and verifying calls against a real account.
+Still unscheduled: US-10 (Trade Republic), verifying calls against a real account, and the two
+things Zeus has that we lack — annual reports and a language switch. Trade markers on the value
+chart (§3b) are the one competitor feature worth stealing outright, and they are small.
