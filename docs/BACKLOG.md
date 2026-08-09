@@ -438,6 +438,22 @@ DoD item *"automated tests zijn succesvol"* means something here.
 
 ---
 
+### US-10 — Trade Republic *(backlog, not refined)*
+
+Raised during the 0.10.0 sprint and deliberately parked. One note so refinement starts in the
+right place: `engine.js` takes plain arrays of transactions, cash movements, products and price
+series and knows nothing about DEGIRO. A second broker is therefore a new *adapter* — session,
+fetch, parse, classify — and not an engine change. Protecting that boundary is most of the work.
+
+Questions to open with:
+
+- Does Trade Republic expose anything a logged-in browser can read, or is it app-only with a
+  device-bound token? This decides whether the project is possible at all in this shape.
+- What identifies an instrument, and is there a daily price series to be had?
+- Cash descriptions will need their own rule table; `classify.js` is DEGIRO's vocabulary.
+- **Is there an equivalent of DEGIRO's own reported total?** Without one there is nothing to
+  reconcile against, and the acceptance test this whole project rests on does not exist.
+
 ## 5. Definition of Done — reconciling the two versions
 
 The DoD in chat supersedes the one on page 12 of the PDF, but the PDF has two items the chat
