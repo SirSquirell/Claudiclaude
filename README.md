@@ -13,7 +13,11 @@ already holds.
 two minutes.
 
 The short version: **Code → Download ZIP**, unzip somewhere permanent, then
-`chrome://extensions` → **Developer mode** on → **Load unpacked** → pick the unzipped folder.
+`chrome://extensions` → **Developer mode** on → **Load unpacked** → pick the folder that
+contains `manifest.json`.
+
+GitHub's ZIP nests a folder inside a folder, so that is usually one level *in* from where you
+unzipped. Picking the outer one gives *"Manifest file is missing or unreadable"*.
 
 Then click the extension icon → **Open full chart** → **Open the demo** to see the charts on
 sample data before pointing it at your own account. When you are ready: log in at

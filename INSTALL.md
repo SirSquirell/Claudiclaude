@@ -11,7 +11,12 @@ Pak het ZIP-bestand uit op een plek waar het mag blijven staan — bijvoorbeeld
 extensie elke keer opnieuw vanaf die map, dus als je hem later opruimt werkt de
 extensie niet meer.
 
-Je hebt nu een map met daarin `manifest.json`. Die map heb je zo nodig.
+**Let op: er zit een map in een map.** GitHub's ZIP pakt uit als
+`Claudiclaude-main\Claudiclaude-main\`, en alleen de binnenste bevat `manifest.json`.
+Je kunt de binnenste map er gerust uit slepen en de lege buitenste weggooien.
+
+Controleer even dat je in de goede map staat: je moet `manifest.json` zien staan, naast
+mappen als `src` en `icons`. Die map heb je zo nodig.
 
 ## 2. Zet Chrome in ontwikkelaarsmodus
 
@@ -21,7 +26,11 @@ Je hebt nu een map met daarin `manifest.json`. Die map heb je zo nodig.
 ## 3. Laad de extensie
 
 1. Klik linksboven op **Uitgepakte extensie laden**
-2. Selecteer de map uit stap 1 (de map met `manifest.json` erin)
+2. Selecteer de map uit stap 1 — **die met `manifest.json` erin**, niet de map daarboven
+
+> **"Manifest file is missing or unreadable"?** Dan heb je de buitenste map geselecteerd.
+> Klik **Retry**, ga één niveau dieper en kies de map waar `manifest.json` in staat. Dit is
+> de meest gemaakte fout en hij ligt aan de ZIP, niet aan jou.
 
 Er verschijnt nu een kaartje "DEGIRO Portfolio History". Klik op het puzzelstukje in
 de werkbalk en zet de extensie vast (het speldje), dan blijft het icoontje zichtbaar.
