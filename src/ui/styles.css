@@ -1,45 +1,74 @@
 /*
  * Design tokens and layout.
  *
- * The palette is the validated reference instance: categorical slots 1-7 for
- * holdings, a neutral for cash (deliberately outside the categorical set —
- * cash is the absence of a position, not another holding), and the blue/red
- * diverging pair for gains and losses.
+ * The palette is **measured, not asserted**. `npm run palette` checks every
+ * categorical slot for contrast against the surface it is drawn on, and
+ * simulates protanopia, deuteranopia and tritanopia to find two slots a reader
+ * could not tell apart. Zero collisions in both themes is the standard, and it
+ * is a test rather than a claim — the previous palette carried a comment saying
+ * it was validated, and the dark half turned out to have five collisions,
+ * including two series at ΔE 2.2 that were simply the same colour.
  *
- * Slots 3, 4 and 5 sit below 3:1 on the light surface. The relief is the
- * holdings table at the bottom of the page: every series is also readable as
- * text, so identity never rests on colour alone.
+ * The hues come from the delivered mockup; four in light and five in dark were
+ * moved the smallest distance that clears a collision. Cash stays a neutral
+ * outside the categorical set, because cash is the absence of a position rather
+ * than another holding, and the blue/red diverging pair is untouched.
  */
 
 :root {
   color-scheme: light;
 
-  --surface-1: #fcfcfb;
-  --page: #f9f9f7;
-  --text-primary: #0b0b0b;
-  --text-secondary: #52514e;
-  --text-muted: #898781;
-  --grid: #e1e0d9;
-  --axis: #c3c2b7;
-  --border: rgba(11, 11, 11, 0.1);
+  /* surfaces — a warm paper rather than a grey, from the mockup */
+  --page: #f5f1ea;
+  --surface-1: #fffdfa;
+  --surface-2: #f7f2ea;
+  --surface-3: #ece5d9;
+  --text-primary: #141d27;
+  --text-secondary: #5a6774;
+  --text-muted: #8b97a3;
+  --grid: #eae2d5;
+  --axis: #cfc4b1;
+  --border: #e3dbcd;
+  --border-strong: #cfc4b1;
 
-  --series-1: #2a78d6;
-  --series-2: #eb6834;
-  --series-3: #1baf7a;
-  --series-4: #eda100;
-  --series-5: #e87ba4;
-  --series-6: #008300;
-  --series-7: #4a3aa7;
+  /* categorical slots, repaired to zero collisions — see tools/check-palette.mjs */
+  --series-1: #557cd4;
+  --series-2: #7b52ab;
+  --series-3: #00868b;
+  --series-4: #b0461a;
+  --series-5: #a5851b;
+  --series-6: #577f43;
+  --series-7: #a03a6f;
   --series-cash: #8a8880;
 
-  --pos: #2a78d6;
-  --neg: #d03b3b;
+  --pos: #0b5fc4;
+  --neg: #c02434;
 
-  --good: #006300;
-  --warning: #fab219;
-  --critical: #d03b3b;
+  /* severity: a foreground, a ground and a rule per level, so a warning is a
+     surface of its own rather than a tinted border on the page */
+  --sev-red: #9e1628;
+  --sev-red-bg: #fceced;
+  --sev-red-line: #e0a0a7;
+  --sev-amber: #785000;
+  --sev-amber-bg: #fbf1dc;
+  --sev-amber-line: #ddc189;
+  --sev-info: #14549e;
+  --sev-info-bg: #e9f1fb;
+  --sev-info-line: #a7c5e7;
 
-  --radius: 10px;
+  --good: #0b5fc4;
+  --warning: #785000;
+  --critical: #9e1628;
+
+  --accent: #b8532f;
+  --shadow: 0 1px 2px rgba(20, 29, 39, 0.05), 0 8px 22px rgba(20, 29, 39, 0.05);
+
+  /* shape and rhythm */
+  --radius: 14px;
+  --radius-lg: 20px;
+  --radius-pill: 999px;
+  --pad: 22px;
+  --gap: 16px;
   --font: system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 
@@ -47,56 +76,92 @@
   :root:not([data-theme='light']) {
     color-scheme: dark;
 
-    --surface-1: #1a1a19;
-    --page: #0d0d0d;
-    --text-primary: #ffffff;
-    --text-secondary: #c3c2b7;
-    --text-muted: #898781;
-    --grid: #2c2c2a;
-    --axis: #383835;
-    --border: rgba(255, 255, 255, 0.1);
+    --page: #0d151d;
+    --surface-1: #141e28;
+    --surface-2: #1a2531;
+    --surface-3: #212e3c;
+    --text-primary: #e8eef4;
+    --text-secondary: #9aa8b8;
+    --text-muted: #6d7b8a;
+    --grid: #212e3c;
+    --axis: #3a4c5e;
+    --border: #273544;
+    --border-strong: #3a4c5e;
 
-    --series-1: #3987e5;
-    --series-2: #d95926;
-    --series-3: #199e70;
-    --series-4: #c98500;
-    --series-5: #d55181;
-    --series-6: #008300;
-    --series-7: #9085e9;
-    --series-cash: #6e6c66;
+    --series-1: #4a86de;
+    --series-2: #a383d0;
+    --series-3: #41babc;
+    --series-4: #da7e4b;
+    --series-5: #d0ac3e;
+    --series-6: #7fae5c;
+    --series-7: #f086b9;
+    --series-cash: #7b8798;
 
-    --pos: #3987e5;
-    --neg: #e66767;
+    --pos: #63a6f6;
+    --neg: #f4737f;
 
-    --good: #0ca30c;
+    --sev-red: #ff9aa4;
+    --sev-red-bg: #2c1317;
+    --sev-red-line: #6b2931;
+    --sev-amber: #efbf68;
+    --sev-amber-bg: #282110;
+    --sev-amber-line: #5c4a1c;
+    --sev-info: #8fbdf3;
+    --sev-info-bg: #111f2d;
+    --sev-info-line: #2a4866;
+
+    --good: #63a6f6;
+    --warning: #efbf68;
+    --critical: #ff9aa4;
+
+    --accent: #e08355;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
   }
 }
 
 :root[data-theme='dark'] {
   color-scheme: dark;
 
-  --surface-1: #1a1a19;
-  --page: #0d0d0d;
-  --text-primary: #ffffff;
-  --text-secondary: #c3c2b7;
-  --text-muted: #898781;
-  --grid: #2c2c2a;
-  --axis: #383835;
-  --border: rgba(255, 255, 255, 0.1);
+  --page: #0d151d;
+  --surface-1: #141e28;
+  --surface-2: #1a2531;
+  --surface-3: #212e3c;
+  --text-primary: #e8eef4;
+  --text-secondary: #9aa8b8;
+  --text-muted: #6d7b8a;
+  --grid: #212e3c;
+  --axis: #3a4c5e;
+  --border: #273544;
+  --border-strong: #3a4c5e;
 
-  --series-1: #3987e5;
-  --series-2: #d95926;
-  --series-3: #199e70;
-  --series-4: #c98500;
-  --series-5: #d55181;
-  --series-6: #008300;
-  --series-7: #9085e9;
-  --series-cash: #6e6c66;
+  --series-1: #4a86de;
+  --series-2: #a383d0;
+  --series-3: #41babc;
+  --series-4: #da7e4b;
+  --series-5: #d0ac3e;
+  --series-6: #7fae5c;
+  --series-7: #f086b9;
+  --series-cash: #7b8798;
 
-  --pos: #3987e5;
-  --neg: #e66767;
+  --pos: #63a6f6;
+  --neg: #f4737f;
 
-  --good: #0ca30c;
+  --sev-red: #ff9aa4;
+  --sev-red-bg: #2c1317;
+  --sev-red-line: #6b2931;
+  --sev-amber: #efbf68;
+  --sev-amber-bg: #282110;
+  --sev-amber-line: #5c4a1c;
+  --sev-info: #8fbdf3;
+  --sev-info-bg: #111f2d;
+  --sev-info-line: #2a4866;
+
+  --good: #63a6f6;
+  --warning: #efbf68;
+  --critical: #ff9aa4;
+
+  --accent: #e08355;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
 * {

@@ -1,11 +1,11 @@
 {
   "name": "degiro-portfolio-history",
-  "version": "0.15.0",
+  "version": "0.16.0",
   "private": true,
   "description": "Chrome MV3 extension that reconstructs DEGIRO portfolio value over time from transactions, cash movements and daily prices.",
   "type": "module",
   "scripts": {
-    "test": "node tools/check-leaks.mjs && node --test \"test/*.test.js\"",
+    "test": "node tools/check-leaks.mjs && node tools/check-palette.mjs > /dev/null && node --test \"test/*.test.js\"",
     "fixtures": "node tools/make-fixtures.mjs",
     "icons": "node tools/make-icons.mjs",
     "demo": "node tools/serve.mjs",
@@ -13,7 +13,8 @@
     "inspect": "node tools/inspect-fields.mjs",
     "check:leaks": "node tools/check-leaks.mjs",
     "account": "node tools/make-account.mjs",
-    "audit:synthetic": "node tools/make-account.mjs --out /tmp/synthetic-account.json && node tools/audit-export.mjs /tmp/synthetic-account.json"
+    "audit:synthetic": "node tools/make-account.mjs --out /tmp/synthetic-account.json && node tools/audit-export.mjs /tmp/synthetic-account.json",
+    "palette": "node tools/check-palette.mjs"
   },
   "engines": {
     "node": ">=20"

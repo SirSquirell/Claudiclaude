@@ -11,6 +11,26 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.16.0] — 2026-08-10
+
+### Changed
+
+- **New colours and surfaces**, the first stage of the interface redesign. Warm paper instead of
+  grey, cards with room to breathe, and a categorical palette taken from the delivered mockup.
+  Layout is unchanged; this is the paint.
+
+### Fixed
+
+- **Two series in dark mode were the same colour to a colour-blind reader.** The palette carried
+  a comment saying it was validated, and it was — in light mode. Measured properly, the dark set
+  had five collisions, the worst of them two holdings at ΔE 2,2, which is not "similar" but
+  "identical". Both themes now pass with zero, and every categorical slot clears the 3:1
+  contrast floor, where three of the old light slots did not.
+
+  It is a command now rather than a claim: `npm run palette` checks contrast against the surface
+  and simulates protanopia, deuteranopia and tritanopia, and `npm test` runs it. A palette that
+  makes two visible series indistinguishable fails the build.
+
 ## [0.15.0] — 2026-08-10
 
 ### Added
