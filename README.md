@@ -84,9 +84,13 @@ data, from your own logged-in browser is the mildest form of it, but slow is not
 sanctioned. Check that for yourself before you rely on it. Personal use only; do not publish
 this to the Chrome Web Store.
 
-The **Export JSON** file — the one you send with a bug report — has your name, account number
-and user token redacted. It still contains every holding and every amount, because that is
-what the file is for, so send it only to someone you trust.
+There are two things you can send. **Copy bug report** puts every notice from the run on your
+clipboard as JSON — codes, counts and ratios, with no amounts, no instrument names and no
+account number. That one is safe to paste anywhere, and it is enough to diagnose most defects.
+
+**Export JSON** is the other one. Your name, account number and user token are redacted, but it
+still contains every holding and every amount, because reconstructing a portfolio is what the
+file is for. Send that only to someone you trust.
 
 ---
 

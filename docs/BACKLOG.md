@@ -980,3 +980,26 @@ to be engineered away: it is the thing that makes the payload safe to widen late
 - ☐ The button appears where the problem is — next to the banner — rather than only on the
   diagnostics panel, because the tester who needs it is looking at a wrong number, not at a
   connection check.
+
+### US-11 / US-11b — delivered in 0.14.0, and what changed on the way
+
+**Built as a clipboard export, not as a GitHub write.** The transport question in US-11b was
+settled by the person who has to live with it: no automatic upload, no prefilled issue, just
+JSON on the clipboard that a tester sends and a human pastes. That is better than what was
+refined here, and for a reason worth keeping — it needs no token, no repository access for the
+tester, and no size budget, so the payload can grow without anyone re-checking a URL limit.
+The prefilled-issue idea in US-11b stays written down as the thing to build *if* pasting ever
+becomes the bottleneck. It is not the bottleneck today.
+
+**What the payload turned out to need**, beyond what US-11 predicted: the UI renders a
+warning's `message` and drops its `detail` on the floor, always has. So the interesting half
+of every warning in this codebase has never been visible anywhere — not on screen, not in a
+screenshot, and not in a bug report. That, plus the sync log leading up to a failure, is the
+substance of the file.
+
+**The acceptance criterion held.** Each of the four defects from 0.10.0 is diagnosable from the
+report alone, and there is a test per defect asserting it: the contract multiplier as a
+reconciliation ratio of 1.44, the exchange rate as a `median` of 107 against a `source` of
+`trades`, the rescale as a factor near 100 with its spread, and the fabricated positions as a
+share count that disagrees. The one it cannot do is name the instrument responsible, which is
+the honest limit and is what the full export remains for.

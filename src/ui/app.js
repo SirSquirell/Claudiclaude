@@ -19,6 +19,7 @@ import {
   pnlChart,
   valueChart,
 } from './charts.js';
+import { buildBugReport } from '../lib/report.js';
 import { alpha, fmtEurCents, fmtPct, fmtSigned, onThemeChange, tokens } from './theme.js';
 import { inExtension, load, send, wantsDemo } from './datasource.js';
 
@@ -296,6 +297,33 @@ function wireActions() {
       e.target.disabled = false;
       e.target.textContent = 'Check connection';
     }
+  });
+
+  /**
+   * Everything that went wrong, on the clipboard, safe to paste.
+   *
+   * Distinct from **Export JSON**, and the difference is the whole point: the
+   * export reconstructs a portfolio and therefore contains one, so it goes to
+   * someone you trust. This carries codes, counts and ratios, so it can go in a
+   * chat window. It also carries what the page never shows — every
+   * `warning.detail`, and the sync log leading up to the failure — which is the
+   * half a screenshot of a red banner has never had.
+   */
+  $('#btn-bugreport').addEventListener('click', async () => {
+    const d = state.data ?? {};
+    const report = buildBugReport({
+      result: d.result ?? null,
+      meta: d.meta ?? {},
+      counts: d.counts ?? {},
+      // `chrome?.` would throw here rather than yield undefined: optional
+      // chaining does not protect against an undeclared identifier, and in the
+      // demo this page is an ordinary web page with no `chrome` at all.
+      version: inExtension ? chrome.runtime.getManifest().version : null,
+      generatedAt: new Date().toISOString(),
+    });
+    await navigator.clipboard.writeText(JSON.stringify(report, null, 2));
+    const n = report.warnings.length;
+    notice('ok', `Bug report copied — ${n} notice${n === 1 ? '' : 's'}, no amounts or instrument names. Paste it into the chat.`);
   });
 
   $('#btn-copy-diag').addEventListener('click', async () => {

@@ -68,36 +68,66 @@ export async function loadDemo() {
   for (const c of charts) Object.assign(prices, parseChartResponse(c));
 
   const update = parseUpdate(updateRaw);
+  const transactions = parseTransactions(txRaw);
+  const cashRows = parseCashMovements(cashRaw);
+  const products = parseProducts(productsRaw);
   const result = computePortfolio({
-    transactions: parseTransactions(txRaw),
-    cashRows: parseCashMovements(cashRaw),
-    products: parseProducts(productsRaw),
+    transactions,
+    cashRows,
+    products,
     prices,
     today: meta.today,
     liveTotal: update.totalValue,
   });
 
-  return { result, meta, mode: 'demo', live: update };
+  // The demo reports the same counts the extension does. Without them the bug
+  // report says "0 transactions" over a chart drawn from hundreds, and a
+  // diagnostic that understates is worse than one that is absent.
+  const counts = {
+    transactions: transactions.length,
+    cashflows: cashRows.length,
+    products: Object.keys(products).length,
+    prices: Object.keys(prices).length,
+  };
+
+  return { result, meta, counts, mode: 'demo', live: update };
 }
 
 // --- extension -------------------------------------------------------------
 
 export async function loadFromExtension() {
   const store = await import('../lib/store.js');
-  const [rawTx, rawCash, rawProducts, prices, liveTotal, live, lastSyncAt, lastError, urls] = await Promise.all([
-    store.getAll('transactions'),
-    store.getAll('cashflows'),
-    store.getAll('products'),
-    store.getPriceMap(),
-    store.getMeta('liveTotal', null),
-    store.getMeta('liveSnapshot', null),
-    store.getMeta('lastSyncAt', 0),
-    store.getMeta('lastError', null),
-    store.getMeta('urls', null),
-  ]);
+  const [rawTx, rawCash, rawProducts, prices, liveTotal, live, lastSyncAt, lastError, urls, syncLog, lastDataDate, missingPriceSeries] =
+    await Promise.all([
+      store.getAll('transactions'),
+      store.getAll('cashflows'),
+      store.getAll('products'),
+      store.getPriceMap(),
+      store.getMeta('liveTotal', null),
+      store.getMeta('liveSnapshot', null),
+      store.getMeta('lastSyncAt', 0),
+      store.getMeta('lastError', null),
+      store.getMeta('urls', null),
+      store.getMeta('syncLog', []),
+      store.getMeta('lastDataDate', null),
+      store.getMeta('missingPriceSeries', []),
+    ]);
+
+  // What the bug report needs and the charts do not: how the sync went, and how
+  // many rows of each kind there are. Gathered here because this is the only
+  // module that already touches the store.
+  const diagnosticContext = {
+    meta: { lastSyncAt, lastError, urls, syncLog, lastDataDate, missingPriceSeries },
+    counts: {
+      transactions: rawTx.length,
+      cashflows: rawCash.length,
+      products: rawProducts.length,
+      prices: Object.keys(prices ?? {}).length,
+    },
+  };
 
   if (!rawTx.length && !rawCash.length) {
-    return { result: null, mode: 'extension', empty: true, lastSyncAt, lastError, urls };
+    return { result: null, mode: 'extension', empty: true, lastSyncAt, lastError, urls, ...diagnosticContext };
   }
 
   const result = computePortfolio({
@@ -109,7 +139,7 @@ export async function loadFromExtension() {
     liveTotal,
   });
 
-  return { result, mode: 'extension', live, lastSyncAt, lastError, urls };
+  return { result, mode: 'extension', live, lastSyncAt, lastError, urls, ...diagnosticContext };
 }
 
 export async function load() {

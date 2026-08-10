@@ -11,6 +11,31 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.14.0] — 2026-08-10
+
+### Added
+
+- **"Copy bug report"** — every notice the run produced, as JSON on your clipboard, safe to
+  paste into a chat.
+
+  It exists because reporting a problem meant screenshots, and a screenshot of a red banner is
+  the least useful half of the story. The page shows a warning's *message*; everything behind
+  it — the ratio that triggered it, how many instruments hit it, what the sync was doing two
+  steps earlier — has never been on screen to photograph.
+
+  It carries codes, counts, ratios, currencies and product types. **No amounts, no instrument
+  names, no account number, no session id.** That is not a compromise on usefulness: every
+  defect this project has fixed was found in a ratio or a count. A total 44% too high is a
+  missing contract multiplier; CHF deriving to 107 instead of 1.07 is the exchange rate read
+  off option trades. Neither needs to know how much money anyone has.
+
+  A warning nobody has classified contributes its code and its count and nothing else, so a
+  warning added later cannot leak by being forgotten.
+
+  **This does not replace Export JSON.** That file reconstructs a portfolio and therefore
+  contains one — it is still something you send to someone you trust. This one you can paste
+  anywhere.
+
 ## [0.13.0] — 2026-08-10
 
 Two reports from testing 0.12.0, and the two features they turned into.
