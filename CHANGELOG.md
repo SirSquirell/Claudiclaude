@@ -11,6 +11,53 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.13.0] — 2026-08-10
+
+Two reports from testing 0.12.0, and the two features they turned into.
+
+### Fixed
+
+- **The candle toggle refused instead of acting.** Reported as "the candles don't work", and
+  they worked — at Week and Month. At Day the button was disabled, because a day has one
+  number and a daily candle is a flat dash. But a disabled button explains nothing where you
+  click it: the reason sat in the hint under the chart, and a disabled button catches no
+  hover, so there is not even a tooltip. You click, nothing happens, and "broken" is the only
+  conclusion on offer. Pressing **Candles** at Day now moves *Results per* to Week and says
+  so. Someone pressing Candles wants candles.
+- **A drag across the value chart showed nothing while you dragged.** Both ends of the
+  selection had to be guessed at. There is now a shaded band with marked edges, and a readout
+  naming the two dates, the number of days and what the portfolio **made** over that stretch.
+  Deliberately the result and not the change in value, and it says which: a deposit inside the
+  selection lifts its end without anything being earned, and this is the chart where that
+  matters most.
+
+### Added
+
+- **The composition chart follows the range you are looking at.** It ranked holdings over your
+  whole history, so a position that peaked in 2021 and was sold in 2022 kept one of the seven
+  colours and drew a flat zero across a 2026 view — while something you actually hold sat in
+  "Other", and anything bought recently could not get in at all. It now ranks inside the
+  selected window.
+
+  This turns the range buttons into a question worth asking: select 2018 and the chart shows
+  what that portfolio *was* then; select ALL and it shows what dominated the whole history.
+  Ranking is by average value across the window rather than by peak, because a position that
+  spiked for one day is not what dominated a year.
+
+  Your six largest holdings keep their own colour in every view and "Other" keeps its own, so
+  the two answers can be compared. Below those six there are no colours left to reserve, so a
+  smaller holding can take a different one in a different window.
+- **A result per holding**, in the holdings table, over the range you have selected. Closed
+  positions show what they realised, open ones what they have made so far, and no cost-basis
+  convention is involved — a position closed inside the window is worth nothing at both ends,
+  so what it made is simply what came back minus what went in.
+
+  The rows do not add up to the account result on their own, and the cash row carries the
+  difference: dividends, interest, fees, and — if you hold foreign currency — the euro value
+  of those balances moving with the rate. None of that belongs to a position. A holding whose
+  prices are estimated is marked, because an estimate diluted in a total is the whole of a
+  per-holding number.
+
 ## [0.12.0] — 2026-08-09
 
 ### Added
