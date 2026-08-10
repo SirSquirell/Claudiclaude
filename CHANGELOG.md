@@ -11,6 +11,17 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.19.0] — 2026-08-10
+
+### Fixed
+
+- **The page ignored the text size you set in your browser.** Sizes were in pixels, so someone
+  who sets a larger default because the small one is hard to read still got the small one, and
+  the breakpoints did not respond to that setting either. Type and spacing are relative now,
+  and the figures scale continuously with the window instead of stepping at fixed widths — at a
+  20px browser default the page grows with it and still does not scroll sideways. The only
+  pixels left are the hairline rules, which are meant to stay one pixel.
+
 ## [0.18.0] — 2026-08-10
 
 ### Changed
