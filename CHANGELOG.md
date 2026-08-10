@@ -60,6 +60,8 @@ Two reports from testing 0.12.0, and the two features they turned into.
 
 ## [0.12.0] — 2026-08-09
 
+*Tested by users and accepted — the release gate in [docs/BACKLOG.md §5](docs/BACKLOG.md).*
+
 ### Added
 
 - **Drag across the value chart to zoom.** The six range buttons reached six windows and nothing
@@ -96,6 +98,8 @@ Two reports from testing 0.12.0, and the two features they turned into.
   element could be visible while holding the hidden attribute. Found while testing the zoom.
 
 ## [0.11.0] — 2026-08-09
+
+*Tested by users and accepted — the release gate in [docs/BACKLOG.md §5](docs/BACKLOG.md).*
 
 Safety and honesty, plus two things to look at. **Press "Wipe & resync" after updating.**
 

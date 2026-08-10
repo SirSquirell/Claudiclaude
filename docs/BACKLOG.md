@@ -820,3 +820,98 @@ happened — and inventing an event is worse than mis-ranking one.
   included.
 - ☐ A layer that leaves the top N on a narrower range is still reachable — its value is in
   Other, Other says how many, and nothing suggests the position was closed.
+
+---
+
+## US-16 — Redesign the interface *(new)*
+
+**As someone opening this page, I want it to look like a product rather than a stack of
+charts, and to find the answer I came for without scrolling past six I did not.**
+
+### The trap this story has to avoid
+
+The two real usability defects found in 0.12.0 were **a button that stayed silent when
+pressed** and **a drag that drew nothing while you dragged**. Both were interaction. Neither
+would have been found by a visual redesign, and neither would have been fixed by one.
+
+So this story starts with what the page is *for*, not with what it looks like. If it becomes
+a repaint, it will produce a prettier version of the same confusions.
+
+**First deliverable is an audit, not a design.** Take four questions a real user actually has
+and time how long each takes on the current page:
+
+1. What did I make last year, and was that good?
+2. Which position is dragging me down right now?
+3. Did I put more in than I took out, and when?
+4. Is this number trustworthy — is anything estimated?
+
+Question 4 is the one this project is built around, and it is currently answered by coloured
+banners stacked above a chart. Whether that survives contact with a designer is the most
+interesting thing this story will find out.
+
+### Non-negotiable, and this list goes to whoever does the design
+
+These are not preferences. Each one is either a correctness rule or validated accessibility
+work, and a generic design pass will break every one of them because the broken version looks
+better in a screenshot.
+
+- **One y-axis per chart.** Never two scales on one plot. The alignment between them is
+  arbitrary and invents a correlation — it is the single most common charting mistake, and a
+  competitor already ships it.
+- **Colour follows the instrument, not its rank or its position in a list.** Two views of the
+  same holding must agree.
+- **Seven categorical slots, then "Other".** An eighth holding does not get a generated hue.
+  Cash uses a neutral, deliberately outside the categorical set.
+- **The diverging pair stays blue-up / red-down.** Not green/red. That pair is the worst there
+  is for colour-vision deficiency and this palette was validated against exactly that. Slots
+  3–5 are already below 3:1 on the light surface, which is why the holdings table exists as
+  the required relief — a redesign that removes the table removes the relief.
+- **Colour is never the only channel.** A sign, a baseline or a label carries the meaning too.
+- **A warning is not decoration.** Red means the reconstruction disagrees with DEGIRO and the
+  numbers cannot be trusted; yellow means something was estimated. Neither may be softened,
+  collapsed into an icon with no text, or moved somewhere you can miss it.
+- **No remote anything.** MV3 forbids remote scripts, and the content security policy enforces
+  it. No web fonts, no icon CDN, no analytics, no image host. Everything ships in the folder.
+
+### Open for redesign, which is most of it
+
+Layout and information hierarchy — the page is one long vertical stack of cards and nothing
+has earned its position. Type scale, spacing, density. The holdings table, which just gained a
+Result column. Empty, loading and error states. The popup. Narrow windows, which nobody has
+ever looked at. And the first-run experience, where someone has installed an extension and has
+no idea whether to press Sync or Demo.
+
+### How to hand it over
+
+`npm run demo` serves the entire interface as an ordinary web page on localhost, running the
+real engine on generated data. **That is the artefact to give a designer**, and it contains no
+account data of any kind — which is the one time rule 7 makes something easier rather than
+harder. Screenshots of a real account must not be sent, and do not need to be.
+
+### Why the output cannot be dropped in, and what to ask for instead
+
+Tools like Lovable emit React, Vite and Tailwind. This extension has **no build step**: no
+`npm install`, no bundler, Chart.js vendored in `vendor/`. That is why a tester downloads a
+ZIP, presses "Load unpacked" and is finished, and why `npm test` and `npm run demo` work on a
+clean checkout.
+
+Adopting a React toolchain means either committing a build artefact or asking every tester to
+build. Neither is worth a visual refresh, and it is a decision that should be taken on its own
+merits and not smuggled in through a design tool.
+
+*So ask for the design, not the code:* layout, spacing scale, type scale, component states,
+and a palette **built on the existing validated hues**. Implementation stays in the current
+vanilla stack, where the chart rules above already live.
+
+### Acceptance criteria
+
+- ☐ The four questions above are each answerable, and each is faster than it is today. Timed,
+  not asserted.
+- ☐ Every rule in the non-negotiable list still holds after the redesign, checked one by one.
+- ☐ No new network request of any kind. `grep -rho "https\?://[a-z.]*" src/` returns the same
+  two hosts it does today.
+- ☐ Still no build step: a fresh clone runs `npm run demo` and a fresh ZIP loads unpacked.
+- ☐ The page is usable at a narrow window width, which is a new requirement rather than a
+  regression check.
+- ☐ Dark and light both verified, and the diverging pair checked against a colour-vision
+  simulation rather than by eye.
