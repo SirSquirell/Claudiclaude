@@ -129,6 +129,9 @@ function buildControls() {
     b.setAttribute('aria-pressed', String(g.key === state.granularity));
     b.addEventListener('click', () => {
       state.granularity = g.key;
+      // Choosing a granularity by hand retires the note explaining that the
+      // candle toggle chose one for you.
+      state.granularityForcedByCandles = false;
       for (const other of granGroup.querySelectorAll('button')) {
         other.setAttribute('aria-pressed', String(other === b));
       }
@@ -174,6 +177,19 @@ function buildControls() {
     b.setAttribute('aria-pressed', String(v.key === state.cumulativeView));
     b.addEventListener('click', () => {
       state.cumulativeView = v.key;
+      // A day has one number, so a daily candle is a flat dash. This used to be
+      // handled by disabling the button — which was reported as "the candles
+      // don't work", and fairly: a disabled button catches no hover in most
+      // browsers, so it cannot explain itself at the place you clicked. It
+      // stays clickable and does the obvious thing instead. Someone pressing
+      // Candles wants candles; the granularity is the means, not the request.
+      if (v.key === 'candles' && state.lastGranularity === 'day') {
+        state.granularity = 'week';
+        state.granularityForcedByCandles = true;
+        for (const gb of $('#gran-group').querySelectorAll('button')) {
+          gb.setAttribute('aria-pressed', String(gb.dataset.key === 'week'));
+        }
+      }
       render();
     });
     cumGroup.append(b);
@@ -385,6 +401,9 @@ function render() {
       // A flow is summed over the bucket, or a deposit inside a month would
       // vanish unless it happened to land on the last day of it.
       netExternal: sumInBuckets(r.netExternal, ends, from),
+      // Only the drag readout uses this, and it is the reason the readout can
+      // report a result rather than a change in value.
+      pnl: sumInBuckets(r.pnl, ends, from),
       includeCash: state.includeCash,
     },
     t,
@@ -485,7 +504,9 @@ function wireZoom() {
   canvas.dataset.zoomWired = '1';
 
   let anchor = null;
-  const dayAt = (event) => {
+  let pending = false;
+
+  const indexAt = (event) => {
     const chart = state.charts.value;
     if (!chart) return null;
     const area = chart.chartArea;
@@ -494,17 +515,76 @@ function wireZoom() {
     const labels = chart.data.labels ?? [];
     if (!labels.length) return null;
     const frac = (x - area.left) / Math.max(1, area.right - area.left);
-    return labels[Math.min(labels.length - 1, Math.max(0, Math.round(frac * (labels.length - 1))))];
+    return Math.min(labels.length - 1, Math.max(0, Math.round(frac * (labels.length - 1))));
+  };
+
+  /**
+   * Show the selection while the pointer is down.
+   *
+   * There was no `pointermove` here at all: the drag recorded an anchor, applied
+   * a range on release, and drew nothing in between — so both ends of the
+   * selection had to be guessed at. Reported, fairly, as not being able to see
+   * what you are selecting.
+   *
+   * Pointer events fire more often than the screen updates, so the paint is
+   * collapsed onto the next animation frame. `chart.render()` repaints from a
+   * layout that already exists, which is what makes this cheap enough to do on
+   * a two-thousand-point series.
+   */
+  const paint = (a, b) => {
+    const chart = state.charts.value;
+    if (!chart) return;
+    // On the instance rather than in the options: Chart.js caches resolved
+    // plugin options, so a value written there between renders never reaches
+    // the plugin. See the note in `dragSelection`.
+    chart.$dragSelection = a == null || b == null ? null : { a, b };
+    if (pending) return;
+    pending = true;
+    requestAnimationFrame(() => {
+      pending = false;
+      if (state.charts.value === chart) chart.render();
+    });
+  };
+
+  /**
+   * The hover tooltip is noise during a drag: it lands on top of the readout
+   * that says what is being selected, which is the one thing being read. Off
+   * while the pointer is down, back on release — twice per gesture, so the
+   * `update` it costs is not on the hot path.
+   */
+  const tooltip = (on) => {
+    const chart = state.charts.value;
+    const cfg = chart?.options?.plugins?.tooltip;
+    if (!cfg || cfg.enabled === on) return;
+    cfg.enabled = on;
+    chart.update('none');
+  };
+
+  const clear = () => {
+    anchor = null;
+    paint(null, null);
+    tooltip(true);
   };
 
   canvas.addEventListener('pointerdown', (e) => {
-    anchor = dayAt(e);
-    if (anchor) canvas.setPointerCapture(e.pointerId);
+    anchor = indexAt(e);
+    if (anchor != null) canvas.setPointerCapture(e.pointerId);
   });
+  canvas.addEventListener('pointermove', (e) => {
+    if (anchor == null) return;
+    const here = indexAt(e);
+    if (here == null) return;
+    // Only once the pointer has actually left the anchor, so a plain click that
+    // wobbles by a pixel does not flash the tooltip off and on.
+    if (here !== anchor) tooltip(false);
+    paint(anchor, here);
+  });
+  canvas.addEventListener('pointercancel', clear);
   canvas.addEventListener('pointerup', (e) => {
-    const end = dayAt(e);
-    const start = anchor;
-    anchor = null;
+    const labels = state.charts.value?.data?.labels ?? [];
+    const start = labels[anchor];
+    const end = labels[indexAt(e)];
+    clear();
     if (!start || !end) return;
     // A click is not a drag. Below this it is someone reading the tooltip.
     if (Math.abs(new Date(end) - new Date(start)) < 2 * 86400000) return;
@@ -550,30 +630,37 @@ function renderZoomState(r, from, to) {
  * be used rather than drawing dashes.
  */
 function renderCumulative(r, gran, from, to, agg, t) {
+  // Remembered so the Candles button, which fires before the next render, can
+  // tell whether the granularity it is about to be drawn at can carry a candle.
+  state.lastGranularity = gran;
+
   const canCandle = gran === 'week' || gran === 'month';
   const showCandles = canCandle && state.cumulativeView === 'candles';
 
   for (const b of $('#cum-view').querySelectorAll('button')) {
-    const candles = b.dataset.key === 'candles';
-    b.disabled = candles && !canCandle;
+    // Never disabled. See the click handler: a disabled control that cannot say
+    // why reads as a broken one, and did.
     b.setAttribute('aria-pressed', String(b.dataset.key === (showCandles ? 'candles' : 'line')));
   }
 
   if (showCandles) {
     const data = candleSeries(r.days, r.pnl, gran, from, to);
     state.charts.cum = candleChart($('#c-cum'), data, t);
+    const switched = state.granularityForcedByCandles
+      ? `“Results per” moved to Week for this: a day has one number, so a daily candle would be a flat dash. `
+      : '';
     $('#cum-hint').textContent =
-      `Each candle opens where the last one closed and spans the highest and lowest the result reached inside the ` +
-      `${gran}. Blue closed up, red closed down. Deposits and withdrawals are already out, so a long wick is a ` +
-      `swing and not money arriving.`;
+      `${switched}Each candle opens where the last one closed and spans the highest and lowest the result reached ` +
+      `inside the ${gran}. Blue closed up, red closed down. Deposits and withdrawals are already out, so a long ` +
+      `wick is a swing and not money arriving.`;
     return;
   }
 
   state.charts.cum = cumulativeChart($('#c-cum'), agg, t);
   $('#cum-hint').textContent = canCandle
     ? 'The same numbers, added up over the selected range.'
-    : 'The same numbers, added up over the selected range. Candles need a period with a high and a low, so they ' +
-      'need Week or Month — a single day has one number and would draw a flat dash.';
+    : 'The same numbers, added up over the selected range. Pressing Candles will switch “Results per” to Week: ' +
+      'a candle needs a period with a high and a low, and a single day has one number.';
 }
 
 function autoGranularity(nDays) {

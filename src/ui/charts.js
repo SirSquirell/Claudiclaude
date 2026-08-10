@@ -155,7 +155,85 @@ const cashflowMarkers = {
   },
 };
 
-Chart.register(crosshair, cashflowMarkers);
+/**
+ * What a drag across the value chart is currently selecting.
+ *
+ * Without this the drag worked and showed nothing: `pointerdown` recorded an
+ * anchor, `pointerup` applied a range, and in between there was no
+ * `pointermove` at all — so you picked the two ends of a fortnight by guessing
+ * where they were. Every stock chart people have used draws the selection while
+ * the mouse is down, and its absence read as the feature being broken.
+ *
+ * The readout deliberately reports the **result** over the span and not the
+ * change in value, and says which it is. This is the value chart: a deposit
+ * inside the selection raises its end without anything being earned, so
+ * "+€10 000" across a fortnight you paid €10 000 into is the exact error this
+ * project exists to avoid, printed in a tooltip.
+ */
+const dragSelection = {
+  id: 'dragSelection',
+  afterDatasetsDraw(chart, _args, opts) {
+    // Read off the chart instance, not out of plugin options. Chart.js resolves
+    // and **caches** plugin options, so mutating a nested field between renders
+    // does not reach the hook — it fired on every frame of a drag and read a
+    // stale `null`, which looks exactly like a plugin that was never registered.
+    // Everything that does not change per frame still comes from `opts`.
+    const sel = chart.$dragSelection;
+    if (!sel || sel.a == null || sel.b == null) return;
+    const [lo, hi] = sel.a <= sel.b ? [sel.a, sel.b] : [sel.b, sel.a];
+    const days = opts.days ?? [];
+    if (!days[lo] || !days[hi]) return;
+
+    const scale = chart.scales.x;
+    const { top, bottom, left, right } = chart.chartArea;
+    const x1 = Math.min(Math.max(left, scale.getPixelForValue(lo)), right);
+    const x2 = Math.min(Math.max(left, scale.getPixelForValue(hi)), right);
+    const ctx = chart.ctx;
+
+    ctx.save();
+    ctx.fillStyle = opts.fill;
+    ctx.fillRect(x1, top, Math.max(1, x2 - x1), bottom - top);
+    ctx.strokeStyle = opts.edge;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 3]);
+    for (const px of [x1, x2]) {
+      ctx.beginPath();
+      ctx.moveTo(Math.round(px) + 0.5, top);
+      ctx.lineTo(Math.round(px) + 0.5, bottom);
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+
+    const span = daysBetween(days[lo], days[hi]) + 1;
+    let result = 0;
+    for (let i = lo; i <= hi; i++) result += opts.pnl?.[i] ?? 0;
+    const lines = [
+      `${formatDay(days[lo])} — ${formatDay(days[hi])}`,
+      `${span} day${span === 1 ? '' : 's'} · result ${fmtSigned(result)} · deposits excluded`,
+    ];
+
+    ctx.font = '12px system-ui, sans-serif';
+    const width = Math.max(...lines.map((l) => ctx.measureText(l).width)) + 16;
+    const height = 38;
+    // Anchored to the band, then clamped inside the plot so it never runs off
+    // the edge when you drag to the very start or the very end.
+    const bx = Math.min(Math.max(left, (x1 + x2) / 2 - width / 2), right - width);
+    ctx.fillStyle = opts.labelFill;
+    ctx.strokeStyle = opts.labelBorder;
+    ctx.beginPath();
+    ctx.rect(bx, top + 6, width, height);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = opts.text;
+    ctx.textBaseline = 'top';
+    ctx.fillText(lines[0], bx + 8, top + 12);
+    ctx.fillStyle = opts.muted;
+    ctx.fillText(lines[1], bx + 8, top + 26);
+    ctx.restore();
+  },
+};
+
+Chart.register(crosshair, cashflowMarkers, dragSelection);
 
 /**
  * Stride-sample a set of parallel arrays down to at most `max` points, always
@@ -179,7 +257,7 @@ export function downsample(labels, seriesList, max = 500) {
 // 1. Portfolio value including cash
 // ---------------------------------------------------------------------------
 
-export function valueChart(ctx, { days, value, positionsValue, netExternal, includeCash }, t) {
+export function valueChart(ctx, { days, value, positionsValue, netExternal, pnl, includeCash }, t) {
   const series = includeCash ? value : positionsValue;
   const marks = [];
   for (let i = 0; i < days.length; i++) {
@@ -189,6 +267,24 @@ export function valueChart(ctx, { days, value, positionsValue, netExternal, incl
   const opts = baseOptions(t);
   opts.plugins.crosshair = { color: t.axis };
   opts.plugins.cashflowMarkers = { marks, inColor: t.pos, outColor: t.neg };
+  // `active` is written by the drag handler between renders; everything else is
+  // fixed at build time so the plugin needs no access to app state.
+  // Keyed off the *text* colour rather than the axis or grid colour. Those are
+  // deliberately near-invisible hairlines — a 14% wash of one lands at
+  // rgba(195,194,183,0.14) on a white surface, which is nothing at all. The
+  // text colour is the one token guaranteed to contrast with the surface in
+  // both themes, so a scrim built from it is visible light-on-dark and
+  // dark-on-light without naming either.
+  opts.plugins.dragSelection = {
+    days,
+    pnl: pnl ?? [],
+    fill: alpha(t.text, 0.1),
+    edge: t.text,
+    labelFill: t.surface,
+    labelBorder: t.textSecondary,
+    text: t.text,
+    muted: t.textSecondary,
+  };
   opts.plugins.tooltip.callbacks = {
     title: (items) => formatDay(days[items[0].dataIndex]),
     label: (item) => `Value: ${fmtEurCents(item.parsed.y)}`,
