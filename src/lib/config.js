@@ -87,9 +87,6 @@ export const SYNC = {
   minSyncIntervalMs: 5 * 60 * 1000,
 };
 
-/** Base currency for reporting. SPEC §2.2: v1 is EUR-only with loud warnings. */
-export const BASE_CURRENCY = 'EUR';
-
 export const STORAGE = {
   dbName: 'degiro-portfolio',
   /**

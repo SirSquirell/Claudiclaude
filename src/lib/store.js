@@ -127,11 +127,6 @@ export async function setMeta(key, value) {
   await put('meta', { key, value, updatedAt: new Date().toISOString() });
 }
 
-export async function getAllMeta() {
-  const rows = await getAll('meta');
-  return Object.fromEntries(rows.map((r) => [r.key, r.value]));
-}
-
 // --- derived cache ---------------------------------------------------------
 
 export async function getDerived() {

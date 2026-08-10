@@ -86,8 +86,6 @@ export async function runSync(opts = {}) {
   return running;
 }
 
-export const isSyncing = () => running != null;
-
 /**
  * Wipe every store and start over.
  *

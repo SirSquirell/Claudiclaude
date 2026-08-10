@@ -49,6 +49,21 @@ architecture that §1 and §3 of the spec already settled.
    the value on screen will get pasted — and **findings name accounts, never people**. "The
    first account" is as useful as a name and cannot identify anyone.
 
+8. **YAGNI. Build the thing that was asked for, and nothing next to it.** No parameter with
+   one caller, no abstraction with one implementation, no option nobody set, no branch for a
+   case that has never occurred. If it is not reachable from a story or a defect, it does not
+   go in — and if it is already in and nothing reaches it, it comes out.
+
+   The reason here is sharper than "less code is nicer". Every speculative path is a path the
+   tests do not cover and the audit does not check, and this project's whole claim is that its
+   numbers are verified. A fallback that has never fired is not a safety net; it is an
+   untested branch that will run for the first time on somebody's real account. The parser's
+   candidate field names are the standing example — they earn their place only until a real
+   capture confirms the shape, and then they are deleted rather than kept "just in case".
+
+   Deleting is cheap: the history has it, and `git revert` is one command. Guessing what will
+   be needed is what is expensive.
+
 ## Layout
 
 ```

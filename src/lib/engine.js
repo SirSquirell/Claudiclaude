@@ -13,7 +13,7 @@
  *   pnl[t]   = (value[t] − value[t−1]) − netExternalCashflow[t]
  */
 
-import { addDays, dayRange, monthKey, startOfWeek, subMonths, todayISO, weekKey } from './dates.js';
+import { addDays, dayRange, monthKey, startOfMonth, startOfWeek, subMonths, todayISO, weekKey } from './dates.js';
 import { CATEGORY, affectsCash, isExternal } from './classify.js';
 
 const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
@@ -1250,7 +1250,7 @@ export function computePortfolio(input) {
  */
 export function candleSeries(days, pnl, granularity = 'month', fromIndex = 0, toIndex = days.length - 1) {
   const keyFn = granularity === 'week' ? weekKey : monthKey;
-  const labelStart = granularity === 'week' ? startOfWeek : (d) => `${d.slice(0, 7)}-01`;
+  const labelStart = granularity === 'week' ? startOfWeek : startOfMonth;
 
   const buckets = new Map();
   let running = 0;
@@ -1287,7 +1287,7 @@ export function aggregatePnl(days, pnl, granularity = 'day', fromIndex = 0, toIn
   const keyFn =
     granularity === 'week' ? weekKey : granularity === 'month' ? monthKey : (d) => d;
   const labelStart =
-    granularity === 'week' ? startOfWeek : granularity === 'month' ? (d) => `${d.slice(0, 7)}-01` : (d) => d;
+    granularity === 'week' ? startOfWeek : granularity === 'month' ? startOfMonth : (d) => d;
 
   const buckets = new Map();
   for (let i = fromIndex; i <= toIndex && i < days.length; i++) {

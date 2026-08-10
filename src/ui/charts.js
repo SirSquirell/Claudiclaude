@@ -240,7 +240,7 @@ Chart.register(crosshair, cashflowMarkers, dragSelection);
  * keeping the first and last. Only used on the stacked chart, where seven
  * series × two thousand days is a lot of geometry for no extra information.
  */
-export function downsample(labels, seriesList, max = 500) {
+export function downsample(labels, seriesList, max) {
   const n = labels.length;
   if (n <= max) return { labels, seriesList };
   const stride = Math.ceil(n / max);
