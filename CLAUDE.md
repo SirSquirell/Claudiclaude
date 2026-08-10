@@ -131,8 +131,12 @@ loose parsing that silently returns `0` is worse than a loud failure.
 - **No two visible series share a colour.** Twelve months do not fit seven slots, so the
   month comparison keeps a stable preferred slot per month and shifts on a clash within
   the current selection.
-- Palette is the validated reference instance; slots 3–5 are below 3:1 on the light
-  surface, and the holdings table is the required relief.
+- **The palette is measured, not asserted.** `npm run palette` reads the tokens out of
+  `styles.css`, checks each slot's contrast against the surface it is drawn on, and simulates
+  the three dichromacies to find two slots a reader could not separate. Zero collisions in both
+  themes, and `npm test` enforces it. This line used to say the palette was "the validated
+  reference instance" — it was, in light. Measured, the dark half had five collisions, two of
+  them at ΔE 2.2, which is not *similar*, it is the same colour. A comment is not a check.
 
 ## Testing
 
