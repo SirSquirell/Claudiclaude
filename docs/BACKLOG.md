@@ -915,3 +915,68 @@ vanilla stack, where the chart rules above already live.
   regression check.
 - ☐ Dark and light both verified, and the diverging pair checked against a colour-vision
   simulation rather than by eye.
+
+---
+
+## US-11b — Get a defect into the backlog without a screenshot *(new, the transport half)*
+
+**As a tester I want a problem I hit to arrive somewhere it can be refined, without taking
+screenshots and without sending my portfolio.**
+
+US-11 above settles *what* a diagnostics share may contain. This is the other half: how it
+gets from a tester's browser to the backlog. The two ship together or neither is useful — a
+safe payload nobody can send is a document, and a convenient button carrying amounts is a
+leak.
+
+### What exists today
+
+A **Copy report** button that puts the connection check on the clipboard. It covers the seven
+sync steps and nothing else, so a reconstruction that produces warnings — the actual case —
+has no button at all, and the tester reaches for a screenshot. Which is the complaint.
+
+### Why this is not an automatic upload, and the reasons are not theoretical
+
+1. **A token inside an extension is a public token.** Anyone who installs it can read it out of
+   the folder and write to the repository. There is no way to ship a write credential to
+   untrusted machines and keep it a credential.
+2. **It fires without anyone pressing anything.** The whole posture is that nothing leaves
+   unless it was asked for. An automatic uploader inverts that, and inverts it for the one
+   payload most likely to contain something nobody classified.
+3. **Error text carries amounts and instrument names today.** "Reconstructed total is X but
+   DEGIRO reports Y" states the size of the account. An automatic sender would have shipped
+   that before anyone reviewed the wording.
+
+### The shape that avoids all three
+
+**A "Report a problem" button that opens a prefilled GitHub issue in a new tab.** The
+diagnostics payload goes in the issue body via the query string; the tester sees exactly what
+is about to be filed, presses submit, and it is filed under their own account.
+
+No credential in the extension. No request the tester did not initiate. No new host
+permission — it is a link, opened in a tab, not a fetch. And the review step is not friction
+to be engineered away: it is the thing that makes the payload safe to widen later.
+
+*Two limits worth knowing before building:*
+
+- **Length.** A prefilled issue URL is good for roughly 8 KB in practice. That is a constraint
+  on the payload, and a healthy one — US-11 already argues the useful report is counts,
+  ratios, verdicts and warning codes. If it does not fit in a URL it is carrying something it
+  should not. Clipboard is the fallback when it genuinely overflows, not the default.
+- **The repository is private.** A tester without access cannot open an issue at all, and will
+  get a 404 rather than an explanation. Either they are added as collaborators, or the button
+  falls back to copying and says who to send it to.
+
+### Acceptance criteria
+
+- ☐ From a page showing a red or yellow banner, one click produces a filed issue with the
+  diagnostics payload in it. No screenshot, no clipboard, no retyping.
+- ☐ The payload is the US-11 one, and the same test that guards that content guards this: no
+  amount, no instrument name, no account number, no session id.
+- ☐ The tester sees the body before it is filed. Not a preference — it is what removes the
+  need to trust the payload rule at the moment it is being widened.
+- ☐ No token anywhere in the shipped folder, and `grep -rho "https\?://[a-z.]*" src/` still
+  returns the two hosts it does today plus, at most, the github.com link target.
+- ☐ A tester without repository access gets a clear fallback, not a 404.
+- ☐ The button appears where the problem is — next to the banner — rather than only on the
+  diagnostics panel, because the tester who needs it is looking at a wrong number, not at a
+  connection check.
