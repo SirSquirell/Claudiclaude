@@ -1101,3 +1101,90 @@ what the spike has been waiting on.
   does, the two will drift and the tally will lie.
 - ☐ The report still contains no amount, no instrument name and no account number — checked by
   the test that already guards that, not a new one.
+
+---
+
+## US-16 — implementation plan, against the delivered mockup
+
+The mockup arrived. Read rather than rendered: it loads React from unpkg, which the sandbox
+blocks and which the extension could not use anyway, so the assessment is from its source.
+
+### It is implementable, and almost none of it is the framework
+
+What is actually being delivered is **CSS custom properties plus a structure**. Two skins
+(`studio`, generous and warm; `terminal`, dense) × two themes, and the whole visual language
+is tokens: `--r-lg`, `--pad`, `--gap`, `--kpi`, `--chart-h`, `--base`. That ports to the
+current vanilla stack directly, and `theme.js` already reads chart colours back out of CSS —
+so the charts pick up the new palette without touching a chart builder.
+
+React, `_ds_bundle.js` and unpkg are the preview harness, not the design. None of it ships.
+
+### The brand system in the zip is not the design, and that is the right call
+
+The archive also carries **House of Covebo's** design system — the staffing brand. Its
+conventions say *"Status (NO red, ever)"*, put `--hoc-error` at burnt orange, lead 60 % warm
+orange, and prescribe a script-font accent word in every heading plus microcopy like *"Gewoon
+doen joh!"*.
+
+**The mockup does not use it**, and must not. Three of those rules break this product rather
+than restyle it:
+
+- Red is how this page says a number cannot be trusted, and red is also the loss half of a
+  diverging pair chosen for colour-vision deficiency. Recolouring errors to burnt orange on an
+  orange-led page makes the one message that matters the least visible thing on it.
+- An orange lead collides with `--c4`, a categorical series colour.
+- Warm jokey microcopy on a reconciliation failure is the wrong register for "treat every
+  number on this page as unverified".
+
+Recorded so that nobody later reopens it as "but we have a brand".
+
+### What the mockup gets right, and it read the brief
+
+`--gain: #0b5fc4` / `--loss: #c02434` — blue and red, kept. Seven categorical slots plus a
+neutral cash, exactly the existing rule. Severity as three full triplets (foreground,
+background, rule) rather than a tinted border. And a chart label that reads *"Side of the zero
+line carries the sign too"*, which is the colour-is-never-the-only-channel rule, understood.
+
+**The palette still needs validating before it is final.** `--c1…c7` is a sensible qualitative
+set, but "sensible" is what the current palette was tested for and this one has not been. Same
+check, same standard: contrast on both surfaces and a colour-vision simulation.
+
+### The three answers to what was asked
+
+**Notifications get their own space, properly.** A warning stops being one line of text and
+becomes tag / title / body / action — *"Unverified"*, *"The reconstruction disagrees with your
+broker"*, the explanation, then *"Compare price by price"*. Five states are drawn, not one:
+warnings, clean, syncing, failed, first run. And the strongest idea in the whole mockup: when a
+red severity is present, **the KPI tiles carry it too** — *"Broker says € 108 900,00"* under
+the total, *"Rests on the disputed total"* under the result. A contested number says so where
+it is read, not only in a banner above it.
+
+**Extra KPIs**: notes gain substance — fees *"Across 41 transactions"*, dividend *"withheld at
+source"*, the result as *"+75,8 % on money paid in"*.
+
+**Extra visualisations**: Drawdown from peak, Currency exposure, Allocation today, Fees paid
+cumulative, Result by month — arranged under five tabs (Overview, Performance, Composition,
+Income & cost, Holdings) with a count on each. That is the answer to a 3 788-pixel scroll, and
+a better one than shortening the cards.
+
+### One trap in the new charts, before anybody builds it
+
+**Drawdown from peak must not be computed on portfolio value.** A withdrawal drops the line,
+and a drawdown chart would draw that as a loss of 20 % when nothing was lost — the same error
+that was caught for candles in 0.12.0, in a new shape. It goes on the deposit-free curve, the
+running sum of `pnl`, where a fall means a fall.
+
+`Fees paid, cumulative` needs a daily fee series the engine does not currently emit; everything
+else is computable from what `computePortfolio` already returns.
+
+### Order of work
+
+| # | Stage | Why here |
+|---|---|---|
+| 1 | Tokens and shell — palette, spacing, radii, type, cards | Largest visible change per unit of risk, and no new data |
+| 2 | Notifications in their own space, and the five states | The half that is about honesty rather than looks |
+| 3 | Tabs | Structural; the toolbar's scope changes with it |
+| 4 | New charts and KPI notes | Needs engine additions; sits on the final layout |
+
+Stage 1 lands first because if the palette does not survive its contrast check, everything
+after it is drawn in the wrong colours.
