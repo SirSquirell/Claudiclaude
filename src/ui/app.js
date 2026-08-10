@@ -1146,18 +1146,20 @@ function renderHoldings(r, composition, compColours, t, from, to) {
       const qty = p.qty.at(-1);
       // A result is only as good as the prices behind it. An instrument with no
       // series sits flat at its last traded price, so its movement between
-      // trades is invented — in a total that is diluted, in its own row it is
-      // the whole number, and the row has to say so.
-      const shaky = r.warnings?.some?.(
-        (w) => w.products?.some?.((x) => String(x.productId) === String(p.productId)),
-      );
+      // trades is invented — diluted in a total, but the whole of this number.
+      //
+      // Read off the product, not out of a warning. The first version of this
+      // searched `w.products` on the warnings array, a field that does not
+      // exist, so the marker could never appear at all; and the warning that
+      // does carry instruments truncates them at 40.
+      const estimated = p.hasSeries === false;
       return `<tr>
         <td><span class="swatch" style="background:${colour}"></span>${esc(p.name)}${p.symbol && p.symbol !== p.name ? ` <span class="muted">${esc(p.symbol)}</span>` : ''}${grouped ? ` <span class="muted">· in “${esc(otherLabel)}”</span>` : ''}</td>
         <td>${qty.toLocaleString('nl-NL', { maximumFractionDigits: 4 })}</td>
         <td>${esc(fmtEurCents(p.current))}</td>
         ${resultCell(sumWindow(p.pnl, from, to))}
         <td>${((p.current / total) * 100).toFixed(1)}%</td>
-        <td>${esc(p.currency)}${shaky ? ' <span class="muted" title="This instrument is named in a warning above — its prices are estimated, so its result is too.">·&nbsp;est.</span>' : ''}</td>
+        <td>${esc(p.currency)}${estimated ? ' <span class="muted" title="No price history for this instrument, so it is held at the last price it traded at — its result is an estimate.">·&nbsp;est.</span>' : ''}</td>
       </tr>`;
     })
     .join('');

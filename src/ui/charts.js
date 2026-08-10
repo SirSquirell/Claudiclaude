@@ -219,7 +219,7 @@ const dragSelection = {
     // the edge when you drag to the very start or the very end.
     const bx = Math.min(Math.max(left, (x1 + x2) / 2 - width / 2), right - width);
     ctx.fillStyle = opts.labelFill;
-    ctx.strokeStyle = opts.labelBorder;
+    ctx.strokeStyle = opts.muted;
     ctx.beginPath();
     ctx.rect(bx, top + 6, width, height);
     ctx.fill();
@@ -281,7 +281,6 @@ export function valueChart(ctx, { days, value, positionsValue, netExternal, pnl,
     fill: alpha(t.text, 0.1),
     edge: t.text,
     labelFill: t.surface,
-    labelBorder: t.textSecondary,
     text: t.text,
     muted: t.textSecondary,
   };

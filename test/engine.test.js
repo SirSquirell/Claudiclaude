@@ -1165,22 +1165,26 @@ test('Other reports no rank, so it can never take an instrument colour', () => {
 // ---------------------------------------------------------------------------
 
 test('a round trip inside the window reports its realised result', () => {
-  // Bought for 100, sold for 130, and nothing held at either end. No cost-basis
+  // Bought at 100, sold at 130, nothing held at either end. No cost-basis
   // convention is consulted, because the position is worth zero on both sides.
-  const days = ['2026-01-01', '2026-01-02', '2026-01-03', '2026-01-04'];
   const r = computePortfolio({
+    prices: { 900: { start: '2024-01-01', stepDays: 1, points: [
+      { offsetDays: 0, close: 100 },
+      { offsetDays: 1, close: 100 },
+      { offsetDays: 2, close: 130 },
+      { offsetDays: 3, close: 130 },
+    ] } },
+    products: { 1: { id: '1', name: 'Thing', symbol: 'THG', currency: 'EUR', vwdId: '900', productType: 'STOCK' } },
     transactions: [
-      { id: 't1', date: '2026-01-02', productId: '1', quantity: 10, price: 10, currency: 'EUR', fee: 0, totalBase: -100 },
-      { id: 't2', date: '2026-01-03', productId: '1', quantity: -10, price: 13, currency: 'EUR', fee: 0, totalBase: 130 },
+      { date: '2024-01-02', productId: '1', quantity: 1, price: 100, currency: 'EUR', fee: 0, totalBase: -100 },
+      { date: '2024-01-03', productId: '1', quantity: -1, price: 130, currency: 'EUR', fee: 0, totalBase: 130 },
     ],
     cashRows: [
-      { id: 'c0', date: '2026-01-01', description: 'Storting', amount: 1000, currency: 'EUR', category: 'DEPOSIT', external: true, inCash: true },
-      { id: 'c1', date: '2026-01-02', description: 'Koop', amount: -100, currency: 'EUR', category: 'TRADE', external: false, inCash: true },
-      { id: 'c2', date: '2026-01-03', description: 'Verkoop', amount: 130, currency: 'EUR', category: 'TRADE', external: false, inCash: true },
+      { date: '2024-01-01', description: 'Deposit', change: 1000, currency: 'EUR', category: 'DEPOSIT' },
+      { date: '2024-01-02', description: 'Koop', change: -100, currency: 'EUR', category: 'TRADE' },
+      { date: '2024-01-03', description: 'Verkoop', change: 130, currency: 'EUR', category: 'TRADE' },
     ],
-    products: { 1: { id: '1', name: 'Thing', symbol: 'THG', currency: 'EUR', vwdId: 'v1', productType: 'STOCK' } },
-    prices: { v1: { vwdId: 'v1', days, closes: [10, 10, 13, 13] } },
-    today: '2026-01-04',
+    today: '2024-01-04',
   });
   const p = r.byProduct.find((x) => x.productId === '1');
   const realised = p.pnl.reduce((a, b) => a + b, 0);
@@ -1189,20 +1193,46 @@ test('a round trip inside the window reports its realised result', () => {
 });
 
 test('a purchase is not a gain on the day it settles', () => {
-  const days = ['2026-01-01', '2026-01-02'];
   const r = computePortfolio({
+    prices: { 900: { start: '2024-01-01', stepDays: 1, points: [0, 1].map((i) => ({ offsetDays: i, close: 100 })) } },
+    products: { 1: { id: '1', name: 'Thing', symbol: 'THG', currency: 'EUR', vwdId: '900', productType: 'STOCK' } },
     transactions: [
-      { id: 't1', date: '2026-01-02', productId: '1', quantity: 10, price: 10, currency: 'EUR', fee: 0, totalBase: -100 },
+      { date: '2024-01-02', productId: '1', quantity: 1, price: 100, currency: 'EUR', fee: 0, totalBase: -100 },
     ],
     cashRows: [
-      { id: 'c0', date: '2026-01-01', description: 'Storting', amount: 1000, currency: 'EUR', category: 'DEPOSIT', external: true, inCash: true },
-      { id: 'c1', date: '2026-01-02', description: 'Koop', amount: -100, currency: 'EUR', category: 'TRADE', external: false, inCash: true },
+      { date: '2024-01-01', description: 'Deposit', change: 1000, currency: 'EUR', category: 'DEPOSIT' },
+      { date: '2024-01-02', description: 'Koop', change: -100, currency: 'EUR', category: 'TRADE' },
     ],
-    products: { 1: { id: '1', name: 'Thing', symbol: 'THG', currency: 'EUR', vwdId: 'v1', productType: 'STOCK' } },
-    prices: { v1: { vwdId: 'v1', days, closes: [10, 10] } },
-    today: '2026-01-02',
+    today: '2024-01-02',
   });
   const p = r.byProduct.find((x) => x.productId === '1');
   // 100 euros of value appeared, and exactly 100 euros bought it.
   assert.ok(Math.abs(p.pnl[1]) < 0.01, `day of purchase scored ${p.pnl[1]}, expected 0`);
+});
+
+test('a product says whether it has usable prices behind it', () => {
+  // Shipped once as a marker that could never appear: the UI looked for the
+  // instrument in `warning.products`, a field no warning has. The fact belongs
+  // to the product — and the warning that does list instruments truncates at 40,
+  // so it was never the right source either.
+  //
+  // `hasSeries` is false in both cases that matter: no series at all, and a
+  // series the audit could not reconcile with what was actually paid. Both mean
+  // the same thing to a reader — held at the last price it traded at.
+  const r = computePortfolio({
+    prices: { 900: { start: '2024-01-01', stepDays: 1, points: [0, 1].map((i) => ({ offsetDays: i, close: 100 })) } },
+    products: {
+      1: { id: '1', name: 'Quoted', symbol: 'Q', currency: 'EUR', vwdId: '900', productType: 'STOCK' },
+      2: { id: '2', name: 'Delisted', symbol: 'D', currency: 'EUR', vwdId: '901', productType: 'STOCK' },
+    },
+    transactions: [
+      { date: '2024-01-01', productId: '1', quantity: 1, price: 100, currency: 'EUR', fee: 0, totalBase: -100 },
+      { date: '2024-01-01', productId: '2', quantity: 1, price: 100, currency: 'EUR', fee: 0, totalBase: -100 },
+    ],
+    cashRows: [{ date: '2024-01-01', description: 'Deposit', change: 1000, currency: 'EUR', category: 'DEPOSIT' }],
+    today: '2024-01-02',
+  });
+  const bySymbol = Object.fromEntries(r.byProduct.map((x) => [x.symbol, x]));
+  assert.equal(bySymbol.Q.hasSeries, true);
+  assert.equal(bySymbol.D.hasSeries, false, 'no series, so its result between trades is an estimate');
 });

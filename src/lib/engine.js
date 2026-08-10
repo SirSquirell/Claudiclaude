@@ -924,6 +924,11 @@ export function computePortfolio(input) {
       currency: meta.currency ?? baseCurrency,
       productType: meta.productType ?? 'UNKNOWN',
       contractSize: shares,
+      // Whether this instrument has a price series at all. Without one it is
+      // held flat at the last price it traded at, so its movement between
+      // trades is not real — diluted in a total, but the whole of a
+      // per-holding result, which is why the row needs to say so.
+      hasSeries,
       values,
       qty,
       pnl: productPnl,
@@ -1186,6 +1191,7 @@ export function computePortfolio(input) {
       currency: p.currency,
       productType: p.productType,
       contractSize: p.contractSize,
+      hasSeries: p.hasSeries,
       values: Array.from(p.values, round2),
       qty: Array.from(p.qty),
       pnl: Array.from(p.pnl, round2),
