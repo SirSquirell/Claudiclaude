@@ -886,6 +886,9 @@ no idea whether to press Sync or Demo.
 
 ### How to hand it over
 
+The brief is written and ready to paste: **[DESIGN-BRIEF.md](DESIGN-BRIEF.md)**. Everything
+below is the reasoning behind it.
+
 `npm run demo` serves the entire interface as an ordinary web page on localhost, running the
 real engine on generated data. **That is the artefact to give a designer**, and it contains no
 account data of any kind — which is the one time rule 7 makes something easier rather than
