@@ -14,6 +14,24 @@
 import { DEFAULT_URLS, ENDPOINTS, HISTORY_START, PRICE_PERIOD, RATE } from './config.js';
 import { parseChartResponse, parseClient, parseConfigUrls, unwrapJsonp } from './parse.js';
 
+/**
+ * A URL with every credential taken out of it, for a message a human will read.
+ *
+ * `url.split('?')[0]` was not enough and it took a test to notice. DEGIRO's
+ * `/update` endpoint carries the session id in a **path segment** rather than
+ * in the query string — `…/v5/update/1;jsessionid=SECRET` — so stripping the
+ * query left it in place. These messages reach `lastError`, `lastError` is in
+ * `EXPORTABLE_META`, and the export is the file people send to each other. A
+ * live session id could travel in it.
+ *
+ * The account number goes too. It is in the path of four endpoints, it
+ * identifies the holder, and nothing about a failure needs it.
+ */
+export function safeUrl(url) {
+  const path = String(url).split('?')[0].split(';')[0];
+  return path.replace(/\/\d{4,}(?=\/|$)/g, '/<account>');
+}
+
 export class SessionExpiredError extends Error {
   constructor(message = 'DEGIRO session expired') {
     super(message);
@@ -23,7 +41,7 @@ export class SessionExpiredError extends Error {
 
 export class DegiroHttpError extends Error {
   constructor(status, url, body) {
-    super(`HTTP ${status} for ${url.split('?')[0]}`);
+    super(`HTTP ${status} for ${safeUrl(url)}`);
     this.name = 'DegiroHttpError';
     this.status = status;
     this.url = url;
@@ -33,7 +51,7 @@ export class DegiroHttpError extends Error {
 
 export class RequestTimeoutError extends Error {
   constructor(url, ms) {
-    super(`No response within ${ms / 1000}s from ${url.split('?')[0]}`);
+    super(`No response within ${ms / 1000}s from ${safeUrl(url)}`);
     this.name = 'RequestTimeoutError';
     this.url = url;
   }
@@ -135,7 +153,7 @@ async function getJson(url, init, opts) {
   } catch {
     // A session timeout sometimes arrives as an HTML login page with a 200.
     if (/<html/i.test(text)) throw new SessionExpiredError('DEGIRO returned an HTML page instead of JSON');
-    throw new Error(`Unparseable response from ${url.split('?')[0]}`);
+    throw new Error(`Unparseable response from ${safeUrl(url)}`);
   }
 }
 

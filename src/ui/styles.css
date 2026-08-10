@@ -44,17 +44,6 @@
   --pos: #0b5fc4;
   --neg: #c02434;
 
-  /* severity: a foreground, a ground and a rule per level, so a warning is a
-     surface of its own rather than a tinted border on the page */
-  --sev-red: #9e1628;
-  --sev-red-bg: #fceced;
-  --sev-red-line: #e0a0a7;
-  --sev-amber: #785000;
-  --sev-amber-bg: #fbf1dc;
-  --sev-amber-line: #ddc189;
-  --sev-info: #14549e;
-  --sev-info-bg: #e9f1fb;
-  --sev-info-line: #a7c5e7;
 
   --good: #0b5fc4;
   --warning: #785000;
@@ -122,15 +111,6 @@
     --pos: #63a6f6;
     --neg: #f4737f;
 
-    --sev-red: #ff9aa4;
-    --sev-red-bg: #2c1317;
-    --sev-red-line: #6b2931;
-    --sev-amber: #efbf68;
-    --sev-amber-bg: #282110;
-    --sev-amber-line: #5c4a1c;
-    --sev-info: #8fbdf3;
-    --sev-info-bg: #111f2d;
-    --sev-info-line: #2a4866;
 
     --good: #63a6f6;
     --warning: #efbf68;
@@ -168,15 +148,6 @@
   --pos: #63a6f6;
   --neg: #f4737f;
 
-  --sev-red: #ff9aa4;
-  --sev-red-bg: #2c1317;
-  --sev-red-line: #6b2931;
-  --sev-amber: #efbf68;
-  --sev-amber-bg: #282110;
-  --sev-amber-line: #5c4a1c;
-  --sev-info: #8fbdf3;
-  --sev-info-bg: #111f2d;
-  --sev-info-line: #2a4866;
 
   --good: #63a6f6;
   --warning: #efbf68;
@@ -482,11 +453,11 @@ label.check {
 
 .chart-box {
   position: relative;
-  height: 300px;
+  height: var(--chart-h);
 }
 
 .chart-box.tall {
-  height: 360px;
+  height: var(--hero-h);
 }
 
 /* --- banners ------------------------------------------------------------ */

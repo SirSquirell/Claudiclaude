@@ -79,6 +79,13 @@ worker** → the **Network** tab, then run a sync.
 telling anyone. The version numbers live in one file (`src/lib/config.js`) so that a break is
 a one-line fix, and the parsers are written defensively for the same reason.
 
+**What is verified, and what a test cannot tell you.** A whole sync runs in the test suite
+against a stand-in broker: the seven steps in order, the rows landing where they belong, a
+failure part-way leaving a findable error rather than a half-written database, and the
+reconstruction agreeing with the total the broker reported. What that cannot check is whether
+DEGIRO's endpoints still behave the way this code thinks — only a real sync answers that, which
+is what **Check connection** is for.
+
 **Automated access to your own account may conflict with DEGIRO's terms.** Read-only, your own
 data, from your own logged-in browser is the mildest form of it, but slow is not the same as
 sanctioned. Check that for yourself before you rely on it. Personal use only; do not publish

@@ -11,6 +11,36 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.20.0] — 2026-08-10
+
+Nothing visible changed. This release is the validation that should have existed before any of
+the previous ones.
+
+### Security
+
+- **A live session id could reach the exported file.** Error messages strip the query string
+  from a URL before recording it, but DEGIRO's `/update` endpoint carries the session id in a
+  *path segment* — `…/v5/update/1234567;jsessionid=…` — so stripping the query left it in
+  place. Those messages are stored as the last error, the last error is in the export, and the
+  export is the file people send to each other. The account number went the same way. Both are
+  removed now, from every typed error rather than the one that was noticed.
+
+### Fixed
+
+- **The network and session layer had never been executed by a test.** Not "thinly covered":
+  `session.js` was at zero percent of its functions and `degiro.js` at six. The rules living
+  there are the account-safety ones — requests spaced a second apart, a rejected session never
+  retried because a retry looks like a login attempt, a login page returned with a 200 read as
+  an expired session rather than parsed as data. All of them were enforced by code nobody had
+  run. They are now: `session.js` and `degiro.js` are at 100 % and 96 % of their functions.
+- **A whole sync now runs in the test suite**, against a stand-in broker: seven steps in order,
+  rows landing in the right stores, a second run not refetching what it has, a failure part-way
+  leaving a findable error instead of a half-written database, and the reconstruction agreeing
+  with the total the broker reported. `sync.js` went from 40 % to 86 %.
+- **The connection report is checked for what it must not contain** — no session id, no account
+  number, no name, no amounts. It is the one output in this project explicitly meant to be
+  handed to a stranger, and it had no test at all.
+
 ## [0.19.0] — 2026-08-10
 
 ### Fixed

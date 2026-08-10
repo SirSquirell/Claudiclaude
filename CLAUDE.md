@@ -147,8 +147,15 @@ npm run fixtures  # regenerate fixtures/
 ```
 
 `npm run demo` runs the real engine through the real UI with no Chrome APIs and no
-DEGIRO login. Use it for any UI change. Anything touching `sync.js`, `session.js` or
-`degiro.js` cannot be verified this way and needs a human with a logged-in browser.
+DEGIRO login. Use it for any UI change.
+
+**`sync.js`, `session.js` and `degiro.js` are tested too, and that line used to say they
+could not be.** `test/fake-indexeddb.js` is sixty lines of key-value store, and a stand-in
+`fetch` plus a stand-in cookie jar is all the rest of it takes; `test/sync-e2e.test.js` runs a
+whole seven-step sync against a broker that is not there. What still needs a human with a
+logged-in browser is the one thing a fake cannot answer: whether DEGIRO's endpoints still
+behave the way we think and whether the field names still match. Everything downstream of
+"the API behaves" is covered here.
 
 ## Scope
 
