@@ -10,6 +10,9 @@ the story document, it says so and shows the number it disagrees with.
 
 Status: **refinement**, nothing implemented.
 
+**Where things stand is in [STATUS.md](STATUS.md)** — one page. This file is the reasoning
+and the evidence behind it.
+
 ---
 
 ## 1. What the export proves
@@ -621,7 +624,7 @@ plus telling people to resync, not a silent rollback.
 | ~~B3~~ | ~~Is GME −4,0941 a real short?~~ **Answered: no — fabricated by the split rescaling** | now US-09 |
 | B10 | Does DEGIRO book a split as a transaction pair? the first account's rescaled instruments are all closed | US-09 |
 | ~~B4~~ | ~~Which slicer, which chart?~~ **Answered: "Results per", scoped to 2 of 8 charts** | US-06 |
-| B8 | Should the KPI tiles follow the range, or stay all-time? | US-06 |
+| ~~B8~~ | ~~KPI tiles: range or all-time?~~ **Decided: follow the range, with the period in the label.** Same reasoning as US-06 — a global control half the page ignores reads as a dead button. The percentage uses the daily-chained return the month grid already uses, so a deposit inside the window does not flatter it | US-06 |
 | B9 | US-08: replace the summary table, colour by selection order, keep both modes? | US-08 |
 | ~~B5~~ | ~~Premium booked as external cashflow?~~ **Answered: no, and zero `UNKNOWN` rows** | — |
 | ~~B6~~ | ~~Rounding policy~~ **Decided: round to whole numbers within tolerance, flag the rest** | — |
