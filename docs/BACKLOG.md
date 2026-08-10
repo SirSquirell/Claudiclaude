@@ -634,3 +634,141 @@ from a field.
 Remaining: **B3** and **B8** are one-line answers from you, **B7** and **B9** are choices where a
 recommendation is on the table, and **B1** only matters if we later prefer reading the field over
 measuring it.
+
+---
+
+## Refinement after 0.12.0 — a tester's two requests
+
+One message, two stories. The second one appears to contradict a rule in CLAUDE.md and turns
+out not to, which is the interesting part.
+
+### US-14 — See the result per holding, not just the total *(new)*
+
+**As a user I want to see how much each holding has made or lost, so that the coloured chart
+tells me which position is carrying the portfolio and which is dragging on it.**
+
+Today every result number on the page is an account-level one. The composition chart shows
+what each holding is *worth*; nothing anywhere says what each holding has *made*.
+
+#### The model, and why it is the one already in the spec
+
+Per instrument, the same identity SPEC §1.4 applies to the account:
+
+```
+pnl_p[t] = (value_p[t] − value_p[t−1]) − netTraded_p[t]
+```
+
+where buying is money into that instrument and selling is money out, exactly as a deposit and
+a withdrawal are for the account. Summed over the selected window it gives that holding's
+result for that window.
+
+The property worth having: **one formula covers realised and unrealised.** A position closed
+inside the window is worth zero at both ends, so the trades are all that is left and the sum
+*is* the realised result. A position still held gives what it gained plus anything realised on
+the way. No cost-basis convention has to be chosen — no FIFO, no average cost — because the
+question "what did this instrument do to my account" never needs one. That is worth stating
+explicitly, because "P/L per holding" normally drags a cost-basis argument in with it.
+
+#### Where it goes, and where it cannot go
+
+The request says "in that coloured chart". It cannot literally go there: that chart stacks
+*value*, and a stacked area cannot also encode a signed result without becoming two charts on
+one plot. The holdings table is the place — it already carries the swatch colours read off the
+same layer list, so the number lands next to the colour it belongs to. The stacked chart's
+tooltip is the cheap second home.
+
+#### What has to be decided
+
+1. **Over the selected range, or all-time?** This is **B8 again**, and B8 is now blocking two
+   things rather than one. Whatever the KPI tiles do, this should do, or the page contradicts
+   itself in two places at once.
+2. **Does a dividend count toward the instrument that paid it?** It should — a dividend is
+   internal and belongs in P/L (CLAUDE.md rule 3) — but that requires the cash row to carry a
+   product id. Needs checking against a real export before it is promised.
+
+#### The caveat that has to ship with it
+
+A per-holding number exposes the accuracy caveats that a total hides. An instrument with no
+price series is held flat at its last traded price, so its result between trades is
+fabricated; an option whose contract size was measured through a guessed rate carries that
+error into its own row. Both are already flagged globally. Per row they must be flagged per
+row, or the least trustworthy number on the page becomes the most specific-looking one.
+
+*Acceptance criteria:*
+
+- ☐ Per holding, the sum of its result over the whole history plus every other holding's
+  equals the account result. If the rows do not add up to the total, one of them is wrong.
+- ☐ A position bought and sold inside the window shows its realised result, not zero.
+- ☐ A holding whose price series is missing or whose contract size is unanchored says so in
+  its own row.
+
+### US-15 — The colours should follow what you hold, not what you once held *(new)*
+
+**Reported after 0.12.0:** *"it takes my largest positions ever, and the rest is Other, even
+though I no longer hold those positions. If I now buy something alongside my 3 holdings it
+probably also shows as Other."*
+
+**Both halves are correct, and the mechanism is one line.** `engine.js:1133` sorts
+`byProduct` by **all-time peak value**, and `buildComposition` takes the first six. So a
+position that peaked at €50 000 in 2021 and was sold in 2022 outranks everything bought since,
+and a position opened last week — with a small peak — cannot reach the top six at all.
+
+#### Why it was built that way
+
+`engine.js:1280` says so outright: the caller paints layer *i* with categorical slot *i*, so
+ranking per range would repaint the survivors every time a range button is pressed, and a
+reader who learned "green is Shell" would be misled. That is CLAUDE.md's charting rule —
+*colour follows the instrument, not its rank* — and it is a good rule.
+
+#### Why the rule and the request do not actually conflict
+
+**One decision is currently doing two jobs.** A holding's position in the sorted list picks
+both *whether it gets a layer* and *which colour that layer is*. Those are separate questions:
+
+- **Membership** — who gets a layer and who folds into Other — is a question about the range
+  being looked at. It should follow it.
+- **Colour** — which hue a given instrument gets — is a question about identity. It must not.
+
+Split them and both goals hold at once. The mechanism already exists in this codebase:
+`monthColours()` keeps a stable preferred slot per month and shifts only on a clash inside the
+current selection. The same applies here — a stable preferred slot per instrument, shifted only
+when two visible instruments want the same one. Shell is then the same colour every time Shell
+is on screen, and the range decides who is on screen.
+
+#### The part that makes this a defect rather than a preference
+
+`top` is filtered on `peak(p.values) > 0` over the **whole** history, and then sliced to the
+range. So a position closed before the selected range **passes the filter, occupies one of the
+seven categorical slots, and draws a flat zero across the entire chart.** It is not a
+stability trade-off — the slot buys nothing at all. Meanwhile something currently held sits in
+Other.
+
+*Decisions needed:*
+
+1. **The membership rule: rank on the slice.** Whatever range is selected, the top N and Other
+   are decided from the values *inside that range*, and nothing outside it votes.
+
+   That is the whole fix, and it is simpler than it first looked. An earlier draft here
+   proposed giving currently-held positions a reserved slot before filling the rest by
+   in-range peak; that reservation is unnecessary. A position you hold during the selected
+   window has a non-zero value inside it and therefore ranks on its own merits, and a position
+   sold in 2022 has a peak of zero across a 2026 window and drops out by the same arithmetic.
+   One rule, both halves of the report, no special case.
+
+   What stays in Other is then genuinely small *within the window being looked at*, which is
+   what Other should have meant all along.
+2. **How many.** It is six today plus Other plus Cash, which exactly fills the seven
+   categorical slots and the neutral. The report says five; six is what it is. Changing the
+   count is a separate question from fixing the ranking, and the palette does not have an
+   eighth slot to give.
+3. **Other stays one bucket**, named with its count. Nothing here argues for splitting it.
+
+*Acceptance criteria:*
+
+- ☐ A position closed before the start of the selected range never occupies a layer. *(Today's
+  failing case: it does, and draws zero.)*
+- ☐ Every position held on the last day of the selected range gets its own layer before any
+  closed position gets one.
+- ☐ An instrument that appears in two different selections has the same colour in both.
+- ☐ The holdings table's swatches still agree with the chart, slice for slice.
+- ☐ No two visible series share a colour — unchanged, and the reason the clash shift exists.
