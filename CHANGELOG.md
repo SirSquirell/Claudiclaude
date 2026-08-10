@@ -11,6 +11,26 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.18.0] — 2026-08-10
+
+### Changed
+
+- **The interface, ported from the mockup's own HTML** rather than read off a screenshot. The
+  header is its own surface, the figures are one grid whose hairlines are a one-pixel gap
+  showing the container through, the toolbar is a pill with the chosen option raised out of its
+  track, and every size is a token.
+
+### Fixed
+
+- **The page scrolled sideways at every window width, including a wide one.** A card with a
+  long title and its own controls was 1 509 px wide inside an 820 px window: a grid item
+  defaults to refusing to shrink below its content, so nothing could get narrower. Nobody had
+  noticed because the extension opens in a full tab.
+- **Narrow windows are supported now**, which they never were — the page had one breakpoint and
+  below it kept its desktop measurements. Four steps down to a phone-width window, with the
+  holdings table scrolling inside its own card rather than pushing the page wide, because that
+  table is the accessible relief for the chart colours and may not be the thing that breaks.
+
 ## [0.17.0] — 2026-08-10
 
 ### Changed

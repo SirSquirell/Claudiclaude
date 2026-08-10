@@ -79,6 +79,8 @@
   --track: 0.13em;
   --chart-h: 190px;
   --hero-h: 250px;
+  --kpi-w: 750;
+  --rule: 1px;
   --font: system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 
@@ -194,29 +196,20 @@ body {
   padding: var(--outer);
 }
 
-/* The whole application is one rounded surface on the warm ground, rather than
-   a stack of separate cards floating on the page. */
-.wrap > * {
-  --on-panel: 1;
-}
-
-body:not(.popup) .wrap {
-  background: var(--surface-1);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow);
-  margin: var(--outer) auto;
-}
-
 /* --- header ------------------------------------------------------------- */
 
 header.top {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  align-items: baseline;
+  gap: 16px;
+  align-items: center;
   justify-content: space-between;
-  margin-bottom: 20px;
+  margin-bottom: var(--gap);
+  padding: 18px var(--pad);
+  background: var(--surface-1);
+  border: var(--rule) solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
 }
 
 h1 {
@@ -311,21 +304,22 @@ button:disabled {
 
 .tiles {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(186px, 1fr));
-  gap: 0;
+  grid-template-columns: repeat(auto-fit, minmax(178px, 1fr));
+  /* The rules between tiles are not borders. The container is painted the
+     border colour and the cells are separated by a one-pixel gap, so every
+     hairline is exactly one pixel, they never double up where two cells meet,
+     and the outer edge needs no special case. */
+  gap: var(--rule);
   margin-bottom: var(--gap);
-  border: 1px solid var(--border);
+  border: var(--rule) solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
-  background: var(--surface-1);
+  background: var(--border);
 }
 
-/* Hairlines between tiles rather than gaps around them: the six numbers are one
-   reading, not six cards. */
 .tile {
-  padding: 15px 18px 17px;
-  border-right: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
+  background: var(--surface-1);
+  padding: 16px 18px;
 }
 
 .tile .label {
@@ -352,7 +346,7 @@ button:disabled {
 
 .tile .value {
   font-size: var(--kpi);
-  font-weight: 620;
+  font-weight: var(--kpi-w);
   margin-top: 8px;
   letter-spacing: -0.025em;
   line-height: 1.1;
@@ -378,20 +372,51 @@ button:disabled {
 
 .controls {
   display: flex;
-  gap: 16px;
+  gap: 18px;
   flex-wrap: wrap;
   align-items: center;
-  margin-bottom: 16px;
-  padding: 10px 14px;
+  margin-bottom: var(--gap);
+  padding: 12px 16px;
   background: var(--surface-1);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border: var(--rule) solid var(--border);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow);
+}
+
+@media (max-width: 720px) {
+  /* A pill that has wrapped onto four lines is not a pill. */
+  .controls {
+    border-radius: var(--radius);
+  }
 }
 
 .group {
   display: flex;
-  gap: 4px;
+  gap: 2px;
   align-items: center;
+  background: var(--surface-2);
+  border-radius: var(--radius-pill);
+  padding: 3px;
+}
+
+/* Inside a segmented control the buttons lose their own chrome: the track is
+   the frame, and only the chosen one is raised out of it. */
+.group button {
+  border-color: transparent;
+  background: transparent;
+  padding: 6px 13px;
+}
+
+.group button:hover {
+  background: var(--surface-3);
+  border-color: transparent;
+}
+
+.group button[aria-pressed='true'] {
+  background: var(--surface-1);
+  color: var(--text-primary);
+  border-color: var(--border);
+  box-shadow: var(--shadow);
 }
 
 .group > .glabel {
@@ -414,7 +439,7 @@ label.check {
 .grid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 16px;
+  gap: var(--gap);
 }
 
 @media (min-width: 900px) {
@@ -425,9 +450,10 @@ label.check {
 
 .card {
   background: var(--surface-1);
-  border: 1px solid var(--border);
+  border: var(--rule) solid var(--border);
   border-radius: var(--radius);
-  padding: 16px 18px 12px;
+  box-shadow: var(--shadow);
+  padding: var(--pad) var(--pad) 14px;
 }
 
 .card h2 {
@@ -736,3 +762,127 @@ body.popup .spark {
    same reason the charts keep a zero baseline. */
 td.pos { color: var(--pos); }
 td.neg { color: var(--neg); }
+
+/* --- narrow windows ------------------------------------------------------
+ *
+ * The page had exactly one breakpoint — the two-column chart grid at 900px —
+ * and below that everything simply kept its desktop measurements and overflowed.
+ * Nobody had looked, because the extension opens in a full tab.
+ *
+ * Four steps down, each fixing what actually breaks at that width rather than
+ * restyling the page again.
+ */
+
+@media (max-width: 1100px) {
+  :root {
+    --outer: 18px;
+    --pad: 18px;
+    --kpi: 25px;
+    --chart-h: 170px;
+  }
+}
+
+@media (max-width: 820px) {
+  :root {
+    --outer: 14px;
+    --gap: 12px;
+    --kpi: 23px;
+  }
+
+  header.top {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  /* Four pill buttons in a row do not fit; they wrap rather than shrink,
+     because a truncated "Wipe & resync" is a button nobody should press
+     without reading. */
+  .actions {
+    width: 100%;
+  }
+
+  .actions button {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+
+  .tiles {
+    grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  :root {
+    --kpi: 21px;
+    --base: 13px;
+    --chart-h: 150px;
+  }
+
+  .tiles {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .controls {
+    gap: 10px;
+  }
+
+  /* Every group keeps its own line, so a range and a granularity never read as
+     one row of eight equal buttons. */
+  .controls > .group,
+  .controls > label.check {
+    width: 100%;
+  }
+
+  .group {
+    justify-content: space-between;
+  }
+
+  .group button {
+    flex: 1 1 auto;
+    padding: 6px 8px;
+  }
+}
+
+@media (max-width: 420px) {
+  .tiles {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* The holdings table is the accessible relief for the chart colours, so it may
+   never be the thing that breaks. It scrolls sideways inside its own card
+   rather than pushing the page wider. */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 820px) {
+  .table-scroll table {
+    min-width: 560px;
+  }
+}
+
+/* A grid or flex item defaults to `min-width: auto`, which means it refuses to
+ * shrink below its own content. One card with a long title and a segmented
+ * control was therefore 1 509px wide inside an 820px window, and the whole page
+ * scrolled sideways — at every width, including 1 560, because the content was
+ * simply wider than the column it sat in.
+ *
+ * This is the fix and it is load-bearing: without it the breakpoints above do
+ * nothing, because nothing is allowed to get narrower in the first place.
+ */
+.grid > *,
+.card,
+.card-head > * {
+  min-width: 0;
+}
+
+.card-head > div {
+  flex: 1 1 220px;
+}
+
+.card h2,
+.card p.hint {
+  overflow-wrap: anywhere;
+}
