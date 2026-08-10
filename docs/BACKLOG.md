@@ -696,8 +696,13 @@ row, or the least trustworthy number on the page becomes the most specific-looki
 
 *Acceptance criteria:*
 
-- ☐ Per holding, the sum of its result over the whole history plus every other holding's
-  equals the account result. If the rows do not add up to the total, one of them is wrong.
+- ☑ Per holding, the sum of every holding's result plus the cash row equals the account
+  result. **Corrected during the build:** the first version of this criterion said the
+  holdings alone should add up to the total, and that is false. Measured on the synthetic
+  account, positions came to −8 817 against an account result of +8 603. The difference is
+  not an error — a multi-currency account earns and loses on its cash: dividends, interest,
+  fees, and the euro value of a foreign balance moving with the rate, none of which belongs
+  to any position. The cash row carries it, and is labelled with what it is.
 - ☐ A position bought and sold inside the window shows its realised result, not zero.
 - ☐ A holding whose price series is missing or whose contract size is unanchored says so in
   its own row.
@@ -770,7 +775,14 @@ Other.
 - ☐ A position opened inside the selected range competes on equal terms with everything else
   in it. Buying something today puts it in the running immediately, rather than leaving it in
   Other until it out-peaks a position from five years ago.
-- ☐ An instrument that appears in two different selections has the same colour in both.
+- ☑ An instrument in the account's six largest holdings keeps its colour in every window,
+  and no two visible series ever share one. **Weakened during the build, deliberately:** the
+  criterion first read "any instrument that appears in two selections has the same colour in
+  both", which six hues cannot promise a tenth holding. What is guaranteed is that the top six
+  own a hue, that "Other" keeps the last slot, and that anything below the six takes the first
+  free colour — which can differ between windows. Verified across ALL / 1Y / 6M in a browser;
+  the first implementation moved four instruments, this one moves none that has a hue of its
+  own.
 - ☐ The holdings table's swatches still agree with the chart, slice for slice.
 - ☐ No two visible series share a colour — unchanged, and the reason the clash shift exists.
 

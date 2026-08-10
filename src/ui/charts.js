@@ -300,7 +300,7 @@ export function cumulativeChart(ctx, { labels, cumulative, starts }, t) {
 // 4. Build-up of the portfolio: stacked value per holding, plus cash
 // ---------------------------------------------------------------------------
 
-export function compositionChart(ctx, composition, t) {
+export function compositionChart(ctx, composition, t, colours) {
   // `sampledDays` are the ISO days that survived downsampling; the tooltip
   // titles come from these, not from an index arithmetic guess.
   const { labels: sampledDays, seriesList } = downsample(
@@ -309,9 +309,12 @@ export function compositionChart(ctx, composition, t) {
     500,
   );
 
+  // Resolved by the caller, once, so the stacked chart, the holdings table and
+  // the share ring cannot drift apart. A hue belongs to an instrument, not to
+  // its position in this particular window's ranking.
   const colorFor = (layer, i) => {
     if (layer.key === '__cash__') return t.cash;
-    return t.series[i % t.series.length];
+    return colours?.[i] ?? t.series[i % t.series.length];
   };
 
   const datasets = composition.layers.map((layer, i) => ({

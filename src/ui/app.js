@@ -394,10 +394,12 @@ function render() {
   state.charts.pnl = pnlChart($('#c-pnl'), agg, t);
   renderCumulative(r, gran, from, to, agg, t);
 
-  // One composition, used twice: once for the stacked chart and once to colour
-  // the holdings table. Both must agree on which colour is which holding.
+  // One composition and one set of colours, used three times: the stacked chart,
+  // the holdings table's swatches and the share ring. All three must agree on
+  // which colour is which holding, so the resolution happens once, here.
   const composition = buildComposition(r, 6, from, to);
-  state.charts.comp = compositionChart($('#c-comp'), downsampleComposition(composition, ends, from), t);
+  const compColours = compositionColours(composition, t);
+  state.charts.comp = compositionChart($('#c-comp'), downsampleComposition(composition, ends, from), t, compColours);
 
   state.charts.invested = investedVsValueChart(
     $('#c-invested'),
@@ -419,7 +421,7 @@ function render() {
   renderMonthMatrix(months, t);
   renderMonthCompare(months, t);
 
-  renderHoldings(r, composition, t);
+  renderHoldings(r, composition, compColours, t, from, to);
   renderFooter(r, data);
 }
 
@@ -949,55 +951,142 @@ function renderMonthCompare(months, t) {
 }
 
 /**
- * Map every holding to the colour the stacked chart actually painted it. The
- * chart colours layer i with categorical slot i, so the mapping is read off the
- * layers rather than recomputed — otherwise the table and the chart drift apart
- * and the swatches become lies.
+ * Resolve one colour per composition layer, once, for everything that draws
+ * them: the stacked chart, the holdings table's swatches and the share ring.
+ *
+ * Membership now follows the selected window, so the old rule — layer i gets
+ * categorical slot i — would repaint every survivor whenever the range changed.
+ * Each layer instead carries its all-time `rank`, which the window cannot move.
+ *
+ * **What this does and does not guarantee**, because the difference was measured
+ * rather than assumed and the weaker half is easy to overclaim:
+ *
+ *  - The account's six largest holdings each own a hue and never move. Their
+ *    preferred slots are distinct, and they are seated first.
+ *  - No two visible series ever share a hue. Unchanged, and non-negotiable.
+ *  - "Other" keeps the last slot in every window, whatever is inside it.
+ *  - An instrument *outside* that six has no hue of its own to return to — six
+ *    slots cannot reserve one for a tenth holding — so it takes the first free
+ *    one, and that can differ between windows. A holding that folds into
+ *    "Other" in one range and gets its own layer in another likewise changes
+ *    colour, which is the same fact seen from the other side.
+ *
+ * The old code was perfectly stable and showed the wrong holdings. This is the
+ * trade, made deliberately: correct membership, stability where it can be had.
  */
-function colourByProduct(composition, t) {
+function compositionColours(composition, t) {
+  // The last categorical slot belongs to "Other" in every window, so an
+  // instrument never borrows it and "Other" never moves.
+  const instrumentSlots = Math.max(1, t.series.length - 1);
+  const otherColour = t.series[t.series.length - 1];
+
+  // Collisions are resolved in **all-time rank order, not in this window's
+  // order**. That distinction is the whole feature and it is easy to get wrong:
+  // resolving in window order means the arrival of one newly-large instrument
+  // re-seats everything behind it, and two instruments that both have a layer
+  // in two ranges swap hues between them. Measured, not assumed — the first
+  // version of this shifted four instruments across ALL / 1Y / 6M.
+  //
+  // Sorting by all-time rank makes an instrument's slot depend only on *which*
+  // instruments are on screen, never on how they happen to be ordered. The
+  // account's six largest holdings have distinct preferred slots and are seen
+  // first, so in practice they never move at all.
+  const byRank = composition.layers
+    .map((layer, i) => ({ layer, i }))
+    .filter((x) => x.layer.rank != null)
+    .sort((a, b) => a.layer.rank - b.layer.rank);
+
+  const used = new Set();
+  const out = new Array(composition.layers.length);
+  for (const { layer, i } of byRank) {
+    let slot = layer.rank % instrumentSlots;
+    while (used.has(slot)) slot = (slot + 1) % instrumentSlots;
+    used.add(slot);
+    out[i] = t.series[slot];
+  }
+  composition.layers.forEach((layer, i) => {
+    if (out[i]) return;
+    out[i] = layer.key === '__cash__' ? t.cash : otherColour;
+  });
+  return out;
+}
+
+/**
+ * Map every holding to the colour its layer was actually painted, so the table
+ * and the chart cannot disagree and the swatches cannot become lies.
+ */
+function colourByProduct(composition, colours, t) {
   const map = new Map();
   composition.layers.forEach((layer, i) => {
-    const colour = layer.key === '__cash__' ? t.cash : t.series[i % t.series.length];
+    const colour = colours[i] ?? t.muted;
     if (layer.productId) map.set(layer.productId, colour);
     for (const id of layer.members ?? []) map.set(id, colour);
   });
   return map;
 }
 
-function renderHoldings(r, composition, t) {
+/** Sum a per-day series across the selected window, inclusive at both ends. */
+const sumWindow = (arr, from, to) => {
+  let s = 0;
+  for (let i = Math.max(0, from); i <= to && i < arr.length; i++) s += arr[i];
+  return s;
+};
+
+function renderHoldings(r, composition, compColours, t, from, to) {
   const total = r.totals.value || 1;
-  const colours = colourByProduct(composition, t);
+  const colours = colourByProduct(composition, compColours, t);
   const otherLabel = composition.layers.find((l) => l.key === '__other__')?.label;
   const rows = [...r.byProduct]
     .filter((p) => Math.abs(p.current) > 0.005)
     .sort((a, b) => b.current - a.current);
+
+  // Everything the account made in this window, and the part of it that came
+  // from a position moving. The difference is not an error: cash earns
+  // dividends and interest, pays fees, and — in an account holding foreign
+  // currency — gains and loses on the rate with no position involved at all.
+  // Putting the difference on the cash row is what makes the column add up, and
+  // it is a true statement rather than a plug.
+  const accountResult = sumWindow(r.pnl, from, to);
+  const positionResult = r.byProduct.reduce((a, p) => a + sumWindow(p.pnl, from, to), 0);
+
+  const resultCell = (v) =>
+    `<td class="${v > 0.005 ? 'pos' : v < -0.005 ? 'neg' : 'muted'}">${esc(fmtSigned(v))}</td>`;
 
   const body = rows
     .map((p) => {
       const colour = colours.get(p.productId) ?? t.muted;
       const grouped = otherLabel && !composition.layers.some((l) => l.productId === p.productId);
       const qty = p.qty.at(-1);
+      // A result is only as good as the prices behind it. An instrument with no
+      // series sits flat at its last traded price, so its movement between
+      // trades is invented — in a total that is diluted, in its own row it is
+      // the whole number, and the row has to say so.
+      const shaky = r.warnings?.some?.(
+        (w) => w.products?.some?.((x) => String(x.productId) === String(p.productId)),
+      );
       return `<tr>
         <td><span class="swatch" style="background:${colour}"></span>${esc(p.name)}${p.symbol && p.symbol !== p.name ? ` <span class="muted">${esc(p.symbol)}</span>` : ''}${grouped ? ` <span class="muted">· in “${esc(otherLabel)}”</span>` : ''}</td>
         <td>${qty.toLocaleString('nl-NL', { maximumFractionDigits: 4 })}</td>
         <td>${esc(fmtEurCents(p.current))}</td>
+        ${resultCell(sumWindow(p.pnl, from, to))}
         <td>${((p.current / total) * 100).toFixed(1)}%</td>
-        <td>${esc(p.currency)}</td>
+        <td>${esc(p.currency)}${shaky ? ' <span class="muted" title="This instrument is named in a warning above — its prices are estimated, so its result is too.">·&nbsp;est.</span>' : ''}</td>
       </tr>`;
     })
     .join('');
 
   const cashRow = `<tr>
-      <td><span class="swatch" style="background:${t.cash}"></span>Cash</td>
+      <td><span class="swatch" style="background:${t.cash}"></span>Cash <span class="muted">· dividend, interest, fees and currency</span></td>
       <td class="muted">—</td>
       <td>${esc(fmtEurCents(r.totals.cash))}</td>
+      ${resultCell(accountResult - positionResult)}
       <td>${((r.totals.cash / total) * 100).toFixed(1)}%</td>
       <td>${esc(r.baseCurrency)}</td>
     </tr>`;
 
   $('#holdings tbody').innerHTML = body + cashRow;
 
-  renderHoldingsShare(composition, rows, t, r);
+  renderHoldingsShare(composition, rows, compColours, t, r);
 }
 
 /**
@@ -1011,7 +1100,7 @@ function renderHoldings(r, composition, t) {
  * would draw a debt as though it were an asset. They are named underneath
  * instead.
  */
-function renderHoldingsShare(composition, rows, t, r) {
+function renderHoldingsShare(composition, rows, compColours, t, r) {
   const share = state.holdingsView === 'share';
   $('#holdings-table-wrap').hidden = share;
   $('#holdings-pie-box').hidden = !share;
@@ -1030,7 +1119,7 @@ function renderHoldingsShare(composition, rows, t, r) {
     .map((layer, i) => ({
       label: layer.label,
       value: layer.values.at(-1) ?? 0,
-      colour: layer.key === '__cash__' ? t.cash : t.series[i % t.series.length],
+      colour: compColours[i] ?? t.muted,
     }))
     .filter((s) => s.value > 0);
 

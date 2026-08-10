@@ -699,6 +699,18 @@ export function computePortfolio(input) {
   /** @type {Map<string, Float64Array>} productId -> qty per day */
   const qtyByProduct = new Map();
   const tradeDaysByProduct = new Map();
+  /**
+   * Euros that moved into a position on a day: a buy is money in, a sale is
+   * money out. It is to one instrument exactly what `netExternal` is to the
+   * account, and it is what makes a per-holding result computable without
+   * arguing about cost basis — see `pnlOf` below.
+   *
+   * `totalBase` is what actually settled, fee included, and it is already
+   * signed the right way round by DEGIRO: negative when money left to buy. The
+   * sign is flipped here so that "into the position" is positive, matching
+   * `netExternal`'s convention for the account.
+   */
+  const tradedByProduct = new Map();
 
   for (const t of transactions) {
     const i = idxOf(t.date);
@@ -707,9 +719,11 @@ export function computePortfolio(input) {
     if (!arr) {
       arr = new Float64Array(n);
       qtyByProduct.set(t.productId, arr);
+      tradedByProduct.set(t.productId, new Float64Array(n));
       tradeDaysByProduct.set(t.productId, new Set());
     }
     arr[i] += t.quantity;
+    tradedByProduct.get(t.productId)[i] += -t.totalBase;
     tradeDaysByProduct.get(t.productId).add(t.date);
   }
   for (const arr of qtyByProduct.values()) {
@@ -883,6 +897,26 @@ export function computePortfolio(input) {
       }
     }
 
+    // SPEC §1.4, applied to one instrument instead of to the account: what a
+    // position made is how its value moved, less the money put into it. A buy
+    // is this position's deposit and a sale is its withdrawal.
+    //
+    // The reason to build it this way rather than from a cost basis: **no cost
+    // basis has to be chosen.** FIFO against average cost is an argument with no
+    // right answer, and this question never needs one. A position closed inside
+    // the window is worth zero at both ends, so its trades are all that is left
+    // and the sum *is* the realised result; a position still held gives what it
+    // gained plus anything realised on the way. One expression, both cases.
+    //
+    // Day zero has no previous day, so it opens against zero — the same
+    // convention the account-level `pnl` uses ten lines up, which makes a
+    // position bought on the first day score nothing rather than its full value.
+    const tradedIn = tradedByProduct.get(productId) ?? new Float64Array(n);
+    const productPnl = new Float64Array(n);
+    for (let i = 0; i < n; i++) {
+      productPnl[i] = values[i] - (i === 0 ? 0 : values[i - 1]) - tradedIn[i];
+    }
+
     byProduct.push({
       productId,
       name: meta.name,
@@ -892,6 +926,7 @@ export function computePortfolio(input) {
       contractSize: shares,
       values,
       qty,
+      pnl: productPnl,
     });
   }
 
@@ -1153,6 +1188,7 @@ export function computePortfolio(input) {
       contractSize: p.contractSize,
       values: Array.from(p.values, round2),
       qty: Array.from(p.qty),
+      pnl: Array.from(p.pnl, round2),
       current: round2(p.values[n - 1]),
     })),
     cashByCurrency: Object.fromEntries(
@@ -1275,24 +1311,71 @@ export function aggregatePnl(days, pnl, granularity = 'day', fromIndex = 0, toIn
 
 /**
  * Build the stacked composition for chart 3: cash plus the `topN` largest
- * holdings, everything else folded into "Other".
+ * holdings inside the selected window, everything else folded into "Other".
  *
- * Membership is decided on the *whole* history, not on the selected range.
- * That matters: the caller paints layer i with categorical slot i, so ranking
- * per range would repaint the survivors every time you click a range button —
- * a reader who learned "green is Shell" would be misled. `result.byProduct`
- * arrives sorted by all-time peak value, so the order here is already stable.
+ * **Membership is decided inside the window; nothing outside it votes.** It used
+ * to be decided on the whole history, which meant a position that peaked in 2021
+ * and was sold in 2022 outranked everything bought since — it passed the filter,
+ * took one of the categorical slots, and then drew a flat zero across a 2026
+ * range while a position actually held sat in "Other".
+ *
+ * That was not a trade-off for colour stability, though it looked like one. The
+ * charting rule is *colour follows the instrument, not its rank*, and the old
+ * code satisfied it by accident: the caller painted layer i with slot i, so one
+ * decision was doing two jobs. They are separate questions. Which instruments
+ * get a layer belongs to the window. Which hue an instrument gets belongs to the
+ * instrument — so each layer carries a `preferredSlot` derived from its all-time
+ * rank, and the caller resolves collisions the way `monthColours` already does.
+ *
+ * Ranking is by **mean value across the window**, not by peak. Over the whole
+ * history the two agree closely, but over one year they do not: a position that
+ * spiked for a single day outranks one that sat steadily large for twelve
+ * months, and the second one is the answer to "what was this portfolio, then".
  */
 export function buildComposition(result, topN = 6, fromIndex = 0, toIndex = result.days.length - 1) {
   const slice = (arr) => arr.slice(fromIndex, toIndex + 1);
-  const ranked = result.byProduct;
-  const top = ranked.slice(0, topN).filter((p) => peak(p.values) > 0);
-  const rest = ranked.slice(top.length);
+  const width = Math.max(1, toIndex - fromIndex + 1);
+
+  const meanBetween = (p, a, b) => {
+    let total = 0;
+    for (let i = a; i <= b; i++) total += p.values[i] ?? 0;
+    return total / Math.max(1, b - a + 1);
+  };
+  const meanInWindow = (p) => meanBetween(p, fromIndex, toIndex);
+
+  // A product's rank over the *whole* history is a property of the account
+  // rather than of the window, which is what a stable colour needs. The caller
+  // turns it into a slot and uses it to break ties.
+  //
+  // It is deliberately the same metric the window ranking uses. `byProduct`
+  // arrives sorted by all-time *peak*, and ranking membership by mean while
+  // keying colour off peak means the two orderings disagree — which produced
+  // collisions, and instruments trading hues between ranges, for no reason at
+  // all. With one metric, the ALL window needs no tie-breaking whatsoever,
+  // because its ranking *is* the all-time ranking.
+  const lastIndex = result.days.length - 1;
+  const allTimeRank = new Map(
+    [...result.byProduct]
+      .sort((a, b) => meanBetween(b, 0, lastIndex) - meanBetween(a, 0, lastIndex))
+      .map((p, i) => [p.productId, i]),
+  );
+
+  const ranked = result.byProduct
+    .map((p) => ({ p, weight: meanInWindow(p) }))
+    .sort((a, b) => b.weight - a.weight);
+
+  // Filter before slicing, not after. The old order took the first six and then
+  // dropped any that were empty, so an empty one cost a layer that was never
+  // backfilled — six slots, five bands, and no reason on screen.
+  const top = ranked.filter((x) => x.weight > 0).slice(0, topN).map((x) => x.p);
+  const inTop = new Set(top.map((p) => p.productId));
+  const rest = result.byProduct.filter((p) => !inTop.has(p.productId));
 
   const layers = top.map((p) => ({
     key: p.productId,
     productId: p.productId,
     label: p.symbol || p.name,
+    rank: allTimeRank.get(p.productId) ?? 0,
     values: slice(p.values),
   }));
 
@@ -1306,6 +1389,9 @@ export function buildComposition(result, topN = 6, fromIndex = 0, toIndex = resu
         key: '__other__',
         label: `Other (${rest.length})`,
         members: rest.map((p) => p.productId),
+        // "Other" gets a slot no instrument may take, so it stays the same
+        // colour in every window while its membership changes underneath it.
+        rank: null,
         values: other.map(round2),
       });
     }

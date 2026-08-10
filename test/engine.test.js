@@ -1080,3 +1080,129 @@ test('each candle opens where the previous one closed', () => {
   assert.equal(candles[0].up, true);
   assert.equal(candles[1].up, false);
 });
+
+// ---------------------------------------------------------------------------
+// buildComposition — membership belongs to the window, colour to the instrument
+// ---------------------------------------------------------------------------
+
+/** A result-shaped object with hand-written value series. Days are ISO and daily. */
+function fakeResult(series) {
+  const n = Object.values(series)[0].length;
+  const days = Array.from({ length: n }, (_, i) => `2026-01-${String(i + 1).padStart(2, '0')}`);
+  return {
+    days,
+    cash: new Array(n).fill(0),
+    byProduct: Object.entries(series).map(([productId, values]) => ({
+      productId,
+      name: productId,
+      symbol: productId,
+      values,
+      qty: values.map((v) => (v ? 1 : 0)),
+      pnl: new Array(n).fill(0),
+      current: values.at(-1),
+    })),
+  };
+}
+
+test('a position closed before the window does not take a layer', () => {
+  // OLD, and the whole point of the story: `sold` peaked highest of anything
+  // here, so it passed an all-time filter, took a categorical slot, and then
+  // drew a flat zero across a window it was not present in — while `bought`,
+  // which is actually held, was folded into Other.
+  const r = fakeResult({
+    sold: [900, 900, 0, 0],
+    held: [100, 100, 100, 100],
+    bought: [0, 0, 300, 300],
+  });
+  const c = buildComposition(r, 2, 2, 3);
+  const keys = c.layers.map((l) => l.key);
+  assert.equal(keys.includes('sold'), false, 'a position not held in the window gets no layer');
+  assert.deepEqual(keys.slice(0, 2), ['bought', 'held'], 'ranked by what the window actually contains');
+});
+
+test('ranking is by mean over the window, not by a one-day spike', () => {
+  // `spike` has the higher peak — 1000 against 200 — so the old peak rule put
+  // it first. But it was there for one day in ten, and the question the chart
+  // answers is what this portfolio *was* over the period, not what it briefly
+  // touched. Mean: 100 against 200.
+  const flat = (v) => new Array(10).fill(v);
+  const spike = flat(0);
+  spike[4] = 1000;
+  const r = fakeResult({ spike, steady: flat(200) });
+  assert.equal(buildComposition(r, 1, 0, 9).layers[0].key, 'steady');
+});
+
+test('an empty slot is backfilled rather than lost', () => {
+  // The old order sliced to topN and *then* dropped the empty ones, so an empty
+  // one cost a layer that was never filled — six slots, five bands, no reason.
+  const r = fakeResult({ a: [0, 0], b: [10, 10], c: [5, 5] });
+  const c = buildComposition(r, 2, 0, 1);
+  assert.deepEqual(c.layers.filter((l) => l.productId).map((l) => l.key), ['b', 'c']);
+});
+
+test('rank is the all-time ordering, so a window cannot move it', () => {
+  const r = fakeResult({
+    big: [1000, 1000, 0, 0],
+    small: [10, 10, 10, 10],
+  });
+  const whole = buildComposition(r, 2, 0, 3);
+  const tail = buildComposition(r, 2, 2, 3);
+  const rankOf = (c, key) => c.layers.find((l) => l.key === key)?.rank;
+  assert.equal(rankOf(whole, 'small'), rankOf(tail, 'small'),
+    'the same instrument reports the same rank whatever window it is seen in');
+  assert.equal(rankOf(whole, 'big'), 0, 'ranked on the whole history, where it is the largest');
+});
+
+test('Other reports no rank, so it can never take an instrument colour', () => {
+  const r = fakeResult({ a: [10, 10], b: [5, 5], c: [1, 1] });
+  const other = buildComposition(r, 1, 0, 1).layers.find((l) => l.key === '__other__');
+  assert.equal(other.rank, null);
+  assert.equal(other.members.length, 2);
+});
+
+// ---------------------------------------------------------------------------
+// per-holding result
+// ---------------------------------------------------------------------------
+
+test('a round trip inside the window reports its realised result', () => {
+  // Bought for 100, sold for 130, and nothing held at either end. No cost-basis
+  // convention is consulted, because the position is worth zero on both sides.
+  const days = ['2026-01-01', '2026-01-02', '2026-01-03', '2026-01-04'];
+  const r = computePortfolio({
+    transactions: [
+      { id: 't1', date: '2026-01-02', productId: '1', quantity: 10, price: 10, currency: 'EUR', fee: 0, totalBase: -100 },
+      { id: 't2', date: '2026-01-03', productId: '1', quantity: -10, price: 13, currency: 'EUR', fee: 0, totalBase: 130 },
+    ],
+    cashRows: [
+      { id: 'c0', date: '2026-01-01', description: 'Storting', amount: 1000, currency: 'EUR', category: 'DEPOSIT', external: true, inCash: true },
+      { id: 'c1', date: '2026-01-02', description: 'Koop', amount: -100, currency: 'EUR', category: 'TRADE', external: false, inCash: true },
+      { id: 'c2', date: '2026-01-03', description: 'Verkoop', amount: 130, currency: 'EUR', category: 'TRADE', external: false, inCash: true },
+    ],
+    products: { 1: { id: '1', name: 'Thing', symbol: 'THG', currency: 'EUR', vwdId: 'v1', productType: 'STOCK' } },
+    prices: { v1: { vwdId: 'v1', days, closes: [10, 10, 13, 13] } },
+    today: '2026-01-04',
+  });
+  const p = r.byProduct.find((x) => x.productId === '1');
+  const realised = p.pnl.reduce((a, b) => a + b, 0);
+  assert.ok(Math.abs(realised - 30) < 0.01, `realised ${realised}, expected 30`);
+  assert.equal(p.qty.at(-1), 0, 'and it is closed');
+});
+
+test('a purchase is not a gain on the day it settles', () => {
+  const days = ['2026-01-01', '2026-01-02'];
+  const r = computePortfolio({
+    transactions: [
+      { id: 't1', date: '2026-01-02', productId: '1', quantity: 10, price: 10, currency: 'EUR', fee: 0, totalBase: -100 },
+    ],
+    cashRows: [
+      { id: 'c0', date: '2026-01-01', description: 'Storting', amount: 1000, currency: 'EUR', category: 'DEPOSIT', external: true, inCash: true },
+      { id: 'c1', date: '2026-01-02', description: 'Koop', amount: -100, currency: 'EUR', category: 'TRADE', external: false, inCash: true },
+    ],
+    products: { 1: { id: '1', name: 'Thing', symbol: 'THG', currency: 'EUR', vwdId: 'v1', productType: 'STOCK' } },
+    prices: { v1: { vwdId: 'v1', days, closes: [10, 10] } },
+    today: '2026-01-02',
+  });
+  const p = r.byProduct.find((x) => x.productId === '1');
+  // 100 euros of value appeared, and exactly 100 euros bought it.
+  assert.ok(Math.abs(p.pnl[1]) < 0.01, `day of purchase scored ${p.pnl[1]}, expected 0`);
+});

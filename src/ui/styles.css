@@ -570,3 +570,9 @@ body.popup .spark {
 #c-value {
   cursor: crosshair;
 }
+
+/* A signed result in a table cell. The sign is already in the number, so the
+   colour is emphasis and never the only channel that carries the meaning —
+   same reason the charts keep a zero baseline. */
+td.pos { color: var(--pos); }
+td.neg { color: var(--neg); }
