@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { aggregatePnl, buildComposition, candleSeries, computePortfolio, deriveContractSizes, deriveFxRates, expandSeries, monthlyTable, rangeEndIndex, rangeStartIndex } from '../src/lib/engine.js';
+import { aggregatePnl, buildComposition, candleSeries, computePortfolio, deriveContractSizes, deriveFxRates, expandSeries, monthlyTable, rangeEndIndex, rangeStartIndex, windowReturnPct } from '../src/lib/engine.js';
 import { parseCashMovements, parseChartResponse, parseProducts, parseTransactions, parseUpdate } from '../src/lib/parse.js';
 import { dayRange } from '../src/lib/dates.js';
 import { fixture, loadPrices } from './helpers.js';
@@ -1235,4 +1235,23 @@ test('a product says whether it has usable prices behind it', () => {
   const bySymbol = Object.fromEntries(r.byProduct.map((x) => [x.symbol, x]));
   assert.equal(bySymbol.Q.hasSeries, true);
   assert.equal(bySymbol.D.hasSeries, false, 'no series, so its result between trades is an estimate');
+});
+
+test('a window return is not flattered by a deposit inside it', () => {
+  // The reason the tiles can follow a range at all. Two days of +10% on a
+  // portfolio that doubles in size overnight because money arrived: the return
+  // is 21%, not whatever dividing the euro result by the opening value says.
+  const r = {
+    days: ['2026-01-01', '2026-01-02', '2026-01-03'],
+    value: [1000, 2200, 2420],
+    pnl: [0, 100, 220],
+  };
+  assert.ok(Math.abs(windowReturnPct(r, 0, 2) - 21) < 0.01, `got ${windowReturnPct(r, 0, 2)}`);
+  // and the euro result over the same window is 320 on an opening 1000, which
+  // naive division would call 32%.
+});
+
+test('a window with nothing invested returns zero rather than NaN', () => {
+  const r = { days: ['2026-01-01', '2026-01-02'], value: [0, 0], pnl: [0, 0] };
+  assert.equal(windowReturnPct(r, 0, 1), 0);
 });

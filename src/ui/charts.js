@@ -233,7 +233,43 @@ const dragSelection = {
   },
 };
 
-Chart.register(crosshair, cashflowMarkers, dragSelection);
+/**
+ * Small ticks along the top of the plot on days the account traded.
+ *
+ * The chart already marks the days money went **in or out** and marks nothing
+ * for the days a decision was made — which is the question people actually ask
+ * of this line: where did I buy this. Drawn at the top rather than the baseline
+ * so it cannot be confused with the deposit triangles, which mean something
+ * else entirely and live at the bottom.
+ *
+ * Deliberately not coloured by profit. A buy is not good or bad on the day it
+ * happens, and tinting it green or red would be the chart claiming to know
+ * something it does not.
+ */
+const tradeMarkers = {
+  id: 'tradeMarkers',
+  afterDatasetsDraw(chart, _args, opts) {
+    const marks = opts?.marks;
+    if (!marks?.length) return;
+    const xScale = chart.scales.x;
+    const { top, left, right } = chart.chartArea;
+    const ctx = chart.ctx;
+    ctx.save();
+    ctx.strokeStyle = opts.color;
+    ctx.lineWidth = 2;
+    for (const m of marks) {
+      const x = xScale.getPixelForValue(m.index);
+      if (!Number.isFinite(x) || x < left || x > right) continue;
+      ctx.beginPath();
+      ctx.moveTo(x, top + 1);
+      ctx.lineTo(x, top + (m.sells && !m.buys ? 5 : 8));
+      ctx.stroke();
+    }
+    ctx.restore();
+  },
+};
+
+Chart.register(crosshair, cashflowMarkers, dragSelection, tradeMarkers);
 
 /**
  * Stride-sample a set of parallel arrays down to at most `max` points, always
@@ -257,7 +293,7 @@ export function downsample(labels, seriesList, max) {
 // 1. Portfolio value including cash
 // ---------------------------------------------------------------------------
 
-export function valueChart(ctx, { days, value, positionsValue, netExternal, pnl, includeCash }, t) {
+export function valueChart(ctx, { days, value, positionsValue, netExternal, pnl, trades, includeCash }, t) {
   const series = includeCash ? value : positionsValue;
   const marks = [];
   for (let i = 0; i < days.length; i++) {
@@ -267,6 +303,8 @@ export function valueChart(ctx, { days, value, positionsValue, netExternal, pnl,
   const opts = baseOptions(t);
   opts.plugins.crosshair = { color: t.axis };
   opts.plugins.cashflowMarkers = { marks, inColor: t.pos, outColor: t.neg };
+  opts.plugins.tradeMarkers = { marks: trades ?? [], color: t.muted };
+  const tradeByIndex = new Map((trades ?? []).map((e) => [e.index, e]));
   // `active` is written by the drag handler between renders; everything else is
   // fixed at build time so the plugin needs no access to app state.
   // Keyed off the *text* colour rather than the axis or grid colour. Those are
@@ -293,6 +331,15 @@ export function valueChart(ctx, { days, value, positionsValue, netExternal, pnl,
       if (i > 0) lines.push(`Day change: ${fmtSigned(series[i] - series[i - 1])}`);
       if (Math.abs(netExternal[i]) > 0.005) {
         lines.push(`${netExternal[i] > 0 ? 'Deposit' : 'Withdrawal'}: ${fmtSigned(netExternal[i])}`);
+      }
+      const traded = tradeByIndex.get(i);
+      if (traded) {
+        const what = [
+          traded.buys ? `${traded.buys} buy${traded.buys > 1 ? 's' : ''}` : null,
+          traded.sells ? `${traded.sells} sell${traded.sells > 1 ? 's' : ''}` : null,
+        ].filter(Boolean).join(', ');
+        const who = traded.names.join(', ') + (traded.more ? ` +${traded.more} more` : '');
+        lines.push(`Traded: ${what}${who ? ` — ${who}` : ''}`);
       }
       return lines;
     },

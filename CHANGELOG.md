@@ -11,6 +11,33 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.15.0] — 2026-08-10
+
+### Added
+
+- **Markers on the value chart where you traded.** The chart marked the days money went in or
+  out and marked nothing for the days you made a decision — which is the question people
+  actually ask of that line: *where did I buy this*. Small ticks now sit along the top, and the
+  tooltip names what happened: *"Traded: 2 buys, 1 sell — NWI, CTS"*. At Week or Month several
+  trading days merge into one mark rather than smudging over each other.
+
+  They are not tinted by profit. A purchase is not good or bad on the day it happens, and
+  colouring it would be the chart claiming to know something it does not.
+
+### Changed
+
+- **The tiles follow the range you picked**, and say which range. Pressing 1M used to leave
+  *TOTAL RESULT +€97 842,64* on screen above a chart showing one month — the same complaint
+  that was fixed for the charts in 0.10.0, still true for the numbers above them.
+
+  Two of the six deliberately do not follow it. **Total value** and **Money paid in** are
+  positions rather than periods: what the account is worth, and what has been put into it, as
+  of the end of the window. A "value over the last month" is not a quantity that exists.
+
+  The percentage is the same daily-chained return the month grid uses, not the result divided
+  by the opening value. That is what lets it follow a range honestly: a deposit landing inside
+  the window would otherwise inflate the denominator and flatter the return.
+
 ## [0.14.0] — 2026-08-10
 
 ### Added

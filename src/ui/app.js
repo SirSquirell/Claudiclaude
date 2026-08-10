@@ -5,8 +5,8 @@
  * an external cashflow."
  */
 
-import { aggregatePnl, buildComposition, candleSeries, monthlyTable, rangeEndIndex, rangeStartIndex } from '../lib/engine.js';
-import { monthKey, weekKey } from '../lib/dates.js';
+import { aggregatePnl, buildComposition, candleSeries, monthlyTable, rangeEndIndex, rangeStartIndex, windowReturnPct } from '../lib/engine.js';
+import { formatDay, monthKey, weekKey } from '../lib/dates.js';
 import {
   candleChart,
   compositionChart,
@@ -396,11 +396,14 @@ function render() {
   $('#subtitle').textContent = `${r.start} → ${r.end} · ${r.days.length} days · ${modeNote}`;
 
   renderBanners(data, r);
-  renderTiles(r);
 
   // --- range window -----------------------------------------------------
   const from = rangeStartIndex(r.days, state.range);
   const to = rangeEndIndex(r.days, state.range);
+
+  // Below the window, not above it. B8's whole defect was that the tiles were
+  // rendered before the range existed, so they could only ever be all-time.
+  renderTiles(r, from, to);
   const slice = (arr) => arr.slice(from, to + 1);
 
   const gran = state.granularity === 'auto' ? autoGranularity(to - from + 1) : state.granularity;
@@ -432,6 +435,9 @@ function render() {
       // Only the drag readout uses this, and it is the reason the readout can
       // report a result rather than a change in value.
       pnl: sumInBuckets(r.pnl, ends, from),
+      // Re-indexed onto the buckets the chart actually draws, and merged where
+      // a week or a month collapses several trading days into one point.
+      trades: tradesInBuckets(r.tradeEvents ?? [], ends, from),
       includeCash: state.includeCash,
     },
     t,
@@ -515,6 +521,29 @@ function sumInBuckets(arr, ends, from) {
     start = end + 1;
   }
   return out;
+}
+
+/**
+ * Trade days, mapped onto the buckets the chart draws.
+ *
+ * At day granularity this is one-to-one. At week or month several trading days
+ * land on one point, so they are merged rather than drawn on top of each other
+ * — otherwise a busy month is one thick smudge that says nothing about how busy.
+ */
+function tradesInBuckets(events, ends, from) {
+  const out = new Map();
+  let bucket = 0;
+  for (const e of events) {
+    if (e.index < from) continue;
+    while (bucket < ends.length - 1 && ends[bucket] < e.index) bucket++;
+    if (e.index > ends[bucket]) continue;
+    const cur = out.get(bucket) ?? { index: bucket, buys: 0, sells: 0, names: [], more: 0 };
+    cur.buys += e.buys;
+    cur.sells += e.sells;
+    for (const n of e.names) if (cur.names.length < 3 && !cur.names.includes(n)) cur.names.push(n);
+    out.set(bucket, cur);
+  }
+  return [...out.values()];
 }
 
 /**
@@ -724,31 +753,60 @@ function destroyCharts() {
 // tiles, banners, table
 // ---------------------------------------------------------------------------
 
-function renderTiles(r) {
-  const last = r.days.length - 1;
+/**
+ * B8, decided: the tiles follow the selected range, and say which range.
+ *
+ * They used to be all-time whatever the range said, so pressing 1M left
+ * "TOTAL RESULT +€97 842,64" on screen above a chart showing one month. That is
+ * the same complaint US-06 fixed for the charts — a control in the global
+ * toolbar that half the page ignores reads as a dead button.
+ *
+ * Two of the six do not follow it, and that is not an oversight. **Total value**
+ * and **Money paid in** are positions, not periods: what the account is worth,
+ * and what has been put into it, as of the end of the window. A "value over the
+ * last month" is not a quantity that exists.
+ *
+ * The percentage is the daily-chained return `monthlyTable` already uses,
+ * Π(1 + pnl[d]/value[d−1]) − 1, rather than result divided by opening value.
+ * That is the whole reason it can follow a range at all: a deposit landing
+ * inside the window would otherwise inflate the denominator and flatter the
+ * return. No new notion of return enters the codebase.
+ */
+function renderTiles(r, from = 0, to = r.days.length - 1) {
+  const last = Math.min(to, r.days.length - 1);
   const dayPnl = r.pnl[last];
-  const weekPnl = r.pnl.slice(Math.max(0, last - 6)).reduce((a, b) => a + b, 0);
+  const weekPnl = r.pnl.slice(Math.max(0, last - 6), last + 1).reduce((a, b) => a + b, 0);
+
+  const whole = from <= 0 && last >= r.days.length - 1;
+  const period = whole ? 'all time' : `${formatDay(r.days[from])} — ${formatDay(r.days[last])}`;
+  const windowPnl = sumWindow(r.pnl, from, last);
+  // 'as of 8 aug 2026' when that is today reads as a stale number. It is only
+  // a date when the window genuinely ends in the past.
+  const asOf = last >= r.days.length - 1 ? 'today' : formatDay(r.days[last]);
 
   const tiles = [
-    { label: 'Total value', value: fmtEurCents(r.totals.value), note: `${fmtEurCents(r.totals.cash)} of it is cash` },
+    // A value is a position, not a period: it is what the account was worth on
+    // the last day of the window, and saying "as of" is what stops that reading
+    // as today's number when it is not.
+    { label: 'Total value', value: fmtEurCents(r.value[last]), note: `as of ${asOf}` },
     {
       label: 'Money paid in',
-      value: fmtEurCents(r.totals.invested),
-      note: 'deposits minus withdrawals',
+      value: fmtEurCents(r.cumulativeDeposited[last]),
+      note: `deposits minus withdrawals, to ${asOf}`,
     },
     {
-      label: 'Total result',
-      value: fmtSigned(r.totals.totalPnl),
-      note: fmtPct(r.totals.totalReturnPct),
-      cls: signClass(r.totals.totalPnl),
+      label: 'Result',
+      value: fmtSigned(windowPnl),
+      note: `${fmtPct(windowReturnPct(r, from, last))} · ${period}`,
+      cls: signClass(windowPnl),
     },
     { label: 'Today', value: fmtSigned(dayPnl), note: `This week ${fmtSigned(weekPnl)}`, cls: signClass(dayPnl) },
     {
       label: 'Dividend received',
       value: fmtEurCents(r.income.dividendGross + r.income.dividendTax),
-      note: `${fmtEurCents(Math.abs(r.income.dividendTax))} withheld`,
+      note: `${fmtEurCents(Math.abs(r.income.dividendTax))} withheld · all time`,
     },
-    { label: 'Fees paid', value: fmtEurCents(Math.abs(r.income.fees)), note: 'transaction and service costs' },
+    { label: 'Fees paid', value: fmtEurCents(Math.abs(r.income.fees)), note: 'transaction and service costs · all time' },
   ];
 
   $('#tiles').innerHTML = tiles

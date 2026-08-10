@@ -1042,6 +1042,37 @@ export function computePortfolio(input) {
     }
   }
 
+  // Days the account traded, and what it did. The value chart already marks the
+  // days money went in or out; it marks nothing for the days a decision was
+  // made, which is the question people actually ask of that line — "where did I
+  // buy this". One entry per day rather than per trade, because five fills of
+  // one order are one decision and would otherwise draw five arrows.
+  const tradeDays = new Map();
+  for (const t of transactions) {
+    const i = idxOf(t.date);
+    if (i < 0 || !t.quantity) continue;
+    let e = tradeDays.get(i);
+    if (!e) {
+      e = { date: t.date, index: i, buys: 0, sells: 0, symbols: new Set() };
+      tradeDays.set(i, e);
+    }
+    if (t.quantity > 0) e.buys++;
+    else e.sells++;
+    const sym = products?.[t.productId]?.symbol || products?.[t.productId]?.name;
+    if (sym) e.symbols.add(String(sym));
+  }
+  const tradeEvents = [...tradeDays.values()]
+    .sort((a, b) => a.index - b.index)
+    .map((e) => ({
+      date: e.date,
+      index: e.index,
+      buys: e.buys,
+      sells: e.sells,
+      // Two names is a label; ten is a wall. The rest are counted.
+      names: [...e.symbols].slice(0, 3),
+      more: Math.max(0, e.symbols.size - 3),
+    }));
+
   // ---- 6b. is this even a plausible history? -----------------------------
   // A portfolio cannot be worth many times everything ever paid into it plus
   // everything it is worth now. When it is, some quantity is in the wrong units
@@ -1202,6 +1233,7 @@ export function computePortfolio(input) {
     ),
     dividendsByMonth,
     flowEvents,
+    tradeEvents,
     income: {
       dividendGross: round2(sum(dividendGross)),
       dividendTax: round2(sum(dividendTax)),
@@ -1338,6 +1370,31 @@ export function aggregatePnl(days, pnl, granularity = 'day', fromIndex = 0, toIn
  * spiked for a single day outranks one that sat steadily large for twelve
  * months, and the second one is the answer to "what was this portfolio, then".
  */
+/**
+ * Time-weighted return across a window, as a percentage.
+ *
+ * The same daily chaining `monthlyTable` uses — Π(1 + pnl[d]/value[d−1]) − 1 —
+ * and for the same reason: `pnl` already has external cashflow removed, so a
+ * deposit landing inside the window cannot flatter the number. Dividing the
+ * window's result by its opening value would let one, which is exactly the
+ * error this project exists to avoid.
+ *
+ * Days with nothing invested contribute nothing: there was no capital to earn a
+ * return on.
+ */
+export function windowReturnPct(result, fromIndex = 0, toIndex = result.days.length - 1) {
+  let factor = 1;
+  let any = false;
+  for (let i = Math.max(1, fromIndex); i <= toIndex && i < result.days.length; i++) {
+    const prev = result.value[i - 1];
+    if (prev > 0) {
+      factor *= 1 + result.pnl[i] / prev;
+      any = true;
+    }
+  }
+  return any ? (factor - 1) * 100 : 0;
+}
+
 export function buildComposition(result, topN = 6, fromIndex = 0, toIndex = result.days.length - 1) {
   const slice = (arr) => arr.slice(fromIndex, toIndex + 1);
   const width = Math.max(1, toIndex - fromIndex + 1);
@@ -1548,6 +1605,7 @@ function emptyResult(today, warnings) {
     cashByCurrency: {},
     dividendsByMonth: [],
     flowEvents: [],
+    tradeEvents: [],
     income: { dividendGross: 0, dividendTax: 0, fees: 0, interest: 0 },
     totals: { value: 0, cash: 0, positions: 0, invested: 0, totalPnl: 0, totalReturnPct: 0, estimatedDays: 0 },
     stats: { unclassified: 0, categoryTotals: {}, transactions: 0, cashRows: 0 },

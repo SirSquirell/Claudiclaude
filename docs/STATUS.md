@@ -4,7 +4,7 @@
 but a bad place to find out *where things stand*. This is the index. It says what is done, what
 is decided but unbuilt, and what is waiting on whom.
 
-Last updated at 0.14.0.
+Last updated at 0.15.0.
 
 ## Shipped and signed off
 
@@ -36,6 +36,8 @@ Tested by users and accepted, which is the release gate in [BACKLOG §5](BACKLOG
 | S18 | The candle toggle acts instead of refusing | 0.13.0 |
 | S19 | A drag shows what it is selecting | 0.13.0 |
 | US-11 | **Copy bug report** — every notice as pasteable JSON | 0.14.0 |
+| B8 | The KPI tiles follow the selected range | 0.15.0 |
+| — | Trade markers on the value chart | 0.15.0 |
 | — | A base URL from the config endpoint is checked before it is trusted | 0.14.0 |
 | — | Rule 8 (YAGNI) and the audit applying it | 0.14.0 |
 
@@ -62,7 +64,7 @@ on every story rather than once.
 | # | State |
 |---|---|
 | B1 | **Open.** Does `products/info` return `contractSize`? The spike answers it. Does not block anything today — the measured route is the more robust one anyway |
-| B8 | **Decided at 0.14.0:** the KPI tiles follow the selected range, with the period in the label. Same reasoning as US-06 — a global control that half the page ignores reads as a dead button. Not built yet |
+| ~~B8~~ | **Built in 0.15.0.** The tiles follow the selected range, with the period in the label |
 | B10 | **Open, blocks nothing.** Does DEGIRO book a split as a transaction pair? US-09 shipped without needing the answer, because closure must hold whichever way it falls |
 | ~~B7~~ | **Answered by 0.10.0** — rates unobserved for more than a quarter are flagged. The bigger fix, a real daily FX series, was not needed |
 | ~~B9~~ | **Answered by 0.10.0** — the aggregate columns are dropped when specific months are picked, and both comparison modes were kept |
