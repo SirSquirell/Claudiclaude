@@ -11,6 +11,28 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.22.0] — 2026-08-10
+
+### Added
+
+- **Per holding: how much of it is your money, and how much it made.** A bar and a sentence in
+  the holdings table — *"15 % paid in · 85 % grown"*. Value equals what you put in plus what it
+  made, exactly, at every point, and **no cost-basis convention is involved**: a buy is money
+  into the position and a sale is money out, which is the same identity the whole account rests
+  on. Splitting today's value the usual way needs FIFO or average cost, and those are an
+  argument with no right answer.
+
+  A position worth less than went in shows the shortfall in the loss colour rather than a zero
+  gain, and one you have taken more out of than you put in says *"all gain — more came out than
+  went in"* instead of being clamped to nothing. Both are real states.
+- **Five more figures**: realised and unrealised result, best and worst month, and **data
+  coverage** — what share of the history was valued from a real quote rather than a stale one.
+  That last is the honesty tile: a history reconstructed largely from carried-forward prices is
+  a different object from one reconstructed from quotes, and until now the page only said so in
+  a warning about instruments.
+- **The version is on screen**, in the footer line and in the popup. A bug report about a build
+  nobody can name costs a round trip, and this project shipped several versions in a day.
+
 ## [0.21.0] — 2026-08-10
 
 ### Added

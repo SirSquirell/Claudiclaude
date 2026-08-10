@@ -104,6 +104,11 @@ async function paint(r, status = {}) {
     .map((x) => `<div class="tile"><div class="label">${x.label}</div><div class="value ${x.cls ?? ''}">${x.value}</div></div>`)
     .join('');
 
+  // Which build this is. The popup is where a tester looks first, and a bug
+  // report about an unnamed version costs a round trip to establish.
+  const el = $('#version');
+  if (el) el.textContent = `v${chrome.runtime.getManifest().version}`;
+
   // Last 90 days of value, enough to read the shape in 64px.
   sparkline($('#spark'), r.value.slice(Math.max(0, last - 89)), t);
 }

@@ -871,6 +871,28 @@ function renderTiles(r, from = 0, to = r.days.length - 1) {
       note: `${fmtEurCents(Math.abs(r.income.dividendTax))} withheld · all time`,
     },
     { label: 'Fees paid', value: fmtEurCents(Math.abs(r.income.fees)), note: 'transaction and service costs · all time' },
+    {
+      label: 'Realised',
+      value: fmtSigned(r.realised),
+      note: `banked, from ${r.byProduct.filter((p) => Math.abs(p.qty.at(-1)) < 1e-9).length} closed positions`,
+      cls: signClass(r.realised),
+    },
+    {
+      label: 'Unrealised',
+      value: fmtSigned(r.unrealised),
+      note: 'still riding on prices · all time',
+      cls: signClass(r.unrealised),
+    },
+    bestWorst(r, 'best'),
+    bestWorst(r, 'worst'),
+    {
+      // The honesty tile. A history reconstructed largely from stale prices is
+      // a different object from one reconstructed from quotes, and until now the
+      // page only said so in a yellow banner about instruments.
+      label: 'Data coverage',
+      value: `${(100 - (r.coverage.estimated / Math.max(1, r.coverage.days)) * 100).toFixed(1)}%`,
+      note: `${r.coverage.estimated.toLocaleString('nl-NL')} of ${r.coverage.days.toLocaleString('nl-NL')} days estimated`,
+    },
   ];
 
   $('#tiles').innerHTML = tiles
@@ -1262,6 +1284,28 @@ function colourByProduct(composition, colours, t) {
   return map;
 }
 
+/**
+ * The best or worst month the account ever had, as a percentage.
+ *
+ * Percent rather than euros, deliberately: €500 on a small portfolio and €500 on
+ * a large one are not the same month, which is the argument the month grid's own
+ * Euro/Return toggle already makes.
+ */
+function bestWorst(r, which) {
+  const months = monthlyTable(r).years.flatMap((y) =>
+    y.months.map((m, i) => (m ? { pct: m.returnPct, label: `${MONTH_NAMES[i]} ${y.year}` } : null)),
+  ).filter(Boolean);
+  if (!months.length) return { label: which === 'best' ? 'Best month' : 'Worst month', value: '—', note: 'no full month yet' };
+  months.sort((a, b) => b.pct - a.pct);
+  const pick = which === 'best' ? months[0] : months.at(-1);
+  return {
+    label: which === 'best' ? 'Best month' : 'Worst month',
+    value: fmtPct(pick.pct),
+    note: pick.label,
+    cls: signClass(pick.pct),
+  };
+}
+
 /** Sum a per-day series across the selected window, inclusive at both ends. */
 const sumWindow = (arr, from, to) => {
   let s = 0;
@@ -1286,6 +1330,40 @@ function renderHoldings(r, composition, compColours, t, from, to) {
   const accountResult = sumWindow(r.pnl, from, to);
   const positionResult = r.byProduct.reduce((a, p) => a + sumWindow(p.pnl, from, to), 0);
 
+  /**
+   * How much of what this holding is worth is money you put in, and how much it
+   * made — as a bar and a sentence.
+   *
+   * `value = paidIn + result` exactly, at every point, with no cost-basis
+   * convention involved: a buy is money into the position and a sale is money
+   * out, which is SPEC §1.4 applied to one instrument. That identity is the only
+   * reason this can be shown at all — splitting today's value into "cost" and
+   * "gain" the usual way needs FIFO or average cost, and those are an argument
+   * with no right answer.
+   *
+   * Three states, all real:
+   *  - grown: part of the bar is yours, the rest is what it made.
+   *  - under water: worth less than went in, so the bar shows the shortfall in
+   *    the loss colour rather than pretending the gain segment is zero.
+   *  - free: more has come out than went in, `paidIn` is negative, and every
+   *    euro on screen is the market's. Said in words rather than clamped to 0 %.
+   */
+  const splitCell = (p) => {
+    if (Math.abs(p.current) < 0.005) return '<td class="muted">—</td>';
+    const paid = p.paidIn?.at(-1) ?? 0;
+    const grown = p.current - paid;
+    const scale = Math.max(Math.abs(p.current), Math.abs(paid), 0.01);
+    const pctPaid = Math.min(100, Math.round((Math.abs(paid) / scale) * 100));
+    const pctGrown = Math.max(0, 100 - pctPaid);
+    const words = paid < 0
+      ? 'all gain — more came out than went in'
+      : `${pctPaid}% paid in · ${pctGrown}% ${grown >= 0 ? 'grown' : 'lost'}`;
+    return `<td class="split">
+      <span class="bar" title="${esc(words)}"><i style="width:${paid < 0 ? 0 : pctPaid}%"></i><em class="${grown >= 0 ? 'up' : 'down'}" style="width:${paid < 0 ? 100 : pctGrown}%"></em></span>
+      <span class="muted">${esc(words)}</span>
+    </td>`;
+  };
+
   const resultCell = (v) =>
     `<td class="${v > 0.005 ? 'pos' : v < -0.005 ? 'neg' : 'muted'}">${esc(fmtSigned(v))}</td>`;
 
@@ -1307,6 +1385,7 @@ function renderHoldings(r, composition, compColours, t, from, to) {
         <td><span class="swatch" style="background:${colour}"></span>${esc(p.name)}${p.symbol && p.symbol !== p.name ? ` <span class="muted">${esc(p.symbol)}</span>` : ''}${grouped ? ` <span class="muted">· in “${esc(otherLabel)}”</span>` : ''}</td>
         <td>${qty.toLocaleString('nl-NL', { maximumFractionDigits: 4 })}</td>
         <td>${esc(fmtEurCents(p.current))}</td>
+        ${splitCell(p)}
         ${resultCell(sumWindow(p.pnl, from, to))}
         <td>${((p.current / total) * 100).toFixed(1)}%</td>
         <td>${esc(p.currency)}${estimated ? ' <span class="muted" title="No price history for this instrument, so it is held at the last price it traded at — its result is an estimate.">·&nbsp;est.</span>' : ''}</td>
@@ -1318,6 +1397,7 @@ function renderHoldings(r, composition, compColours, t, from, to) {
       <td><span class="swatch" style="background:${t.cash}"></span>Cash <span class="muted">· dividend, interest, fees and currency</span></td>
       <td class="muted">—</td>
       <td>${esc(fmtEurCents(r.totals.cash))}</td>
+      <td class="muted">—</td>
       ${resultCell(accountResult - positionResult)}
       <td>${((r.totals.cash / total) * 100).toFixed(1)}%</td>
       <td>${esc(r.baseCurrency)}</td>
@@ -1381,7 +1461,11 @@ function renderHoldingsShare(composition, rows, compColours, t, r) {
 }
 
 function renderFooter(r, data) {
+  const version = inExtension ? chrome.runtime.getManifest().version : null;
   const bits = [
+    // Which build is on screen. Without it a bug report is about a version
+    // nobody can name, and this project ships four in an afternoon.
+    version ? `v${version}` : 'demo',
     `${r.stats.transactions} transactions`,
     `${r.stats.cashRows} cash movements`,
     `${r.byProduct.length} instruments ever held`,

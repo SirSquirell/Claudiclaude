@@ -914,3 +914,46 @@ td.neg { color: var(--neg); }
     flex: 1 1 auto;
   }
 }
+
+/* The build, small and out of the way, in the popup. The full page carries it
+   in the footer line beside the row counts. */
+.version {
+  margin-top: 10px;
+  text-align: right;
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* How much of a holding is your own money and how much it made. Two segments
+   that always sum to the whole, so the eye reads a proportion rather than two
+   lengths it has to compare. */
+td.split {
+  text-align: left;
+  min-width: 9rem;
+}
+
+td.split .bar {
+  display: flex;
+  height: 6px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--surface-3);
+  margin-bottom: 4px;
+}
+
+td.split .bar i {
+  background: var(--text-muted);
+}
+
+td.split .bar em.up {
+  background: var(--pos);
+}
+
+td.split .bar em.down {
+  background: var(--neg);
+}
+
+td.split .muted {
+  font-size: 0.6875rem;
+}

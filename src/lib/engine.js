@@ -917,6 +917,20 @@ export function computePortfolio(input) {
       productPnl[i] = values[i] - (i === 0 ? 0 : values[i - 1]) - tradedIn[i];
     }
 
+    // How much of this position is your own money, running.
+    //
+    // `value = paidIn + result`, exactly, at every point, and with no cost-basis
+    // convention anywhere near it — which is what makes "how much of this is
+    // what I put in, and how much is what it made" answerable at all. It goes
+    // negative when you have taken out more than you put in, and that is a real
+    // state rather than an error: the position is running on the market's money.
+    const paidIn = new Float64Array(n);
+    let stillIn = 0;
+    for (let i = 0; i < n; i++) {
+      stillIn += tradedIn[i];
+      paidIn[i] = stillIn;
+    }
+
     byProduct.push({
       productId,
       name: meta.name,
@@ -924,6 +938,7 @@ export function computePortfolio(input) {
       currency: meta.currency ?? baseCurrency,
       productType: meta.productType ?? 'UNKNOWN',
       contractSize: shares,
+      paidIn,
       // Whether this instrument has a price series at all. Without one it is
       // held flat at the last price it traded at, so its movement between
       // trades is not real — diluted in a total, but the whole of a
@@ -1226,6 +1241,7 @@ export function computePortfolio(input) {
       values: Array.from(p.values, round2),
       qty: Array.from(p.qty),
       pnl: Array.from(p.pnl, round2),
+      paidIn: Array.from(p.paidIn, round2),
       current: round2(p.values[n - 1]),
     })),
     cashByCurrency: Object.fromEntries(
@@ -1239,6 +1255,28 @@ export function computePortfolio(input) {
       dividendTax: round2(sum(dividendTax)),
       fees: round2(sum(feesDaily)),
       interest: round2(sum(interestDaily)),
+    },
+    /**
+     * Split of the account result into what is banked and what is still riding
+     * on prices. Realised is every closed position's whole result; unrealised is
+     * what the open ones have made so far. Together they are the position
+     * result, which is not the account result — cash earns and loses too, and
+     * `report.js` records why.
+     */
+    realised: round2(
+      byProduct
+        .filter((p) => Math.abs(p.qty[n - 1]) < 1e-9)
+        .reduce((a, p) => a + sum(p.pnl), 0),
+    ),
+    unrealised: round2(
+      byProduct
+        .filter((p) => Math.abs(p.qty[n - 1]) >= 1e-9)
+        .reduce((a, p) => a + sum(p.pnl), 0),
+    ),
+    /** Days valued from a real quote, against days valued from a stale one. */
+    coverage: {
+      days: n,
+      estimated: Array.from(estimatedDay).filter(Boolean).length,
     },
     totals: {
       value: round2(value[n - 1]),
