@@ -196,6 +196,31 @@ export async function extendBackwards({ fetchFn, parseFn, session, before, onWin
 export const SYNC_STEPS = ['session', 'portfolio', 'transactions', 'cashflows', 'products', 'prices', 'derive'];
 
 /**
+ * Does this checkpoint describe the run the caller asked for?
+ *
+ * The page cannot follow a sync by waiting on the message reply — Chrome may
+ * terminate the worker mid-call and the callback then never fires at all — so
+ * it follows `meta.syncState` instead. The trap is the window between the click
+ * and the worker's first write: the checkpoint still describes the *previous*
+ * run, which is finished, and reading that as "done" reports success for work
+ * that has not started. `startedAt` is what separates them.
+ *
+ * It lives here rather than in the page because this module is what writes the
+ * field, so the two definitions cannot drift apart.
+ *
+ * @param {object|null} now the checkpoint as it reads now
+ * @param {object|null} before the checkpoint as it stood when the run was asked for
+ */
+export function isSameRun(now, before) {
+  if (!now) return false;
+  // A strictly newer run is unambiguously the one we asked for.
+  if ((now.startedAt ?? 0) > (before?.startedAt ?? 0)) return true;
+  // Otherwise it is only ours if it is the run that was *already* unfinished
+  // when we asked, which `runSync` hands back rather than starting a second.
+  return before?.done === false && now.startedAt === before.startedAt;
+}
+
+/**
  * Turn a failure into a sentence someone can act on.
  *
  * The friendly text alone is not enough — "DEGIRO returned an error" tells the

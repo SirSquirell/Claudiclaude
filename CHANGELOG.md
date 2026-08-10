@@ -11,6 +11,42 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.24.0] — 2026-08-10
+
+### Fixed
+
+- **The sync button no longer gets stuck**, and the reason it did is worth stating because it
+  was not an error anyone could have caught: the page waited on the reply to its `sync` message,
+  and MV3 does not promise that reply arrives. Chrome may terminate the extension's worker
+  mid-run, and a terminated worker does **not** reliably fail the pending call — the callback
+  simply never fires, `chrome.runtime.lastError` is never set, nothing rejects. The promise never
+  settled, so the `finally` that re-enables the button never ran. No stack trace, no failed
+  request, no log line. Just a button reading *Syncing…* until the tab was reloaded.
+
+  The reply is now fire-and-forget and the **checkpoint is authoritative**. `sync.js` has always
+  written `meta.syncState` after every step precisely because the worker is ephemeral; the page
+  now reads that instead of trusting a message channel. Four ways out, and the button comes back
+  in all of them: the checkpoint reaches *done*; the worker is up, reports nothing running and an
+  unfinished checkpoint (the run died with an earlier worker — say so at once rather than wait);
+  nothing moves at all for two minutes; or it simply finishes.
+
+  Two further changes make *stuck* structurally hard rather than merely unlikely. Every message
+  now has a deadline, so no call to the worker can hang forever again — a deadline ends this
+  page's wait and claims nothing about whether the work finished. And **Sync now is never
+  disabled**: a disabled button catches no hover and can be asked nothing, which is exactly what
+  you want to do when you think it is stuck. A second click reports which step the run is on.
+- **Wipe & resync had no error handling at all.** It awaited a message that takes minutes,
+  outside any `try`, so a failure left *"Wiping and re-downloading"* on screen forever with the
+  rejection swallowed. It now follows the checkpoint exactly like a sync, because after the wipe
+  that is what it is.
+- **Both copy buttons failed silently.** `navigator.clipboard.writeText` rejects when the
+  document is not focused; the rejection was swallowed and the "copied" notice never appeared, so
+  the button looked dead. It now says the clipboard refused and what to do about it.
+- **Export JSON** reported nothing when it failed, and got a deadline long enough for a large
+  account.
+- **The popup no longer reports a failure that did not happen.** Losing the reply is not the same
+  as the sync failing; it asks the checkpoint before turning the status line red.
+
 ## [0.23.0] — 2026-08-10
 
 ### Added

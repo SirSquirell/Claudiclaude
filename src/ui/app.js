@@ -20,6 +20,7 @@ import {
   valueChart,
 } from './charts.js';
 import { buildBugReport } from '../lib/report.js';
+import { isSameRun } from '../lib/sync.js';
 import { alpha, fmtEurCents, fmtPct, fmtSigned, onThemeChange, tokens } from './theme.js';
 import { inExtension, load, send, wantsDemo } from './datasource.js';
 
@@ -255,62 +256,176 @@ function buildControls() {
   });
 }
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** How often the page re-reads the sync checkpoint. */
+const SYNC_POLL_MS = 500;
+
+/**
+ * How long the page keeps believing a checkpoint that is not moving.
+ *
+ * Generous on purpose. A first backfill spends minutes inside the price phase
+ * and every outbound request is at least 1.1 s behind the last one (CLAUDE.md
+ * rule 5), so a quiet stretch is ordinary. Two minutes of *complete* silence —
+ * no checkpoint, no answer from the worker — is not.
+ */
+const SYNC_STALL_MS = 120000;
+
+/**
+ * Follow a running sync to its end by reading the checkpoint, not the reply.
+ *
+ * `sync.js` writes `meta.syncState` after every step precisely because the MV3
+ * worker is ephemeral (SPEC §6). That checkpoint is the authority here, which
+ * is what makes this survive the case the old code could not: a worker Chrome
+ * kills mid-run, whose pending `sendMessage` callback never fires at all.
+ *
+ * Four outcomes, and the caller is released in every one of them:
+ *
+ *  - the checkpoint reaches `done` — finished, success or failure as recorded;
+ *  - the worker answers, says nothing is running, and the checkpoint is still
+ *    unfinished — the run died with an earlier worker, and nothing will ever
+ *    finish it, so there is no point waiting out the stall timer;
+ *  - nothing moves at all for `SYNC_STALL_MS`;
+ *  - and the ordinary one, where it simply completes.
+ *
+ * @param {object|null} before the checkpoint as it stood before the run was asked for
+ * @param {(step: object, steps: string[]) => void} onStep
+ * @returns {Promise<{ok: boolean, message: string}>}
+ */
+async function watchSync(before, onStep) {
+  let lastAt = before?.at ?? null;
+  let lastMovement = Date.now();
+
+  for (;;) {
+    await sleep(SYNC_POLL_MS);
+
+    let st;
+    try {
+      st = await send({ type: 'status' }, { timeoutMs: 10000 });
+    } catch {
+      // The worker is restarting, or did not answer in time. Neither means the
+      // sync failed — a restart is normal MV3 behaviour. The stall check is
+      // what eventually gives up.
+      if (Date.now() - lastMovement > SYNC_STALL_MS) {
+        return {
+          ok: false,
+          message:
+            'The extension’s background worker stopped answering. Reload the extension in ' +
+            'chrome://extensions and press Sync now — the sync resumes from where it stopped.',
+        };
+      }
+      continue;
+    }
+
+    const s = st.syncState;
+    if (s && s.at !== lastAt) {
+      lastAt = s.at;
+      lastMovement = Date.now();
+    }
+    if (s) onStep(s, st.steps ?? []);
+
+    const ours = isSameRun(s, before);
+
+    if (ours && s.done) {
+      return { ok: !s.failed, message: s.message };
+    }
+
+    if (ours && !s.done && !st.syncing) {
+      return {
+        ok: false,
+        message: `it stopped at “${s.message}”. Chrome shut the extension’s worker down mid-run. Press Sync now to carry on from there.`,
+      };
+    }
+
+    if (Date.now() - lastMovement > SYNC_STALL_MS) {
+      return {
+        ok: false,
+        message: `no progress for ${Math.round(SYNC_STALL_MS / 1000)}s${s ? ` — last step was “${s.message}”` : ''}.`,
+      };
+    }
+  }
+}
+
 function wireActions() {
   const demo = wantsDemo();
 
-  $('#btn-sync').addEventListener('click', async (e) => {
+  /**
+   * Set while a long run is being followed, so a second click reports where it
+   * is instead of starting another one. Shared by Sync and Wipe deliberately:
+   * a wipe that lands in the middle of a sync is the failure mode `sync.js`
+   * documents at `wipeAndResync`, and it produced a real report of a portfolio
+   * with cash and no holdings.
+   */
+  let following = null;
+
+  /**
+   * Ask the worker to do something long, then follow the checkpoint.
+   *
+   * The message is fire-and-forget on purpose. Its reply is a nice-to-have that
+   * MV3 does not promise to deliver, and treating it as the completion signal is
+   * exactly what left the button stuck. Everything the success notice needs is
+   * in the checkpoint and in the store.
+   */
+  async function startAndFollow({ message, btn, busyLabel, idleLabel }) {
+    if (following) {
+      notice('info', `Still running — ${following.step ?? 'starting…'}. A first sync can take a few minutes.`);
+      return;
+    }
+    clearNotices();
+    following = { step: null };
+    btn.textContent = busyLabel;
+    const progress = notice('info', 'Starting…');
+
+    let before = null;
+    try {
+      before = (await send({ type: 'status' }, { timeoutMs: 10000 })).syncState ?? null;
+    } catch {
+      // No checkpoint to compare against. `watchSync` then accepts the first
+      // one it sees, which is right: there is no stale run to confuse it with.
+    }
+
+    send(message, { timeoutMs: SYNC_STALL_MS }).catch(() => {});
+
+    const outcome = await watchSync(before, (s, steps) => {
+      const step = steps.indexOf(s.phase);
+      const n = step >= 0 ? `Step ${step + 1} of ${steps.length} · ` : '';
+      following.step = s.message;
+      btn.textContent = s.pct != null ? `${busyLabel} ${s.pct}%` : busyLabel;
+      setNoticeText(progress, `${n}${s.message}`);
+    });
+
+    following = null;
+    btn.textContent = idleLabel;
+    clearNotices();
+    await refresh();
+
+    if (outcome.ok) {
+      const c = state.data?.counts ?? {};
+      notice(
+        'ok',
+        `${outcome.message} ${c.transactions ?? 0} transactions, ${c.cashflows ?? 0} cash movements, ` +
+          `${c.products ?? 0} instruments.`,
+      );
+    } else {
+      notice('error', `Sync failed: ${outcome.message}`);
+      notice('info', 'Press “Check connection” to see which step broke.');
+    }
+  }
+
+  $('#btn-sync').addEventListener('click', (e) => {
     if (demo || !inExtension) {
       notice('info', 'Demo mode has nothing to sync. Open this page from the extension toolbar to sync your real account.');
       return;
     }
-    const btn = e.target;
-    clearNotices();
-    btn.disabled = true;
-
-    // Poll the checkpoint the worker writes on every step. The sync runs in the
-    // service worker, which may outlive or predecease this page, so progress is
-    // read from storage rather than pushed down the message channel.
-    const progress = notice('info', 'Starting…');
-    const poll = setInterval(async () => {
-      try {
-        const st = await send({ type: 'status' });
-        const s = st.syncState;
-        if (!s) return;
-        const step = state.steps.indexOf(s.phase);
-        const n = step >= 0 ? `Step ${step + 1} of ${state.steps.length} · ` : '';
-        btn.textContent = s.pct != null ? `Syncing ${s.pct}%` : 'Syncing…';
-        setNoticeText(progress, `${n}${s.message}`);
-      } catch {
-        /* the worker may be restarting; the next tick will catch up */
-      }
-    }, 400);
-
-    try {
-      const res = await send({ type: 'sync', force: true });
-      clearInterval(poll);
-      clearNotices();
-      if (!res.ok) {
-        notice('error', `Sync failed: ${res.message ?? 'unknown error'}`);
-        notice('info', 'Press “Check connection” to see which step broke.');
-      } else {
-        const c = res.counts ?? {};
-        notice(
-          'ok',
-          `Synced in ${((res.tookMs ?? 0) / 1000).toFixed(1)}s — ${c.transactions ?? 0} transactions, ` +
-            `${c.cashRows ?? 0} cash movements, ${c.instruments ?? 0} instruments, ${c.days ?? 0} days.`,
-        );
-      }
-      await refresh();
-    } catch (err) {
-      clearInterval(poll);
-      clearNotices();
-      notice('error', `Sync failed: ${err.message ?? err}`);
-      notice('info', 'Press “Check connection” to see which step broke.');
-    } finally {
-      clearInterval(poll);
-      btn.disabled = false;
-      btn.textContent = 'Sync now';
-    }
+    // Deliberately never disabled — the same argument the Candles button makes
+    // further up. A disabled button cannot be asked anything, and "it is stuck"
+    // is precisely the moment you want to ask it. A second click answers.
+    return startAndFollow({
+      message: { type: 'sync', force: true },
+      btn: e.target,
+      busyLabel: 'Syncing',
+      idleLabel: 'Sync now',
+    });
   });
 
   $('#btn-diagnose').addEventListener('click', async (e) => {
@@ -322,7 +437,9 @@ function wireActions() {
     e.target.textContent = 'Checking…';
     clearNotices();
     try {
-      state.diagnostics = await send({ type: 'diagnose' });
+      // Longer than the default: the check makes several real requests, and
+      // rule 5 puts at least 1.1 s between any two of them.
+      state.diagnostics = await send({ type: 'diagnose' }, { timeoutMs: 120000 });
       renderDiagnostics(state.diagnostics);
     } catch (err) {
       notice('error', `Could not run the check: ${err.message ?? err}`);
@@ -354,39 +471,49 @@ function wireActions() {
       version: inExtension ? chrome.runtime.getManifest().version : null,
       generatedAt: new Date().toISOString(),
     });
-    await navigator.clipboard.writeText(JSON.stringify(report, null, 2));
     const n = report.warnings.length;
-    notice('ok', `Bug report copied — ${n} notice${n === 1 ? '' : 's'}, no amounts or instrument names. Paste it into the chat.`);
+    if (await copy(report)) {
+      notice('ok', `Bug report copied — ${n} notice${n === 1 ? '' : 's'}, no amounts or instrument names. Paste it into the chat.`);
+    }
   });
 
   $('#btn-copy-diag').addEventListener('click', async () => {
-    await navigator.clipboard.writeText(JSON.stringify(state.diagnostics, null, 2));
-    notice('ok', 'Report copied to the clipboard.');
+    if (await copy(state.diagnostics)) notice('ok', 'Report copied to the clipboard.');
   });
 
   $('#btn-hide-diag').addEventListener('click', () => {
     $('#diagnostics').hidden = true;
   });
 
-  $('#btn-export').addEventListener('click', async () => {
-    const payload = demo || !inExtension ? state.data : await send({ type: 'export' });
-    downloadJson(payload, `degiro-portfolio-${new Date().toISOString().slice(0, 10)}.json`);
+  $('#btn-export').addEventListener('click', async (e) => {
+    e.target.disabled = true;
+    try {
+      // Reading every store and cloning it across the worker boundary is the
+      // slowest message this page sends, so it gets more than the default.
+      const payload = demo || !inExtension ? state.data : await send({ type: 'export' }, { timeoutMs: 60000 });
+      downloadJson(payload, `degiro-portfolio-${new Date().toISOString().slice(0, 10)}.json`);
+    } catch (err) {
+      notice('error', `Could not build the export: ${err.message ?? err}`);
+    } finally {
+      e.target.disabled = false;
+    }
   });
 
-  $('#btn-wipe').addEventListener('click', async () => {
+  $('#btn-wipe').addEventListener('click', (e) => {
     if (demo || !inExtension) {
       banner('info', 'Nothing stored in demo mode.');
       return;
     }
     if (!confirm('Delete every stored response and re-download the full history from DEGIRO?')) return;
-    clearNotices();
-    notice('info', 'Wiping and re-downloading. Leave this tab open until it finishes.');
     // One message: the worker waits for any running sync, wipes, then starts a
-    // fresh one. Splitting it lets a wipe land in the middle of a sync.
-    const res = await send({ type: 'wipe' });
-    clearNotices();
-    if (res && res.ok === false) notice('error', `Resync failed: ${res.message ?? 'unknown error'}`);
-    await refresh();
+    // fresh one. Splitting it lets a wipe land in the middle of a sync. It is
+    // followed exactly like a sync, because after the wipe that is what it is.
+    return startAndFollow({
+      message: { type: 'wipe' },
+      btn: e.target,
+      busyLabel: 'Resyncing',
+      idleLabel: 'Wipe & resync',
+    });
   });
 
   if (demo || !inExtension) {
@@ -1603,6 +1730,26 @@ function showFatal(err) {
   $('#subtitle').textContent = 'Could not load.';
   banner('error', String(err?.message ?? err));
   console.error(err);
+}
+
+/**
+ * Put a JSON payload on the clipboard, and say so when that is not allowed.
+ *
+ * `navigator.clipboard.writeText` rejects when the document is not focused, and
+ * both copy buttons awaited it bare: the rejection was swallowed by the async
+ * handler, the "copied" notice never appeared, and the page looked like the
+ * button did nothing. Reporting the refusal costs three lines.
+ *
+ * @returns {Promise<boolean>} whether it landed
+ */
+async function copy(obj) {
+  try {
+    await navigator.clipboard.writeText(JSON.stringify(obj, null, 2));
+    return true;
+  } catch (err) {
+    notice('error', `Could not reach the clipboard: ${err.message ?? err}. Click the page once and try again.`);
+    return false;
+  }
 }
 
 function downloadJson(obj, filename) {

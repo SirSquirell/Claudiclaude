@@ -38,7 +38,10 @@ async function main() {
     }, 400);
 
     try {
-      const res = await send({ type: 'sync', force: true });
+      // Long, because a first backfill is minutes of throttled requests and a
+      // deadline that fires while the sync is healthy would report a failure
+      // that did not happen. The catch below checks before claiming one.
+      const res = await send({ type: 'sync', force: true }, { timeoutMs: 300000 });
       if (!res.ok) {
         // The full message, not a generic one: this is often the only place
         // the user sees why it failed.
@@ -50,8 +53,18 @@ async function main() {
       const status = await send({ type: 'status', includeDerived: true });
       if (status.derived) await paint(status.derived, { lastSyncAt: Date.now() });
     } catch (err) {
-      $('#status').textContent = String(err.message ?? err);
-      $('#status').classList.add('down');
+      // Losing the reply is not the same as the sync failing. Chrome can kill
+      // the worker mid-message without ever failing the call, and the work often
+      // carries on in the next one — so ask the checkpoint before calling it a
+      // failure in red. The full page is where a run can actually be followed.
+      const still = await send({ type: 'status' }).catch(() => null);
+      if (still?.syncing || still?.syncState?.done === false) {
+        $('#status').textContent = 'Still syncing — open the full chart to follow it.';
+        $('#status').classList.remove('down');
+      } else {
+        $('#status').textContent = String(err.message ?? err);
+        $('#status').classList.add('down');
+      }
     } finally {
       clearInterval(poll);
       e.target.disabled = false;

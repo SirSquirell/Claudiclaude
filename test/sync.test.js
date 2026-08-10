@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { extendBackwards, fetchWindowed } from '../src/lib/sync.js';
+import { extendBackwards, fetchWindowed, isSameRun } from '../src/lib/sync.js';
 import { DegiroHttpError } from '../src/lib/degiro.js';
 import { daysBetween } from '../src/lib/dates.js';
 
@@ -115,4 +115,39 @@ test('the backwards walk never goes below the floor', async () => {
   await extendBackwards({ fetchFn: fn, parseFn, session: {}, before: '2019-01-01' });
   assert.ok(calls.every((c) => c.from >= '2008-01-01'), 'stops at the floor');
   assert.ok(calls.length <= 12, `walked ${calls.length} windows; must terminate`);
+});
+
+// ---------------------------------------------------------------------------
+// isSameRun — which checkpoint the page is allowed to believe
+// ---------------------------------------------------------------------------
+
+/**
+ * These four cases are the whole reason the sync button used to get stuck, in
+ * both directions: believe the wrong checkpoint and the page reports success
+ * for a run that has not started; believe none of them and the button never
+ * comes back. Neither failure throws, so nothing else would catch it.
+ */
+test('a checkpoint left over from the previous run is not this run', () => {
+  const before = { startedAt: 1000, done: true, failed: false };
+  assert.equal(isSameRun({ startedAt: 1000, done: true }, before), false);
+});
+
+test('a strictly newer run is this run', () => {
+  const before = { startedAt: 1000, done: true };
+  assert.equal(isSameRun({ startedAt: 2000, done: false }, before), true);
+  assert.equal(isSameRun({ startedAt: 2000, done: true }, before), true);
+});
+
+test('a run already in flight when we asked is the one runSync hands back', () => {
+  // runSync returns the in-flight promise rather than starting a second run, so
+  // its checkpoint keeps the older startedAt and still belongs to our wait.
+  const before = { startedAt: 1000, done: false };
+  assert.equal(isSameRun({ startedAt: 1000, done: false }, before), true);
+  assert.equal(isSameRun({ startedAt: 1000, done: true }, before), true);
+});
+
+test('with no checkpoint at all, the first one that appears is ours', () => {
+  assert.equal(isSameRun({ startedAt: 1, done: false }, null), true);
+  assert.equal(isSameRun(null, null), false);
+  assert.equal(isSameRun(null, { startedAt: 1000, done: false }), false);
 });

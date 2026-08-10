@@ -28,10 +28,33 @@ export function wantsDemo() {
   return !inExtension;
 }
 
-/** Ask the service worker to do something. */
-export function send(message) {
+/**
+ * Ask the service worker to do something.
+ *
+ * The deadline is not defensive padding. MV3 gives no guarantee the reply ever
+ * arrives: Chrome may terminate the worker mid-message, and a terminated worker
+ * does **not** reliably fail the pending call — the callback can simply never
+ * fire, with `chrome.runtime.lastError` never set. Without a deadline the
+ * promise never settles, the `finally` that re-enables the button never runs,
+ * and the page sits on "Syncing…" until it is reloaded. That is one bug, not a
+ * class of them, and it is the reported "the sync button gets stuck".
+ *
+ * A timeout here says nothing about whether the work finished — the worker may
+ * well still be going. It ends *this page's* wait, and nothing more. Anything
+ * long-running must therefore not treat this reply as its completion signal;
+ * it reads the checkpoint `sync.js` writes instead.
+ */
+export function send(message, { timeoutMs = 30000 } = {}) {
   return new Promise((resolve, reject) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      settled = true;
+      reject(new Error(`The background worker did not answer “${message?.type}” within ${Math.round(timeoutMs / 1000)}s.`));
+    }, timeoutMs);
+
     chrome.runtime.sendMessage(message, (reply) => {
+      if (settled) return; // a late reply to a call we have already given up on
+      clearTimeout(timer);
       const err = chrome.runtime.lastError;
       if (err) return reject(new Error(err.message));
       if (!reply?.ok) return reject(new Error(reply?.error ?? 'Unknown error'));
