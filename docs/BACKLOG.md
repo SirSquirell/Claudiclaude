@@ -1003,3 +1003,95 @@ reconciliation ratio of 1.44, the exchange rate as a `median` of 107 against a `
 `trades`, the rescale as a factor near 100 with its spread, and the fabricated positions as a
 share count that disagrees. The one it cannot do is name the instrument responsible, which is
 the honest limit and is what the full export remains for.
+
+---
+
+## US-17 — Notice when a field DEGIRO renamed stops arriving *(new)*
+
+Refined after 0.14.0, from a question I asked badly. The question was "should the nine
+swallowed catches and the silent parser fallbacks go in the bug report too". Measured, one
+half of it is nearly a non-issue and the other half is worse than stated.
+
+### The nine catches: seven are fine, and saying so is the finding
+
+Read one by one rather than counted:
+
+| Where | What it swallows | Verdict |
+|---|---|---|
+| `app.js:85` | worker did not answer | **Not swallowed** — shows an error notice |
+| `app.js:250`, `popup.js:35` | a 400 ms poll tick while the worker restarts | Correct. The next tick recovers, and a failure that persists shows as a frozen progress bar |
+| `app.js:1368` | `new URL()` on a display label | Harmless, returns null |
+| `diagnose.js:254` | `JSON.parse` of a probe body | **Not swallowed** — converted into a structured failure |
+| `degiro.js:124` | `res.text()` on an error body | Cosmetic; it decorates a message |
+| `degiro.js:135` | `JSON.parse` of a response | **Not swallowed** — rethrown as a typed error |
+| `parse.js:430` | an unparseable config URL | Falls back to the documented default, and `discovered: false` records it |
+| `degiro.js:151` | the whole config call failing | Same — `discovered: false` |
+
+So there is no instrumentation story here. **There is one field to carry:** `discovered`
+already exists, `diagnose.js` already reads it, and the bug report does not. An account
+silently running on default cluster URLs is worth a line in the report, and it is a line, not
+a subsystem.
+
+*Recorded because the temptation was to wrap all nine and count them.* That is the framework
+rule 8 warns about: nine new counters, seven of which can only ever report zero, and each one
+a branch no test covers.
+
+### The parser fallbacks are the real story, and the danger is not what it looks like
+
+Ten numeric fields in `parse.js` fall back to `0`. Six of them are load-bearing:
+
+| Field | What a silent `0` does |
+|---|---|
+| `totalBase` | Exchange rates, contract sizes and every per-holding result are measured from it |
+| `quantity` | The position ledger is empty; every chart is flat |
+| `price` | The split audit has nothing to compare a quote against |
+| `change` | Cash is zero, so the account is worth only its positions |
+| `closePrice` | Positions value at nothing |
+| `size` / `value` (live snapshot) | The reconciliation check has nothing to reconcile against |
+
+**The failure mode is not a few missing rows.** If DEGIRO renames
+`totalPlusFeeInBaseCurrency`, it does not go missing on three transactions out of 1 457 — it
+goes missing on all 1 457. So the signal worth having is a **rate, not a count**: "absent on
+1457 of 1457" is a renamed field and "absent on 3 of 1457" is ordinary sparse data. A raw
+count cannot tell those apart, and would cry wolf on the second.
+
+That also settles how loud it should be. CLAUDE.md already says loose parsing that silently
+returns `0` is worse than a loud failure — so a load-bearing field absent on effectively every
+row is not a line in a diagnostics file, it is **a red banner**, in the same class as the
+reconciliation check. The bug report carries the tally; the page carries the alarm.
+
+### The part that pays for itself twice
+
+The parsers accept several candidate names per value on purpose, and nobody knows which one
+DEGIRO actually sends. **The same counter that catches a rename answers that.** If
+`totalBase` resolves through `total` on every row and never through
+`totalPlusFeeInBaseCurrency`, that is the real field name, measured rather than guessed — and
+per rule 8 the other three candidates then get deleted rather than kept in case.
+
+So this is not only a safety net. It is the instrument that lets `parse.js` stop being
+defensive, which is what `CLAUDE.md` has been promising since the fixtures were written and
+what the spike has been waiting on.
+
+### Scope, deliberately small
+
+- `pick()` records which candidate matched, and when nothing did, per field. A counter, not an
+  event log — no timestamps, no rows, no per-row detail.
+- Six load-bearing fields are named as such in one place. The other four are counted the same
+  way but do not raise anything.
+- A load-bearing field missing on more than a high fixed fraction of rows raises an error
+  banner naming the field. The fraction is a threshold, so per §3/US-01 it is a constant in
+  `config.js`, reviewed by a human, and explicitly not derived from the data it polices.
+- The bug report gains the tally and the `discovered` flag. Field names are ours, not the
+  account's, so nothing here needs redacting.
+
+*Acceptance criteria:*
+
+- ☐ Renaming one load-bearing field in a fixture turns the page red and names the field.
+  Written as a test that renames it, since that is the only way to know the alarm can fire.
+- ☐ A field absent on a handful of rows raises nothing.
+- ☐ The bug report states, per load-bearing field, which candidate name matched and on what
+  fraction of rows.
+- ☐ Adding a candidate name to a `pick()` list does not require touching a second list. If it
+  does, the two will drift and the tally will lie.
+- ☐ The report still contains no amount, no instrument name and no account number — checked by
+  the test that already guards that, not a new one.
