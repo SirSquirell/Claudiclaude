@@ -767,8 +767,44 @@ Other.
 
 - ☐ A position closed before the start of the selected range never occupies a layer. *(Today's
   failing case: it does, and draws zero.)*
-- ☐ Every position held on the last day of the selected range gets its own layer before any
-  closed position gets one.
+- ☐ A position opened inside the selected range competes on equal terms with everything else
+  in it. Buying something today puts it in the running immediately, rather than leaving it in
+  Other until it out-peaks a position from five years ago.
 - ☐ An instrument that appears in two different selections has the same colour in both.
 - ☐ The holdings table's swatches still agree with the chart, slice for slice.
 - ☐ No two visible series share a colour — unchanged, and the reason the clash shift exists.
+
+#### What ranking on the slice actually buys, and the choice it exposes
+
+Ranking per window is not only a fix for a wrong-looking chart. It turns the range control
+into a question worth asking: *who was this portfolio, in this period?* Select 2018 and the
+chart answers with 2018's five; select ALL and it answers with the five that dominated the
+whole history. Two different and both true answers, from a control that already exists — no
+extra feature, it falls out of the fix.
+
+It works precisely **because** colour is split off from rank. An instrument that is large in
+both windows keeps its colour across them, so "this one was big then and is still big now" is
+readable at a glance. Without that split the comparison would be noise.
+
+**But it makes the ranking metric a real decision, where today it is not.** Membership is
+currently decided by `peak(values)` — the highest the position ever reached. Over the whole
+history that is a reasonable proxy for importance. Over one window it is not: a position that
+spiked for a single day in 2018 outranks one that sat steadily large for the entire year, and
+the second one is obviously the answer to "who dominated 2018".
+
+*Recommendation: rank by mean value across the window* — equivalently the area under the
+position's value curve, which is how much of the portfolio it actually was, for how long.
+Peak keeps a one-day spike; the mean keeps what was really there. All-time rankings barely
+move under this change, which is the point: it only differs where it matters.
+
+*One thing to be careful about, and it is the cost of this whole story.* Once membership moves
+with the range, a layer disappearing between two views means "it fell below the cut here", not
+"it was sold". Those read identically on a stacked chart. So Other has to carry its count and
+be inspectable, and the legend has to be unmistakably about the window on screen. Otherwise the
+fix trades a chart that shows the wrong holdings for one that implies a sale that never
+happened — and inventing an event is worse than mis-ranking one.
+
+- ☐ Selecting a range and then returning to ALL restores exactly the previous chart, colours
+  included.
+- ☐ A layer that leaves the top N on a narrower range is still reachable — its value is in
+  Other, Other says how many, and nothing suggests the position was closed.
