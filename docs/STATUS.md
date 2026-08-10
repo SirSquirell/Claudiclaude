@@ -4,7 +4,7 @@
 but a bad place to find out *where things stand*. This is the index. It says what is done, what
 is decided but unbuilt, and what is waiting on whom.
 
-Last updated at 0.15.0.
+Last updated at 0.21.0.
 
 ## Shipped and signed off
 
@@ -38,6 +38,9 @@ Tested by users and accepted, which is the release gate in [BACKLOG §5](BACKLOG
 | US-11 | **Copy bug report** — every notice as pasteable JSON | 0.14.0 |
 | B8 | The KPI tiles follow the selected range | 0.15.0 |
 | — | Trade markers on the value chart | 0.15.0 |
+| US-16 | Palette measured, shape language ported, responsive, rem/clamp | 0.16–0.19 |
+| — | Back end audited: session 0→100 %, degiro 6→96 %, sync 40→86 % of functions | 0.20.0 |
+| US-19 | Five sections instead of one scroll | 0.21.0 |
 | — | A base URL from the config endpoint is checked before it is trusted | 0.14.0 |
 | — | Rule 8 (YAGNI) and the audit applying it | 0.14.0 |
 
@@ -50,7 +53,7 @@ Tested by users and accepted, which is the release gate in [BACKLOG §5](BACKLOG
 | US-07 | Refined — and if margin is not in the response, the margin half is dropped rather than deferred | The spike |
 | US-16 | **Mockup delivered and assessed.** Staged plan written: tokens → notifications → tabs → new charts | Nothing. A decision to start |
 | US-18 | Notifications get a place of their own, and nothing is dismissible | Nothing. Needs no engine work |
-| US-19 | Five tabs instead of one 3 788 px scroll | Nothing |
+
 | US-20 | Six new KPIs. Five are reads; annualised return needs a money-weighted solver and a naming decision | Nothing |
 | US-21 | Five new visualisations. Most are reads; drawdown and cumulative fees need small engine additions | Nothing |
 | US-17 | Refined — notice when a field DEGIRO renamed stops arriving | Nothing. A decision to start |

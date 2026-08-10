@@ -48,7 +48,24 @@ const state = {
   holdingsView: 'table',
   /** 'line' or 'candles' — how the cumulative result is drawn. */
   cumulativeView: 'line',
+  /** Which section is on screen. The page was 3 788 pixels of one scroll. */
+  tab: 'overview',
 };
+
+/**
+ * The sections, in the order they appear.
+ *
+ * The count beside each label is how many cards it holds, read off the markup
+ * rather than written here — two lists of the same thing drift, and the one
+ * that drifts is always the one nobody looks at.
+ */
+const TABS = [
+  { key: 'overview', label: 'Overview' },
+  { key: 'perf', label: 'Performance' },
+  { key: 'comp', label: 'Composition' },
+  { key: 'income', label: 'Income & cost' },
+  { key: 'holdings', label: 'Holdings' },
+];
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -215,6 +232,22 @@ function buildControls() {
     holdingsGroup.append(b);
   }
 
+  const tabBar = $('#tabs');
+  for (const t of TABS) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'tab';
+    b.dataset.tab = t.key;
+    b.setAttribute('role', 'tab');
+    const count = document.querySelectorAll(`[data-tab="${t.key}"] > .card`).length;
+    b.innerHTML = `${esc(t.label)}<span class="count">${count}</span>`;
+    b.addEventListener('click', () => {
+      state.tab = t.key;
+      render();
+    });
+    tabBar.append(b);
+  }
+
   $('#btn-clear-months').addEventListener('click', () => {
     state.selectedMonths = [];
     state.selectedCells = [];
@@ -365,10 +398,41 @@ function wireActions() {
 // render
 // ---------------------------------------------------------------------------
 
+/**
+ * Show one section and hide the rest.
+ *
+ * Returns whether a given canvas is on screen, because Chart.js sizes a canvas
+ * from its container and a container inside `display: none` measures zero. A
+ * chart built there comes back as a sliver when its tab is opened, so the
+ * charts of a hidden section are not built at all — the tab switch re-renders.
+ */
+function applyTab() {
+  // `.grid[data-tab]`, not `[data-tab]`: the tab buttons carry the attribute too,
+  // and the first version of this hid four of the five buttons behind the one
+  // that was open.
+  for (const section of document.querySelectorAll('.grid[data-tab]')) {
+    section.hidden = section.dataset.tab !== state.tab;
+  }
+  for (const b of $('#tabs').querySelectorAll('button')) {
+    const on = b.dataset.tab === state.tab;
+    b.setAttribute('aria-selected', String(on));
+    b.classList.toggle('is-on', on);
+  }
+  // The toolbar drives the charts, and Holdings has none of them.
+  $('.controls').hidden = state.tab === 'holdings';
+}
+
+/** Is this canvas in the section currently on screen? */
+const onScreen = (sel) => {
+  const el = $(sel);
+  return !!el && el.closest('.grid[data-tab]')?.dataset.tab === state.tab;
+};
+
 function render() {
   const { data } = state;
   if (!data) return;
 
+  applyTab();
   $('#banners').innerHTML = '';
 
   if (data.empty) {
@@ -423,7 +487,7 @@ function render() {
 
   destroyCharts();
 
-  state.charts.value = valueChart(
+  if (onScreen('#c-value')) state.charts.value = valueChart(
     $('#c-value'),
     {
       days: atEnds(r.days),
@@ -444,29 +508,29 @@ function render() {
   );
 
   const agg = aggregatePnl(r.days, r.pnl, gran, from, to);
-  state.charts.pnl = pnlChart($('#c-pnl'), agg, t);
-  renderCumulative(r, gran, from, to, agg, t);
+  if (onScreen('#c-pnl')) state.charts.pnl = pnlChart($('#c-pnl'), agg, t);
+  if (onScreen('#c-cum')) renderCumulative(r, gran, from, to, agg, t);
 
   // One composition and one set of colours, used three times: the stacked chart,
   // the holdings table's swatches and the share ring. All three must agree on
   // which colour is which holding, so the resolution happens once, here.
   const composition = buildComposition(r, 6, from, to);
   const compColours = compositionColours(composition, t);
-  state.charts.comp = compositionChart($('#c-comp'), downsampleComposition(composition, ends, from), t, compColours);
+  if (onScreen('#c-comp')) state.charts.comp = compositionChart($('#c-comp'), downsampleComposition(composition, ends, from), t, compColours);
 
-  state.charts.invested = investedVsValueChart(
+  if (onScreen('#c-invested')) state.charts.invested = investedVsValueChart(
     $('#c-invested'),
     { days: atEnds(r.days), value: atEnds(r.value), cumulativeDeposited: atEnds(r.cumulativeDeposited) },
     t,
   );
 
-  state.charts.deposits = depositChart($('#c-deposits'), monthlyFlows(r, from, to), t);
+  if (onScreen('#c-deposits')) state.charts.deposits = depositChart($('#c-deposits'), monthlyFlows(r, from, to), t);
 
   // Dividends are shown for the whole history rather than the selected range —
   // a month of dividends is too sparse to be worth a range filter.
   const dividendCard = $('#c-dividends').closest('.card');
   dividendCard.hidden = r.dividendsByMonth.length === 0;
-  if (!dividendCard.hidden) {
+  if (!dividendCard.hidden && onScreen('#c-dividends')) {
     state.charts.dividends = dividendChart($('#c-dividends'), r.dividendsByMonth, t);
   }
 

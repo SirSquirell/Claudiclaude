@@ -11,6 +11,27 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.21.0] — 2026-08-10
+
+### Added
+
+- **Five sections instead of one scroll.** Overview, Performance, Composition, Income & cost and
+  Holdings, each with the number of cards behind it. The page was 3 788 pixels of continuous
+  scrolling and every chart was equally far away; a section is now between 1 000 and 1 600.
+
+  The range and granularity controls stay global, because the whole page describes one window —
+  they are hidden on Holdings, which has no chart for them to drive.
+
+### Fixed
+
+- **A hidden section stayed on screen.** `display: grid` on a class beats the browser's own
+  `[hidden] { display: none }`, so the tabs switched what was *marked* visible and changed
+  nothing about the page. This is the same defect 0.12.0 fixed once already in a different
+  element, which is why the rule is now written against the attribute rather than a class.
+- Charts belonging to a hidden section are no longer built at all. A canvas inside
+  `display: none` measures zero, and a chart sized from it comes back as a sliver when its tab
+  is opened.
+
 ## [0.20.0] — 2026-08-10
 
 Nothing visible changed. This release is the validation that should have existed before any of

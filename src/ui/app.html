@@ -50,6 +50,8 @@
         </p>
       </div>
 
+      <nav class="tabs" id="tabs" role="tablist" aria-label="Sections"></nav>
+
       <section class="tiles" id="tiles"></section>
 
       <div class="controls">
@@ -65,7 +67,7 @@
         </label>
       </div>
 
-      <div class="grid">
+      <div data-tab="overview" class="grid">
         <div class="card">
           <div class="zoom-state" id="zoom-state" hidden></div>
           <h2>Portfolio value including cash</h2>
@@ -77,7 +79,7 @@
         </div>
       </div>
 
-      <div class="grid two" style="margin-top: 16px">
+      <div data-tab="perf" class="grid two" style="margin-top: 16px">
         <div class="card">
           <h2>Result per period</h2>
           <p class="hint">Value change with deposits and withdrawals removed, so only performance is left.</p>
@@ -95,7 +97,7 @@
         </div>
       </div>
 
-      <div class="grid" style="margin-top: 16px">
+      <div data-tab="comp" class="grid" style="margin-top: 16px">
         <div class="card">
           <h2>What the portfolio is made of</h2>
           <p class="hint">
@@ -106,12 +108,15 @@
         </div>
       </div>
 
-      <div class="grid two" style="margin-top: 16px">
+      <div data-tab="overview" class="grid" style="margin-top: 16px">
         <div class="card">
           <h2>Money paid in vs what it is worth</h2>
           <p class="hint">The gap between the two lines is growth — everything that is not your own deposits.</p>
           <div class="chart-box"><canvas id="c-invested"></canvas></div>
         </div>
+      </div>
+
+      <div data-tab="income" class="grid" style="margin-top: 16px">
         <div class="card">
           <h2>Deposits and withdrawals per month</h2>
           <p class="hint">Net external cashflow. Nothing here counts as profit or loss.</p>
@@ -119,7 +124,7 @@
         </div>
       </div>
 
-      <div class="grid" style="margin-top: 16px">
+      <div data-tab="perf" class="grid" style="margin-top: 16px">
         <div class="card">
           <div class="card-head">
             <div>
@@ -141,7 +146,7 @@
         </div>
       </div>
 
-      <div class="grid" style="margin-top: 16px">
+      <div data-tab="perf" class="grid" style="margin-top: 16px">
         <div class="card">
           <div class="card-head">
             <div>
@@ -175,7 +180,7 @@
         </div>
       </div>
 
-      <div class="grid" style="margin-top: 16px">
+      <div data-tab="income" class="grid" style="margin-top: 16px">
         <div class="card">
           <h2>Dividend per month</h2>
           <p class="hint">Net cash received, with withholding tax shown below the line. Whole history, not the selected range.</p>
@@ -183,7 +188,7 @@
         </div>
       </div>
 
-      <div class="grid" style="margin-top: 16px">
+      <div data-tab="holdings" class="grid" style="margin-top: 16px">
         <div class="card">
           <div class="card-head">
             <div>
