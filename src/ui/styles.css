@@ -63,12 +63,22 @@
   --accent: #b8532f;
   --shadow: 0 1px 2px rgba(20, 29, 39, 0.05), 0 8px 22px rgba(20, 29, 39, 0.05);
 
-  /* shape and rhythm */
+  /* Shape and rhythm, from the mockup's "studio" skin. Sizes are tokens rather
+     than literals so a denser variant is a token swap and not a rewrite — the
+     mockup ships a "terminal" skin that differs in exactly these values. */
   --radius: 14px;
   --radius-lg: 20px;
   --radius-pill: 999px;
   --pad: 22px;
   --gap: 16px;
+  --outer: 26px;
+  --base: 13.5px;
+  --kpi: 29px;
+  --title: 15.5px;
+  --hint: 12.5px;
+  --track: 0.13em;
+  --chart-h: 190px;
+  --hero-h: 250px;
   --font: system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 
@@ -173,14 +183,29 @@ body {
   background: var(--page);
   color: var(--text-primary);
   font-family: var(--font);
-  font-size: 14px;
-  line-height: 1.5;
+  font-size: var(--base);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
 }
 
 .wrap {
-  max-width: 1240px;
+  max-width: 1420px;
   margin: 0 auto;
-  padding: 24px 20px 64px;
+  padding: var(--outer);
+}
+
+/* The whole application is one rounded surface on the warm ground, rather than
+   a stack of separate cards floating on the page. */
+.wrap > * {
+  --on-panel: 1;
+}
+
+body:not(.popup) .wrap {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  margin: var(--outer) auto;
 }
 
 /* --- header ------------------------------------------------------------- */
@@ -195,15 +220,30 @@ header.top {
 }
 
 h1 {
-  font-size: 19px;
-  font-weight: 600;
+  font-size: 20px;
+  font-weight: 700;
   margin: 0;
-  letter-spacing: -0.01em;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* The one piece of accent colour on the page, and it is decoration rather than
+   information — which is why it is the only place the accent is allowed. */
+h1::before {
+  content: '';
+  width: 5px;
+  height: 20px;
+  border-radius: 2px;
+  background: var(--accent);
 }
 
 .sub {
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: var(--hint);
+  margin-top: 6px;
 }
 
 .actions {
@@ -214,17 +254,46 @@ h1 {
 
 button {
   font: inherit;
-  font-size: 13px;
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--track);
   color: var(--text-primary);
   background: var(--surface-1);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 6px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  padding: 9px 16px;
   cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
 }
 
 button:hover {
-  border-color: var(--axis);
+  background: var(--surface-2);
+  border-color: var(--text-muted);
+}
+
+/* The header's four actions are not equals: one is what you came to do and one
+   throws your data away. They looked identical, which is how a destructive
+   button gets pressed by accident. */
+.actions #btn-sync {
+  background: var(--text-primary);
+  color: var(--surface-1);
+  border-color: var(--text-primary);
+}
+
+.actions #btn-sync:hover {
+  background: var(--text-secondary);
+  border-color: var(--text-secondary);
+}
+
+.actions #btn-wipe {
+  color: var(--text-muted);
+  border-style: dashed;
+}
+
+.actions #btn-wipe:hover {
+  color: var(--critical);
+  border-color: var(--critical);
 }
 
 button[aria-pressed='true'] {
@@ -242,38 +311,59 @@ button:disabled {
 
 .tiles {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 12px;
-  margin-bottom: 20px;
-}
-
-.tile {
-  background: var(--surface-1);
+  grid-template-columns: repeat(auto-fit, minmax(186px, 1fr));
+  gap: 0;
+  margin-bottom: var(--gap);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 14px 16px;
+  overflow: hidden;
+  background: var(--surface-1);
+}
+
+/* Hairlines between tiles rather than gaps around them: the six numbers are one
+   reading, not six cards. */
+.tile {
+  padding: 15px 18px 17px;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
 }
 
 .tile .label {
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: 10.5px;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--track);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+/* A square the colour of the series this number describes, so the tiles and the
+   charts are visibly the same subject. */
+.tile .label::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  background: var(--tile-dot, var(--text-muted));
+  flex: none;
 }
 
 .tile .value {
-  font-size: 22px;
-  font-weight: 600;
-  margin-top: 4px;
-  letter-spacing: -0.02em;
+  font-size: var(--kpi);
+  font-weight: 620;
+  margin-top: 8px;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
   /* A signed amount must never wrap between its sign and its digits. */
   white-space: nowrap;
 }
 
 .tile .note {
   color: var(--text-muted);
-  font-size: 12px;
-  margin-top: 2px;
+  font-size: var(--hint);
+  margin-top: 6px;
 }
 
 .up {
@@ -341,12 +431,14 @@ label.check {
 }
 
 .card h2 {
+  font-size: var(--title);
   font-size: 14px;
   font-weight: 600;
   margin: 0 0 2px;
 }
 
 .card p.hint {
+  font-size: var(--hint);
   margin: 0 0 12px;
   color: var(--text-secondary);
   font-size: 12px;
@@ -414,15 +506,18 @@ table {
 th,
 td {
   text-align: right;
-  padding: 7px 10px;
+  padding: 11px 12px;
   border-bottom: 1px solid var(--grid);
   white-space: nowrap;
 }
 
 th {
-  color: var(--text-secondary);
-  font-weight: 500;
-  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: var(--track);
+  border-bottom-color: var(--border);
 }
 
 th:first-child,

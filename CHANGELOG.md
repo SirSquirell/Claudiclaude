@@ -11,6 +11,19 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.17.0] — 2026-08-10
+
+### Changed
+
+- **The shape language from the mockup.** The page is now one rounded surface on a warm ground
+  rather than a stack of cards floating on it, the six figures are a single grid divided by
+  hairlines instead of six separate boxes, labels are tracked small caps, and the buttons are
+  pills. Every size is a token — `--kpi`, `--title`, `--hint`, `--track`, `--outer` — so the
+  denser variant the mockup also draws is a swap of values rather than a rewrite.
+- **The header's four actions are no longer equals.** *Sync now* is what you came to do and
+  *Wipe & resync* throws your stored data away, and they looked identical. One is filled, the
+  other is dashed and turns red on hover.
+
 ## [0.16.0] — 2026-08-10
 
 ### Changed
