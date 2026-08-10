@@ -1188,3 +1188,104 @@ else is computable from what `computePortfolio` already returns.
 
 Stage 1 lands first because if the palette does not survive its contrast check, everything
 after it is drawn in the wrong colours.
+
+---
+
+## Stories out of the second mockup
+
+The updated mockup adds a notification centre, six KPIs and five visualisations. Split below by
+deliverable and by what each one needs, because most of it is buildable today and two things
+are not.
+
+**Why most of it is cheap:** 0.13.0 put a `pnl` series on every product and 0.14.0 exposed
+`hasSeries`. Between them, realised/unrealised, biggest movers, the scatter and data coverage
+are all reads rather than new computation. That was not planned for; it is a dividend.
+
+### US-18 — Notifications get a place of their own
+
+**As someone reading this page I want to see, in one place, everything the reconstruction is
+unsure about — and I do not want to be able to make it go away.**
+
+Today a warning is one line of text in a stack of banners. In the mockup it is a panel with a
+severity summary — *3 blocking · 2 estimated · 1 info*, or *All clear* — that collapses, and
+each entry has four parts: a tag, a title, an explanation, and where useful an action.
+
+Three things in it are decisions rather than decoration, and all three are right:
+
+- **Nothing is dismissible.** The mockup states it outright: *"3 open · none dismissible"*. You
+  cannot dismiss "your total does not match your broker" — dismissing it is exactly the failure
+  mode the whole product exists to prevent.
+- **The severity summary is a count, not a badge.** *3 blocking* is a number you can act on.
+- **A contested total says so in the tile.** When a red severity is present the KPIs carry
+  *"Broker says € 108 900,00"* and *"Rests on the disputed total"*. The warning travels to
+  where the number is read, instead of sitting above it hoping to be noticed.
+
+*Needs no engine work.* Every input is already in `r.warnings`, `r.reconciliation` and the
+sync log — the same three the bug report reads.
+
+*Acceptance criteria:*
+
+- ☐ Every level the engine emits appears, grouped and counted by severity.
+- ☐ No control anywhere dismisses, hides or snoozes a warning. Collapsing the panel leaves the
+  severity summary and the tile flags visible.
+- ☐ With a red severity present, the affected tiles say so without the panel being open.
+- ☐ The five states are all reachable: warnings, clean, syncing, failed, first run.
+
+### US-19 — Five tabs instead of one scroll
+
+**As a user I want to find the chart I came for without scrolling past six I did not.**
+
+Overview / Performance / Composition / Income & cost / Holdings, each with a count. The page is
+3 788 px today; this is the answer, and a better one than making the cards shorter.
+
+*One thing to decide, and it is not obvious.* The range and granularity controls are global,
+and with tabs they become global-across-a-thing-you-cannot-see. Recommendation: keep them
+global — the whole page describes one window, and that is the promise US-06 made — but the KPI
+tiles should follow the tab rather than showing all twelve everywhere. Twelve tiles above every
+tab is a wall in front of the content.
+
+### US-20 — The six new KPIs
+
+| KPI | Where it comes from | State |
+|---|---|---|
+| Realised result, *"from 23 closed positions"* | Sum of `pnl` over products whose final quantity is zero | **Available today** |
+| Unrealised result, *"on what you still hold"* | The same sum over products still held | **Available today** |
+| Best month / Worst month | `monthlyTable` already computes every month | **Available today** |
+| Data coverage, *"73 of 2 043 days estimated"* | `result.estimated` is already a per-day flag | **Available today** |
+| Annualised return, *"money-weighted, 5,6 years"* | **Needs a decision and then a solver** | See below |
+
+**Annualised return is not one number, and the label has to say which.** Money-weighted (an
+IRR over the actual cashflows) answers *"what did my money earn"*; time-weighted answers *"how
+did the portfolio perform, ignoring when I paid in". They differ, sometimes by a lot, and this
+page already shows a time-weighted return in the month grid. Putting a money-weighted figure
+beside it without naming both is how a page contradicts itself.
+
+*Recommendation:* build the money-weighted one, because "what did my money earn" is the
+question a private investor is actually asking — and label both, everywhere, in words.
+
+### US-21 — The five new visualisations
+
+| Chart | Where it comes from | State |
+|---|---|---|
+| Biggest movers in this range | Per-holding `pnl` summed over the window — the same number the holdings table already prints | **Available today** |
+| How the monthly results are spread, and the median month | `monthlyTable` | **Available today** |
+| Position size against its result | Share % against per-holding result | **Available today** |
+| Uninvested cash over time | `result.cash` | **Available today** |
+| Currency exposure | Product currency plus `cashByCurrency` | **Available today** |
+| Data quality per year | `result.estimated` grouped by year, with a third band for days with no data at all | Small addition |
+| Drawdown from peak | **Must be built on the deposit-free curve** | Small addition, see the trap below |
+| Fees paid, cumulative | Needs a daily fee series the engine does not emit | Small addition |
+
+**The trap, again, in a new shape.** Drawdown from peak on *portfolio value* draws a withdrawal
+as a 20 % loss. It is the candle error of 0.12.0 and the deposit error of SPEC §1.4 wearing a
+third disguise, and it must be computed on the running sum of `pnl`, where a fall means a fall.
+
+**And one the mockup gets right that is worth keeping right:** the monthly histogram colours
+bars below zero as loss and above as gain, but the zero line is what actually separates them.
+Colour stays the second channel.
+
+### What this does not settle
+
+The palette. `--c1…c7` and the gain/loss pair still have to pass the contrast and
+colour-vision check the current palette passed, and that happens in stage 1 before any of this
+is drawn in them.

@@ -48,7 +48,11 @@ Tested by users and accepted, which is the release gate in [BACKLOG §5](BACKLOG
 | **The spike** | Instrument built (`npm run inspect`), questions written, findings section empty | **One fresh export.** Nothing else |
 | US-03 (2nd half) | Refined — expiry, strike, call/put from data rather than from a name string | The spike |
 | US-07 | Refined — and if margin is not in the response, the margin half is dropped rather than deferred | The spike |
-| US-16 | Refined, with a design brief and a non-negotiable list to hand over | Nothing. A decision to start |
+| US-16 | **Mockup delivered and assessed.** Staged plan written: tokens → notifications → tabs → new charts | Nothing. A decision to start |
+| US-18 | Notifications get a place of their own, and nothing is dismissible | Nothing. Needs no engine work |
+| US-19 | Five tabs instead of one 3 788 px scroll | Nothing |
+| US-20 | Six new KPIs. Five are reads; annualised return needs a money-weighted solver and a naming decision | Nothing |
+| US-21 | Five new visualisations. Most are reads; drawdown and cumulative fees need small engine additions | Nothing |
 | US-17 | Refined — notice when a field DEGIRO renamed stops arriving | Nothing. A decision to start |
 | US-10 | Refined — Trade Republic | Its own one-day spike: can an extension reach the session the way it can at DEGIRO? |
 | US-11b | **Parked.** A prefilled GitHub issue. Superseded by the clipboard report in 0.14.0 | Only if pasting becomes the bottleneck |
