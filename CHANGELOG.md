@@ -11,6 +11,28 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.23.0] — 2026-08-10
+
+### Added
+
+- **Interest is on screen.** It was being computed and shown nowhere, which mattered more than
+  it sounds: *Fees paid* covers transaction and service costs only, and margin interest has
+  always been a separate category in `classify.js`. On a leveraged account that made the single
+  largest cost of holding the position invisible on a page whose whole point is where the money
+  went. Signed, because a credit balance earns interest and a debit balance pays it, and one
+  absolute number would hide which way it went. It is not folded into *Fees paid* — a financing
+  cost is not a fee, and adding them would answer neither question.
+- **Biggest winner and biggest loser**, per instrument, following the selected range like
+  *Result* does.
+
+  Per instrument rather than per trade, and that limit is the point rather than a shortcut. A
+  single sale has no result of its own: what it made depends on which purchase you match it
+  against, and FIFO against average cost are two different answers to a question with no right
+  one. The engine picks no convention anywhere — that is what makes the per-holding numbers
+  trustworthy — so a stock bought and sold three times reports one figure, not three. A range in
+  which nothing gained shows a dash under *Biggest winner* rather than the least-bad loser in
+  green.
+
 ## [0.22.0] — 2026-08-10
 
 ### Added

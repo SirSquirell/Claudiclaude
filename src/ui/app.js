@@ -872,6 +872,17 @@ function renderTiles(r, from = 0, to = r.days.length - 1) {
     },
     { label: 'Fees paid', value: fmtEurCents(Math.abs(r.income.fees)), note: 'transaction and service costs · all time' },
     {
+      // Deliberately its own tile rather than folded into "Fees paid": margin
+      // interest is not a fee, `classify.js` has always kept the two apart, and
+      // on a leveraged account it is the larger of the two. Signed, because a
+      // credit balance earns interest and a debit balance pays it, and rolling
+      // them into one absolute number would hide which way it went.
+      label: 'Interest',
+      value: fmtSigned(r.income.interest),
+      note: 'margin and cash interest · all time',
+      cls: signClass(r.income.interest),
+    },
+    {
       label: 'Realised',
       value: fmtSigned(r.realised),
       note: `banked, from ${r.byProduct.filter((p) => Math.abs(p.qty.at(-1)) < 1e-9).length} closed positions`,
@@ -885,6 +896,8 @@ function renderTiles(r, from = 0, to = r.days.length - 1) {
     },
     bestWorst(r, 'best'),
     bestWorst(r, 'worst'),
+    bestWorstPosition(r, 'best', from, last, period),
+    bestWorstPosition(r, 'worst', from, last, period),
     {
       // The honesty tile. A history reconstructed largely from stale prices is
       // a different object from one reconstructed from quotes, and until now the
@@ -1304,6 +1317,41 @@ function bestWorst(r, which) {
     note: pick.label,
     cls: signClass(pick.pct),
   };
+}
+
+/**
+ * The instrument that made the most, and the one that lost the most, over the
+ * selected range.
+ *
+ * Per instrument, not per trade — and that is a limit worth stating rather than
+ * papering over. A single sale has no result of its own: what it "made" depends
+ * entirely on which purchase you match it against, and FIFO against average cost
+ * are two different answers to a question with no right one. `engine.js` refuses
+ * to pick a convention anywhere, which is why per-holding numbers are trustworthy
+ * at all. A position's result over a window needs no convention: it is how its
+ * value moved less the money put into it, and it is already computed.
+ *
+ * So a stock bought and sold three times reports one figure, not three. That is
+ * the honest version of the question.
+ *
+ * Euros rather than percent, unlike the month tiles: a position's percentage
+ * needs a denominator, and "what was in it" changes every time you add to it.
+ */
+function bestWorstPosition(r, which, from, to, period) {
+  const label = which === 'best' ? 'Biggest winner' : 'Biggest loser';
+  const scored = r.byProduct
+    .map((p) => ({ name: p.symbol || p.name, pnl: sumWindow(p.pnl, from, to) }))
+    .sort((a, b) => b.pnl - a.pnl);
+  const pick = which === 'best' ? scored[0] : scored.at(-1);
+
+  // A range in which nothing gained has no winner to name, and showing the
+  // least-bad loser under "Biggest winner" would be a lie in green.
+  const wrongWay = which === 'best' ? !(pick?.pnl > 0.005) : !(pick?.pnl < -0.005);
+  if (wrongWay) {
+    return { label, value: '—', note: `nothing ${which === 'best' ? 'gained' : 'lost'} · ${period}` };
+  }
+
+  return { label, value: fmtSigned(pick.pnl), note: `${pick.name} · ${period}`, cls: signClass(pick.pnl) };
 }
 
 /** Sum a per-day series across the selected window, inclusive at both ends. */
