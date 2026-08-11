@@ -41,7 +41,7 @@ exists because of it.
 | Authentication is phone number + PIN, then a second factor | Widely reported. **Unverified** |
 | The session is carried over a WebSocket **rather than** as a cookie | **Contradicted, in part.** `app.traderepublic.com` sets cookies, and one of them is a plausible session claim — see 2c. Whether a socket *also* carries data is still open |
 | There is a device-pairing step producing a key pair, and requests are signed | Reported for the *mobile* API. Whether the *web* client does this is **unknown** |
-| A logged-in web tab holds something an extension can read and replay | **Probably yes**, and better than expected — see 2c. Not yet proven to be the *authenticating* credential |
+| A logged-in web tab holds something an extension can read and replay | **Yes.** Seven cookies, none `HttpOnly`, `tr_claims` at 843 characters — see 2c. What is not yet settled is whether it can be *sent*: see 2f |
 | Historical daily closes are available per instrument | **Unknown.** R4 |
 | The API reports an account total | **Unknown.** R5 |
 
@@ -81,8 +81,46 @@ see by construction. Either way the answer to R1 is likely yes — an extension 
 cookies through `chrome.cookies`, which is exactly how `JSESSIONID` is read today — but *which*
 cookie matters for building anything.
 
-**Still open, and both are two minutes:** the names and `HttpOnly` flags in Application → Cookies,
-and whether Network → Fetch/XHR carries ordinary requests or everything is on the socket.
+**The `HttpOnly` question is answered: none of them are.** The Application panel lists exactly the
+same seven cookies the console probe saw, and no row carries a flag in the `HttpOnly` column.
+There is no hidden session cookie — whatever authenticates a request is among the seven above, and
+`tr_claims` is the only one big enough to be it.
+
+So **R1 is yes on the reading half**: an extension with a host permission can get at this, and it
+does not even need `chrome.cookies` to do it.
+
+### 2f. `SameSite` is the next question, and DEGIRO never had to answer it
+
+`tr_claims` and `tr_external_id` show a different `SameSite` from the analytics cookies — the
+column reads `S…` where Snowplow's read `Lax`, which is almost certainly `Strict`. That matters
+for one specific reason, and it is a reason this project has never had to think about:
+
+**DEGIRO does not send its session as a cookie.** `config.js` puts it in the URL —
+`?sessionId=…` and `;jsessionid=…` — so `resolveSession` reads the cookie value with
+`chrome.cookies` and *transcribes* it. `SameSite` is a rule about when a browser attaches a cookie
+automatically, and nothing here relies on that happening.
+
+Trade Republic may not offer the same escape. If its API only accepts the session as a cookie, and
+that cookie is `SameSite=Strict`, then a request initiated by the extension's service worker — a
+different site than `traderepublic.com` — would not carry it. `credentials: 'include'` does not
+override `SameSite`, and `Cookie` is a forbidden header for `fetch` to set.
+
+Three outcomes, and they are not equally likely:
+
+| If the API accepts the token as | Then |
+|---|---|
+| an `Authorization` header, or a query parameter | **Fine.** Read `tr_claims`, transcribe it, exactly as DEGIRO's session is transcribed today |
+| a cookie only, `SameSite=Lax` | Fine — a top-level-ish extension request still carries it |
+| a cookie only, `SameSite=Strict` | **The one real obstacle found so far.** Attaching it would need `declarativeNetRequest` header rewriting, which is a heavier permission and a discussion rather than a default |
+
+**One check settles it,** and it is the same two minutes already asked for: Network → Fetch/XHR,
+click a request to the API host, and look at **Request Headers** — is there an `Authorization`, or
+is `Cookie` doing the work? Names only; no values.
+
+Worth noting what this is *not*: it is not a reason to reach for anything clever. Rule 9 is about
+authenticating, and none of the three rows above involves logging in — but the third one does
+involve making a request look more like the page's than it is, and that deserves a decision rather
+than an implementation.
 
 ### 2d. AWS WAF is in front of this API — a scheduling constraint, not a safety cliff
 
