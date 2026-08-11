@@ -11,6 +11,34 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.34.0] — 2026-08-11
+
+### Added
+
+- **Year by year**, on Performance. The month grid already held every number; what it did not have
+  was a *year*, and a year is the unit people actually review in. Opening and closing value, paid
+  in, taken out, result, return, dividend, costs and trades — whole history, never the selected
+  range, because a "2024" row that quietly covered March to November would be worse than no row.
+
+  Three things it gets right that a naive version would not:
+
+  - **The first year does not open on 1 January.** It opens when the account did, and the row says
+    the date. Showing €0 makes its return infinite; showing 1 January makes it wrong by however
+    long the account had been running.
+  - **A year's return is not (close − open) ÷ open.** On the demo account 2025 took €28 500 in and
+    €22 000 out; that formula would report nonsense. It is the same daily-chained figure the month
+    grid uses, from the same function, so there is one definition of return in this codebase.
+  - **It says it is not a tax document, under the table rather than in a page footer.** "Dividend"
+    is what arrived after the tax DEGIRO withheld at source, not what can be reclaimed — and this
+    project holds no cost basis at all, deliberately, so the capital-gains figure a tax return asks
+    for cannot be derived from anything here. A footnote elsewhere is a footnote nobody read.
+
+### Engine
+
+- `incomeByYear` — dividend, withheld tax, fees and interest split into UTC calendar years. The
+  totals were already there and cannot be split back, and a second implementation of "which year is
+  this row in" is a second place to get a boundary wrong.
+
 ## [0.33.0] — 2026-08-11
 
 ### Added

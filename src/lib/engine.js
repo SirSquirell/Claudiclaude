@@ -278,6 +278,22 @@ function clusterFactors(ratios) {
  * The factor in force on each day, from the nearest trade at or before it, held
  * flat before the first trade and after the last.
  */
+/** Sum a set of daily series into UTC calendar years. */
+function byYear(days, seriesByName) {
+  const out = {};
+  for (let i = 0; i < days.length; i++) {
+    const year = days[i].slice(0, 4);
+    const row = (out[year] ??= {});
+    for (const [name, arr] of Object.entries(seriesByName)) {
+      row[name] = (row[name] ?? 0) + (arr[i] ?? 0);
+    }
+  }
+  for (const row of Object.values(out)) {
+    for (const k of Object.keys(row)) row[k] = round2(row[k]);
+  }
+  return out;
+}
+
 function factorByDay(ratios, n) {
   const out = new Float64Array(n).fill(1);
   if (!ratios?.length) return out;
@@ -1372,6 +1388,16 @@ export function computePortfolio(input) {
     dividendsByMonth,
     flowEvents,
     tradeEvents,
+    /**
+     * The same four figures, per calendar year.
+     *
+     * A yearly review needs them split and the totals cannot be, so they are
+     * aggregated here rather than by re-walking the cash rows in the UI — the
+     * engine already holds the daily series, and a second implementation of
+     * "which year is this row in" is a second place to get a boundary wrong.
+     * Years are UTC calendar years, like every other date in this project.
+     */
+    incomeByYear: byYear(days, { dividendGross, dividendTax, fees: feesDaily, interest: interestDaily }),
     income: {
       dividendGross: round2(sum(dividendGross)),
       dividendTax: round2(sum(dividendTax)),

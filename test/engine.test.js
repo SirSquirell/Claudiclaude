@@ -1600,3 +1600,50 @@ test('a cashflow sequence with several roots refuses to pick one', () => {
   // If this shape happens to have one root it is allowed to answer — the
   // assertion that matters is that it never answers when it has several.
 });
+
+test('US-30: a year containing a large deposit and no market movement returns ~0 %', () => {
+  // The trap the year table exists to avoid. (close − open) ÷ open would report
+  // this year as +900 %; the chained return knows nothing happened.
+  const days = dayRange('2024-01-01', '2024-12-31');
+  const cashRow = (id, d, description, change) => {
+    const row = { id, date: d, description, change, currency: 'EUR' };
+    return { ...row, category: classifyCashRow(row) };
+  };
+  const r = computePortfolio({
+    transactions: [],
+    cashRows: [cashRow('a', '2024-01-02', 'Storting', 1000), cashRow('b', '2024-06-01', 'Storting', 9000)],
+    products: {},
+    prices: {},
+    today: '2024-12-31',
+    liveTotal: null,
+  });
+  assert.ok(Math.abs(windowReturnPct(r, 0, r.days.length - 1)) < 0.001, 'a deposit is not a return');
+  assert.equal(r.totals.value, 10000);
+});
+
+test('US-30: income splits into calendar years and the years sum to the total', () => {
+  const cashRow = (id, d, description, change) => {
+    const row = { id, date: d, description, change, currency: 'EUR' };
+    return { ...row, category: classifyCashRow(row) };
+  };
+  const r = computePortfolio({
+    transactions: [],
+    cashRows: [
+      cashRow('a', '2023-02-01', 'Storting', 1000),
+      cashRow('b', '2023-03-01', 'Dividend', 30),
+      cashRow('c', '2024-03-01', 'Dividend', 50),
+      cashRow('d', '2024-04-01', 'Transactiekosten', -2),
+    ],
+    products: {},
+    prices: {},
+    today: '2024-12-31',
+    liveTotal: null,
+  });
+
+  assert.equal(r.incomeByYear['2023'].dividendGross, 30);
+  assert.equal(r.incomeByYear['2024'].dividendGross, 50);
+  assert.equal(r.incomeByYear['2024'].fees, -2);
+  // The split cannot drift from the whole.
+  const summed = Object.values(r.incomeByYear).reduce((a, y) => a + y.dividendGross, 0);
+  assert.equal(round2(summed), r.income.dividendGross);
+});

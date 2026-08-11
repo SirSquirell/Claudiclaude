@@ -278,6 +278,22 @@ const DICT = {
     ', money-weighted': ', gewogen naar jouw geld',
     ', time-weighted': ', gewogen naar tijd',
 
+    // --- year by year --------------------------------------------------------
+    'Year by year': 'Jaar voor jaar',
+    Year: 'Jaar',
+    Opening: 'Beginwaarde',
+    Closing: 'Eindwaarde',
+    'Paid in': 'Ingelegd',
+    'Taken out': 'Opgenomen',
+    Return: 'Rendement',
+    Costs: 'Kosten',
+    Trades: 'Transacties',
+    'from {date}': 'vanaf {date}',
+    'Whole history, never the selected range. A year\u2019s return chains the daily returns, so a deposit inside it does not flatter the number.':
+      'Hele historie, nooit de gekozen periode. Het rendement van een jaar schakelt de dagrendementen aaneen, zodat een storting binnen dat jaar het getal niet mooier maakt.',
+    'Not a tax document. \u201cDividend\u201d is what was received after the tax DEGIRO withheld at source \u2014 not what you can reclaim \u2014 and this project holds no cost basis at all, deliberately, so the capital-gains figure a tax return asks for cannot be derived from anything here.':
+      'Geen belastingdocument. \u201cDividend\u201d is wat er binnenkwam ná de belasting die DEGIRO aan de bron inhield \u2014 niet wat je kunt terugvragen \u2014 en dit project houdt bewust nergens een kostprijsbasis bij, dus het vermogenswinstcijfer dat een aangifte vraagt is hier nergens uit af te leiden.',
+
     // --- severities --------------------------------------------------------
     Error: 'Fout',
     Warning: 'Waarschuwing',

@@ -996,7 +996,12 @@ here rather than leave it in Excel.
      a ninetieth-percentile outcome exceeding the historical mean is what a ninetieth percentile
      *is*, and capping it would misdraw the very tail it exists to show. It is *verwachte markt*
      that must not quietly beat the past it was derived from;
-   - five years as the default horizon, again because that is the one a reader has already seen.
+   - **five years, and that is a ceiling rather than a default.** Partly because it is the horizon
+     a reader has already seen at a pension provider, and partly for a reason of our own: the band
+     widens with the square root of time while the middle line grows linearly, so somewhere past
+     five years the good and bad cases are so far apart that the picture stops distinguishing
+     anything. A ten-year projection is not more information than a five-year one — it is the same
+     information drawn wider, and read as though it were more.
 
    The band comes from *his own* monthly spread, which the month grid already holds, rather than
    from a textbook volatility number he cannot check. Same argument as everywhere else here: a

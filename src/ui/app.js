@@ -820,6 +820,7 @@ function render() {
   renderMonthCompare(months, t);
 
   renderHoldings(r, composition, compColours, t, from, to);
+  renderYears(r);
   renderAnnualised(r, from, to);
   renderProducts(r, from, to);
   renderTransactions(data, r, from, to);
@@ -1983,6 +1984,92 @@ const sumWindow = (arr, from, to) => {
   for (let i = Math.max(0, from); i <= to && i < arr.length; i++) s += arr[i];
   return s;
 };
+
+/**
+ * A calendar year as a row: what it opened at, what it closed at, what went in
+ * and out, and what it made.
+ *
+ * The month grid holds every number already. What it does not have is a *year*,
+ * and a year is the unit people review in.
+ *
+ * Three things it gets right that a naive version would not:
+ *
+ *  - **The first year does not open on 1 January.** It opens when the account
+ *    did. Showing €0 as its opening value makes its return infinite; showing
+ *    1 January makes it wrong by however long the account had been running. The
+ *    row says the real date.
+ *  - **A year's return is not (close − open) ÷ open.** A deposit in March
+ *    inflates that. It is the same daily-chained figure the month grid uses,
+ *    from the same function, so there is one definition of return here.
+ *  - **Whole history, never the selected range.** A "2024" row that quietly
+ *    covered March to November because of a range button would be worse than no
+ *    row at all.
+ */
+function renderYears(r) {
+  const years = new Map();
+  for (let i = 0; i < r.days.length; i++) {
+    const y = r.days[i].slice(0, 4);
+    const row = years.get(y) ?? { year: y, first: i, last: i };
+    row.last = i;
+    years.set(y, row);
+  }
+
+  const tradesByYear = {};
+  for (const e of r.tradeEvents ?? []) {
+    const y = String(e.date).slice(0, 4);
+    tradesByYear[y] = (tradesByYear[y] ?? 0) + (e.count ?? 1);
+  }
+
+  const rows = [...years.values()].reverse().map((y) => {
+    const opening = y.first === 0 ? 0 : r.value[y.first - 1];
+    const income = r.incomeByYear?.[y.year] ?? {};
+    let paidIn = 0;
+    let takenOut = 0;
+    for (let i = y.first; i <= y.last; i++) {
+      const f = r.netExternal[i] ?? 0;
+      if (f > 0) paidIn += f;
+      else takenOut += f;
+    }
+    return {
+      ...y,
+      partial: y.first === 0,
+      startedOn: r.days[y.first],
+      opening,
+      closing: r.value[y.last],
+      paidIn,
+      takenOut,
+      result: sumWindow(r.pnl, y.first, y.last),
+      returnPct: windowReturnPct(r, y.first, y.last),
+      dividend: (income.dividendGross ?? 0) + (income.dividendTax ?? 0),
+      costs: Math.abs(income.fees ?? 0) + Math.min(0, income.interest ?? 0) * -1,
+      trades: tradesByYear[y.year] ?? 0,
+    };
+  });
+
+  $('#years-hint').textContent = tr('Whole history, never the selected range. A year’s return chains the daily returns, so a deposit inside it does not flatter the number.');
+
+  $('#years tbody').innerHTML = rows
+    .map(
+      (y) => `<tr>
+      <td>${esc(y.year)}${y.partial ? ` <span class="muted">${esc(tr('from {date}', { date: formatDay(y.startedOn) }))}</span>` : ''}</td>
+      <td class="num">${y.partial ? '<span class="muted">—</span>' : esc(fmtEurCents(y.opening))}</td>
+      <td class="num">${esc(fmtEurCents(y.closing))}</td>
+      <td class="num">${y.paidIn > 0.005 ? esc(fmtEurCents(y.paidIn)) : '<span class="muted">—</span>'}</td>
+      <td class="num">${y.takenOut < -0.005 ? esc(fmtEurCents(y.takenOut)) : '<span class="muted">—</span>'}</td>
+      <td class="num ${signClass(y.result)}">${esc(fmtSigned(y.result))}</td>
+      <td class="num ${signClass(y.returnPct)}">${esc(fmtPct(y.returnPct))}</td>
+      <td class="num">${Math.abs(y.dividend) > 0.005 ? esc(fmtEurCents(y.dividend)) : '<span class="muted">—</span>'}</td>
+      <td class="num">${y.costs > 0.005 ? esc(fmtEurCents(y.costs)) : '<span class="muted">—</span>'}</td>
+      <td class="num">${y.trades || '<span class="muted">—</span>'}</td>
+    </tr>`,
+    )
+    .join('');
+
+  // The line that stops somebody filing a tax return with this. It sits under
+  // the table rather than in a page footer, because a footnote elsewhere is a
+  // footnote nobody read.
+  $('#years-note').textContent = tr('Not a tax document. “Dividend” is what was received after the tax DEGIRO withheld at source — not what you can reclaim — and this project holds no cost basis at all, deliberately, so the capital-gains figure a tax return asks for cannot be derived from anything here.');
+}
 
 /**
  * One rate per year, and *which* rate, said by the control that chose it.
