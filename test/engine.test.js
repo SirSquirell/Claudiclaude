@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { aggregatePnl, buildComposition, candleSeries, computePortfolio, deriveContractSizes, deriveFxRates, expandSeries, monthlyTable, rangeEndIndex, rangeStartIndex, windowReturnPct } from '../src/lib/engine.js';
+import { aggregatePnl, buildComposition, candleSeries, computePortfolio, deriveContractSizes, deriveFxRates, expandSeries, monthlyTable, rangeEndIndex, rangeStartIndex, windowReturnPct, maxDrawdown } from '../src/lib/engine.js';
 import { parseCashMovements, parseChartResponse, parseProducts, parseTransactions, parseUpdate } from '../src/lib/parse.js';
 import { dayRange } from '../src/lib/dates.js';
 import { fixture, loadPrices } from './helpers.js';
@@ -1254,4 +1254,41 @@ test('a window return is not flattered by a deposit inside it', () => {
 test('a window with nothing invested returns zero rather than NaN', () => {
   const r = { days: ['2026-01-01', '2026-01-02'], value: [0, 0], pnl: [0, 0] };
   assert.equal(windowReturnPct(r, 0, 1), 0);
+});
+
+// ---------------------------------------------------------------------------
+// maxDrawdown
+// ---------------------------------------------------------------------------
+
+/** A result-shaped object with just the two series maxDrawdown reads. */
+const dd = (pnl, value) => ({ days: pnl.map((_, i) => `2024-01-${String(i + 1).padStart(2, '0')}`), pnl, value });
+
+test('maxDrawdown finds the deepest peak-to-trough fall, not the largest single drop', () => {
+  //           d0   d1   d2   d3   d4   d5
+  // running:   10   30   20    5   25   40   → peak 30 at d1, trough 5 at d3
+  const r = dd([10, 20, -10, -15, 20, 15], [100, 130, 120, 105, 125, 140]);
+  const out = maxDrawdown(r);
+  assert.equal(out.amount, -25);
+  assert.equal(out.from, 1);
+  assert.equal(out.to, 3);
+  // -25 against the portfolio value on the peak day, not against the curve.
+  assert.ok(Math.abs(out.pct - (-25 / 130) * 100) < 1e-9);
+});
+
+test('a withdrawal is not a drawdown', () => {
+  // The whole reason this reads `pnl` and not `value`: value halves on d2 and
+  // nothing went wrong — the money was taken out. `pnl` already excludes it.
+  const r = dd([0, 0, 0, 0], [100, 100, 50, 50]);
+  assert.equal(maxDrawdown(r).amount, 0);
+});
+
+test('a curve that only rises has no drawdown', () => {
+  assert.equal(maxDrawdown(dd([5, 5, 5], [10, 15, 20])).amount, 0);
+});
+
+test('maxDrawdown honours the window it is given', () => {
+  const r = dd([10, -40, 30, 5, -5], [100, 60, 90, 95, 90]);
+  // The crash on d1 is outside a window that starts at d2.
+  assert.equal(maxDrawdown(r, 2, 4).amount, -5);
+  assert.equal(maxDrawdown(r, 0, 4).amount, -40);
 });

@@ -1433,6 +1433,45 @@ export function windowReturnPct(result, fromIndex = 0, toIndex = result.days.len
   return any ? (factor - 1) * 100 : 0;
 }
 
+/**
+ * The deepest peak-to-trough fall over a window, in euros and as a share.
+ *
+ * Measured on the **deposit-free** curve — the running sum of `pnl` — and never
+ * on portfolio value. A withdrawal drops the value line without anything having
+ * gone wrong, so a drawdown taken from it reports the day you paid for a house
+ * as the worst market event of your life. This is SPEC §1.4 again: the whole
+ * project exists because those two curves are not the same object.
+ *
+ * The percentage needs a denominator that means something. The deposit-free
+ * curve passes through zero and can be negative, so dividing by its own peak is
+ * meaningless; the portfolio's value on the peak day is what the fall was
+ * actually a fall *of*.
+ *
+ * @returns {{amount: number, pct: number, from: number, to: number}} `amount`
+ *   is negative or zero, and the indices are into the same arrays, not the window.
+ */
+export function maxDrawdown(result, fromIndex = 0, toIndex = result.days.length - 1) {
+  let running = 0;
+  let peak = 0;
+  let peakAt = Math.max(0, fromIndex);
+  let worst = { amount: 0, pct: 0, from: peakAt, to: peakAt };
+
+  for (let i = Math.max(0, fromIndex); i <= toIndex && i < result.days.length; i++) {
+    running += result.pnl[i] ?? 0;
+    if (running > peak) {
+      peak = running;
+      peakAt = i;
+    }
+    const fall = running - peak;
+    if (fall < worst.amount) {
+      const base = result.value[peakAt];
+      worst = { amount: fall, pct: base > 0 ? (fall / base) * 100 : 0, from: peakAt, to: i };
+    }
+  }
+
+  return worst;
+}
+
 export function buildComposition(result, topN = 6, fromIndex = 0, toIndex = result.days.length - 1) {
   const slice = (arr) => arr.slice(fromIndex, toIndex + 1);
   const width = Math.max(1, toIndex - fromIndex + 1);

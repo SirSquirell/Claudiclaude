@@ -11,6 +11,53 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.25.0] — 2026-08-11
+
+### Added
+
+- **A Notices section**, which is where everything the reconstruction is unsure about now lives:
+  a severity chip, a short subject line and the full explanation, sorted worst-first, with the
+  bug-report button next to them. The page used to stack all of it at the top, so eight notices
+  pushed the first chart below the fold and the one that mattered looked like the seven that did
+  not.
+
+  **With one exception, and the exception is the point.** Anything that makes a number
+  untrustworthy — a failed reconciliation above all — stays pinned to the top of every section,
+  where it cannot be navigated away from. Filing *"the total is off by €39 758"* behind a tab
+  would be softening it, and CLAUDE.md rule 6 exists to forbid exactly that.
+- **An account with no anchor now says so.** When DEGIRO does not report a current total there is
+  nothing to reconcile against, and the page showed neither the green banner nor the red one —
+  indistinguishable, at a glance, from a check that passed. One real account reports exactly
+  this, alongside eighteen price rescales that have nothing to be verified against.
+- **The figures follow the section.** Nineteen of them in one grid is a wall nobody reads; split
+  across the five sections that already existed they are four to seven per screen, each next to
+  the charts it is about. Five are new:
+  - **Deepest fall** — the worst peak-to-trough on the **deposit-free** curve, in euros and as a
+    share of what the account was worth at the peak, with the dates. Taken from portfolio value
+    instead, a withdrawal would be reported as the worst market event of your life.
+  - **Months in profit** — how many of them ended up, out of how many there have been.
+  - **Total cost** — fees, withheld dividend tax and interest paid, added up. Each is small and
+    forgettable alone, which is the argument for stating the sum.
+  - **Largest position** and **Positions held** — concentration, said plainly. A portfolio where
+    one name is 60 % of the value behaves like that name.
+  - **Cash**, as an amount and as a share of the total.
+
+### Fixed
+
+- **Tile values were being cut off.** `€ 111.784,99` needs about 230 px at the headline size and
+  the cell was 193 px, so the page displayed `€ 111.784,9` — the last digit sliced away by the
+  container's `overflow: hidden`. A wrong number, silently, which is the one thing this project
+  must not do. Long amounts now shrink to fit their cell instead, computed from the character
+  count against tabular figures, so a seven-figure account fits for the same reason.
+- **A tile row that did not fill left a solid block of border colour** across the rest of the
+  grid — five empty beige cells next to seven tiles.
+- **`hidden` now means hidden, once and globally.** Any class that sets a `display` silently
+  beats the browser's own `[hidden] { display: none }`, and this project shipped that same bug
+  three times: a zoom bar in 0.12.0, five whole sections in 0.21.0, and the toolbar, which stayed
+  on screen over a section with no charts for it to drive. Each was patched on the one element
+  somebody noticed. Three instances of one defect is a missing rule, and the per-element patches
+  are deleted with it.
+
 ## [0.24.0] — 2026-08-10
 
 ### Fixed

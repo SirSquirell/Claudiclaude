@@ -15,6 +15,25 @@
  * than another holding, and the blue/red diverging pair is untouched.
  */
 
+/*
+ * `hidden` means hidden. Once, globally, and with `!important` on purpose.
+ *
+ * The user agent's `[hidden] { display: none }` is a plain rule, so *any* class
+ * that sets a `display` silently beats it and the element stays on screen with
+ * `hidden` set. This project shipped that bug three separate times — a zoom bar
+ * in 0.12.0, five whole sections in 0.21.0, and the toolbar after that — each
+ * time patched on the one element that had been noticed. Three instances of one
+ * defect is not three bugs; it is a missing rule, and the per-element patches
+ * are deleted with this.
+ *
+ * `!important` is the point rather than a shortcut: an element with `hidden` on
+ * it must not be visible, and nothing further down the stylesheet is allowed to
+ * disagree.
+ */
+[hidden] {
+  display: none !important;
+}
+
 :root {
   color-scheme: light;
 
@@ -285,22 +304,48 @@ button:disabled {
 
 .tiles {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(178px, 1fr));
-  /* The rules between tiles are not borders. The container is painted the
-     border colour and the cells are separated by a one-pixel gap, so every
-     hairline is exactly one pixel, they never double up where two cells meet,
-     and the outer edge needs no special case. */
+  /* 13rem, not the 11.1rem this used to be: at the old width a seven-figure
+     total did not fit and was clipped by the container's `overflow: hidden`.
+     The `--len` rule on `.tile .value` is what actually guarantees it fits;
+     this only stops the guarantee from being met with unreadably small type. */
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  /* The rules between tiles are not borders. The cells are separated by a
+     one-pixel gap and each paints its own hairline into it, so every rule is
+     exactly one pixel and two neighbours cannot double up.
+
+     The container used to be painted the *border* colour with the tiles laid on
+     top, which was simpler and had one bad case: a row that does not fill left
+     the remainder of the grid showing as a solid block of border colour. Seven
+     tiles in a six-column grid drew five empty cells of beige. The surface
+     colour underneath fixes that — an unfilled cell is now indistinguishable
+     from the card it sits in. */
   gap: var(--rule);
   margin-bottom: var(--gap);
   border: var(--rule) solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
-  background: var(--border);
+  background: var(--surface-1);
+}
+
+/* Nothing to show on a section with no figures of its own; an empty bordered
+   strip under the tabs reads as something that failed to load. */
+.tiles:empty {
+  display: none;
 }
 
 .tile {
   background: var(--surface-1);
   padding: 16px 18px;
+  /* So the value below can size itself against this cell rather than against
+     the viewport. Also `min-width: 0`, because a grid item's default `auto`
+     minimum is its content and one long number would otherwise widen the whole
+     column and push the grid sideways. */
+  container-type: inline-size;
+  min-width: 0;
+  /* The hairline, painted outward into the gap. A shadow rather than a border
+     so it costs no layout space and so two neighbours land on the same pixel
+     instead of stacking two. */
+  box-shadow: 0 0 0 var(--rule) var(--border);
 }
 
 .tile .label {
@@ -326,12 +371,24 @@ button:disabled {
 }
 
 .tile .value {
-  font-size: var(--kpi);
+  /* Long amounts shrink to fit instead of being cut off.
+     `€ 111.784,99` at the full KPI size needs about 230 px and the cell was
+     193 px, so the demo shipped `€ 111.784,9` with the last digit sliced away
+     by the container's `overflow: hidden` — a wrong number, silently, which is
+     the one thing this project must not do. Wrapping is not an option either:
+     an amount must never break between its sign and its digits.
+
+     `--len` is the character count, set inline where the tile is built. With
+     `tabular-nums` every glyph in an amount is the same width, so the widest
+     the string can be is a constant times that count — no measuring, no
+     reflow loop, and a million-euro account fits for the same reason. */
+  --fits: calc((100cqw - 0.5rem) / (var(--len, 8) * 0.58));
+  font-size: min(var(--kpi), var(--fits));
+  font-variant-numeric: tabular-nums;
   font-weight: var(--kpi-w);
   margin-top: 8px;
   letter-spacing: -0.025em;
   line-height: 1.1;
-  /* A signed amount must never wrap between its sign and its digits. */
   white-space: nowrap;
 }
 
@@ -499,6 +556,91 @@ label.check {
 .banner code {
   font-size: 0.75rem;
   color: var(--text-secondary);
+}
+
+/* --- notices panel ------------------------------------------------------ */
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+/* The severity, as a word rather than only as a colour. Eight percent of men
+   cannot separate the red one from the green one, and a notice that says
+   "something is wrong" only in hue says it to nobody. */
+.chip {
+  display: inline-block;
+  flex: none;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: var(--track);
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.chip.error {
+  border-color: var(--critical);
+  color: var(--critical);
+}
+
+.chip.warn {
+  border-color: var(--warning);
+  color: var(--warning);
+}
+
+.chip.info {
+  border-color: var(--series-1);
+  color: var(--series-1);
+}
+
+.chip.ok {
+  border-color: var(--good);
+  color: var(--good);
+}
+
+.note-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 14px 0;
+  border-top: var(--rule) solid var(--border);
+}
+
+.note-row:first-of-type {
+  border-top: 0;
+}
+
+.note-row > div {
+  min-width: 0;
+}
+
+.note-title {
+  font-weight: 600;
+  font-size: 0.8125rem;
+}
+
+.note-body {
+  color: var(--text-secondary);
+  font-size: var(--hint);
+  margin-top: 4px;
+}
+
+/* A count that is a problem should not be the same grey as a count that is a
+   number of charts. */
+.tabs .count.bad {
+  color: var(--critical);
+  font-weight: 700;
+}
+
+.tabs .count.warn {
+  color: var(--warning);
+  font-weight: 700;
 }
 
 /* --- table -------------------------------------------------------------- */
@@ -715,12 +857,6 @@ body.popup .spark {
 
 /* The dragged-range bar. Sits above the chart it describes, and always carries
    the way out — a zoom you cannot leave is a trap. */
-/* `display` on a class beats the user-agent's [hidden] { display: none }, so
-   anything given a display value has to opt back in explicitly. */
-.zoom-state[hidden] {
-  display: none;
-}
-
 .zoom-state {
   display: flex;
   align-items: center;
@@ -852,18 +988,6 @@ td.neg { color: var(--neg); }
 }
 
 /* --- sections ------------------------------------------------------------ */
-
-/* `.grid` sets `display: grid`, and any `display` on a class beats the browser's
- * own `[hidden] { display: none }`. So a hidden section stayed on screen and the
- * page kept its full height with the tabs doing nothing visible.
- *
- * This is the same defect 0.12.0 already fixed once, in a different element.
- * Written as an attribute rule rather than a class so it cannot be lost the next
- * time a section gains a display of its own.
- */
-.grid[data-tab][hidden] {
-  display: none;
-}
 
 .tabs {
   display: flex;

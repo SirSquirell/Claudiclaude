@@ -17,7 +17,7 @@
         <div class="actions">
           <button id="btn-sync" type="button">Sync now</button>
           <button id="btn-diagnose" type="button">Check connection</button>
-          <button id="btn-bugreport" type="button">Copy bug report</button>
+          <button id="btn-bugreport" type="button" data-act="bugreport">Copy bug report</button>
           <button id="btn-export" type="button">Export JSON</button>
           <button id="btn-wipe" type="button">Wipe &amp; resync</button>
         </div>
@@ -216,6 +216,25 @@
               <tbody></tbody>
             </table>
           </div>
+        </div>
+      </div>
+
+      <div data-tab="notices" class="grid" style="margin-top: 16px">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h2>Notices</h2>
+              <p class="hint">
+                Everything the reconstruction wants you to say out loud. Anything that makes a number untrustworthy
+                also stays pinned at the top of every section — this is where the rest of it lives, with the detail.
+              </p>
+            </div>
+            <div class="group">
+              <button type="button" data-act="bugreport">Copy bug report</button>
+            </div>
+          </div>
+          <div class="chips" id="note-chips"></div>
+          <div id="notes"></div>
         </div>
       </div>
 

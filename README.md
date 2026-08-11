@@ -7,6 +7,11 @@ already holds.
 
 ![The charts](docs/screenshot.png)
 
+The page is six sections — Overview, Performance, Composition, Income & cost, Holdings and
+Notices — each with the figures that belong to it above its charts. **Notices** is where
+anything the reconstruction is unsure about is written down; anything that would make a number
+untrustworthy also stays pinned to the top, where it cannot be navigated away from.
+
 ## Install it
 
 **[→ Step-by-step guide, in Dutch (INSTALL.md)](INSTALL.md)** — no terminal, no Node, about

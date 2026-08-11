@@ -5,7 +5,7 @@
  * an external cashflow."
  */
 
-import { aggregatePnl, buildComposition, candleSeries, monthlyTable, rangeEndIndex, rangeStartIndex, windowReturnPct } from '../lib/engine.js';
+import { aggregatePnl, buildComposition, candleSeries, maxDrawdown, monthlyTable, rangeEndIndex, rangeStartIndex, windowReturnPct } from '../lib/engine.js';
 import { formatDay, monthKey, weekKey } from '../lib/dates.js';
 import {
   candleChart,
@@ -33,6 +33,8 @@ const GRANS = [
 
 const state = {
   data: null,
+  /** Everything the last render had to say, for the Notices section. */
+  notes: [],
   range: 'ALL',
   granularity: 'auto',
   includeCash: true,
@@ -66,7 +68,37 @@ const TABS = [
   { key: 'comp', label: 'Composition' },
   { key: 'income', label: 'Income & cost' },
   { key: 'holdings', label: 'Holdings' },
+  { key: 'notices', label: 'Notices' },
 ];
+
+/**
+ * A short name for each thing the engine can complain about.
+ *
+ * The messages are written to be read on their own, which makes them
+ * paragraphs; a list of paragraphs is not a list you can scan. The title is
+ * what you read to decide whether to read the rest, and it is deliberately the
+ * *subject*, not the severity — "Prices rescaled", not "Warning".
+ *
+ * An unknown code falls back to the code itself rather than to something
+ * reassuring. CLAUDE.md rule 4 in a different costume: a notice nobody has
+ * classified must look unclassified.
+ */
+const NOTE_TITLES = {
+  'reconciliation-failed': 'Total does not match DEGIRO',
+  'position-mismatch': 'A position disagrees with DEGIRO',
+  'price-series-mismatch': 'Price history does not fit the trades',
+  'price-scale-adjusted': 'Prices rescaled',
+  'no-price-series': 'Instruments with no price history',
+  'suspected-split': 'Possible share split',
+  'implausible-history': 'The reconstructed history looks wrong',
+  'unclassified-cash-rows': 'Cash movements nobody has classified',
+  'contract-size-unresolved': 'Contract size could not be measured',
+  'contract-size-unanchored': 'Contract size measured without an anchor',
+  'fx-derived': 'Exchange rates derived from your own trades',
+  'fx-stale': 'An exchange rate is out of date',
+  'fx-unknown': 'A currency has no rate at all',
+  'no-data': 'Nothing to reconstruct yet',
+};
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -459,7 +491,9 @@ function wireActions() {
    * `warning.detail`, and the sync log leading up to the failure — which is the
    * half a screenshot of a red banner has never had.
    */
-  $('#btn-bugreport').addEventListener('click', async () => {
+  // Two buttons, one handler: the header keeps its copy and the Notices panel
+  // has one where the notices actually are.
+  for (const btn of document.querySelectorAll('[data-act="bugreport"]')) btn.addEventListener('click', async () => {
     const d = state.data ?? {};
     const report = buildBugReport({
       result: d.result ?? null,
@@ -546,7 +580,7 @@ function applyTab() {
     b.classList.toggle('is-on', on);
   }
   // The toolbar drives the charts, and Holdings has none of them.
-  $('.controls').hidden = state.tab === 'holdings';
+  $('.controls').hidden = state.tab === 'holdings' || state.tab === 'notices';
 }
 
 /** Is this canvas in the section currently on screen? */
@@ -975,60 +1009,117 @@ function renderTiles(r, from = 0, to = r.days.length - 1) {
   // a date when the window genuinely ends in the past.
   const asOf = last >= r.days.length - 1 ? 'today' : formatDay(r.days[last]);
 
+  const held = r.byProduct.filter((p) => Math.abs(p.qty[last]) >= 1e-9);
+  const biggest = held.reduce((a, p) => (a && a.values[last] >= p.values[last] ? a : p), null);
+
+  // Every tile names the sections it belongs to. Nineteen figures in one grid is
+  // a wall nobody reads; the same nineteen split across the five sections that
+  // already exist are four or five per screen, each answering a question the
+  // charts underneath it are also about. `overview` is the headline set and
+  // deliberately repeats a few, because that is what an overview is.
   const tiles = [
     // A value is a position, not a period: it is what the account was worth on
     // the last day of the window, and saying "as of" is what stops that reading
     // as today's number when it is not.
-    { label: 'Total value', value: fmtEurCents(r.value[last]), note: `as of ${asOf}` },
+    { tabs: ['overview'], label: 'Total value', value: fmtEurCents(r.value[last]), note: `as of ${asOf}` },
     {
+      tabs: ['overview'],
       label: 'Money paid in',
       value: fmtEurCents(r.cumulativeDeposited[last]),
       note: `deposits minus withdrawals, to ${asOf}`,
     },
     {
+      tabs: ['overview', 'perf'],
       label: 'Result',
       value: fmtSigned(windowPnl),
       note: `${fmtPct(windowReturnPct(r, from, last))} · ${period}`,
       cls: signClass(windowPnl),
     },
-    { label: 'Today', value: fmtSigned(dayPnl), note: `This week ${fmtSigned(weekPnl)}`, cls: signClass(dayPnl) },
     {
+      tabs: ['overview'],
+      label: 'Today',
+      value: fmtSigned(dayPnl),
+      note: `This week ${fmtSigned(weekPnl)}`,
+      cls: signClass(dayPnl),
+    },
+    {
+      tabs: ['overview', 'income'],
       label: 'Dividend received',
       value: fmtEurCents(r.income.dividendGross + r.income.dividendTax),
       note: `${fmtEurCents(Math.abs(r.income.dividendTax))} withheld · all time`,
     },
-    { label: 'Fees paid', value: fmtEurCents(Math.abs(r.income.fees)), note: 'transaction and service costs · all time' },
+    {
+      tabs: ['income'],
+      label: 'Fees paid',
+      value: fmtEurCents(Math.abs(r.income.fees)),
+      note: 'transaction and service costs · all time',
+    },
     {
       // Deliberately its own tile rather than folded into "Fees paid": margin
       // interest is not a fee, `classify.js` has always kept the two apart, and
       // on a leveraged account it is the larger of the two. Signed, because a
       // credit balance earns interest and a debit balance pays it, and rolling
       // them into one absolute number would hide which way it went.
+      tabs: ['income'],
       label: 'Interest',
       value: fmtSigned(r.income.interest),
       note: 'margin and cash interest · all time',
       cls: signClass(r.income.interest),
     },
     {
+      // Fees, withheld dividend tax and interest paid, added up. Each of the
+      // three is small and forgettable on its own, which is exactly why the sum
+      // is worth stating: it is what holding this account has cost.
+      tabs: ['income'],
+      label: 'Total cost',
+      value: fmtEurCents(costOfHolding(r)),
+      note: 'fees, withheld tax and interest paid · all time',
+    },
+    {
+      tabs: ['perf'],
       label: 'Realised',
       value: fmtSigned(r.realised),
       note: `banked, from ${r.byProduct.filter((p) => Math.abs(p.qty.at(-1)) < 1e-9).length} closed positions`,
       cls: signClass(r.realised),
     },
     {
+      tabs: ['perf'],
       label: 'Unrealised',
       value: fmtSigned(r.unrealised),
       note: 'still riding on prices · all time',
       cls: signClass(r.unrealised),
     },
+    drawdownTile(r, from, last, period),
+    positiveMonthsTile(r),
     bestWorst(r, 'best'),
     bestWorst(r, 'worst'),
     bestWorstPosition(r, 'best', from, last, period),
     bestWorstPosition(r, 'worst', from, last, period),
     {
+      tabs: ['holdings', 'comp'],
+      label: 'Positions held',
+      value: String(held.length),
+      note: `${r.byProduct.length} instrument${r.byProduct.length === 1 ? '' : 's'} ever held`,
+    },
+    {
+      // Concentration, said plainly. A portfolio where one name is 60 % of the
+      // value behaves like that name, whatever the other twelve rows suggest.
+      tabs: ['holdings', 'comp'],
+      label: 'Largest position',
+      value: r.value[last] > 0 && biggest ? pct((biggest.values[last] / r.value[last]) * 100) : '—',
+      note: biggest ? `${biggest.symbol || biggest.name} · of total value` : 'nothing held',
+    },
+    {
+      tabs: ['holdings', 'comp'],
+      label: 'Cash',
+      value: fmtEurCents(r.cash[last]),
+      note: r.value[last] > 0 ? `${pct((r.cash[last] / r.value[last]) * 100)} of the total` : 'of the total',
+    },
+    {
       // The honesty tile. A history reconstructed largely from stale prices is
       // a different object from one reconstructed from quotes, and until now the
       // page only said so in a yellow banner about instruments.
+      tabs: ['overview', 'holdings'],
       label: 'Data coverage',
       value: `${(100 - (r.coverage.estimated / Math.max(1, r.coverage.days)) * 100).toFixed(1)}%`,
       note: `${r.coverage.estimated.toLocaleString('nl-NL')} of ${r.coverage.days.toLocaleString('nl-NL')} days estimated`,
@@ -1036,54 +1127,171 @@ function renderTiles(r, from = 0, to = r.days.length - 1) {
   ];
 
   $('#tiles').innerHTML = tiles
+    .filter((t) => t.tabs.includes(state.tab))
     .map(
       (t) => `
       <div class="tile">
         <div class="label">${esc(t.label)}</div>
-        <div class="value ${t.cls ?? ''}">${esc(t.value)}</div>
+        <div class="value ${t.cls ?? ''}" style="--len:${[...t.value].length}">${esc(t.value)}</div>
         <div class="note">${esc(t.note)}</div>
       </div>`,
     )
     .join('');
 }
 
+/**
+ * A share of something, unsigned. `fmtPct` always writes a sign because it
+ * reports a *return*, where the direction is the news; "+58.8 % of months were
+ * profitable" reads as a change in that share rather than the share itself.
+ */
+const pct = (n) => `${n.toFixed(1)}%`;
+
+/** Fees, withheld dividend tax and interest paid — all reported as positive costs. */
+function costOfHolding(r) {
+  const interestPaid = Math.min(0, r.income.interest);
+  return Math.abs(r.income.fees) + Math.abs(r.income.dividendTax) + Math.abs(interestPaid);
+}
+
+function drawdownTile(r, from, to, period) {
+  const d = maxDrawdown(r, from, to);
+  if (!d.amount) return { tabs: ['perf'], label: 'Deepest fall', value: '—', note: `nothing lost from a peak · ${period}` };
+  return {
+    tabs: ['perf', 'overview'],
+    label: 'Deepest fall',
+    value: fmtSigned(d.amount),
+    // Where and how long, because a 20 % fall that took three years to recover
+    // is a different experience from one that lasted a fortnight.
+    note: `${fmtPct(d.pct)} · ${formatDay(r.days[d.from])} → ${formatDay(r.days[d.to])}`,
+    cls: 'down',
+  };
+}
+
+function positiveMonthsTile(r) {
+  const months = monthlyTable(r).years.flatMap((y) => y.months.filter(Boolean));
+  if (!months.length) return { tabs: ['perf'], label: 'Months in profit', value: '—', note: 'no full month yet' };
+  const up = months.filter((m) => m.pnl > 0).length;
+  return {
+    tabs: ['perf'],
+    label: 'Months in profit',
+    value: pct((up / months.length) * 100),
+    note: `${up} of ${months.length} months · whole history`,
+  };
+}
+
+/**
+ * Collect everything the page has to say, then put it in two places.
+ *
+ * The page used to stack every notice at the top, so eight of them pushed the
+ * first chart below the fold and the one that mattered looked like the seven
+ * that did not. They now live in their own section — but **not all of them**,
+ * and the exception is the point rather than an inconsistency:
+ *
+ * > Anything that makes a number untrustworthy stays pinned to the top of every
+ * > section, where it cannot be navigated away from.
+ *
+ * A reconciliation that is off by a cent means the whole history is wrong
+ * (CLAUDE.md rule 6). Filing that behind a tab would be softening it, which is
+ * the one thing that rule forbids.
+ */
 function renderBanners(data, r) {
+  const notes = [];
+  const add = (level, title, body) => notes.push({ level, title, body });
+
   if (data.mode === 'demo') {
-    banner(
+    add(
       'info',
-      'Demo mode. These charts are built from generated fixtures with the same code path that runs against your real account — good for checking the UI, useless as financial information.',
+      'Demo data',
+      'These charts are built from generated fixtures with the same code path that runs against your real account — good for checking the UI, useless as financial information.',
     );
   }
 
   if (r.reconciliation) {
     if (r.reconciliation.ok) {
-      banner('ok', `Reconstructed total matches DEGIRO exactly (${fmtEurCents(r.reconciliation.live)}).`);
+      add('ok', 'Total matches DEGIRO', `Reconstructed total is exactly ${fmtEurCents(r.reconciliation.live)}.`);
     } else {
-      banner(
+      add(
         'error',
+        NOTE_TITLES['reconciliation-failed'],
         `Reconstructed total is ${fmtEurCents(r.reconciliation.reconstructed)} but DEGIRO reports ` +
           `${fmtEurCents(r.reconciliation.live)} — off by ${fmtSigned(r.reconciliation.diff)}. ` +
           `If today is wrong, the history is wrong too. Do not trust these charts until this is zero.`,
       );
     }
+  } else if (r.days.length) {
+    // No anchor at all is not the same as a passing check, and it used to look
+    // identical: no green banner, no red one, nothing. One real account reports
+    // exactly this, and its eighteen price rescales have nothing to be verified
+    // against.
+    add(
+      'warn',
+      'Nothing to reconcile against',
+      'DEGIRO did not report a current total this sync, so the one check that would confirm these numbers could not run. Press Sync now while logged in to DEGIRO.',
+    );
   }
 
   // Warnings arrive one per instrument, so a portfolio missing 79 price series
-  // would otherwise bury the page in 79 identical banners. One per kind, with a
+  // would otherwise bury the page in 79 identical rows. One per kind, with a
   // count, and the detail stays in the exported JSON.
   const seen = new Map();
   for (const w of r.warnings) {
-    if (w.code === 'no-data') continue;
     const group = seen.get(w.code) ?? { ...w, count: 0 };
     group.count++;
     seen.set(w.code, group);
   }
   for (const w of seen.values()) {
-    // The engine aggregates its own repeats now; this only catches anything
-    // that still slips through, and says how many rather than naming one.
-    const suffix = w.count > 1 ? ` (${w.count}×)` : '';
-    const kind = w.level === 'error' ? 'error' : w.level === 'info' ? 'info' : 'warn';
-    banner(kind, w.message + suffix);
+    const level = w.level === 'error' ? 'error' : w.level === 'info' ? 'info' : 'warn';
+    const title = NOTE_TITLES[w.code] ?? w.code;
+    add(level, w.count > 1 ? `${title} (${w.count}×)` : title, w.message);
+  }
+
+  state.notes = notes;
+
+  // Pinned: errors only. Everything else is one click away under Notices.
+  $('#banners').innerHTML = '';
+  for (const n of notes.filter((n) => n.level === 'error')) {
+    $('#banners').append(makeBanner('error', `${n.title} — ${n.body}`));
+  }
+
+  renderNotes(notes);
+}
+
+const LEVEL_ORDER = { error: 0, warn: 1, info: 2, ok: 3 };
+const LEVEL_LABEL = { error: 'Error', warn: 'Warning', info: 'Note', ok: 'OK' };
+
+function renderNotes(notes) {
+  const counts = { error: 0, warn: 0, info: 0, ok: 0 };
+  for (const n of notes) counts[n.level]++;
+
+  $('#note-chips').innerHTML = ['error', 'warn', 'info', 'ok']
+    .filter((k) => counts[k])
+    .map((k) => `<span class="chip ${k}">${counts[k]} ${esc(LEVEL_LABEL[k])}${counts[k] === 1 ? '' : 's'}</span>`)
+    .join('');
+
+  const sorted = [...notes].sort((a, b) => LEVEL_ORDER[a.level] - LEVEL_ORDER[b.level]);
+  $('#notes').innerHTML = sorted.length
+    ? sorted
+        .map(
+          (n) => `
+      <div class="note-row ${n.level}">
+        <span class="chip ${n.level}">${esc(LEVEL_LABEL[n.level])}</span>
+        <div>
+          <div class="note-title">${esc(n.title)}</div>
+          <div class="note-body">${esc(n.body)}</div>
+        </div>
+      </div>`,
+        )
+        .join('')
+    : '<p class="hint">Nothing to report.</p>';
+
+  // The count is how many rows are in there, so the tab never says 0 over a
+  // section with something in it. The *colour* is the severity: grey when
+  // nothing is asking for anything, and red or amber when something is. A
+  // healthy account reads "Notices 2" in grey, not "2 problems".
+  const tab = $('#tabs')?.querySelector('button[data-tab="notices"] .count');
+  if (tab) {
+    tab.textContent = String(notes.length);
+    tab.classList.toggle('bad', counts.error > 0);
+    tab.classList.toggle('warn', counts.error === 0 && counts.warn > 0);
   }
 }
 
@@ -1435,10 +1643,11 @@ function bestWorst(r, which) {
   const months = monthlyTable(r).years.flatMap((y) =>
     y.months.map((m, i) => (m ? { pct: m.returnPct, label: `${MONTH_NAMES[i]} ${y.year}` } : null)),
   ).filter(Boolean);
-  if (!months.length) return { label: which === 'best' ? 'Best month' : 'Worst month', value: '—', note: 'no full month yet' };
+  if (!months.length) return { tabs: ['perf'], label: which === 'best' ? 'Best month' : 'Worst month', value: '—', note: 'no full month yet' };
   months.sort((a, b) => b.pct - a.pct);
   const pick = which === 'best' ? months[0] : months.at(-1);
   return {
+    tabs: ['perf'],
     label: which === 'best' ? 'Best month' : 'Worst month',
     value: fmtPct(pick.pct),
     note: pick.label,
@@ -1475,10 +1684,10 @@ function bestWorstPosition(r, which, from, to, period) {
   // least-bad loser under "Biggest winner" would be a lie in green.
   const wrongWay = which === 'best' ? !(pick?.pnl > 0.005) : !(pick?.pnl < -0.005);
   if (wrongWay) {
-    return { label, value: '—', note: `nothing ${which === 'best' ? 'gained' : 'lost'} · ${period}` };
+    return { tabs: ['perf'], label, value: '—', note: `nothing ${which === 'best' ? 'gained' : 'lost'} · ${period}` };
   }
 
-  return { label, value: fmtSigned(pick.pnl), note: `${pick.name} · ${period}`, cls: signClass(pick.pnl) };
+  return { tabs: ['perf', 'holdings'], label, value: fmtSigned(pick.pnl), note: `${pick.name} · ${period}`, cls: signClass(pick.pnl) };
 }
 
 /** Sum a per-day series across the selected window, inclusive at both ends. */
