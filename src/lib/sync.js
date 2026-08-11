@@ -54,6 +54,7 @@ export async function recompute({ liveTotal = null } = {}) {
 
   const products = Object.fromEntries(rawProducts.map((p) => [p.id, p]));
   const total = liveTotal ?? (await getMeta('liveTotal', null));
+  const cash = await getMeta('liveCash', null);
   // DEGIRO states the size of every open position. The engine checks ours
   // against it: if today's position is wrong, so is every day behind it.
   const snapshot = await getMeta('liveSnapshot', null);
@@ -65,6 +66,7 @@ export async function recompute({ liveTotal = null } = {}) {
     prices,
     today: todayISO(),
     liveTotal: total,
+    liveCash: cash,
     livePositions: snapshot?.positions ?? null,
   });
 
@@ -350,6 +352,8 @@ async function doSync({ force = false, onProgress = () => {} } = {}) {
     // --- current portfolio, for reconciliation --------------------------
     const update = parseUpdate(probe.update);
     if (update.totalValue != null) await setMeta('liveTotal', update.totalValue);
+    // The fallback anchor when DEGIRO states no total — see the engine's §7.
+    if (update.totalCash != null) await setMeta('liveCash', update.totalCash);
     // When it is missing, record *which fields DEGIRO did send*, names only.
     //
     // Without a total there is no anchor, and the reconciliation — the one check

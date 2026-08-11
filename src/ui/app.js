@@ -1472,7 +1472,25 @@ function renderBanners(data, r) {
 
   if (r.reconciliation) {
     if (r.reconciliation.ok) {
-      add('ok', 'Total matches DEGIRO', tr('Reconstructed total is exactly {total}.', { total: fmtEurCents(r.reconciliation.live) }));
+      /**
+       * Two checks wearing one badge would be a lie by omission. A `reported`
+       * anchor is DEGIRO's own stated total; a `derived` one is the sum of the
+       * position values and the cash balance it stated instead, used because
+       * two real accounts send no total at all. The derived one cannot catch an
+       * error DEGIRO's own position values already contain, and the page says
+       * so rather than letting a green tick imply otherwise.
+       */
+      const derived = r.reconciliation.source === 'derived';
+      add(
+        'ok',
+        derived ? 'Total matches what DEGIRO reports' : 'Total matches DEGIRO',
+        derived
+          ? tr(
+              'Reconstructed total is exactly {total}. DEGIRO sent no account total this sync, so this is checked against the sum of the position values and the cash balance it did send — an independent check, but one that cannot catch an error already in DEGIRO’s own position values.',
+              { total: fmtEurCents(r.reconciliation.live) },
+            )
+          : tr('Reconstructed total is exactly {total}.', { total: fmtEurCents(r.reconciliation.live) }),
+      );
     } else {
       add(
         'error',

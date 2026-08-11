@@ -123,6 +123,11 @@ export async function loadDemo() {
       prices,
       today: meta.today,
       liveTotal: update.totalValue,
+      liveCash: update.totalCash,
+      // Demo mode runs the real engine, so it has to be handed the same inputs
+      // or it silently exercises a weaker path than the extension does — which
+      // is the whole reason `npm run demo` is trusted for UI work.
+      livePositions: update.positions,
     }),
     products,
   );
@@ -163,6 +168,7 @@ const DIAGNOSTIC_META = {
   syncLog: [],
   lastDataDate: null,
   missingPriceSeries: [],
+  liveCash: null,
   liveTotalFields: null,
   unreadableRows: null,
   missingWindows: null,
@@ -210,6 +216,15 @@ export async function loadFromExtension() {
       prices,
       today: todayISO(),
       liveTotal,
+      /**
+       * The page recomputes independently of `sync.js`, and it was passing
+       * neither of these — so the position check and the attribution never ran
+       * on the page at all, and the reconciliation it displayed was a weaker
+       * one than the cached result had already computed. The snapshot was
+       * loaded three lines up and simply not handed over.
+       */
+      liveCash: meta.liveCash ?? null,
+      livePositions: live?.positions ?? null,
     }),
     products,
   );

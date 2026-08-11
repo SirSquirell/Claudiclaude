@@ -341,6 +341,9 @@ const DICT = {
     'These charts are built from generated fixtures with the same code path that runs against your real account — good for checking the UI, useless as financial information.':
       'Deze grafieken zijn gebouwd op gegenereerde testdata via exact dezelfde code die op je echte rekening draait — prima om de interface te bekijken, waardeloos als financiële informatie.',
     'Total matches DEGIRO': 'Totaal komt overeen met DEGIRO',
+    'Total matches what DEGIRO reports': 'Totaal komt overeen met wat DEGIRO meldt',
+    'Reconstructed total is exactly {total}. DEGIRO sent no account total this sync, so this is checked against the sum of the position values and the cash balance it did send \u2014 an independent check, but one that cannot catch an error already in DEGIRO\u2019s own position values.':
+      'Het gereconstrueerde totaal is precies {total}. DEGIRO gaf bij deze synchronisatie geen rekeningtotaal, dus dit is getoetst aan de som van de positiewaarden en het kassaldo die wél meekwamen \u2014 een onafhankelijke controle, maar \u00e9\u00e9n die een fout die al in DEGIRO\u2019s eigen positiewaarden zit niet kan opmerken.',
     'Reconstructed total is exactly {total}.': 'Het gereconstrueerde totaal is precies {total}.',
     'Total does not match DEGIRO': 'Totaal komt niet overeen met DEGIRO',
     'Reconstructed total is {ours} but DEGIRO reports {theirs} — off by {diff}. If today is wrong, the history is wrong too. Do not trust these charts until this is zero.':

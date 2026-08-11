@@ -87,6 +87,36 @@ const DETAIL_SUMMARY = {
     })),
   }),
 
+  /**
+   * The most severe warning the engine raises, and until now the report carried
+   * its code and nothing else.
+   *
+   * A tester's 0.36.0 report listed `price-series-mismatch` at error level and
+   * `unclassifiedWarningCodes: ["price-series-mismatch", …]` three lines below
+   * it — which is the gap doing its job, and the gap being real. Same fields as
+   * the rescale summary above, for the same reasons: the factor and the spread
+   * are the finding, the instrument's name is not, and `sample` carries the
+   * prices actually paid.
+   */
+  'price-series-mismatch': (d) => ({
+    instruments: (d.instruments ?? []).length,
+    factors: (d.instruments ?? []).slice(0, 20).map((i) => ({
+      factor: round(i.factor),
+      spread: round(i.spread, 3),
+    })),
+  }),
+
+  // Rates and day counts, no amounts. The same shape `fx-derived` already
+  // carries, and it was unclassified for no better reason than nobody adding it.
+  'fx-stale': (d) => ({
+    currencies: (d.currencies ?? []).map((c) => ({
+      currency: c.currency,
+      observations: c.observations,
+      widestGapDays: c.widestGapDays,
+      median: round(c.median),
+    })),
+  }),
+
   // `reconstructed`, `live` and `diff` are amounts. Their ratio is the defect:
   // 1.34 is a contract multiplier missing, 1.0003 is rounding.
   'reconciliation-failed': (d) => ({
@@ -166,6 +196,10 @@ export function buildBugReport({ result, meta = {}, counts = {}, version = null,
       ? {
           ok: rec.ok === true,
           positionsAgree: rec.positionsAgree === true,
+          // 'reported' or 'derived' — a derived anchor cannot catch an error
+          // DEGIRO's own position values share, so a report that does not say
+          // which overstates its own check.
+          source: rec.source === 'derived' ? 'derived' : rec.source === 'reported' ? 'reported' : null,
           ratio: ratio(rec.reconstructed, rec.live),
           instrumentsDisagreeing: (rec.attribution ?? []).length,
         }

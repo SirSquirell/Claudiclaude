@@ -675,6 +675,7 @@ export function computePortfolio(input) {
     prices = {},
     today = todayISO(),
     liveTotal = null,
+    liveCash = null,
     livePositions = null,
     baseCurrency = 'EUR',
   } = input ?? {};
@@ -1312,8 +1313,69 @@ export function computePortfolio(input) {
   }
 
   const reconstructed = value[n - 1];
+
+  /**
+   * When DEGIRO states no total, add up the parts it *does* state.
+   *
+   * Two real accounts in a row came back with `reconciliation: null`, both
+   * listing the same fourteen field names under `totalPortfolio` — every one of
+   * them a cash figure, none of them net liquidity. That is not an anomaly to
+   * note, it is the normal case for these accounts, and it leaves rule 6's
+   * acceptance test absent exactly where the history is longest and the price
+   * rescales are worst.
+   *
+   * But the pieces are there. DEGIRO states a value per open position and a
+   * cash balance, and those sum to the same quantity the missing field would
+   * have held. Crucially it is **not circular**: those are DEGIRO's prices and
+   * DEGIRO's share counts, while `reconstructed` is our valuation of our own
+   * ledger. A wrong share count, a mis-scaled series, a bad FX rate or a
+   * dropped instrument still shows up as a difference.
+   *
+   * It is weaker than a stated total in one specific way — it cannot catch an
+   * error DEGIRO's own position values share — so it is labelled `derived`
+   * wherever it surfaces rather than presented as DEGIRO's own figure.
+   *
+   * The guards are deliberately strict. A partial sum silently compared against
+   * a full one would report a shortfall that is not real, and crying wolf on
+   * the one check the whole project rests on is worse than the check being
+   * absent. So: every held position must carry a finite value, there must be at
+   * least one, the cash figure must be finite, and the share counts must
+   * already agree — if they do not, `position-mismatch` above is the finding
+   * and a total is beside the point.
+   */
+  let anchor = liveTotal;
+  let anchorSource = liveTotal != null && Number.isFinite(liveTotal) ? 'reported' : null;
+
+  if (anchorSource === null && Number.isFinite(liveCash) && !positionMismatches.length && Array.isArray(livePositions)) {
+    let sum = 0;
+    let counted = 0;
+    let complete = true;
+    for (const live of livePositions) {
+      const id = String(live.productId ?? live.id ?? '');
+      // Same test the position check above uses: a row we have no product for
+      // is a cash fund, not an instrument, and `liveCash` already covers it.
+      if (!products[id]) continue;
+      // `live.value == null` first, and not merely `Number.isFinite`: `Number(null)`
+      // is 0, which is finite, so a position DEGIRO gave no value for would have
+      // been silently counted as worth nothing — a partial sum wearing the face
+      // of a complete one, which is the exact failure these guards exist to stop.
+      const v = live.value == null ? NaN : Number(live.value);
+      if (!Number.isFinite(v)) {
+        complete = false;
+        break;
+      }
+      sum += v;
+      counted++;
+    }
+    if (complete && counted > 0) {
+      anchor = sum + Number(liveCash);
+      anchorSource = 'derived';
+    }
+  }
+
   let reconciliation = null;
-  if (liveTotal != null && Number.isFinite(liveTotal)) {
+  if (anchor != null && Number.isFinite(anchor)) {
+    const liveTotal = anchor; // eslint-disable-line no-shadow -- the rest of this block reads better named
     const diff = reconstructed - liveTotal;
     const attribution = [];
     if (Array.isArray(livePositions) && livePositions.length) {
@@ -1336,6 +1398,14 @@ export function computePortfolio(input) {
       diff: round2(diff),
       ok: Math.abs(diff) < 0.01,
       positionsAgree: positionMismatches.length === 0,
+      /**
+       * `reported` — DEGIRO stated a total. `derived` — it did not, and this is
+       * the sum of the position values and the cash balance it did state. The
+       * page says which, because the second cannot catch an error DEGIRO's own
+       * position values already contain, and a check must not look stronger
+       * than it is.
+       */
+      source: anchorSource,
       attribution: attribution.slice(0, 10),
     };
 

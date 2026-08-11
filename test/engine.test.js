@@ -1723,3 +1723,115 @@ test('a monthly deposit ends up in the projection', () => {
   assert.ok(with250.scenarios.expected.end > without.scenarios.expected.end + 2900,
     'twelve deposits of 250 have to show up');
 });
+
+// ---------------------------------------------------------------------------
+// The reconciliation anchor when DEGIRO states no total
+// ---------------------------------------------------------------------------
+
+/**
+ * Two real accounts in a row reported `reconciliation: null`, both listing the
+ * same fourteen `totalPortfolio` field names — all of them cash figures, none
+ * of them net liquidity. So the missing anchor is the normal case for those
+ * accounts, not an anomaly, and rule 6's acceptance test was simply absent on
+ * them.
+ *
+ * The parts are there: DEGIRO states a value per open position and a cash
+ * balance. These pin that the sum is used, that it is labelled as derived
+ * rather than passed off as DEGIRO's own figure, and — the ones that matter
+ * most — that it is *not* used when it would be a partial sum compared against
+ * a full one.
+ */
+function anchorCase({ liveTotal = null, liveCash = null, livePositions = null } = {}) {
+  // One share bought at 10, still held, valued by its own series.
+  const day = '2024-01-02';
+  return computePortfolio({
+    transactions: [
+      { date: day, productId: 'P1', quantity: 1, price: 10, totalBase: -10, currency: 'EUR' },
+    ],
+    cashRows: [
+      { date: day, description: 'Deposit', change: 100, currency: 'EUR', category: 'DEPOSIT' },
+      // A trade moves the cash balance through the cash ledger, not through the
+      // transaction's own `totalBase` — DEGIRO books both, and leaving this out
+      // made the first draft of these tests fail against correct code.
+      { date: day, description: 'Buy Thing', change: -10, currency: 'EUR', category: 'TRADE' },
+    ],
+    products: { P1: { id: 'P1', name: 'Thing', vwdId: 'v1', currency: 'EUR', productType: 'STOCK' } },
+    prices: { v1: { start: day, stepDays: 1, points: [{ offsetDays: 0, close: 10 }] } },
+    today: day,
+    liveTotal,
+    liveCash,
+    livePositions,
+  });
+}
+
+test('a stated total is used, and says it was stated', () => {
+  const r = anchorCase({ liveTotal: 100, livePositions: [{ productId: 'P1', size: 1, value: 10 }] });
+  assert.equal(r.reconciliation?.source, 'reported');
+  assert.equal(r.reconciliation.live, 100);
+});
+
+test('no stated total: the position values and the cash are added up instead', () => {
+  const r = anchorCase({
+    liveCash: 90,
+    livePositions: [{ productId: 'P1', size: 1, value: 10 }],
+  });
+  assert.ok(r.reconciliation, 'the check ran at all, which on two real accounts it did not');
+  assert.equal(r.reconciliation.source, 'derived', 'and it does not pass itself off as DEGIRO’s own figure');
+  assert.equal(r.reconciliation.live, 100, '10 of instrument + 90 of cash');
+  assert.equal(r.reconciliation.ok, true);
+});
+
+test('a cash fund among the positions is not counted twice', () => {
+  // /update lists cash balances alongside instruments — 'EUR', 'FLATEX_EUR'.
+  // They are already in `liveCash`, and adding them again would inflate the
+  // anchor and report a shortfall that is not there.
+  const r = anchorCase({
+    liveCash: 90,
+    livePositions: [
+      { productId: 'P1', size: 1, value: 10 },
+      { productId: 'EUR', size: 90, value: 90 },
+      { productId: 'FLATEX_EUR', size: 0, value: 0 },
+    ],
+  });
+  assert.equal(r.reconciliation.live, 100, 'the cash rows were skipped, not added');
+});
+
+test('a position DEGIRO gives no value for stops the derivation entirely', () => {
+  // A partial sum compared against a full one reports a shortfall that is not
+  // real. Crying wolf on the one check everything rests on is worse than the
+  // check being absent, so this stays null.
+  const r = anchorCase({
+    liveCash: 90,
+    livePositions: [{ productId: 'P1', size: 1, value: null }],
+  });
+  assert.equal(r.reconciliation, null);
+});
+
+test('no cash figure means no derived anchor', () => {
+  const r = anchorCase({ livePositions: [{ productId: 'P1', size: 1, value: 10 }] });
+  assert.equal(r.reconciliation, null);
+});
+
+test('positions that already disagree are the finding, and no total is derived from them', () => {
+  // If the share counts are wrong, a total built on DEGIRO's values is being
+  // compared against a ledger already known to be broken. `position-mismatch`
+  // is the answer there, not a second number.
+  const r = anchorCase({
+    liveCash: 90,
+    livePositions: [{ productId: 'P1', size: 99, value: 990 }],
+  });
+  assert.equal(r.reconciliation, null);
+  assert.ok(r.warnings.some((w) => w.code === 'position-mismatch'), 'and it says so loudly');
+});
+
+test('the derived anchor is not circular — it still catches a wrong valuation', () => {
+  // The whole point. DEGIRO's prices and share counts against our valuation of
+  // our own ledger: independent sources, so a mis-scaled series still shows up.
+  const r = anchorCase({
+    liveCash: 90,
+    livePositions: [{ productId: 'P1', size: 1, value: 1000 }], // DEGIRO says the holding is worth 1000
+  });
+  assert.equal(r.reconciliation.ok, false);
+  assert.equal(r.reconciliation.source, 'derived');
+  assert.ok(Math.abs(r.reconciliation.diff) > 900, 'the disagreement is reported, not absorbed');
+});

@@ -284,6 +284,10 @@ export const EXPORTABLE_META = [
   'lastSyncAt',
   'liveSnapshot',
   'liveTotal',
+  // The cash half of the derived reconciliation anchor. A single number DEGIRO
+  // already states; it travels because without it a null reconciliation cannot
+  // be told apart from a wrong one.
+  'liveCash',
   // Field *names* from DEGIRO's account-total response, written only when the
   // total could not be read. Two gates stand in front of it — `fieldNames` in
   // sync.js drops anything not shaped like an identifier, and report.js names
