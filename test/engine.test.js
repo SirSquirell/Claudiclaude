@@ -1939,3 +1939,55 @@ test('a year that opens at three cents reports a return, not −101 275 %', () =
   // The euro result is untouched: that number was always right.
   assert.ok(Math.abs(jan.pnl - 599.97) < 0.01, `the result stays as it was, got ${jan.pnl}`);
 });
+
+test('a euro trade that did not settle for its euro amount is called out', () => {
+  /**
+   * From a tester's export, rebuilt synthetically — rule 7 keeps real values
+   * out of `test/`. Rows read `currency: "EUR"` while `totalBase` was 0,851 of
+   * `price × quantity`, which is not rounding, it is the dollar rate of the
+   * day on trades nothing had marked as foreign. Nothing detected it.
+   */
+  const r = computePortfolio({
+    products: { 1: { id: '1', name: 'A', currency: 'EUR', vwdId: '900' } },
+    prices: { 900: { start: '2024-01-01', stepDays: 1, points: [0, 1].map((i) => ({ offsetDays: i, close: 2 })) } },
+    transactions: [
+      // 100 x 2 = 200 traded, 170 settled: a rate, not a rounding difference.
+      { date: '2024-01-01', productId: '1', quantity: 100, price: 2, currency: 'EUR', fee: -1, totalBase: -171 },
+    ],
+    cashRows: [{ date: '2024-01-01', description: 'Deposit', change: 1000, currency: 'EUR', category: 'DEPOSIT' }],
+    today: '2024-01-02',
+  });
+
+  const w = r.warnings.find((x) => x.code === 'settled-amount-mismatch');
+  assert.ok(w, 'the disagreement is reported');
+  assert.equal(w.level, 'error', 'a holding valued without its conversion is not a warning');
+  assert.equal(w.detail.trades, 1);
+  assert.ok(Math.abs(w.detail.ratios[0] - 0.85) < 0.01);
+});
+
+test('an ordinary euro trade raises nothing, fees and all', () => {
+  const r = computePortfolio({
+    products: { 1: { id: '1', name: 'A', currency: 'EUR', vwdId: '900' } },
+    prices: { 900: { start: '2024-01-01', stepDays: 1, points: [0, 1].map((i) => ({ offsetDays: i, close: 2 })) } },
+    transactions: [
+      { date: '2024-01-01', productId: '1', quantity: 100, price: 2, currency: 'EUR', fee: -3, totalBase: -203 },
+    ],
+    cashRows: [{ date: '2024-01-01', description: 'Deposit', change: 1000, currency: 'EUR', category: 'DEPOSIT' }],
+    today: '2024-01-02',
+  });
+  assert.ok(!r.warnings.some((x) => x.code === 'settled-amount-mismatch'), 'no false alarm on a healthy trade');
+});
+
+test('a genuinely foreign trade is not the target of this check', () => {
+  // A USD instrument settling at a USD rate is correct, not a mismatch.
+  const r = computePortfolio({
+    products: { 1: { id: '1', name: 'A', currency: 'USD', vwdId: '900' } },
+    prices: { 900: { start: '2024-01-01', stepDays: 1, points: [0, 1].map((i) => ({ offsetDays: i, close: 2 })) } },
+    transactions: [
+      { date: '2024-01-01', productId: '1', quantity: 100, price: 2, currency: 'USD', fee: -1, totalBase: -171 },
+    ],
+    cashRows: [{ date: '2024-01-01', description: 'Deposit', change: 1000, currency: 'EUR', category: 'DEPOSIT' }],
+    today: '2024-01-02',
+  });
+  assert.ok(!r.warnings.some((x) => x.code === 'settled-amount-mismatch'));
+});

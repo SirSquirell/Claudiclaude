@@ -3,7 +3,7 @@
 `docs/BACKLOG.md` is 2 000 lines of reasoning and evidence, which is the right place for *why* and
 a bad place to find out *where things stand*. This is the index.
 
-**Last updated at 0.36.0.** It had been stale since 0.21.0, which is fifteen releases — if it looks
+**Last updated at 0.37.0.** It had been stale since 0.21.0, which is fifteen releases — if it looks
 stale again, trust the CHANGELOG and fix this.
 
 ## Shipped and confirmed against a real account
@@ -51,10 +51,24 @@ person.** This is the gate that is open.
 | US-30 | Year by year, with the opening year as a partial period | 0.34.0 |
 | US-33 | Outlook — one, three or five years, scenarios from your own history | 0.35.0 |
 | — | Every stage that loads or processes can report its own failure | 0.36.0 |
+| — | F1–F5 from five testers' accounts — see below | 0.37.0 |
 
 **What to look at first**, if you only look at one thing: the Notices tab after a sync. 0.36.0 made
 background failures visible for the first time, so if something has been quietly failing for weeks
 it will appear there now and nowhere else.
+
+## From five testers' accounts — see [FINDINGS-TESTERS.md](FINDINGS-TESTERS.md)
+
+Five real accounts in one evening, five defects, none of which the synthetic fixtures produce.
+F1–F5 shipped in 0.37.0. U1–U5 need a decision rather than a fix.
+
+| # | What | State |
+|---|---|---|
+| U1 | **Decide an instrument's currency instead of defaulting it to EUR.** F5 detects the disagreement; resolving it changes numbers on screen | Story. The likely answer is rule 4's — refuse and mark `UNKNOWN` |
+| U2 | **A stale exchange rate is reported and never bounded.** Gaps of 358 to 1 746 days, on every account holding a foreign currency | Story. Leading candidate for the half-percent residual |
+| U3 | One account is **5,8 %** out — different in kind from the rest | Blocked on a fresh 0.37.0 report, which now carries the ratios that would say |
+| U4 | A rescale factor measured from trades that **disagree by 60 %** | Story. Where the line between rescale and reject belongs needs more than one account |
+| U5 | Two counts that look comparable and are not (`no-price-series` against `missingPriceSeries`) | Small, but a naming decision |
 
 ## Refined, not built
 

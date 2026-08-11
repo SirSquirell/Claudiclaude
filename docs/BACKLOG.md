@@ -2170,3 +2170,50 @@ Written now, while it is cheap to agree to:
   reach prices, and the story closes with them. Rule 9 makes this final rather than a trade-off.
 - **The charting endpoint is gone or unrecognisable.** → §8e said this was possible. Re-spike or
   drop; do not build against the 2021 shape.
+
+---
+
+## US-35 — "Put that frown upside down" *(new, to refine — a joke, and the joke has a constraint)*
+
+> As someone who is 17k down, I want a switch that flips the chart upside down so it looks like I
+> am up, because the alternative is looking at it the right way round.
+
+Requested with a screenshot of a real account at −€ 18 943. The comedy is the point and it should
+be *properly* comical rather than a tasteful 180° rotation — a CSS transform with some physical
+comedy in it, a wobble, an easing that overshoots.
+
+### The constraint, and it is not a small one
+
+This project's whole claim is that its numbers do not lie. Rule 6 refuses a tolerance on the
+reconciliation. The Outlook section is quarantined because it is the one screen showing a figure
+nobody can check. `estimated` replaced `measured` on a contract size because the difference
+mattered. **A feature whose entire function is to make a loss look like a gain is, read literally,
+the opposite of all of that.**
+
+That is not a reason to refuse it. It is a reason to build it so the joke cannot be mistaken for
+the product:
+
+- **It must be unmistakable in a screenshot.** A screenshot is how every finding in this project
+  has travelled, and a flipped chart that looks like a normal chart is a chart that will eventually
+  be sent to someone as if it were real. Whatever it does — the axis labels going with it, a
+  banner, the whole page tilting — a still frame has to give it away with no context.
+- **The axis has to flip too.** If the line goes up while the scale still reads € 25 000 to
+  € 50 000 downward, that is not a joke, it is a wrong chart. Flip the numbers with the line and
+  the picture is self-consistently absurd rather than quietly false.
+- **It never touches anything that leaves the machine.** Not the export, not the bug report, not a
+  tile, not a figure. The switch is a rendering state and nothing downstream may read it — the same
+  quarantine Outlook already has, for the same reason.
+- **It does not persist.** A joke you turned on in March should not still be on in June when you
+  are actually trying to read the thing. Off on reload.
+- **It is off by default and it says what it does.** Not a hidden easter egg — a labelled switch,
+  because a hidden one that a user finds by accident is the "quietly false" case again.
+
+### To refine
+
+- Where does the switch live? A footer curiosity, or beside the range buttons where the real
+  controls are? (Recommendation: the footer. It is not a control for reading your portfolio.)
+- Does it flip one chart or the whole page?
+- Does it also negate the numbers, or only the picture? (Recommendation: only the picture. A
+  negated *figure* is the thing that could actually mislead; an upside-down *line* is visibly a
+  gag.)
+- Is there a sound? There should probably not be a sound.

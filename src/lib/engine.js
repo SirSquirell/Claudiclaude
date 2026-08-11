@@ -940,6 +940,53 @@ export function computePortfolio(input) {
     }
   }
 
+  /**
+   * A trade that says it settled in the base currency, and did not.
+   *
+   * When an instrument is in euros, `|totalBase| − |fee|` has to equal
+   * `|price × quantity|`. It is the same number twice. On a tester's account it
+   * was not: rows reading `currency: "EUR"` settled at **0,851** of what they
+   * traded for — which is not a rounding difference, it is the dollar rate of
+   * the day, on trades nothing had marked as foreign.
+   *
+   * Either DEGIRO sent no currency and `parse.js` filled in `'EUR'`, or it sent
+   * one that does not describe the amount beside it. This does not decide which
+   * — it says the two disagree, which nothing did before, and CLAUDE.md's note
+   * about the parsers applies exactly: **loose parsing that silently returns a
+   * plausible value is worse than a loud failure.** A holding treated as
+   * domestic when it is foreign is valued without conversion, and that is a
+   * chart wrong by the exchange rate with nothing on screen to say so.
+   *
+   * The tolerance is deliberately wide. This is hunting for a currency-sized
+   * discrepancy, not auditing rounding, and a narrow band would fire on every
+   * account over fractional shares and fee models nobody has modelled.
+   */
+  const settledMismatches = [];
+  for (const t of transactions) {
+    const ccy = products[t.productId]?.currency ?? t.currency ?? baseCurrency;
+    if (ccy !== baseCurrency) continue;
+    const traded = Math.abs(t.price * t.quantity);
+    const settled = Math.abs((t.totalBase ?? 0) - (t.fee ?? 0));
+    if (!(traded > 0) || !(settled > 0)) continue;
+    const r = settled / traded;
+    if (r > 0.98 && r < 1.02) continue;
+    settledMismatches.push({ productId: String(t.productId), ratio: Number(r.toPrecision(4)) });
+  }
+  if (settledMismatches.length) {
+    const affected = new Set(settledMismatches.map((m) => m.productId));
+    const sorted = settledMismatches.map((m) => m.ratio).sort((a, b) => a - b);
+    warn(
+      'error',
+      'settled-amount-mismatch',
+      `${settledMismatches.length} trade(s) across ${affected.size} instrument(s) are booked in ${baseCurrency} but ` +
+        `settled for a different amount than they traded for — a median of ` +
+        `${Number(sorted[Math.floor(sorted.length / 2)].toPrecision(4))}× . That ratio is what an exchange rate ` +
+        `looks like, so those instruments are probably not in ${baseCurrency} at all, and anything held in them is ` +
+        `valued without the conversion it needs.`,
+      { trades: settledMismatches.length, instruments: affected.size, ratios: sorted.slice(0, 20) },
+    );
+  }
+
   if (unclassified > 0) {
     warn(
       'warn',

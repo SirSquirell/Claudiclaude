@@ -123,6 +123,15 @@ const DETAIL_SUMMARY = {
    */
   'unclassified-cash-rows': (d) => ({ count: Number(d.count) || 0 }),
 
+  // Counts and ratios. The ratio *is* the finding — 0.851 says "this is a
+  // dollar rate on a trade nothing marked as foreign" — and no amount is needed
+  // to say it.
+  'settled-amount-mismatch': (d) => ({
+    trades: Number(d.trades) || 0,
+    instruments: Number(d.instruments) || 0,
+    ratios: (d.ratios ?? []).slice(0, 20).map((r) => round(r, 4)),
+  }),
+
   // Rates and day counts, no amounts. The same shape `fx-derived` already
   // carries, and it was unclassified for no better reason than nobody adding it.
   'fx-stale': (d) => ({

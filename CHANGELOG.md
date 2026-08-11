@@ -43,6 +43,21 @@ below are recomputed from the raw responses, and a stored result predates the fi
   weaker in exactly one way, it cannot catch an error already inside DEGIRO's own position values,
   and **the page says so** rather than showing a green tick that means less than it looks.
 
+- **A trade booked in euros that did not settle for its euro amount.** One account's rows read
+  `currency: "EUR"` while what actually settled was **0,851** of price × quantity — not a rounding
+  difference, the dollar rate of that day, on trades nothing had marked as foreign. An instrument
+  treated as domestic when it is foreign is valued without its conversion, and nothing said so.
+
+  The extension now checks the identity that has to hold for a euro trade — what settled equals
+  what was traded, fee aside — and reports it in red when it does not. **This finds the problem
+  rather than fixing it**; deciding an instrument's real currency is a change to what the numbers
+  say and is written up as its own story.
+
+- **"A difference in prices" when no price differed.** Two accounts came back off by half a percent
+  with every share count agreeing and not one holding disagreeing — and were told to look at
+  prices, which is the one place the difference demonstrably was not. It now points at the cash
+  balance, and the bug report carries enough to confirm it next time.
+
 ### Added
 
 - **Three warnings that reported only their name now report their finding**: the price history that
