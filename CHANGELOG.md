@@ -11,6 +11,37 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.30.1] — 2026-08-11
+
+### Fixed
+
+- **Sync failed with `HTTP 502` on accounts that are not on the default cluster.** DEGIRO runs
+  several reporting clusters and tells you which one your account is on; this discovered that
+  once, cached it forever, and then used the cache. On one real account the cache said
+  `/reporting/secure/` while the account actually lives on `/portfolio-reports/secure/`, so every
+  transaction and cash request went to the wrong base and came back 502 — **every sync, every
+  time**, while the connection check reported a healthy `200` two lines further down the same
+  screen, because it fetches the config fresh.
+
+  The comment above that cache said the cluster "can change" and then cached it for the life of
+  the install. It is now re-read on every sync. That is one request out of dozens, at the same
+  1,1 s as the rest — and it **repairs a cache that is already poisoned**, which matters because
+  an install carrying one cannot sync at all until it does.
+
+  A cached value that is wrong is worse than no cache: it fails in a way that looks like the other
+  end being broken, and that is exactly how this presented.
+
+- Nothing else changed. 0.30.0's numbers, charts and layout are untouched.
+
+### Known, from the same connection check, and not a bug in this extension
+
+- **Some accounts genuinely have no account-total field.** The 0.26.0 diagnostic did its job: the
+  `update` response for one account carries `degiroCash`, `flatexCash`, `totalCash`,
+  `totalDepositWithdrawal`, `freeSpaceNew`, `pendingSettlement` and `cryptoTotalCash`, and no
+  net-liquidity value under any name. So `reconciliation: null` there is **correct** — DEGIRO does
+  not send the number, rather than our parser missing it. What to anchor against instead is an open
+  question, not a typo to fix.
+
 ## [0.30.0] — 2026-08-11
 
 Nothing on screen changes. This is US-22's structural half, and the point of shipping it now is

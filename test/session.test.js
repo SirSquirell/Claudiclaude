@@ -169,3 +169,57 @@ test('no cookie is reported as a step failure, not a crash', async () => {
     assert.ok(report.summary && report.summary.length > 0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// The cluster is re-read, never trusted from cache
+// ---------------------------------------------------------------------------
+
+/**
+ * A real account sits on `/portfolio-reports/secure/` while a cached `urls`
+ * still said `/reporting/secure/`. Every reporting call went to the wrong base
+ * and DEGIRO answered 502, so the sync failed on every attempt — while the
+ * connection check, which fetches config fresh, reported a healthy 200 two
+ * lines further down the same screen.
+ *
+ * A cached value that is wrong is worse than no cache: it fails in a way that
+ * looks like the other end being broken.
+ */
+test('resolveSession re-reads the cluster even when one is cached', async () => {
+  await clearMeta();
+  await store.setMeta('intAccount', 123);
+  await store.setMeta('userToken', 456);
+  // A poisoned cache, exactly as an existing install carries today.
+  await store.setMeta('urls', {
+    trading: 'https://trader.degiro.nl/trading/secure/',
+    reporting: 'https://trader.degiro.nl/reporting/secure/',
+  });
+
+  const out = await withBrowser(
+    {
+      responses: {
+        '/login/secure/config': json({
+          data: {
+            tradingUrl: 'https://trader.degiro.nl/trading/secure/',
+            reportingUrl: 'https://trader.degiro.nl/portfolio-reports/secure/',
+          },
+        }),
+        '/client': json({ data: { intAccount: 123, id: 456 } }),
+      },
+    },
+    async (calls) => {
+      const r = await session.resolveSession();
+      assert.ok(
+        calls.some((u) => u.includes('/login/secure/config')),
+        'config was never fetched, so a stale cluster would go unnoticed',
+      );
+      return r;
+    },
+  );
+
+  assert.equal(out.ok, true);
+  assert.equal(
+    out.urls.reporting,
+    'https://trader.degiro.nl/portfolio-reports/secure/',
+    'the stale cache won, which is the 502 this fixes',
+  );
+});

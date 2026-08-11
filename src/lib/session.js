@@ -37,14 +37,27 @@ export async function resolveSession({ refresh = false } = {}) {
 
   let intAccount = await getMeta('intAccount');
   let userToken = await getMeta('userToken');
-  let urls = await getMeta('urls');
 
-  // Which trading cluster this account is on is account-specific and can
-  // change; discover it once and cache it alongside the identifiers.
-  if (refresh || !urls) {
-    urls = await fetchUrls();
-    await setMeta('urls', urls);
-  }
+  /**
+   * Which cluster this account is on, **re-read on every sync** rather than
+   * cached.
+   *
+   * This used to be discovered once and kept forever, on a comment that said in
+   * the same breath that it "can change". It can, and when it does nothing
+   * notices: every reporting call goes to the wrong base and DEGIRO answers
+   * 502. That is not a hypothetical — one account sits on
+   * `/portfolio-reports/secure/` while a stale cache still said
+   * `/reporting/secure/`, so its sync failed on every attempt while the
+   * connection check, which fetches config fresh, reported a healthy 200 two
+   * lines further down the same screen.
+   *
+   * A cached value that is wrong is worse than no cache: it fails in a way that
+   * looks like the other end being broken. One request per sync, at 1,1 s, out
+   * of dozens — and it self-heals a cache that is already poisoned, which
+   * matters because every install carrying one is failing right now.
+   */
+  const urls = await fetchUrls();
+  await setMeta('urls', urls);
 
   if (refresh || intAccount == null || userToken == null) {
     try {
