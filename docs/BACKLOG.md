@@ -2225,7 +2225,7 @@ the product:
 0.39.0 shipped the switch, the stamp, the flipped tiles and the confetti. Two things were asked for
 after seeing it work, and one of them needs a decision before it is built.
 
-### The charts
+### The charts — *superseded, see US-35c below*
 
 **Reflect the series about its own midpoint**, rather than flipping the canvas.
 
@@ -2266,3 +2266,57 @@ one reaching the export or the bug report, and this touches neither.
 
 Where the account is **up**, the tiles say so and get out of the way. A joke about losses on a
 winning account is not a joke, it is a wrong page.
+
+
+---
+
+## US-35c — Invert the *performance*, not the levels *(refined, for 0.42)*
+
+0.41.0 reflects the value series about its own midpoint. Rejected on sight, and correctly:
+
+> *"nu mirror je m gwn en lijkt t nergens op"*
+
+Visual comparison: <https://claude.ai/code/artifact/51f24b32-25c0-4103-830e-05aff193cf17>
+
+### Why the mirror is wrong
+
+Not because it is a mirror. Because it inverts the **deposits along with everything else**. Every
+moment money went *in* becomes a step *down*, the starting value is invented, and the shape no
+longer corresponds to anything that happened.
+
+Worth recording so nobody re-derives it: *"invert every daily change"* — the natural way to describe
+what is wanted — is **the same operation**. `out[i] = out[i-1] − (v[i] − v[i-1])` expands to
+`2·v[0] − v[i]`, a reflection about the first value. Reformulating does not fix it; the deposits
+still invert.
+
+### What it should be
+
+```
+flipped[i] = 2 × cumulativeDeposited[i] − value[i]
+```
+
+The value line is `deposits + cumulative P/L`. This keeps the deposits and negates only the P/L:
+
+| | Real | Flipped |
+|---|---|---|
+| Paid in | € 17.000 | € 17.000 |
+| Worth | € 3.300 | € 30.700 |
+| Result | −€ 13.700 | **+€ 13.700** |
+
+Every week that sank now climbs by the same amount. A deposit is still a step up, a withdrawal is
+still a drop, and the line ends exactly as far *above* what was paid in as it really sits below it.
+
+It is also the safer of the two, which is the argument that settles it. A mirrored chart is quietly
+plausible — it is a chart that *could* be true. This one says you have € 30.700 on € 17.000 paid in,
+beside a stamp saying it is not real. Absurdity is the safety mechanism; plausibility is the danger.
+
+### Still to decide before building
+
+- **The second chart, *Money paid in vs what it is worth*.** The flipped value line would cross the
+  deposits line rather than sit under it. Possibly the funniest part of this, possibly confusing —
+  look at it before deciding.
+- **The axis.** Rescale to the flipped range, or leave it on the real values so the line wanders off
+  the top? The second is funnier and might be unreadable.
+- **A rising account.** 0.41.0 leaves one alone. Under this formula there is nothing to leave alone —
+  a winning account flipped becomes a losing one, so the guard stays: only flip when the result is
+  negative.
