@@ -118,17 +118,51 @@
   // of the instructions above; nothing outside a test looks at it.
   window.__probeRowsForTest = seen;
 
+  /**
+   * Requests that could plausibly be carrying account data.
+   *
+   * The first run of this probe on a real tab caught two rows — a
+   * `/app-version.txt` poll and an OpenTelemetry beacon — and cheerfully
+   * printed "no auth header, the cookie is carrying the session". Neither row
+   * was an API call, so the conclusion was drawn from nothing. That is the same
+   * defect this project keeps finding in itself: a confident verdict on
+   * evidence that does not support one.
+   *
+   * So a conclusion now requires at least one request that looks like data.
+   */
+  const isDataRequest = (r) =>
+    r.kind !== 'websocket' &&
+    !/^otel\.|analytics|telemetry|sentry|datadog|segment|snowplow/i.test(r.host) &&
+    !/\.(txt|js|css|png|svg|woff2?|ico|map)$/i.test(r.path);
+
   window.__r1report = () => {
     if (!seen.length) {
       console.log('Nothing captured yet — click around the app first, then run __r1report() again.');
       return;
     }
     console.table(seen);
-    const auth = seen.some((r) => /authorization|bearer|x-.*token/i.test(r.headers));
+
+    const sockets = seen.filter((r) => r.kind === 'websocket');
+    const data = seen.filter(isDataRequest);
+
+    if (!data.length) {
+      console.log(
+        'INCONCLUSIVE. Nothing here is an API call — only static files and telemetry, so there is ' +
+          'no evidence about the session either way.' +
+          (sockets.length
+            ? ' A WebSocket did open, which is the likely answer.'
+            : ' No WebSocket opened *after* this probe was armed either — but one opened at page load would ' +
+              'be invisible to it. Check Network → WS with the panel open across a reload.'),
+      );
+      return;
+    }
+
+    const auth = data.some((r) => /authorization|bearer|x-.*token/i.test(r.headers));
     console.log(
       auth
         ? 'An auth header is set by the page: the token can be transcribed, like DEGIRO’s session id.'
-        : 'No auth header set by the page. If requests are reaching an API host, the cookie is carrying the session — and SameSite then decides whether an extension can. See MULTI-BROKER.md 2f.',
+        : `No auth header on ${data.length} data request(s), so the cookie is carrying the session — ` +
+          'and SameSite then decides whether an extension can. See MULTI-BROKER.md 2f.',
     );
   };
 

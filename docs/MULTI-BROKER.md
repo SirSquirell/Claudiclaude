@@ -128,6 +128,35 @@ authenticating, and none of the three rows above involves logging in — but the
 involve making a request look more like the page's than it is, and that deserves a decision rather
 than an implementation.
 
+### 2g. Second probe run — no ordinary API calls at all
+
+`tools/r1-headers-probe.js` armed on a logged-in tab, then several seconds of clicking around the
+app. Two requests were captured, and **neither is data**:
+
+| | |
+|---|---|
+| `xhr` → `app.traderepublic.com/app-version.txt` | a version poll |
+| `fetch` → `otel.production.traderepublic…/collect` | their OpenTelemetry beacon |
+
+The probe's first version drew a confident conclusion from those two rows — *"no auth header, the
+cookie is carrying the session"* — which was drawn from nothing at all. It now refuses to conclude
+without at least one request that looks like data. Same defect this project keeps finding in
+itself: a verdict the evidence does not support.
+
+**But the absence is the finding.** Clicking through the app produced no `fetch` and no `XHR`
+carrying account data. Combined with 2c, where the session is plainly in a cookie, the reading is:
+
+> the data very probably arrives over a **WebSocket opened at page load** — before any console
+> paste can patch the constructor, which is why the probe saw no socket either.
+
+That is the original assumption from §2, partly restored: cookies for the session, a socket for the
+data. It changes what an adapter would be — `degiro.js` is a set of `fetch` wrappers, and a socket
+is a different transport with a different throttle story.
+
+**Next, and it needs no probe:** DevTools → Network → **WS**, with the panel open across a reload.
+Is there a socket, to which host, and does its first frame look like a handshake carrying a token?
+Names and shapes only, as ever.
+
 ### 2d. AWS WAF is in front of this API — a scheduling constraint, not a safety cliff
 
 `aws-waf-token`, `awswaf_session_storage` and `awswaf_token_refresh_timestamp` say Trade Republic
