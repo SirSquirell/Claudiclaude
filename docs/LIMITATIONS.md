@@ -35,6 +35,25 @@ guessing "deposit" would silently turn your own money into profit.
 - **An option's contract size is measured, not read.** Where no exchange rate was observed
   near the trades it was measured from, the number is still used — falling back to one share
   per contract would be a hundredfold error instead of a two percent one — but it says so.
+- **Only written puts have ever met a real options account.** The arithmetic makes no
+  distinction — a position is a signed quantity times a price times a contract size, so a call
+  is the same sum as a put — and the generated account exercises long calls, short calls, long
+  puts and short puts, all of which pass. But every contract in the one real options account
+  this was verified against is a written put.
+
+  So calls and bought puts rest on **arithmetic plus synthetic evidence, and no capture**. What
+  that cannot rule out is a field name: the parsers accept several candidates per value, a name
+  that matches nothing returns zero quietly, and a fixture built from shapes we already believe
+  in cannot catch a belief that is wrong. If you hold calls, run `npm run audit` on an export
+  and tell us either way — it is an afternoon and it would close this.
+
+  *Covered* calls need nothing extra: a covered call is a short call and a long position, and
+  neither leg has to know about the other.
+- **Crypto has never been considered at all**, not merely untested. Nothing in the code has
+  ever seen one, and two things would need looking at before it could be trusted: a fractional
+  quantity settled to the cent makes the contract-size measurement unreliable in exactly the way
+  a one-cent currency conversion did, and a market that trades at the weekend against a
+  weekday-only price series would report most of its history as estimated.
 - **The zoom needs a mouse.** Dragging across the value chart has no keyboard equivalent,
   which was an acceptance criterion of the story that shipped it and was not built.
 - **`fixtures/` is generated, not captured.** The demo data reproduces the response *shapes*
