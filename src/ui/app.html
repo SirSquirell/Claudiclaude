@@ -117,6 +117,33 @@
         </div>
       </div>
 
+      <div data-tab="perf" class="grid" style="margin-top: 16px">
+        <div class="card">
+          <h2>What moved, in this range</h2>
+          <p class="hint">
+            Result per instrument over the selected range — the same number the holdings table prints, as a shape.
+            Deposits and withdrawals are already out of it, so a bar is performance and nothing else.
+          </p>
+          <div class="chart-box tall"><canvas id="c-movers"></canvas></div>
+        </div>
+      </div>
+
+      <div data-tab="comp" class="grid two" style="margin-top: 16px">
+        <div class="card">
+          <h2>Currency exposure</h2>
+          <p class="hint">
+            Which currencies today's value is riding on. Everything on this page is in euros; this is what those
+            euros depend on.
+          </p>
+          <div class="chart-box"><canvas id="c-currency"></canvas></div>
+        </div>
+        <div class="card">
+          <h2>Uninvested cash over time</h2>
+          <p class="hint">How much was sitting idle, day by day.</p>
+          <div class="chart-box"><canvas id="c-cash"></canvas></div>
+        </div>
+      </div>
+
       <div data-tab="income" class="grid" style="margin-top: 16px">
         <div class="card">
           <h2>Deposits and withdrawals per month</h2>

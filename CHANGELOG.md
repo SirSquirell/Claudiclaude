@@ -13,6 +13,21 @@ plain increments — this is not a library and nothing depends on its API.
 
 ## [0.29.0] — 2026-08-11
 
+### Added
+
+- **What moved, in this range** — result per instrument as a horizontal bar chart, on Performance.
+  The same number the holdings table prints and the winner and loser tiles pick from; this is the
+  shape of the distribution between them, which neither a table nor two tiles can show. Capped at
+  twelve, taken from both ends, because the middle of that list is the part nobody is asking
+  about.
+- **Currency exposure** — which currencies today's value is riding on. Everything on the page is
+  in euros; this is what those euros depend on, which the FX work made concrete. **It hides itself
+  on an all-euro account**: a doughnut with one segment implies a question was asked and answered
+  when it was not.
+- **Uninvested cash over time**, on Composition. Its own chart rather than a band on the value
+  chart, which already has one — on a stacked total, idle cash is a thin strip at the top of a
+  much larger number.
+
 ### Fixed
 
 - **A contract size derived through an interpolated exchange rate no longer claims to be
@@ -33,6 +48,9 @@ plain increments — this is not a library and nothing depends on its API.
 
   Measuring it *better* remains open (B11). This release closes only the part where the report was
   untrue about its own confidence.
+- **A bar chart that dropped half its labels.** Chart.js skips category labels when it judges them
+  crowded, which on a chart whose entire point is *which* instrument moved left nine bars and five
+  names. Caught in a browser, not by a test — the suite was green throughout.
 
 ## [0.28.0] — 2026-08-11
 

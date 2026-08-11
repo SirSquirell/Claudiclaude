@@ -11,8 +11,11 @@ import {
   candleChart,
   compositionChart,
   cumulativeChart,
+  cashChart,
+  currencyChart,
   depositChart,
   dividendChart,
+  moversChart,
   investedVsValueChart,
   holdingsPieChart,
   monthCompareChart,
@@ -721,6 +724,20 @@ function render() {
   );
 
   if (onScreen('#c-deposits')) state.charts.deposits = depositChart($('#c-deposits'), monthlyFlows(r, from, to), t);
+
+  if (onScreen('#c-movers')) state.charts.movers = moversChart($('#c-movers'), moversData(r, from, to), t);
+  if (onScreen('#c-cash')) {
+    state.charts.cash = cashChart($('#c-cash'), { days: atEnds(r.days), cash: atEnds(r.cash) }, t);
+  }
+  // A doughnut with one segment states nothing. An all-euro account has no
+  // currency exposure to show, and drawing a full ring labelled EUR implies a
+  // question was asked and answered when it was not.
+  const currency = currencyData(r, t);
+  const currencyCard = $('#c-currency').closest('.card');
+  currencyCard.hidden = currency.labels.length < 2;
+  if (!currencyCard.hidden && onScreen('#c-currency')) {
+    state.charts.currency = currencyChart($('#c-currency'), currency, t);
+  }
 
   // Dividends are shown for the whole history rather than the selected range —
   // a month of dividends is too sparse to be worth a range filter.
@@ -1837,6 +1854,54 @@ function bestWorstPosition(r, which, from, to, period) {
   }
 
   return { tabs: ['perf', 'holdings'], label, value: fmtSigned(pick.pnl), note: `${pick.name} · ${period}`, cls: signClass(pick.pnl) };
+}
+
+/**
+ * Result per instrument over the window, biggest gain first.
+ *
+ * Capped, and the cap is stated in the label rather than silently applied: an
+ * account with ninety instruments would otherwise draw ninety bars two pixels
+ * tall and claim to show all of them.
+ */
+function moversData(r, from, to, limit = 12) {
+  const rows = r.byProduct
+    .map((p) => ({ name: p.symbol || p.name, pnl: sumWindow(p.pnl, from, to) }))
+    .filter((p) => Math.abs(p.pnl) >= 0.005)
+    .sort((a, b) => b.pnl - a.pnl);
+
+  // The extremes, from both ends: the middle of this list is the part nobody is
+  // asking about, and dropping it keeps both tails legible.
+  const shown = rows.length <= limit ? rows : [...rows.slice(0, Math.ceil(limit / 2)), ...rows.slice(-Math.floor(limit / 2))];
+  return { labels: shown.map((p) => p.name), values: shown.map((p) => p.pnl) };
+}
+
+/**
+ * Today's value grouped by the currency each instrument is priced in, with cash
+ * split out per currency too.
+ *
+ * Colour follows the currency's rank here rather than the instrument's, which
+ * is a deliberate departure: there is no instrument to be consistent with, and
+ * two charts that both show "EUR" should agree with each other.
+ */
+function currencyData(r, t) {
+  const totals = {};
+  const last = r.days.length - 1;
+  for (const p of r.byProduct) {
+    const v = p.values[last] ?? 0;
+    if (Math.abs(v) < 0.005) continue;
+    totals[p.currency] = (totals[p.currency] ?? 0) + v;
+  }
+  for (const [ccy, amount] of Object.entries(r.cashByCurrency ?? {})) {
+    if (Math.abs(amount) < 0.005) continue;
+    totals[ccy] = (totals[ccy] ?? 0) + amount;
+  }
+
+  const rows = Object.entries(totals).sort((a, b) => b[1] - a[1]);
+  return {
+    labels: rows.map(([ccy]) => ccy),
+    values: rows.map(([, v]) => v),
+    colours: rows.map(([ccy], i) => (ccy === r.baseCurrency ? t.series[0] : t.series[(i % (t.series.length - 1)) + 1])),
+  };
 }
 
 /** Sum a per-day series across the selected window, inclusive at both ends. */

@@ -801,3 +801,117 @@ export function candleChart(ctx, data, t) {
     options: opts,
   });
 }
+
+/**
+ * What actually moved, over the selected range.
+ *
+ * A horizontal bar per instrument, sorted so the extremes are at the ends. It
+ * is the same number the holdings table prints and the same one the winner and
+ * loser tiles pick from — this is the shape of the distribution between them,
+ * which neither a table nor two tiles can show.
+ *
+ * Horizontal on purpose: an instrument name is a word, and a word rotated
+ * ninety degrees is a word nobody reads.
+ */
+export function moversChart(ctx, { labels, values }, t) {
+  const opts = baseOptions(t);
+  opts.indexAxis = 'y';
+  opts.plugins.tooltip.callbacks = { label: (item) => fmtSigned(item.parsed.x) };
+  // The zero line is what separates gain from loss; colour is the second
+  // channel, never the only one.
+  opts.scales = {
+    x: {
+      ...opts.scales.y,
+      grid: { ...opts.scales.y.grid, color: (c) => (c.tick.value === 0 ? t.axis : t.grid) },
+    },
+    y: {
+      ...opts.scales.x,
+      grid: { display: false },
+      // Every bar keeps its name. Chart.js drops category labels when it thinks
+      // they are crowded, which on a chart whose whole point is *which*
+      // instrument moved leaves nine bars and five labels — the reader cannot
+      // tell which is which, so the chart says nothing it claims to say.
+      ticks: { ...opts.scales.x.ticks, autoSkip: false },
+    },
+  };
+
+  return new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          data: values,
+          backgroundColor: values.map((v) => (v >= 0 ? alpha(t.pos, 0.85) : alpha(t.neg, 0.85))),
+          borderRadius: 4,
+          maxBarThickness: 18,
+        },
+      ],
+    },
+    options: opts,
+  });
+}
+
+/**
+ * Uninvested cash over time.
+ *
+ * Its own chart rather than a band on the value chart, which already has one:
+ * the question here is *"how much was sitting idle"*, and on a stacked total
+ * that is a thin strip at the top of a much larger number.
+ */
+export function cashChart(ctx, { days, cash }, t) {
+  const opts = baseOptions(t);
+  opts.plugins.tooltip.callbacks = { label: (item) => fmtEur(item.parsed.y) };
+
+  return new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: days,
+      datasets: [
+        {
+          data: cash,
+          borderColor: t.cash,
+          backgroundColor: alpha(t.cash, 0.18),
+          borderWidth: 1.5,
+          fill: true,
+          pointRadius: 0,
+          tension: 0,
+        },
+      ],
+    },
+    options: opts,
+  });
+}
+
+/**
+ * What the portfolio is exposed to, by currency of the instrument.
+ *
+ * Not the same question as *what it is worth* — everything on this page is
+ * already in euros. This is which currencies those euros are riding on, which
+ * is the risk the value chart cannot show and which the FX findings made
+ * concrete: a holding priced through a rate observed twice in five years is a
+ * different object from one priced in euros.
+ *
+ * Cash keeps the neutral outside the categorical set, as everywhere else.
+ */
+export function currencyChart(ctx, { labels, values, colours }, t) {
+  const opts = baseOptions(t);
+  delete opts.scales;
+  opts.plugins.legend.display = true;
+  opts.plugins.legend.position = 'right';
+  opts.plugins.tooltip.callbacks = {
+    label: (item) => {
+      const total = item.dataset.data.reduce((a, b) => a + b, 0) || 1;
+      return `${item.label} — ${fmtEur(item.parsed)} (${((item.parsed / total) * 100).toFixed(1)}%)`;
+    },
+  };
+
+  return new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{ data: values, backgroundColor: colours.map((c) => alpha(c, 0.85)), borderColor: t.surface, borderWidth: 2, hoverOffset: 6 }],
+    },
+    options: opts,
+  });
+}
