@@ -1652,12 +1652,41 @@ export function windowReturnPct(result, fromIndex = 0, toIndex = result.days.len
   let any = false;
   for (let i = Math.max(1, fromIndex); i <= toIndex && i < result.days.length; i++) {
     const prev = result.value[i - 1];
-    if (prev > 0) {
+    if (usableReturnDay(prev, result.pnl[i])) {
       factor *= 1 + result.pnl[i] / prev;
       any = true;
     }
   }
   return any ? (factor - 1) * 100 : 0;
+}
+
+/**
+ * Is this day's ratio a return, or an artefact?
+ *
+ * `prev > 0` was the whole guard, and it is not enough. It excludes a day that
+ * began with nothing, and admits a day that began with two cents — where five
+ * euros of movement is a factor of 250, and a chain of those is a number like
+ * the **+291 949 %** and **−60 006 %** a tester's account put on screen. Those
+ * are not returns anyone earned; they are the first days of an account, when
+ * a deposit and the trade it paid for land a day apart and `pnl` briefly
+ * absorbs capital that the cashflow record has not caught up with.
+ *
+ * The rule is scale-free rather than a euro floor, because a euro floor is
+ * arbitrary at both ends — wrong for an account that trades in tens, and wrong
+ * again for one that trades in millions:
+ *
+ * > **A day's result cannot exceed everything that was invested at the start of
+ * > it.** If it does, capital moved during the day and the ledger disagrees
+ * > about when. That is a bookkeeping artefact, not a hundredfold gain.
+ *
+ * Excluding the sub-period rather than capping it is the standard treatment —
+ * GIPS drops sub-periods with no capital from the chain — and it is also the
+ * only honest one available: a cap would invent a number, and this project's
+ * rule is that a figure must not look more confident than it is.
+ */
+export function usableReturnDay(prev, pnl) {
+  if (!(prev > 0)) return false;
+  return Math.abs(pnl) <= prev;
 }
 
 /**
@@ -2134,7 +2163,10 @@ export function monthlyTable(result) {
     const cell = cells.get(key) ?? { pnl: 0, factor: 1, hasData: false };
     cell.pnl += pnl[i];
     const prev = i === 0 ? 0 : value[i - 1];
-    if (prev > 0) cell.factor *= 1 + pnl[i] / prev;
+    // Same test as `windowReturnPct`: a day whose result exceeds everything
+    // invested at the start of it is a bookkeeping artefact, and chaining it
+    // produced the -60 006 % that a tester's April 2025 cell displayed.
+    if (usableReturnDay(prev, pnl[i])) cell.factor *= 1 + pnl[i] / prev;
     cell.hasData = true;
     cells.set(key, cell);
   }

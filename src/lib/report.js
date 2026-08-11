@@ -106,6 +106,23 @@ const DETAIL_SUMMARY = {
     })),
   }),
 
+  /**
+   * A count, and deliberately nothing else.
+   *
+   * What would actually fix the classifier is the *wording* DEGIRO used, and
+   * that is the one thing which cannot travel: a description reads
+   * "Dividend ASML" or "Koop 12 NVDA", so it names a holding. Even the first
+   * word is unsafe, because some of them begin with the instrument.
+   *
+   * So the count travels and the wording does not, and the honest consequence
+   * is stated rather than discovered: **this warning can say a row was missed
+   * but not which rule to add.** The full export is the route for that, and it
+   * is the one you send only to someone you trust. One unrecognised row out of
+   * 655 is still a different problem from two hundred, which is why the count
+   * is worth carrying at all.
+   */
+  'unclassified-cash-rows': (d) => ({ count: Number(d.count) || 0 }),
+
   // Rates and day counts, no amounts. The same shape `fx-derived` already
   // carries, and it was unclassified for no better reason than nobody adding it.
   'fx-stale': (d) => ({

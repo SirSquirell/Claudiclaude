@@ -15,6 +15,42 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.37.0] — 2026-08-11
+
+Three testers' accounts, three findings. **Press Wipe & resync after updating** — the percentages
+below are recomputed from the raw responses, and a stored result predates the fix.
+
+### Fixed
+
+- **A percentage where there was nothing to earn it on.** One account showed **+291 949,64 %** as
+  its all-time result and **−60 006,26 %** as its worst month, next to a perfectly ordinary
+  +19,64 % best month. The chained return only skipped days that began with *nothing*, so a day
+  that began with two cents and moved five euros multiplied the running figure by 250. Those are
+  the opening days of an account, where a deposit and the trade it paid for land a day apart.
+
+  A day's result now has to fit inside what was invested at the start of it, or the day is left out
+  of the chain — the standard treatment, and the only honest one: capping would invent a number.
+  An ordinary history is untouched, which has its own test.
+
+- **The check that confirms every number was missing on two accounts out of three.** Both reported
+  no account total, because DEGIRO sent only cash figures under it — fourteen fields, not one of
+  them net liquidity. So the one test that proves the history is right could not run at all, on the
+  two longest histories.
+
+  It runs now, against the sum of the position values and the cash balance DEGIRO *did* send. That
+  is an independent check — DEGIRO's prices and share counts against our reconstruction of your
+  ledger — so a wrong share count, a mis-scaled price or a bad exchange rate still shows up. It is
+  weaker in exactly one way, it cannot catch an error already inside DEGIRO's own position values,
+  and **the page says so** rather than showing a green tick that means less than it looks.
+
+### Added
+
+- **Three warnings that reported only their name now report their finding**: the price history that
+  cannot be reconciled with what you paid (the most severe one the extension raises, and it had been
+  carrying no detail at all), a stale exchange rate, and unrecognised cash rows. All three were
+  showing up in the bug report as *"unclassified"* — which is that mechanism working, and the gap
+  being real.
+
 ## [0.36.0] — 2026-08-11
 
 Nothing on screen changes shape in this release. What changes is what happens when something

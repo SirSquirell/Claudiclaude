@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { aggregatePnl, buildComposition, candleSeries, computePortfolio, deriveContractSizes, deriveFxRates, fxFromConversions, expandSeries, monthlyTable, rangeEndIndex, rangeStartIndex, windowReturnPct, annualisedReturn, projectPortfolio, maxDrawdown } from '../src/lib/engine.js';
+import { aggregatePnl, buildComposition, candleSeries, computePortfolio, deriveContractSizes, deriveFxRates, fxFromConversions, expandSeries, monthlyTable, rangeEndIndex, rangeStartIndex, windowReturnPct, usableReturnDay, annualisedReturn, projectPortfolio, maxDrawdown } from '../src/lib/engine.js';
 import { classifyCashRow } from '../src/lib/classify.js';
 import { parseCashMovements, parseChartResponse, parseProducts, parseTransactions, parseUpdate } from '../src/lib/parse.js';
 import { dayRange } from '../src/lib/dates.js';
@@ -1834,4 +1834,73 @@ test('the derived anchor is not circular — it still catches a wrong valuation'
   assert.equal(r.reconciliation.ok, false);
   assert.equal(r.reconciliation.source, 'derived');
   assert.ok(Math.abs(r.reconciliation.diff) > 900, 'the disagreement is reported, not absorbed');
+});
+
+// ---------------------------------------------------------------------------
+// A percentage is not a number when there was nothing to earn it on
+// ---------------------------------------------------------------------------
+
+/**
+ * A tester's account displayed **+291 949,64 %** as its all-time result and
+ * **−60 006,26 %** as its worst month, beside a perfectly ordinary
+ * +19,64 % best month. Both come from the same place: the chain guarded only
+ * against `prev > 0`, so a day that began with a couple of cents and moved a
+ * few euros multiplied the running factor by a few hundred.
+ *
+ * That is not a return anyone earned. It is the opening days of an account,
+ * where a deposit and the trade it paid for land a day apart and `pnl` briefly
+ * absorbs capital the cashflow record has not caught up with.
+ */
+test('a day that moves more than it started with is not a return', () => {
+  assert.equal(usableReturnDay(100, 5), true, 'an ordinary day');
+  assert.equal(usableReturnDay(100, -100), true, 'a total loss is still a return');
+  assert.equal(usableReturnDay(0.02, 5), false, 'two cents becoming five euros is not +25 000 %');
+  assert.equal(usableReturnDay(0, 5), false, 'nothing invested, nothing earned');
+  assert.equal(usableReturnDay(-10, 1), false, 'a negative base has no meaningful ratio');
+});
+
+test('an account that starts from nothing does not report a five-digit percentage', () => {
+  // The shape of the real case: a near-zero opening value, then capital
+  // arriving a day out of step with the position it bought.
+  const days = ['2024-01-01', '2024-01-02', '2024-01-03', '2024-01-04'];
+  const result = {
+    days,
+    // 0.02 → 500 → 520 → 530: the second day is the artefact.
+    value: [0.02, 500, 520, 530],
+    pnl: [0, 499.98, 20, 10],
+  };
+
+  const pct = windowReturnPct(result);
+  assert.ok(Number.isFinite(pct), 'a finite number at all');
+  assert.ok(
+    Math.abs(pct) < 100,
+    `the artefact day is excluded, so the return is the 30 euros on 500 that was really earned, not ${pct.toFixed(0)} %`,
+  );
+  assert.ok(pct > 0, 'and the genuine gain still counts');
+});
+
+test('the monthly grid excludes the same artefact the all-time figure does', () => {
+  const r = {
+    days: ['2024-01-01', '2024-01-02', '2024-01-31', '2024-02-01', '2024-02-02'],
+    value: [0.01, 1000, 1010, 1010, 1050],
+    pnl: [0, 999.99, 10, 0, 40],
+  };
+  const t = monthlyTable(r);
+  const jan = t.years[0].months[0];
+  const feb = t.years[0].months[1];
+  assert.ok(Math.abs(jan.returnPct) < 100, `January is a percentage, not ${jan.returnPct}`);
+  assert.ok(feb.returnPct > 0 && feb.returnPct < 100, 'and an untouched month is unaffected');
+});
+
+test('an ordinary account is not changed by the guard', () => {
+  // The guard must not quietly reshape a healthy history — that would be a
+  // worse defect than the one it fixes, and a silent one.
+  const r = {
+    days: ['2024-01-01', '2024-01-02', '2024-01-03'],
+    value: [1000, 1100, 1045],
+    pnl: [0, 100, -55],
+  };
+  const pct = windowReturnPct(r);
+  // (1 + 100/1000) × (1 + −55/1100) − 1 = 1.1 × 0.95 − 1 = 4.5 %
+  assert.ok(Math.abs(pct - 4.5) < 1e-9, `expected 4.5 %, got ${pct}`);
 });
