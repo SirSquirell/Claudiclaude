@@ -44,56 +44,26 @@ database, not to the export. The connection check reports its length and never i
 cookie, or a 401 back, means "log in at DEGIRO" and a full stop: a retry after a rejected
 session looks like a login attempt, and this never attempts one.
 
-DEGIRO has no public API. But `trader.degiro.nl` is itself a JavaScript application that has
-to get its data from somewhere, and it calls internal JSON endpoints on DEGIRO's own servers.
-Those are the ones below. This extension does not use an API DEGIRO does not have — it
-repeats the requests the site already makes, in the same browser, with the same session,
-far more slowly. Open DevTools → Network on DEGIRO's own portfolio page and you will see them.
-
-**Six GETs, on `trader.degiro.nl`:**
-
-| Endpoint | What comes back |
-|---|---|
-| `/login/secure/config` | which cluster your account is on — the base URLs for everything below |
-| `/pa/secure/client` | `intAccount` and `userToken` |
-| `/trading/secure/v5/update/{intAccount}` | today's positions, cash balances and account totals |
-| `/reporting/secure/v4/transactions` | date, instrument, quantity, price, currency, what settled in euros, fees |
-| `/reporting/secure/v6/accountoverview` | cash movements: date, description, amount, currency |
-| `/product_search/secure/v5/products/info` | per instrument: name, ISIN, symbol, currency, type, price identifier |
-
-**One GET, on `charting.vwdservices.com`:**
-
-| Endpoint | What comes back |
-|---|---|
-| `/hchart/v1/deGiro/data.js` | daily closing prices, twenty instruments per request |
-
-**One POST, and it is the product lookup above.** Its body is a bare list of product ids —
-`["360114899","331868"]` — and it is a POST only because that list runs to hundreds of ids
-and will not fit in a URL. Nothing else in this extension posts anything. **There is no
-endpoint here that can place, change or cancel an order**; `grep -rn "fetch(" src/` shows
-every outbound call in one screen.
+DEGIRO has no public API. `trader.degiro.nl` is itself a JavaScript application that has to get
+its data from somewhere, and this extension repeats the read-only requests that site already
+makes — in the same browser, with the same session, far more slowly. It fetches your trades,
+your cash movements, the instruments behind them and their daily closing prices, and nothing
+else. **Nothing here can place, change or cancel an order.**
 
 **Where it goes: nowhere.** There is no server behind this and no account to create. Everything
 lands in IndexedDB in your own browser. No analytics, no telemetry, no crash reporting — and
-that is enforced rather than promised: the manifest grants exactly the two hosts above, and
-the content security policy is `script-src 'self'`, so a remote script cannot load at all.
-Chrome shows you that permission list when you install it.
+that is enforced rather than promised: the manifest grants exactly two hosts, and the content
+security policy is `script-src 'self'`, so a remote script cannot load at all. Chrome shows you
+that permission list when you install it.
 
 You can watch it happen instead of taking this on faith: `chrome://extensions` → **service
 worker** → the **Network** tab, then run a sync.
 
 ### Two things to know
 
-**The API is undocumented, so it will break.** DEGIRO can change these endpoints without
-telling anyone. The version numbers live in one file (`src/lib/config.js`) so that a break is
-a one-line fix, and the parsers are written defensively for the same reason.
-
-**What is verified, and what a test cannot tell you.** A whole sync runs in the test suite
-against a stand-in broker: the seven steps in order, the rows landing where they belong, a
-failure part-way leaving a findable error rather than a half-written database, and the
-reconstruction agreeing with the total the broker reported. What that cannot check is whether
-DEGIRO's endpoints still behave the way this code thinks — only a real sync answers that, which
-is what **Check connection** is for.
+**The API is undocumented, so it will break.** DEGIRO can change it without telling anyone.
+Every endpoint and version number lives in one file (`src/lib/config.js`) so a break is a
+one-line fix, and the parsers are written defensively for the same reason.
 
 **Automated access to your own account may conflict with DEGIRO's terms.** Read-only, your own
 data, from your own logged-in browser is the mildest form of it, but slow is not the same as
