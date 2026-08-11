@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { aggregatePnl, buildComposition, candleSeries, computePortfolio, deriveContractSizes, deriveFxRates, expandSeries, monthlyTable, rangeEndIndex, rangeStartIndex, windowReturnPct, maxDrawdown } from '../src/lib/engine.js';
+import { aggregatePnl, buildComposition, candleSeries, computePortfolio, deriveContractSizes, deriveFxRates, fxFromConversions, expandSeries, monthlyTable, rangeEndIndex, rangeStartIndex, windowReturnPct, maxDrawdown } from '../src/lib/engine.js';
 import { parseCashMovements, parseChartResponse, parseProducts, parseTransactions, parseUpdate } from '../src/lib/parse.js';
 import { dayRange } from '../src/lib/dates.js';
 import { fixture, loadPrices } from './helpers.js';
@@ -1291,4 +1291,95 @@ test('maxDrawdown honours the window it is given', () => {
   // The crash on d1 is outside a window that starts at d2.
   assert.equal(maxDrawdown(r, 2, 4).amount, -5);
   assert.equal(maxDrawdown(r, 0, 4).amount, -40);
+});
+
+// ---------------------------------------------------------------------------
+// A residual-cent conversion states no rate
+// ---------------------------------------------------------------------------
+
+/**
+ * From a real bug report: USD `fx-derived` with four observations, a median of
+ * 0.8647 and a **high of exactly 1**. No currency pair has ever had a rate of
+ * 1.0000, so one of the four was junk — and with a 1 554-day gap between
+ * observations, one junk point prices years of holdings.
+ *
+ * The mechanism is rounding. Both legs are stored to the cent, so a €0.01 leg
+ * carries a 50 % relative error, and a residual sweep of one cent each way
+ * divides to exactly 1.
+ */
+const fxRow = (sourceId, date, currency, change) => ({
+  id: `fx${sourceId}`,
+  sourceId,
+  date,
+  currency,
+  change,
+  category: 'FX',
+  productId: '',
+});
+
+test('a one-cent currency conversion is not treated as an exchange rate', () => {
+  const days = dayRange('2024-01-01', '2024-01-05');
+  const dayIndex = new Map(days.map((d, i) => [d, i]));
+
+  const observations = fxFromConversions(
+    [
+      // A real conversion: €864,70 for $1 000.
+      fxRow(1, '2024-01-02', 'EUR', -864.7),
+      fxRow(2, '2024-01-02', 'USD', 1000),
+      // A residual sweep. One cent each way divides to exactly 1.0000.
+      fxRow(3, '2024-01-04', 'EUR', -0.01),
+      fxRow(4, '2024-01-04', 'USD', 0.01),
+    ],
+    dayIndex,
+  );
+
+  assert.equal(observations.length, 1, 'only the real conversion states a rate');
+  assert.ok(Math.abs(observations[0].rate - 0.8647) < 0.0001);
+  assert.deepEqual(
+    observations.dropped.map((d) => d.currency),
+    ['USD'],
+    'and the one that was dropped is counted, not silently discarded',
+  );
+});
+
+test('the dropped count reaches the FX report', () => {
+  const days = dayRange('2024-01-01', '2024-01-05');
+  const dayIndex = new Map(days.map((d, i) => [d, i]));
+
+  const { report } = deriveFxRates(
+    [],
+    {},
+    days,
+    dayIndex,
+    'EUR',
+    [
+      fxRow(1, '2024-01-02', 'EUR', -864.7),
+      fxRow(2, '2024-01-02', 'USD', 1000),
+      fxRow(3, '2024-01-04', 'EUR', -0.01),
+      fxRow(4, '2024-01-04', 'USD', 0.01),
+    ],
+  );
+
+  const usd = report.find((r) => r.currency === 'USD');
+  assert.equal(usd.observations, 1);
+  assert.equal(usd.dropped, 1);
+  // The whole point: 1.0000 no longer appears anywhere in the reported range.
+  assert.ok(usd.high < 0.9, `high was ${usd.high}`);
+});
+
+test('a currency whose only conversions were all too small still reports itself', () => {
+  // It must not vanish. Falling back to 1:1 with nothing said is exactly the
+  // silent-wrong-number failure the project exists to avoid.
+  const days = dayRange('2024-01-01', '2024-01-05');
+  const dayIndex = new Map(days.map((d, i) => [d, i]));
+
+  const { report } = deriveFxRates([], {}, days, dayIndex, 'EUR', [
+    fxRow(1, '2024-01-02', 'EUR', -0.01),
+    fxRow(2, '2024-01-02', 'USD', 0.01),
+  ]);
+
+  const usd = report.find((r) => r.currency === 'USD');
+  assert.ok(usd, 'USD is absent from the report entirely');
+  assert.equal(usd.observations, 0);
+  assert.equal(usd.dropped, 1);
 });

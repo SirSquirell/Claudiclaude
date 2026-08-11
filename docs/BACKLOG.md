@@ -704,7 +704,24 @@ one nobody understands yet.
 
 ---
 
-### US-23 — Sync and wipe, per broker *(new, refined)*
+### US-23 — Sync and wipe, per broker *(refined — **deferred**, see below)*
+
+> **Deferred on rule 8, deliberately and against my own earlier recommendation.**
+> US-22's advice was "do the structural work while there is only one broker to get it wrong
+> with", and that argument is right about `combine.js` and the adapter boundary: both are pure,
+> both are tested, and both de-risk the design at no cost to anyone.
+>
+> It is *not* right about this story or US-24, and the difference is who pays. A24 already
+> requires that one connected broker looks exactly like today — so a submenu over a choice of one
+> is invisible by specification. The storage rekey is worse than invisible: it is a `dbVersion`
+> bump, which means every tester wipes and resyncs, minutes each, for nothing they can see.
+>
+> Waiting costs nothing. That migration is the same size the day a second broker is real as it is
+> today; there is no compounding interest on deferring it. Building it now buys a maybe with
+> someone else's afternoon.
+>
+> **Unblocks when:** a second adapter passes `test/brokers.test.js` — i.e. R1 and R4 have come
+> back yes and there is something to combine.
 
 **As someone with two brokers connected, I want to sync or wipe one of them without touching the
 other.**
@@ -735,7 +752,7 @@ wait §E is trying to avoid; a guard per broker that is forgotten re-introduces 
 
 ---
 
-### US-24 — Combine, and filter *(new, refined)*
+### US-24 — Combine, and filter *(refined — **deferred**, same reasoning as US-23)*
 
 **As someone looking at €50 000 at DEGIRO and €60 000 at Trade Republic, I want to see €110 000,
 and to be able to take either one out of the picture.**

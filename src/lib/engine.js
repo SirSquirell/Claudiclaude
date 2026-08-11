@@ -42,6 +42,16 @@ const IMPLAUSIBLE_MULTIPLE = 20;
 const STALE_FX_DAYS = 92;
 
 /**
+ * Smallest currency conversion, in the base currency, that states a usable rate.
+ *
+ * Both legs are rounded to the cent, so the rate a conversion states carries a
+ * relative error of roughly `0.005 / amount`. At €1 that is half a percent,
+ * which is already the size of a real move; below it the number is noise, and a
+ * residual-cent sweep divides to exactly 1.0000. See `fxFromConversions`.
+ */
+const MIN_FX_LEG = 1;
+
+/**
  * How far a measured contract size may sit from a whole number before it is
  * disowned rather than rounded. A contract size counts shares, so it is an
  * integer; 99.7 is a stale snapshot price and 103 is a corporate action. A
@@ -292,6 +302,22 @@ function factorByDay(ratios, n) {
  * This is the only unambiguous rate in the data. A trade states its rate too,
  * but multiplied by the instrument's contract size, and there is no way to
  * separate the two without already knowing one of them.
+ *
+ * **A conversion smaller than `MIN_FX_LEG` states no usable rate**, and the
+ * reason is arithmetic rather than caution. Both legs are rounded to the cent,
+ * so the rate carries a relative error of about `0.005 / amount`: on a €500
+ * conversion that is a thousandth of a percent, and on a €0.01 one it is fifty
+ * percent. Worse, the two roundings are independent, so a residual-cent sweep
+ * — €0.01 out, $0.01 in — divides to **exactly 1.0000**, which is not a rate
+ * any real currency pair has ever had.
+ *
+ * A real account reported `fx-derived` for USD with four observations, a median
+ * of 0.8647 and a high of exactly 1. One junk observation in four, interpolated
+ * across a 1 554-day gap, prices years of holdings.
+ *
+ * Dropping it is not a guess (rule 4): it is declining to use a measurement
+ * whose error bar is wider than the thing being measured. The count is reported
+ * so the decision is visible rather than silent.
  */
 export function fxFromConversions(cashRows, dayIndex, baseCurrency = 'EUR') {
   const rows = cashRows
@@ -299,6 +325,9 @@ export function fxFromConversions(cashRows, dayIndex, baseCurrency = 'EUR') {
     .sort((a, b) => Number(a.sourceId) - Number(b.sourceId));
 
   const out = [];
+  /** Pairs too small to state a rate. Counted, never silently discarded. */
+  const dropped = [];
+  out.dropped = dropped;
   for (let i = 0; i < rows.length - 1; i++) {
     const a = rows[i];
     const b = rows[i + 1];
@@ -309,8 +338,12 @@ export function fxFromConversions(cashRows, dayIndex, baseCurrency = 'EUR') {
     const [base, other] = a.currency === baseCurrency ? [a, b] : [b, a];
     const index = dayIndex.get(other.date);
     if (index === undefined) continue;
+    i++; // both legs consumed, whether or not the pair is usable
+    if (Math.abs(base.change) < MIN_FX_LEG) {
+      dropped.push({ currency: other.currency, index });
+      continue;
+    }
     out.push({ currency: other.currency, index, rate: Math.abs(base.change) / Math.abs(other.change) });
-    i++; // both legs consumed
   }
   return out;
 }
@@ -444,11 +477,15 @@ function rateClusters(rates) {
  */
 export function deriveFxRates(transactions, products, days, dayIndex, baseCurrency = 'EUR', cashRows = []) {
   const conversions = new Map();
-  for (const o of fxFromConversions(cashRows, dayIndex, baseCurrency)) {
+  const observed = fxFromConversions(cashRows, dayIndex, baseCurrency);
+  for (const o of observed) {
     if (o.currency === baseCurrency) continue;
     if (!conversions.has(o.currency)) conversions.set(o.currency, []);
     conversions.get(o.currency).push(o);
   }
+  /** Per currency, how many conversions were too small to state a rate. */
+  const tooSmall = {};
+  for (const d of observed.dropped ?? []) tooSmall[d.currency] = (tooSmall[d.currency] ?? 0) + 1;
 
   const trades = new Map();
   for (const t of transactions) {
@@ -467,7 +504,7 @@ export function deriveFxRates(transactions, products, days, dayIndex, baseCurren
   const chosen = new Map();
   for (const ccy of new Set([...conversions.keys(), ...trades.keys()])) {
     if (conversions.has(ccy)) {
-      chosen.set(ccy, { raw: conversions.get(ccy), source: 'conversions', dropped: 0 });
+      chosen.set(ccy, { raw: conversions.get(ccy), source: 'conversions', dropped: tooSmall[ccy] ?? 0 });
       continue;
     }
     const raw = trades.get(ccy) ?? [];
@@ -548,6 +585,25 @@ export function deriveFxRates(transactions, products, days, dayIndex, baseCurren
       dropped,
       widestGapDays: widestGap,
       stale: widestGap > STALE_FX_DAYS,
+    });
+  }
+
+  // A currency whose every conversion was too small has no rate at all, and it
+  // must still appear here. Falling back to 1:1 and saying nothing is precisely
+  // the silent wrong number the project exists to avoid — and it is the state
+  // one real account is in, where the only USD evidence was a residual sweep.
+  for (const [ccy, count] of Object.entries(tooSmall)) {
+    if (series[ccy]) continue;
+    report.push({
+      currency: ccy,
+      source: 'none',
+      observations: 0,
+      median: null,
+      low: null,
+      high: null,
+      dropped: count,
+      widestGapDays: days.length,
+      stale: true,
     });
   }
 

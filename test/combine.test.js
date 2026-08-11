@@ -180,8 +180,8 @@ test('T6: the same product id at two brokers is two holdings', () => {
   // Two brokers will eventually issue the same number for different
   // instruments. One silently overwriting the other is a class of bug that
   // produces a plausible wrong chart.
-  const a = account({ productId: '360114899', trades: [{ day: 1, qty: 10, price: 100 }], cash: [{ day: 1, description: 'Storting', change: 1000 }], prices: flat(100) });
-  const b = account({ productId: '360114899', trades: [{ day: 1, qty: 3, price: 20 }], cash: [{ day: 1, description: 'Storting', change: 60 }], prices: flat(20) });
+  const a = account({ productId: '42815', trades: [{ day: 1, qty: 10, price: 100 }], cash: [{ day: 1, description: 'Storting', change: 1000 }], prices: flat(100) });
+  const b = account({ productId: '42815', trades: [{ day: 1, qty: 3, price: 20 }], cash: [{ day: 1, description: 'Storting', change: 60 }], prices: flat(20) });
 
   const c = combineResults([{ broker: 'a', result: a }, { broker: 'b', result: b }]);
   assert.equal(c.byProduct.length, 2);
