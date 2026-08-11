@@ -113,9 +113,15 @@ Three outcomes, and they are not equally likely:
 | a cookie only, `SameSite=Lax` | Fine — a top-level-ish extension request still carries it |
 | a cookie only, `SameSite=Strict` | **The one real obstacle found so far.** Attaching it would need `declarativeNetRequest` header rewriting, which is a heavier permission and a discussion rather than a default |
 
-**One check settles it,** and it is the same two minutes already asked for: Network → Fetch/XHR,
-click a request to the API host, and look at **Request Headers** — is there an `Authorization`, or
-is `Cookie` doing the work? Names only; no values.
+**One check settles it, and `tools/r1-headers-probe.js` does it without anyone reading a header
+off a screen.** Paste it into the console of a logged-in tab, click around the app for a few
+seconds, run `__r1report()`. It reports header *names* per request, plus the host and whether a
+WebSocket opened — never a value, and long digit runs in a path are masked.
+
+It cannot see headers the browser adds by itself (`Cookie`, `User-Agent`), and that is the finding
+rather than a gap: an `authorization` in the output means the token travels in a header and can be
+transcribed exactly as DEGIRO's session id is today; **no** auth header on requests reaching an API
+host means the cookie is carrying it, and the table above decides what follows.
 
 Worth noting what this is *not*: it is not a reason to reach for anything clever. Rule 9 is about
 authenticating, and none of the three rows above involves logging in — but the third one does
