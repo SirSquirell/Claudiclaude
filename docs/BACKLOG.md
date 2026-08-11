@@ -765,12 +765,47 @@ not a per-chart setting: the whole page describes one selection.
 - ☐ An instrument's colour does not change when a broker is filtered out.
 - ☐ A cross-broker transfer is marked on the value chart and changes no number.
 
+---
+
+### US-25 — Two accounts under one login *(new — a spike, not a story yet)*
+
+**As someone whose DEGIRO login also reaches a second account, I want both of them in the
+chart.**
+
+Kept separate from US-22 because it sounds like the same feature and is not, and because the
+reason usually given for excluding it is *close to* right rather than right — worth recording so
+nobody re-derives the wrong version:
+
+- **Two logins is out, and stays out.** A second login means a stored credential, and the README
+  promises there will never be one. Not a scoping call; a product one.
+- **But a second account does not necessarily need a second login.** DEGIRO identifies an account
+  by `intAccount`, and one client login can cover more than one — a joint account beside a
+  personal one. Both are then reachable with the session already in the browser, and
+  authentication is not the blocker at all: `session.js` reads one `intAccount` from
+  `/pa/secure/client` and caches it, and everything downstream assumes there is only ever one.
+
+*The spike, and it is small:* on an account known to have two, does `/pa/secure/client` report
+both, or only the one the web UI happens to be showing? An afternoon, and the answer decides
+whether this is a week or impossible.
+
+*Why after US-22, not before:* this is the same shape as the per-broker split — an id threaded
+through storage, sync and the filter — with an account id instead of a broker id. Built on top of
+US-22 it needs no new adapter, no new classify table and no new price source, which is most of
+the cost gone. Built before it, it is the same refactor done twice.
+
+*Acceptance criteria:*
+
+- ☐ The spike is written up, and the story is dropped if one login reaches only one account.
+- ☐ No credential is stored, entered or requested. If the answer needs one, the answer is no.
+- ☐ Reconciliation is per account, exactly as US-22 makes it per broker.
+- ☐ Filtering to one account reproduces the single-account numbers exactly.
+
+---
+
 #### What is still deliberately not in scope
 
-Two accounts **at the same broker**. It sounds like the same feature and it is not: one DEGIRO
-login reaches one account, so a second one means a second session, and the whole
-"no password, we only read the cookie your browser already has" promise has to be re-examined
-before anything is built. Separate story, separate spike.
+Two accounts at the same broker under **two separate logins** — see US-25 for why the one-login
+case is a different question, and why that one is worth a spike.
 
 ## 5. Definition of Done — reconciling the two versions
 
