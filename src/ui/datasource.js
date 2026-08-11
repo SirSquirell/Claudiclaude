@@ -17,6 +17,8 @@
  */
 
 import { computePortfolio } from '../lib/engine.js';
+import { combineResults } from '../lib/combine.js';
+import * as degiro from '../lib/brokers/degiro.js';
 import { parseCashMovements, parseChartResponse, parseProducts, parseTransactions, parseUpdate } from '../lib/parse.js';
 import { todayISO } from '../lib/dates.js';
 
@@ -63,6 +65,25 @@ export function send(message, { timeoutMs = 30000 } = {}) {
   });
 }
 
+/**
+ * Every engine result goes through the multi-broker combiner, even though there
+ * is exactly one broker.
+ *
+ * Not decoration, and not an abstraction kept warm for later — the opposite.
+ * `combineResults` returns a single part **untouched** (acceptance criterion A5,
+ * pinned by test T8), so this changes no number on the page and adds one field,
+ * `brokers`. What it buys is that the multi-broker path is the *only* path:
+ * it runs on every page load, so it cannot rot unnoticed between now and the day
+ * a second adapter arrives, and the "one broker looks exactly like today"
+ * requirement is enforced continuously rather than asserted in a test nobody
+ * runs against the real UI.
+ *
+ * The alternative was leaving `combine.js` unreferenced on `main` until it was
+ * needed, which is precisely the dead code rule 8 is about.
+ */
+const asPortfolio = (result, products) =>
+  combineResults([{ broker: degiro.id, label: degiro.label, result, products }]);
+
 // --- demo ------------------------------------------------------------------
 
 /**
@@ -94,14 +115,17 @@ export async function loadDemo() {
   const transactions = parseTransactions(txRaw);
   const cashRows = parseCashMovements(cashRaw);
   const products = parseProducts(productsRaw);
-  const result = computePortfolio({
-    transactions,
-    cashRows,
+  const result = asPortfolio(
+    computePortfolio({
+      transactions,
+      cashRows,
+      products,
+      prices,
+      today: meta.today,
+      liveTotal: update.totalValue,
+    }),
     products,
-    prices,
-    today: meta.today,
-    liveTotal: update.totalValue,
-  });
+  );
 
   // The demo reports the same counts the extension does. Without them the bug
   // report says "0 transactions" over a chart drawn from hundreds, and a
@@ -154,14 +178,18 @@ export async function loadFromExtension() {
     return { result: null, mode: 'extension', empty: true, lastSyncAt, lastError, urls, ...diagnosticContext };
   }
 
-  const result = computePortfolio({
-    transactions: rawTx,
-    cashRows: rawCash,
-    products: Object.fromEntries(rawProducts.map((p) => [p.id, p])),
-    prices,
-    today: todayISO(),
-    liveTotal,
-  });
+  const products = Object.fromEntries(rawProducts.map((p) => [p.id, p]));
+  const result = asPortfolio(
+    computePortfolio({
+      transactions: rawTx,
+      cashRows: rawCash,
+      products,
+      prices,
+      today: todayISO(),
+      liveTotal,
+    }),
+    products,
+  );
 
   return { result, mode: 'extension', live, lastSyncAt, lastError, urls, ...diagnosticContext };
 }

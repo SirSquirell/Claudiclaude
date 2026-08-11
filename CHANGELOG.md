@@ -11,6 +11,45 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.30.0] — 2026-08-11
+
+Nothing on screen changes. This is US-22's structural half, and the point of shipping it now is
+that it **runs** rather than waits.
+
+### Added
+
+- **The multi-broker plumbing, with one broker in it.** `src/lib/combine.js` takes per-broker
+  engine results and returns one; `src/lib/brokers/` is the adapter boundary, its registry, and
+  DEGIRO expressed as an adapter over the modules that already existed.
+
+  `docs/MULTI-BROKER.md` §A works out why the engine needs no change at all: SPEC §1.4 is linear,
+  so combined profit and loss is **identically** the sum of the per-broker series. Run the engine
+  once per broker and add the daily arrays. `engine.js` is untouched by this release.
+
+- **And the existing single-broker path now goes through it.** That is the deliberate part. A
+  single part comes back from `combineResults` byte-for-byte, so no number on the page moves —
+  what it buys is that the multi-broker path is the *only* path. It runs on every page load, so it
+  cannot rot unnoticed between now and a second adapter, and "one broker looks exactly like today"
+  is enforced continuously instead of asserted in a test nobody runs against the real UI. The
+  alternative was an unreferenced module sitting on `main` until it was needed, which is precisely
+  the dead code rule 8 is about.
+
+- **22 tests for it**, including the arithmetic that would catch a wrong architecture rather than a
+  wrong line: per-broker-then-sum equals the whole; a cross-broker transfer produces **zero**
+  combined P/L on both the withdrawal day and the deposit day; the combined value genuinely dips
+  while the money is in transit, because it was at neither broker; combined return is
+  value-weighted rather than the average of two percentages; instruments merge on ISIN and never on
+  a broker-local product id; and a broker without a reconciliation anchor makes the combined status
+  *unverified* and names itself.
+
+### Still deferred, and still on rule 8
+
+Storage keyed by broker, per-broker sync and wipe (US-23), and the broker filter (US-24). With one
+broker a submenu over a choice of one is invisible by specification, and the storage rekey is a
+`dbVersion` bump every tester pays for in minutes and cannot see. That migration is the same size
+the day a second broker is real. Trade Republic is parked, which makes this *more* true rather than
+less.
+
 ## [0.29.0] — 2026-08-11
 
 ### Added
