@@ -895,12 +895,18 @@ page that silently falls back looks finished and is not; the count says how far 
 
 ### US-33 — Where does this go from here *(new, refined — the riskiest thing in this backlog)*
 
-**As someone who keeps a spreadsheet projecting my ETF forward, I want the extension to do it, so
-I stop maintaining a worse copy of it beside the real data.**
+**As a long-term investor I want to see where my whole portfolio goes over the next few years, so
+I stop maintaining a worse copy of that in a spreadsheet.**
 
-Found by asking a tester what he keeps open *next to* us. The answer was a spreadsheet compounding
-an ETF forward as a rough forecast — which is the sharpest feature list there is, because it is by
-definition the thing we do not provide.
+Found by asking a tester what he keeps open *next to* us. The answer was a spreadsheet projecting
+forward — which is the sharpest feature list there is, because it is by definition the thing we do
+not provide.
+
+**The whole portfolio, not one instrument**, over a horizon the reader sets in months or years.
+And **two rates rather than one**, because they behave differently: expected price growth, which
+compounds inside the position, and expected dividend yield, which arrives as *cash* and only
+compounds if it is put back to work. One tester's account is concentrated in a **distributing**
+dividend ETF, which is precisely the case where conflating the two is worth the most money.
 
 #### Why this is the most dangerous story here
 
@@ -922,15 +928,49 @@ we can see and it cannot:
 If we build it, those two are the reason. If we cannot beat the spreadsheet on them, do not build
 it at all.
 
+#### The arithmetic trap, and it is not obvious
+
+**Our measured return already contains the dividends.** A dividend is internal (rule 3), so it is
+in `pnl`, so it is in the time-weighted return US-31 computes. Defaulting "growth" to that figure
+and then adding a dividend yield on top **counts the dividends twice**, and on a dividend-led
+portfolio over twenty years that is not a rounding error.
+
+So the split has to be derived, not assumed:
+
+```
+dividend yield ≈ dividend income over the year ÷ average value over the year
+price growth   ≈ total time-weighted return − dividend yield
+```
+
+Both from the account's own history, and both shown, so the reader can see the split rather than
+trust it.
+
+#### The lever nobody's spreadsheet has, and we do
+
+For a distributing holding, whether the dividend cash was **reinvested** is the single largest
+factor over a long horizon — and it is the one thing a spreadsheet cannot know and we can measure.
+The cash ledger says when a dividend landed; the transaction ledger says whether a purchase
+followed. So the default is not a guess:
+
+> *"Over the last five years you reinvested 78 % of your dividends within a month. The projection
+> assumes you keep doing that."*
+
+That sentence is worth more than the projection it precedes, and it is the reason to build this
+here rather than leave it in Excel.
+
+*Three states, and each is real:* reinvested (compound it), left in cash (do not), or withdrawn
+(it leaves the account entirely and is not part of the portfolio's future at all).
+
 #### The rules it has to obey
 
 1. **A projection is never drawn in the same treatment as history.** Different line, visible break
    at today, and the word *projection* on the chart itself rather than in a caption. If somebody
    screenshots it, the screenshot has to carry the caveat.
-2. **The rate is an input, shown and editable, never a hidden assumption.** Default it to the
-   *time-weighted* annualised return from US-31 — that is the portfolio's own rate, independent of
-   when he happened to pay in, which is exactly what a forecast needs. Money-weighted is about his
-   past timing and must not be the default here.
+2. **Both rates are inputs, shown and editable, never hidden assumptions — with a toggle between
+   *derived from your history* and *I set them myself*.** Give the reader the freedom, and make the
+   derived option the default so the freedom is a departure from something measured rather than
+   from a blank field. Derived means the split above; money-weighted is about his past timing and
+   must not be the default here.
 3. **Future contributions are an input too.** A forecast that ignores the monthly deposit is
    useless to someone who makes one, and quietly assuming zero is the same class of error as
    assuming a deposit is a gain.
@@ -947,8 +987,11 @@ it at all.
 #### Acceptance criteria
 
 - ☐ The projected segment is visually distinct from history, and labelled on the chart.
-- ☐ Rate and contribution are visible inputs with stated defaults, not constants in the code.
-- ☐ The default rate is the time-weighted figure, and the card says which rate it used.
+- ☐ Growth, yield, contribution and horizon are visible inputs with stated defaults, not constants
+  in the code, and a toggle switches between derived and manual.
+- ☐ Growth and yield are derived **separately**, and a test proves they do not double-count: an
+  account whose entire return came from dividends must derive a price growth of ~0 %.
+- ☐ The measured reinvestment rate is stated in words, and the projection follows it.
 - ☐ A band, derived from the account's own monthly distribution.
 - ☐ The backtest line is present and its gap against reality is stated in words.
 - ☐ Under a year of history, no projection at all — the same guard as US-31, for the same reason.
