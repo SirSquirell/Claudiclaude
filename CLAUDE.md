@@ -94,6 +94,9 @@ src/lib/store.js        IndexedDB
 src/lib/degiro.js       fetch wrappers, throttling, backoff. No logic.
 src/lib/session.js      cookie -> sessionId, intAccount, userToken
 src/lib/sync.js         orchestration; the only module touching both net and disk
+src/lib/errlog.js       scrub + ring + fold for recorded exceptions. Pure.
+src/lib/errorstore.js   the persisted ring, for contexts that do not survive being
+                        asked: the service worker and the popup.
 src/lib/diagnose.js     step-by-step connection check. Output must stay free of
                         session ids, account numbers and amounts — it is meant to be
                         pasted into a bug report.

@@ -112,9 +112,12 @@ const errorMessage = (msg) => {
  * @param {object}      input.counts      row counts per store
  * @param {string}      input.version     manifest version
  * @param {string}      input.generatedAt ISO timestamp, passed in so this stays pure
+ * @param {object}      input.ui          what the page itself observed: uncaught
+ *   errors, environment, translation coverage. Optional — the worker builds a
+ *   report too and has no page.
  * @returns {object} safe to paste
  */
-export function buildBugReport({ result, meta = {}, counts = {}, version = null, generatedAt = null }) {
+export function buildBugReport({ result, meta = {}, counts = {}, version = null, generatedAt = null, ui = null }) {
   const r = result ?? null;
 
   const warnings = (r?.warnings ?? []).map((w) => {
@@ -197,7 +200,83 @@ export function buildBugReport({ result, meta = {}, counts = {}, version = null,
        * identifier — this is the second of the two gates, not the only one.
        */
       liveTotalFields: Array.isArray(meta.liveTotalFields) ? meta.liveTotalFields.slice(0, 60) : null,
+      /**
+       * Rows the parsers could not read, per source, with reasons and no rows.
+       * The quietest failure this project has: a renamed field empties an array,
+       * the sync reports success, and the chart is short of a year with nothing
+       * said. Counts make it loud.
+       */
+      /** Windows DEGIRO refused even at one month. Dates and statuses only. */
+      missingWindows: Array.isArray(meta.missingWindows)
+        ? meta.missingWindows.slice(0, 40).map((g) => ({ from: g.from, to: g.to, status: Number(g.status) || null, source: g.source ?? null }))
+        : null,
+      /**
+       * What the *worker* threw, which no screenshot can ever contain.
+       *
+       * The page's errors are in `ui.errors` below, and they only exist while
+       * somebody is looking at the page. A background sync fails with nobody
+       * watching and the worker is torn down thirty seconds later, so this is
+       * the only record there is of it. Already scrubbed at the point of
+       * recording; named here anyway, because this file is an allowlist.
+       */
+      persistedErrors: Array.isArray(meta.persistedErrors)
+        ? meta.persistedErrors.slice(0, 12).map((e) => ({
+            kind: typeof e.kind === 'string' ? e.kind.slice(0, 40) : null,
+            message: errorMessage(e.message),
+            where: typeof e.where === 'string' ? e.where.slice(0, 60) : null,
+            count: Number(e.count) || 1,
+            at: e.at ?? null,
+            lastAt: e.lastAt ?? null,
+          }))
+        : null,
+      unreadableRows: meta.unreadableRows
+        ? {
+            transactions: Number(meta.unreadableRows.transactions?.count) || 0,
+            cashRows: Number(meta.unreadableRows.cashRows?.count) || 0,
+            reasons: {
+              transactions: meta.unreadableRows.transactions?.reasons ?? {},
+              cashRows: meta.unreadableRows.cashRows?.reasons ?? {},
+            },
+          }
+        : null,
     },
+
+    /**
+     * What went wrong *in the page*, which until now went unreported entirely.
+     *
+     * A defect that breaks a render produces a red banner for whoever is
+     * looking at it and nothing at all in the report — so the two worst
+     * defects this project has shipped, both of which took the whole page
+     * down, arrived as a screenshot and a sentence. Named here rather than
+     * spread in, per rule 7: this file is an allowlist.
+     */
+    ui: ui
+      ? {
+          errors: (ui.errors ?? []).slice(0, 12).map((e) => ({
+            kind: e.kind ?? null,
+            message: errorMessage(e.message),
+            where: typeof e.where === 'string' ? e.where.slice(0, 60) : null,
+            count: Number(e.count) || 1,
+          })),
+          errorsDropped: Number(ui.dropped) || 0,
+          /** Environment, because half of "it does not work" is which browser. */
+          mode: ui.mode === 'demo' ? 'demo' : 'extension',
+          chrome: typeof ui.chrome === 'string' ? ui.chrome.slice(0, 20) : null,
+          language: ui.language === 'nl' ? 'nl' : 'en',
+          theme: ['auto', 'light', 'dark'].includes(ui.theme) ? ui.theme : null,
+          viewport: typeof ui.viewport === 'string' ? ui.viewport.slice(0, 12) : null,
+          /** Strings with no translation. Counted, never hidden — see i18n.js. */
+          untranslated: Number(ui.untranslated) || 0,
+          /**
+           * Warning codes the engine raised that this file has no summary for.
+           * They already travel as code and level only; this says how many, so a
+           * code added tomorrow is visible as a gap rather than as silence.
+           */
+          unclassifiedWarningCodes: (r?.warnings ?? [])
+            .map((w) => w.code)
+            .filter((c, i, all) => all.indexOf(c) === i && !DETAIL_SUMMARY[c]),
+        }
+      : null,
   };
 }
 

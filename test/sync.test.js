@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import { extendBackwards, fetchWindowed, fieldNames, isSameRun } from '../src/lib/sync.js';
 import { DegiroHttpError } from '../src/lib/degiro.js';
-import { daysBetween } from '../src/lib/dates.js';
+import { dayRange, daysBetween } from '../src/lib/dates.js';
 
 /**
  * A stand-in for DEGIRO's reporting endpoint that behaves the way the real one
@@ -61,12 +61,63 @@ test('narrowed windows still cover the range exactly once', async () => {
   for (const n of rows.values()) assert.equal(n, 1);
 });
 
-test('a 502 that survives the narrowest window is reported, not swallowed', async () => {
+test('a 502 that survives the narrowest window becomes a reported gap, not a failed sync', async () => {
+  // This used to throw, which discarded every window already fetched and failed
+  // the whole sync over one bad month — five years of successful requests
+  // thrown away and the user left with nothing. A gap that is *reported* is
+  // strictly better, and it is only defensible because the page states it in
+  // red and the reconciliation notices the missing rows.
   const { fn } = fakeEndpoint({ maxDays: 0 });
-  await assert.rejects(
-    () => fetchWindowed({ fetchFn: fn, parseFn, session: {}, fromDate: '2024-01-01', toDate: '2024-03-31' }),
-    (err) => err instanceof DegiroHttpError && err.status === 502,
-  );
+  const gaps = [];
+  const rows = await fetchWindowed({
+    fetchFn: fn,
+    parseFn,
+    session: {},
+    fromDate: '2024-01-01',
+    toDate: '2024-03-31',
+    onGap: (g) => gaps.push(...g),
+  });
+
+  assert.deepEqual(rows, [], 'nothing could be fetched, so nothing comes back');
+  assert.ok(gaps.length >= 3, 'every month it refused is named');
+  assert.ok(gaps.every((g) => g.status === 502 && g.from && g.to));
+});
+
+test('one bad month does not cost the years around it', async () => {
+  // The case that matters: a month DEGIRO will not serve, surrounded by months
+  // it will. Everything else has to survive.
+  //
+  // The condition is *contains June*, not *starts or ends in June*. The first
+  // draft of this test asked the latter, and the whole year passed on the first
+  // request — January to December touches neither edge — so it proved nothing.
+  // A server that refuses a month refuses every window that month falls in.
+  const bad = '2024-06';
+  const touchesBad = (from, to) => from <= `${bad}-30` && to >= `${bad}-01`;
+  const fn = async ({ fromDate, toDate }) => {
+    if (touchesBad(fromDate, toDate)) {
+      throw new DegiroHttpError(502, 'https://trader.degiro.nl/reporting/secure/v4/transactions', '');
+    }
+    return { data: [{ from: fromDate, to: toDate }] };
+  };
+  const gaps = [];
+  const rows = await fetchWindowed({
+    fetchFn: fn, parseFn, session: {}, fromDate: '2024-01-01', toDate: '2024-12-31',
+    onGap: (g) => gaps.push(...g),
+  });
+
+  assert.equal(gaps.length, 1, 'exactly the bad month is named rather than hidden');
+  assert.equal(gaps[0].from, '2024-06-01');
+  assert.equal(gaps[0].to, '2024-06-30');
+
+  // The claim worth asserting is coverage, not row count: every day of the year
+  // except June came back in some window, and June came back in none. Counting
+  // rows would pass just as happily if a whole quarter had gone missing, since
+  // a window that succeeds returns one row whether it spans a month or six.
+  const covered = new Set();
+  for (const r of rows) for (const d of dayRange(r.from, r.to)) covered.add(d);
+  assert.ok(covered.has('2024-01-01') && covered.has('2024-12-31'), 'both ends of the year came back');
+  assert.equal(covered.size, 366 - 30, 'a leap year less exactly the thirty days of June');
+  assert.ok(![...covered].some((d) => d.startsWith(bad)), 'and no part of June slipped in');
 });
 
 test('a non-5xx failure is not treated as a too-wide window', async () => {

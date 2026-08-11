@@ -11,6 +11,69 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.36.0] — 2026-08-11
+
+Nothing on screen changes shape in this release. What changes is what happens when something
+goes wrong: every stage that loads or processes anything can now produce a failure you can send
+somewhere, instead of a red banner and a shrug.
+
+### Fixed
+
+- **A background sync that fails no longer fails silently.** `sw.js` carried two
+  `catch(() => {})` handlers — this project's only deliberate discard of an error — written when
+  the only failure worth expecting was "the session is gone". That stopped being true once the
+  worker began writing to IndexedDB and reconstructing five years of daily values. An alarm-driven
+  sync that failed at four in the morning left **nothing at all** behind, because Chrome tears the
+  worker down thirty seconds later. Those failures are now written to storage, scrubbed, and the
+  page says so: *"Something failed in the background"*, with how many times and what it was.
+
+  If you have been syncing for weeks and something has been quietly failing, **this is the release
+  where you find out**.
+
+- **A single unservable month no longer costs the whole sync.** DEGIRO occasionally refuses a date
+  window even narrowed to one month. That used to throw, which discarded every window already
+  fetched — five years of successful, throttled requests binned over one bad month, and the user
+  got nothing. The other eleven months are now kept and the hole is named in red, with its dates
+  and its HTTP status, so it is stated as loudly as the failure was.
+
+- **A failed database open is no longer permanent.** `openDb` cached its promise before it
+  resolved and never cleared it, so the *first* failure was replayed forever without IndexedDB
+  ever being asked again. Two of the reasons it fails are transient — another tab holding an older
+  schema, a disk that fills up — and caching turned both into "broken until you reload the
+  extension".
+
+- **Storage failures say which failure.** They arrived as bare `DOMException`s, and *"The
+  transaction was aborted"* is what a full disk, a private window and a second tab all look like.
+  Three situations, three different answers, one indistinguishable message. Each now names the
+  next thing to do.
+
+### Added
+
+- **The bug report carries what the page and the worker threw.** Both were previously invisible to
+  it: the two worst defects this project has shipped took the whole page down while the unit suite
+  stayed green, and both arrived as a screenshot and a sentence. Scrubbed at the point of
+  recording — URLs, any run of four or more digits, and every stack frame but the first are gone
+  before the value is written, not on the way out.
+
+- **Rows the parsers could not read are counted and surfaced**, per source and with reasons. A
+  renamed field used to empty an array quietly: the sync reported success, the chart was short of
+  a year, and nothing said so.
+
+- **The popup captures its own errors.** It had none, so a defect in its render — which runs on
+  every sync — showed a blank panel and reported nothing. It writes to storage rather than memory,
+  because the popup closes when you click away from it, and that is usually the same gesture as
+  giving up on it.
+
+- **The Dutch page is Dutch in the notices too.** Every notice title and every page-authored body
+  now goes through the dictionary — including the fourteen titles keyed by engine warning code,
+  which are looked up where they are displayed, because the engine is pure and cannot reach a
+  dictionary. Reconciliation, demo data and "nothing to reconcile against" had all been rendering
+  in English on a Dutch page.
+
+  `npm test` now scans the UI for translatable literals with no entry, which is what would have
+  caught them. It sees literal call sites only, so a clean run means "no orphan among the ones
+  that can be checked" — not "none anywhere".
+
 ## [0.35.0] — 2026-08-11
 
 ### Added

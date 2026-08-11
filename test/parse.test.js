@@ -378,3 +378,53 @@ test('every base URL is checked, not just the first', () => {
   assert.equal(out.productSearch, DEFAULTS.productSearch, 'plaintext');
   assert.equal(out.pa, 'https://trader.degiro.nl/pa4/secure/');
 });
+
+// ---------------------------------------------------------------------------
+// What a parser could not read
+// ---------------------------------------------------------------------------
+
+/**
+ * The quietest way this project can be wrong: DEGIRO renames one field, every
+ * row loses its product id, the array comes back empty, and the sync reports
+ * success over an account with no history. The candidate field names in
+ * `parse.js` exist *because* the shapes are guesses — so a guess that misses is
+ * counted rather than swallowed.
+ */
+test('the transaction parser counts what it dropped, and why', () => {
+  const good = { date: '2024-01-02', id: 1, productId: 'P', quantity: 3, price: 10 };
+  const out = parseTransactions({ data: [good, { date: '2024-01-03', quantity: 1 }, { id: 9, productId: 'Q' }] });
+
+  assert.equal(out.length, 1);
+  assert.equal(out.dropped.count, 2);
+  assert.deepEqual(out.dropped.reasons, { 'no-product-id': 1, 'no-date': 1 });
+});
+
+test('the reasons always add up to the count', () => {
+  // A breakdown that does not sum to its own total invites a reader to
+  // distrust both numbers, so anything unaccounted for becomes `other`.
+  const out = parseTransactions({ data: [{ date: '2024-01-02', productId: 'P', quantity: 1 }, {}] });
+  const summed = Object.values(out.dropped.reasons).reduce((a, b) => a + b, 0);
+  assert.equal(summed, out.dropped.count);
+});
+
+test('nothing dropped is reported as nothing dropped, not as absent', () => {
+  const out = parseTransactions({ data: [{ date: '2024-01-02', productId: 'P', quantity: 1, price: 2 }] });
+  assert.deepEqual(out.dropped, { count: 0, reasons: {} });
+});
+
+test('a cash row with no date is counted rather than vanishing', () => {
+  // A dropped deposit is money that never appears to have arrived, which the
+  // reconciliation reports as a shortfall with no explanation.
+  const out = parseCashMovements({ cashMovements: [{ date: '2024-01-01', change: 5 }, { change: 9 }] });
+  assert.equal(out.length, 1);
+  assert.deepEqual(out.dropped, { count: 1, reasons: { 'no-date': 1 } });
+});
+
+test('the drop report does not change what the parser returns', () => {
+  // A non-enumerable property on an array: every caller that maps, filters or
+  // spreads it is untouched.
+  const out = parseTransactions({ data: [{ date: '2024-01-02', productId: 'P', quantity: 1, price: 2 }] });
+  assert.ok(Array.isArray(out));
+  assert.deepEqual(Object.keys(out), ['0']);
+  assert.equal(JSON.parse(JSON.stringify(out)).length, 1);
+});

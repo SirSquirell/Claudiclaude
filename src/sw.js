@@ -13,6 +13,24 @@ import { SYNC } from './lib/config.js';
 import { localInfo, runDiagnostics } from './lib/diagnose.js';
 import { getStatus, recompute, runSync, wipeAndResync } from './lib/sync.js';
 import { exportEverything } from './lib/store.js';
+import { recordError } from './lib/errorstore.js';
+
+/**
+ * The worker's own failures, written down before the worker is torn down.
+ *
+ * Chrome kills this context after thirty seconds of quiet, so anything thrown
+ * in the background — an alarm-driven sync at four in the morning, a listener
+ * that throws before it reaches a `catch` — used to leave no trace whatsoever.
+ * `recordError` folds it into IndexedDB, scrubbed, and the bug report
+ * carries it.
+ */
+self.addEventListener('error', (e) => {
+  if (!e.error && !e.message) return;
+  recordError('worker-error', e.error ?? { message: e.message });
+});
+self.addEventListener('unhandledrejection', (e) => {
+  recordError('worker-unhandled-rejection', e.reason);
+});
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.alarms.create(SYNC.alarmName, { periodInMinutes: SYNC.alarmPeriodMinutes });
@@ -24,9 +42,11 @@ chrome.runtime.onStartup.addListener(() => {
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name !== SYNC.alarmName) return;
-  // A failure here is expected and normal: most of the time the session is
-  // gone. runSync reports it into meta and the popup shows it. Nothing retries.
-  runSync().catch(() => {});
+  // Most of the time this fails because the session is gone, which is normal
+  // and which `runSync` already reports into meta for the popup to show. What
+  // it does *not* cover is the throw that gets past `runSync` itself — and
+  // that was being discarded here, in the one place nobody is watching.
+  runSync().catch((err) => recordError('alarm-sync', err));
 });
 
 /**
@@ -37,14 +57,20 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 chrome.tabs?.onUpdated.addListener((_tabId, changeInfo, tab) => {
   if (changeInfo.status !== 'complete') return;
   if (!tab.url?.startsWith('https://trader.degiro.nl/')) return;
-  runSync().catch(() => {});
+  runSync().catch((err) => recordError('tab-sync', err));
 });
 
 /** Message API used by the popup and the full page. */
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   handle(msg)
     .then((data) => sendResponse({ ok: true, data }))
-    .catch((err) => sendResponse({ ok: false, error: String(err?.message ?? err) }));
+    .catch((err) => {
+      // Answer first, record second. The reply is what unsticks the button;
+      // the record is what makes the failure diagnosable next week. Neither
+      // waits on the other, and the recorder cannot throw.
+      sendResponse({ ok: false, error: String(err?.message ?? err), reason: err?.reason ?? null });
+      recordError(`message:${msg?.type ?? 'unknown'}`, err);
+    });
   return true; // keep the channel open for the async reply
 });
 

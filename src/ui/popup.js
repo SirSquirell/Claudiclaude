@@ -12,8 +12,38 @@ import { inExtension, loadDemo, send, wantsDemo } from './datasource.js';
 
 const $ = (s) => document.querySelector(s);
 
+/**
+ * The popup had no error capture at all, so a defect in `paint` — which runs
+ * after `main` resolves, on every sync — showed a blank panel and reported
+ * nothing at all.
+ *
+ * It writes to the *persisted* ring rather than an in-memory one, because the
+ * popup closes when you click away from it, and that is usually the same
+ * gesture as giving up on it. An in-memory record here would never be read.
+ * Demo mode has no IndexedDB and no worker, so it only shows the message.
+ */
+const note = (kind, err) => {
+  if (!inExtension) return;
+  import('../lib/errorstore.js')
+    .then((m) => m.recordError(kind, err))
+    .catch(() => {});
+};
+
+if (inExtension) {
+  window.addEventListener('error', (e) => {
+    if (!e.error && !e.message) return;
+    note('popup-error', e.error ?? { message: e.message });
+  });
+  window.addEventListener('unhandledrejection', (e) => note('popup-unhandled-rejection', e.reason));
+}
+
 main().catch((err) => {
+  // Both, not either: the text is for whoever is looking at it now, the record
+  // is for the report. A message shown and not written down is how the two
+  // worst defects in this project arrived as a screenshot and a sentence.
+  note('popup-main', err);
   $('#status').textContent = String(err?.message ?? err);
+  $('#status').classList.add('down');
 });
 
 async function main() {

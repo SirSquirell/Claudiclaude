@@ -147,3 +147,35 @@ test('every Dutch translation is a non-empty string, and none is left as its key
     assert.ok(v.length > 0, `${k} is empty`);
   }
 });
+
+test('every translatable literal in the UI has a Dutch entry', async () => {
+  /**
+   * The dictionary being keyed by the English string means a missing entry is
+   * invisible: the Dutch page renders that one sentence in English and carries
+   * on. `missing()` counts it at runtime, which only helps if somebody runs the
+   * page in Dutch and then reads the count — and the two notices this test was
+   * written for had been shipped untranslated for exactly that reason.
+   *
+   * Scans for `tr('…')` and `t('…')` with a literal first argument. It cannot
+   * see a string built at runtime or held in a variable, so a clean run is
+   * "no orphan among the ones that can be checked", not "none anywhere". That
+   * is still the whole of the notices, which is where the long prose lives.
+   */
+  const { readFileSync, readdirSync } = await import('node:fs');
+  const dir = new URL('../src/ui/', import.meta.url);
+  const dict = i18n.__dictForTest?.().nl;
+  if (!dict) return;
+
+  const found = new Set();
+  for (const file of readdirSync(dir).filter((f) => f.endsWith('.js'))) {
+    const text = readFileSync(new URL(file, dir), 'utf8');
+    for (const m of text.matchAll(/\b(?:tr|t)\(\s*'((?:[^'\\]|\\.)*)'/g)) {
+      found.add(m[1].replace(/\\'/g, "'").replace(/\\u2014/g, '—'));
+    }
+    for (const m of text.matchAll(/\b(?:tr|t)\(\s*"((?:[^"\\]|\\.)*)"/g)) found.add(m[1]);
+  }
+
+  const orphans = [...found].filter((s) => !(s in dict));
+  assert.deepEqual(orphans, [], `${orphans.length} string(s) would render in English on the Dutch page`);
+  assert.ok(found.size > 20, 'the scan found almost nothing, so it has stopped matching the call sites');
+});

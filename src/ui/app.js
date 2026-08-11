@@ -24,6 +24,7 @@ import {
   valueChart,
 } from './charts.js';
 import { buildBugReport } from '../lib/report.js';
+import { captured, installErrorCapture } from './errors.js';
 import { isSameRun } from '../lib/sync.js';
 import { LANGS, applyStatic, getLang, missing as missingTranslations, setLang, t as tr } from './i18n.js';
 import { THEMES, alpha, applyTheme, fmtEurCents, fmtPct, fmtSigned, getTheme, onThemeChange, setTheme, tokens } from './theme.js';
@@ -134,6 +135,7 @@ init().catch(showFatal);
 async function init() {
   buildControls();
   wireActions();
+  installErrorCapture();
   applyTheme();
   // The attribute matters beyond styling: it is what a screen reader and the
   // browser's own translation prompt read.
@@ -614,6 +616,18 @@ function wireActions() {
       // demo this page is an ordinary web page with no `chrome` at all.
       version: inExtension ? chrome.runtime.getManifest().version : null,
       generatedAt: new Date().toISOString(),
+      ui: {
+        ...captured(),
+        mode: d.mode,
+        // Chrome's own version, which decides whether a CSS or API feature
+        // exists at all. Major only: the build number identifies nobody but is
+        // also of no diagnostic use.
+        chrome: /Chrome\/(\d+)/.exec(navigator.userAgent)?.[1] ?? null,
+        language: getLang(),
+        theme: getTheme(),
+        viewport: `${window.innerWidth}x${window.innerHeight}`,
+        untranslated: missingTranslations().length,
+      },
     });
     const n = report.warnings.length;
     if (await copy(report)) {
@@ -1450,20 +1464,27 @@ function renderBanners(data, r) {
     add(
       'info',
       'Demo data',
-      'These charts are built from generated fixtures with the same code path that runs against your real account — good for checking the UI, useless as financial information.',
+      tr(
+        'These charts are built from generated fixtures with the same code path that runs against your real account — good for checking the UI, useless as financial information.',
+      ),
     );
   }
 
   if (r.reconciliation) {
     if (r.reconciliation.ok) {
-      add('ok', 'Total matches DEGIRO', `Reconstructed total is exactly ${fmtEurCents(r.reconciliation.live)}.`);
+      add('ok', 'Total matches DEGIRO', tr('Reconstructed total is exactly {total}.', { total: fmtEurCents(r.reconciliation.live) }));
     } else {
       add(
         'error',
         NOTE_TITLES['reconciliation-failed'],
-        `Reconstructed total is ${fmtEurCents(r.reconciliation.reconstructed)} but DEGIRO reports ` +
-          `${fmtEurCents(r.reconciliation.live)} — off by ${fmtSigned(r.reconciliation.diff)}. ` +
-          `If today is wrong, the history is wrong too. Do not trust these charts until this is zero.`,
+        tr(
+          'Reconstructed total is {ours} but DEGIRO reports {theirs} — off by {diff}. If today is wrong, the history is wrong too. Do not trust these charts until this is zero.',
+          {
+            ours: fmtEurCents(r.reconciliation.reconstructed),
+            theirs: fmtEurCents(r.reconciliation.live),
+            diff: fmtSigned(r.reconciliation.diff),
+          },
+        ),
       );
     }
   } else if (r.days.length) {
@@ -1475,12 +1496,71 @@ function renderBanners(data, r) {
     add(
       'warn',
       'Nothing to reconcile against',
-      'DEGIRO did not report a current total this sync, so the one check that would confirm these numbers could not run. Press Sync now while logged in to DEGIRO.' +
+      tr(
+        'DEGIRO did not report a current total this sync, so the one check that would confirm these numbers could not run. Press Sync now while logged in to DEGIRO.',
+      ) +
         // Which is a different problem from an empty response, and until now
         // the two looked the same. The names travel in the bug report.
         (fields?.length
-          ? ` It did send ${fields.length} other field${fields.length === 1 ? '' : 's'} for the account total (${fields.slice(0, 8).join(', ')}${fields.length > 8 ? ', …' : ''}), so the total is probably there under a name this extension does not know yet — please send the bug report.`
+          ? ' ' +
+            tr(
+              'It did send {n} other field(s) for the account total ({names}), so the total is probably there under a name this extension does not know yet — please send the bug report.',
+              { n: fields.length, names: fields.slice(0, 8).join(', ') + (fields.length > 8 ? ', …' : '') },
+            )
           : ''),
+    );
+  }
+
+  // A window DEGIRO would not serve, even narrowed to a single month. The sync
+  // now keeps everything it did fetch instead of throwing the lot away — which
+  // is only defensible if the hole is stated as loudly as the failure was.
+  const holes = data.meta?.missingWindows;
+  if (holes?.length) {
+    add(
+      'error',
+      tr('Part of your history could not be fetched'),
+      tr('DEGIRO refused {n} date window(s) even one month at a time: {windows}. Those rows are missing from everything on this page. Press Sync now to try them again — this is usually temporary.',
+        { n: holes.length, windows: holes.slice(0, 6).map((g) => `${g.from}…${g.to} (${g.status})`).join(', ') }),
+    );
+  }
+
+  // The quietest failure there is, said out loud. A parser that silently drops
+  // rows produces a successful sync over an incomplete history, and the
+  // reconciliation reports the shortfall with no explanation for it.
+  const unread = data.meta?.unreadableRows;
+  if (unread) {
+    const total = (unread.transactions?.count ?? 0) + (unread.cashRows?.count ?? 0);
+    const reasons = [
+      ...Object.entries(unread.transactions?.reasons ?? {}).map(([k, n]) => `${n}× ${k} (transactions)`),
+      ...Object.entries(unread.cashRows?.reasons ?? {}).map(([k, n]) => `${n}× ${k} (cash)`),
+    ].join(', ');
+    add(
+      'error',
+      tr('DEGIRO sent rows this extension could not read'),
+      tr('{n} row(s) arrived in a shape the parser did not recognise and were left out: {reasons}. Everything above is missing them, so treat it as incomplete rather than wrong — and send the bug report, because this is what a renamed field looks like.',
+        { n: total, reasons }),
+    );
+  }
+
+  /**
+   * Failures from the contexts nobody was looking at.
+   *
+   * A background sync that has been failing every hour for a week is the single
+   * most valuable thing this page can tell someone, and until now it told them
+   * nothing: the worker is torn down thirty seconds after it fails, and the
+   * only place the failure existed was a `catch` that discarded it. A warning
+   * rather than an error, because the page in front of you is working — the
+   * data behind it is just older than it looks.
+   */
+  const background = (data.meta?.persistedErrors ?? []).filter((e) => e?.message);
+  if (background.length) {
+    const worst = [...background].sort((a, b) => (b.count ?? 1) - (a.count ?? 1))[0];
+    const times = background.reduce((n, e) => n + (e.count ?? 1), 0);
+    add(
+      'warn',
+      tr('Something failed in the background'),
+      tr('{times} failure(s) happened while nothing was on screen, most often: {message} ({where}). The chart is built from whatever the last successful sync fetched, so it may be out of date rather than wrong. The bug report carries all of them.',
+        { times, message: worst.message, where: worst.where ?? tr('unknown') }),
     );
   }
 
@@ -1504,7 +1584,7 @@ function renderBanners(data, r) {
   // Pinned: errors only. Everything else is one click away under Notices.
   $('#banners').innerHTML = '';
   for (const n of notes.filter((n) => n.level === 'error')) {
-    $('#banners').append(makeBanner('error', `${n.title} — ${n.body}`));
+    $('#banners').append(makeBanner('error', `${tr(n.title)} — ${n.body}`));
   }
 
   renderNotes(notes);
@@ -1532,7 +1612,7 @@ function renderNotes(notes) {
       <div class="note-row ${n.level}">
         <span class="chip ${n.level}">${esc(levelWord(n.level))}</span>
         <div>
-          <div class="note-title">${esc(n.title)}</div>
+          <div class="note-title">${esc(tr(n.title))}</div>
           <div class="note-body">${esc(n.body)}</div>
         </div>
       </div>`,

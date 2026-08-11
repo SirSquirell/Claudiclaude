@@ -142,30 +142,53 @@ export async function loadDemo() {
 
 // --- extension -------------------------------------------------------------
 
+/**
+ * Meta keys the bug report reads, with the fallback each one needs.
+ *
+ * A list rather than a fifteen-slot positional destructure, which is what this
+ * was: adding a key meant editing three lines in lockstep and silently shifted
+ * every value after the one you forgot. `persistedErrors` is the key that made it
+ * worth changing — the whole point of it is to be read when something has
+ * already gone wrong, so it is exactly the wrong field to wire up by counting
+ * positions.
+ *
+ * Everything here is also in `EXPORTABLE_META`, and `report.js` still names
+ * each field on the way out. This list decides what is *read*, not what may
+ * leave.
+ */
+const DIAGNOSTIC_META = {
+  lastSyncAt: 0,
+  lastError: null,
+  urls: null,
+  syncLog: [],
+  lastDataDate: null,
+  missingPriceSeries: [],
+  liveTotalFields: null,
+  unreadableRows: null,
+  missingWindows: null,
+  persistedErrors: [],
+};
+
 export async function loadFromExtension() {
   const store = await import('../lib/store.js');
-  const [rawTx, rawCash, rawProducts, prices, liveTotal, live, lastSyncAt, lastError, urls, syncLog, lastDataDate, missingPriceSeries, liveTotalFields] =
-    await Promise.all([
-      store.getAll('transactions'),
-      store.getAll('cashflows'),
-      store.getAll('products'),
-      store.getPriceMap(),
-      store.getMeta('liveTotal', null),
-      store.getMeta('liveSnapshot', null),
-      store.getMeta('lastSyncAt', 0),
-      store.getMeta('lastError', null),
-      store.getMeta('urls', null),
-      store.getMeta('syncLog', []),
-      store.getMeta('lastDataDate', null),
-      store.getMeta('missingPriceSeries', []),
-      store.getMeta('liveTotalFields', null),
-    ]);
+  const metaKeys = Object.keys(DIAGNOSTIC_META);
+  const [rawTx, rawCash, rawProducts, prices, liveTotal, live, ...metaValues] = await Promise.all([
+    store.getAll('transactions'),
+    store.getAll('cashflows'),
+    store.getAll('products'),
+    store.getPriceMap(),
+    store.getMeta('liveTotal', null),
+    store.getMeta('liveSnapshot', null),
+    ...metaKeys.map((k) => store.getMeta(k, DIAGNOSTIC_META[k])),
+  ]);
+  const meta = Object.fromEntries(metaKeys.map((k, i) => [k, metaValues[i]]));
+  const { lastSyncAt, lastError, urls } = meta;
 
   // What the bug report needs and the charts do not: how the sync went, and how
   // many rows of each kind there are. Gathered here because this is the only
   // module that already touches the store.
   const diagnosticContext = {
-    meta: { lastSyncAt, lastError, urls, syncLog, lastDataDate, missingPriceSeries, liveTotalFields },
+    meta,
     counts: {
       transactions: rawTx.length,
       cashflows: rawCash.length,

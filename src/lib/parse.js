@@ -96,7 +96,7 @@ export function parseTransactions(res) {
   if (!Array.isArray(rows)) return [];
 
   const seen = new Map();
-  return rows
+  const parsed = rows
     .map((r) => {
       const date = isoDayOf(pick(r, ['date', 'transactionDate', 'valueDate']));
       if (!date) return null;
@@ -131,6 +131,56 @@ export function parseTransactions(res) {
     })
     .filter((t) => t && t.productId)
     .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+
+  // What did not survive, and why.
+  //
+  // That `.filter` used to be the end of it, which is the quietest way a parser
+  // can fail: DEGIRO renames one field, every row loses its product id, the
+  // array comes back empty, and the sync reports success over an account with
+  // no history. The candidate field names in this file exist *because* we are
+  // guessing at shapes — so a guess that misses has to be counted rather than
+  // swallowed.
+  return withDropped(parsed, rows, (r) => {
+    if (!isoDayOf(pick(r, ['date', 'transactionDate', 'valueDate']))) return 'no-date';
+    if (!String(pick(r, ['productId', 'product_id', 'id'], ''))) return 'no-product-id';
+    return null;
+  });
+}
+
+/**
+ * Attach a drop report to a parsed array, without changing what it is.
+ *
+ * An array with a non-enumerable property on it is still an array: every caller
+ * that maps, filters or spreads it is untouched, and `sync.js` can ask what was
+ * lost. The alternative — returning `{rows, dropped}` — would have rewritten
+ * nine call sites to carry a number most of them do not want.
+ */
+function withDropped(parsed, rawRows, reasonOf) {
+  const lost = (rawRows?.length ?? 0) - parsed.length;
+  if (lost <= 0) {
+    Object.defineProperty(parsed, 'dropped', { value: { count: 0, reasons: {} }, enumerable: false });
+    return parsed;
+  }
+  const reasons = {};
+  // Only the reasons, never the rows: a row that failed to parse is still a row
+  // out of somebody's account.
+  //
+  // `reasonOf` returns null for a row that parsed, so the counts describe the
+  // losses rather than the whole set — and whatever is left over becomes
+  // `other`, so the reasons always add up to the count. A breakdown that does
+  // not sum to its own total invites the reader to distrust both numbers.
+  for (const row of rawRows ?? []) {
+    try {
+      const why = reasonOf(row);
+      if (why) reasons[why] = (reasons[why] ?? 0) + 1;
+    } catch {
+      reasons.threw = (reasons.threw ?? 0) + 1;
+    }
+  }
+  const named = Object.values(reasons).reduce((a, b) => a + b, 0);
+  if (named < lost) reasons.other = (reasons.other ?? 0) + (lost - named);
+  Object.defineProperty(parsed, 'dropped', { value: { count: lost, reasons }, enumerable: false });
+  return parsed;
 }
 
 // ---------------------------------------------------------------------------
@@ -151,7 +201,7 @@ export function parseCashMovements(res) {
   if (!Array.isArray(rows)) return [];
 
   const seen = new Map();
-  return rows
+  const parsed = rows
     .map((r) => {
       const date = isoDayOf(pick(r, ['date', 'valueDate']));
       if (!date) return null;
@@ -179,6 +229,12 @@ export function parseCashMovements(res) {
     })
     .filter(Boolean)
     .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+
+  // A cash row that cannot be dated cannot be placed on the calendar, so it is
+  // dropped — and a dropped deposit is money that never appears to have arrived,
+  // which the reconciliation will report as a shortfall with no explanation.
+  // Counting it here is what turns that into an explanation.
+  return withDropped(parsed, rows, (r) => (isoDayOf(pick(r, ['date', 'valueDate'])) ? null : 'no-date'));
 }
 
 // ---------------------------------------------------------------------------

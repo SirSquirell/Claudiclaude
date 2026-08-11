@@ -127,13 +127,15 @@ const MIN_WINDOW_MONTHS = 1;
  * @param {(args: {fromDate: string, toDate: string}, opts: object) => Promise<any>} fetchFn
  * @param {(raw: any) => Array} parseFn
  */
-export async function fetchWindowed({ fetchFn, parseFn, session, fromDate, toDate, onWindow }) {
+export async function fetchWindowed({ fetchFn, parseFn, session, fromDate, toDate, onWindow, onDrop, onGap }) {
   const rows = [];
   const queue = splitWindows(fromDate, toDate, REPORTING_WINDOW_MONTHS).map((w) => ({
     ...w,
     months: REPORTING_WINDOW_MONTHS,
   }));
 
+  /** Windows DEGIRO would not serve even at the minimum width. */
+  const gaps = [];
   let done = 0;
   while (queue.length) {
     const w = queue.shift();
@@ -141,20 +143,45 @@ export async function fetchWindowed({ fetchFn, parseFn, session, fromDate, toDat
       // One retry only: a 502 here means "too much data", and the fix is a
       // narrower window, not the same question asked louder.
       const raw = await fetchFn({ ...session, fromDate: w.from, toDate: w.to }, { retries: 1 });
-      rows.push(...parseFn(raw));
+      const parsed = parseFn(raw);
+      // A parser that silently discards rows is the quietest way this can be
+      // wrong: the sync succeeds, the chart is short of a year, and nothing
+      // says so. Whatever it could not read is carried up, per window.
+      if (parsed.dropped?.count) onDrop?.(parsed.dropped, w);
+      rows.push(...parsed);
       done++;
       await onWindow?.(w, done, done + queue.length);
     } catch (err) {
       const tooMuch = err instanceof DegiroHttpError && err.status >= 500;
-      if (!tooMuch || w.months <= MIN_WINDOW_MONTHS) throw err;
+      if (!tooMuch) throw err;
 
-      // Split this window in half and put both halves back at the front.
-      const months = Math.max(MIN_WINDOW_MONTHS, Math.floor(w.months / 2));
-      const halves = splitWindows(w.from, w.to, months).map((h) => ({ ...h, months }));
-      queue.unshift(...halves);
+      if (w.months > MIN_WINDOW_MONTHS) {
+        // Split this window in half and put both halves back at the front.
+        const months = Math.max(MIN_WINDOW_MONTHS, Math.floor(w.months / 2));
+        const halves = splitWindows(w.from, w.to, months).map((h) => ({ ...h, months }));
+        queue.unshift(...halves);
+        continue;
+      }
+
+      // A single month that still answers 502 is not "too much data" any more —
+      // the comment above says so — it is one month DEGIRO will not serve today.
+      //
+      // This used to `throw`, which discarded every window already fetched and
+      // failed the whole sync over one bad month. Five years of successful
+      // requests thrown away, and the user gets nothing at all. A gap that is
+      // *reported* is strictly better: the reconciliation will notice the
+      // missing rows, this says which month they were, and the next sync tries
+      // again.
+      gaps.push({ from: w.from, to: w.to, status: err.status });
+      done++;
+      await onWindow?.(w, done, done + queue.length);
     }
   }
 
+  if (gaps.length) {
+    Object.defineProperty(rows, 'gaps', { value: gaps, enumerable: false });
+    onGap?.(gaps);
+  }
   return rows;
 }
 
@@ -310,6 +337,15 @@ async function doSync({ force = false, onProgress = () => {} } = {}) {
 
   const today = todayISO();
 
+  /** Rows the parsers could not read, per source. Counted, never swallowed. */
+  const unreadable = { transactions: { count: 0, reasons: {} }, cashRows: { count: 0, reasons: {} } };
+  /** Date windows DEGIRO would not serve at all. Reported, never silent. */
+  const missingWindows = [];
+  const noteDrop = (into) => (d) => {
+    into.count += d.count;
+    for (const [why, n] of Object.entries(d.reasons ?? {})) into.reasons[why] = (into.reasons[why] ?? 0) + n;
+  };
+
   try {
     // --- current portfolio, for reconciliation --------------------------
     const update = parseUpdate(probe.update);
@@ -342,6 +378,8 @@ async function doSync({ force = false, onProgress = () => {} } = {}) {
       toDate: today,
       onWindow: (w, i, total) =>
         report('transactions', `Fetching transactions… ${w.from.slice(0, 4)} (${i}/${total})`, 15 + Math.round((i / total) * 10)),
+      onDrop: noteDrop(unreadable.transactions),
+      onGap: (g) => missingWindows.push(...g.map((x) => ({ ...x, source: 'transactions' }))),
     });
     if (firstSync) {
       transactions.push(
@@ -366,6 +404,8 @@ async function doSync({ force = false, onProgress = () => {} } = {}) {
       toDate: today,
       onWindow: (w, i, total) =>
         report('cashflows', `Fetching cash movements… ${w.from.slice(0, 4)} (${i}/${total})`, 30 + Math.round((i / total) * 10)),
+      onDrop: noteDrop(unreadable.cashRows),
+      onGap: (g) => missingWindows.push(...g.map((x) => ({ ...x, source: 'cashflows' }))),
     });
     if (firstSync) {
       cashRows.push(
@@ -475,6 +515,11 @@ async function doSync({ force = false, onProgress = () => {} } = {}) {
       return { ok: false, reason: 'storage-race', message };
     }
 
+    // Whatever the parsers could not read, stored so the page and the bug
+    // report can both say it. Null when nothing was lost, so the field's
+    // presence is itself the signal.
+    await setMeta('missingWindows', missingWindows.length ? missingWindows.slice(0, 40) : null);
+    await setMeta('unreadableRows', unreadable.transactions.count + unreadable.cashRows.count > 0 ? unreadable : null);
     await setMeta('lastDataDate', today);
     await setMeta('lastSyncAt', Date.now());
     await setMeta('lastError', null);

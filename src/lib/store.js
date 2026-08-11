@@ -21,6 +21,44 @@ const KEY_PATHS = {
   meta: 'key',
 };
 
+/**
+ * A storage failure with a reason a person can act on.
+ *
+ * Everything in this file used to fail as a bare `DOMException`, whose message
+ * is written by the browser for the browser: "The transaction was aborted" does
+ * not tell anyone that their disk is full, and "A mutation operation was
+ * attempted on a database that did not allow mutations" does not say "you are
+ * in a private window". Those are three different situations with three
+ * different answers, and the sync reported all of them identically.
+ *
+ * The reason travels; the browser's own message is kept alongside it, because
+ * it is occasionally the only clue, and it is scrubbed before it can leave.
+ */
+export class StoreError extends Error {
+  constructor(reason, cause) {
+    super(STORE_MESSAGES[reason] ?? STORE_MESSAGES.unknown);
+    this.name = 'StoreError';
+    this.reason = reason;
+    this.detail = String(cause?.name ?? cause?.message ?? cause ?? '').slice(0, 120);
+  }
+}
+
+/** What to tell the reader. Each one names the next thing to do. */
+export const STORE_MESSAGES = {
+  blocked: 'Another tab has an older version of this extension open. Close it and try again.',
+  quota: 'Out of browser storage. Free some space, or wipe and resync to rebuild a smaller database.',
+  unsupported: 'This browser will not let the extension store data — private windows usually block it.',
+  unknown: 'The local database could not be opened.',
+};
+
+/** Which of the four a DOM exception is. */
+function classifyStoreError(err) {
+  const name = err?.name ?? '';
+  if (name === 'QuotaExceededError') return 'quota';
+  if (name === 'SecurityError' || name === 'InvalidStateError' || name === 'UnknownError') return 'unsupported';
+  return 'unknown';
+}
+
 let dbPromise = null;
 
 function openDb() {
@@ -53,8 +91,22 @@ function openDb() {
       }
     };
     req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-    req.onblocked = () => reject(new Error('IndexedDB upgrade blocked by another tab'));
+    req.onerror = () => reject(new StoreError(classifyStoreError(req.error), req.error));
+    req.onblocked = () => reject(new StoreError('blocked', req.error));
+  });
+
+  /**
+   * A failed open must not be remembered.
+   *
+   * `dbPromise` was assigned before this and never cleared, so the *first*
+   * failure was cached and every later call got the same rejection back
+   * without touching IndexedDB again. Two of the four reasons above are
+   * transient — the other tab gets closed, the disk gets freed — and caching
+   * turned both of them into "broken until you reload the extension". The
+   * retry cost is one `indexedDB.open`.
+   */
+  dbPromise.catch(() => {
+    dbPromise = null;
   });
   return dbPromise;
 }
@@ -65,8 +117,12 @@ function tx(db, names, mode) {
     t,
     done: new Promise((resolve, reject) => {
       t.oncomplete = () => resolve();
-      t.onerror = () => reject(t.error);
-      t.onabort = () => reject(t.error ?? new Error('transaction aborted'));
+      // A write transaction aborts for one reason in practice: the disk is
+      // full. A first backfill writes ~1300 points per instrument ever held,
+      // which is the largest thing this extension does, so it is also where it
+      // happens. `QuotaExceededError` says so; "transaction aborted" does not.
+      t.onerror = () => reject(new StoreError(classifyStoreError(t.error), t.error));
+      t.onabort = () => reject(new StoreError(classifyStoreError(t.error), t.error ?? { name: 'AbortError' }));
     }),
   };
 }
@@ -74,7 +130,7 @@ function tx(db, names, mode) {
 const request = (req) =>
   new Promise((resolve, reject) => {
     req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
+    req.onerror = () => reject(new StoreError(classifyStoreError(req.error), req.error));
   });
 
 export async function getAll(storeName) {
@@ -235,9 +291,17 @@ export const EXPORTABLE_META = [
   // leave, whatever it holds.
   'liveTotalFields',
   'missingPriceSeries',
+  // Counts and reasons only -- no row, no amount, no description. See parse.js.
+  // Dates and HTTP statuses only.
+  'missingWindows',
+  'unreadableRows',
   'syncLog',
   'syncState',
   'urls',
+  // Scrubbed at the moment of recording, not on the way out: see errlog.js.
+  // URLs, long digit runs and every stack frame but the first are already gone
+  // by the time the value reaches this store.
+  'persistedErrors',
 ];
 
 /**

@@ -126,3 +126,97 @@ test('an empty run does not throw', () => {
   assert.deepEqual(report.warnings, []);
   assert.equal(report.reconciliation, null);
 });
+
+// ---------------------------------------------------------------------------
+// The ui block
+// ---------------------------------------------------------------------------
+
+test('the ui block is allowlisted: an undeclared field does not travel', () => {
+  const out = buildBugReport({
+    result: null,
+    ui: {
+      errors: [{ kind: 'error', message: 'boom at https://trader.degiro.nl/x?sessionId=SECRET', where: 'app.js:12', count: 2 }],
+      dropped: 0,
+      mode: 'extension',
+      chrome: '128',
+      language: 'nl',
+      theme: 'dark',
+      viewport: '1400x900',
+      untranslated: 3,
+      // Not declared in report.js, so it must not appear however it is named.
+      displayName: 'Jane Doe',
+      cookie: 'JSESSIONID=abc',
+    },
+  });
+
+  const json = JSON.stringify(out);
+  assert.ok(!json.includes('Jane Doe'), 'an undeclared field travelled');
+  assert.ok(!json.includes('JSESSIONID'), 'an undeclared field travelled');
+  assert.ok(!json.includes('SECRET'), 'a session id survived the scrub');
+  assert.equal(out.ui.errors[0].message, 'boom at <url>');
+  assert.equal(out.ui.untranslated, 3);
+  assert.equal(out.ui.language, 'nl');
+});
+
+test('no ui block at all is fine — the worker has no page', () => {
+  assert.equal(buildBugReport({ result: null }).ui, null);
+});
+
+test('a warning code with no summary is named as a gap rather than passing silently', () => {
+  const out = buildBugReport({
+    result: { warnings: [{ level: 'warn', code: 'something-nobody-classified' }], byProduct: [] },
+    ui: { errors: [] },
+  });
+  assert.deepEqual(out.ui.unclassifiedWarningCodes, ['something-nobody-classified']);
+});
+
+test('the persisted error ring is allowlisted on the way out too', () => {
+  /**
+   * Its contents are already scrubbed where they are recorded, which is the
+   * right place: an exception message is written by a browser and can carry
+   * whatever was in scope, so it should never reach storage un-scrubbed in the
+   * first place.
+   *
+   * This is the second gate, and it exists because the first one is a property
+   * of `errorstore.js` and this file is an allowlist regardless. A row written
+   * by an older version, or hand-edited, or arriving from a shape nobody
+   * anticipated, still cannot bring an undeclared field with it.
+   */
+  const out = buildBugReport({
+    result: null,
+    meta: {
+      persistedErrors: [
+        {
+          kind: 'alarm-sync',
+          message: 'HTTP 502 for https://trader.degiro.nl/reporting/secure/v4/transactions?intAccount=7654321', // leak-check: ok
+          where: 'sync.js:145',
+          count: 168,
+          at: '2026-08-01T04:00:00.000Z',
+          // Never declared in report.js, so it must not travel however it is named.
+          displayName: 'Jane Doe',
+          rawRow: { amount: -1234.56, description: 'iDEAL Deposit' },
+        },
+      ],
+    },
+  });
+
+  const json = JSON.stringify(out);
+  assert.ok(!json.includes('Jane Doe'), 'an undeclared field travelled');
+  assert.ok(!json.includes('iDEAL'), 'an undeclared field travelled');
+  assert.ok(!json.includes('1234.56'), 'an amount travelled');
+  assert.ok(!json.includes('trader.degiro.nl'), 'a host and its path survived');
+  assert.ok(!json.includes('7654321'), 'an account number survived'); // leak-check: ok
+
+  const [kept] = out.sync.persistedErrors;
+  assert.equal(kept.kind, 'alarm-sync');
+  assert.equal(kept.count, 168, 'and the finding itself is intact');
+  assert.equal(kept.where, 'sync.js:145');
+});
+
+test('a ring that is not an array does not become one', () => {
+  // It is read out of IndexedDB, which is not a type system.
+  for (const junk of [null, undefined, 'nope', { 0: 'x' }, 42]) {
+    const out = buildBugReport({ result: null, meta: { persistedErrors: junk } });
+    assert.equal(out.sync.persistedErrors, null);
+  }
+});

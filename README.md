@@ -88,6 +88,13 @@ There are two things you can send. **Copy bug report** puts every notice from th
 clipboard as JSON — codes, counts and ratios, with no amounts, no instrument names and no
 account number. That one is safe to paste anywhere, and it is enough to diagnose most defects.
 
+It also carries what actually broke, which is the part a screenshot never contains: exceptions
+thrown by the page, exceptions thrown by the background worker while nothing was on screen, date
+windows DEGIRO refused, and rows the parsers could not read. All of it is scrubbed where it is
+recorded rather than on the way out — URLs go, any run of four or more digits goes, and a stack
+keeps its first frame and nothing else — so a message written by a browser cannot smuggle an
+amount or an account number into the file.
+
 **Export JSON** is the other one. Your name, account number and user token are redacted, but it
 still contains every holding and every amount, because reconstructing a portfolio is what the
 file is for. Send that only to someone you trust.

@@ -323,6 +323,58 @@ const DICT = {
     'You hold {cash} in cash against {div} of dividend received, so at most {share}% of it can still be sitting uninvested \u2014 the rest demonstrably went somewhere. A ceiling rather than a measurement, so it only sets the default of the switch above.':
       'Je hebt {cash} aan cash tegenover {div} ontvangen dividend, dus hooguit {share}% daarvan kan nog stilstaan \u2014 de rest is aantoonbaar ergens heen gegaan. Een bovengrens en geen meting, dus het zet alleen de stand van de schakelaar hierboven.',
 
+    // --- unreadable rows -------------------------------------------------------
+    'DEGIRO sent rows this extension could not read': 'DEGIRO stuurde regels die deze extensie niet kon lezen',
+    '{n} row(s) arrived in a shape the parser did not recognise and were left out: {reasons}. Everything above is missing them, so treat it as incomplete rather than wrong \u2014 and send the bug report, because this is what a renamed field looks like.':
+      '{n} regel(s) kwamen binnen in een vorm die de parser niet herkende en zijn weggelaten: {reasons}. Alles hierboven mist ze, dus zie het als onvolledig in plaats van fout \u2014 en stuur het foutrapport, want dit is hoe een hernoemd veld eruitziet.',
+
+    /**
+     * Notice titles.
+     *
+     * Translated where they are displayed rather than where they are written,
+     * because most of them come out of `NOTE_TITLES` in `app.js` keyed by an
+     * engine warning code — and the engine is pure and stays that way, so it
+     * cannot reach a dictionary. Display-time lookup means a title with no
+     * entry renders in English and is counted, same as everything else.
+     */
+    'Demo data': 'Demodata',
+    'These charts are built from generated fixtures with the same code path that runs against your real account — good for checking the UI, useless as financial information.':
+      'Deze grafieken zijn gebouwd op gegenereerde testdata via exact dezelfde code die op je echte rekening draait — prima om de interface te bekijken, waardeloos als financiële informatie.',
+    'Total matches DEGIRO': 'Totaal komt overeen met DEGIRO',
+    'Reconstructed total is exactly {total}.': 'Het gereconstrueerde totaal is precies {total}.',
+    'Total does not match DEGIRO': 'Totaal komt niet overeen met DEGIRO',
+    'Reconstructed total is {ours} but DEGIRO reports {theirs} — off by {diff}. If today is wrong, the history is wrong too. Do not trust these charts until this is zero.':
+      'Het gereconstrueerde totaal is {ours} maar DEGIRO meldt {theirs} — een verschil van {diff}. Als vandaag niet klopt, klopt de historie ook niet. Vertrouw deze grafieken niet tot dit nul is.',
+    'Nothing to reconcile against': 'Niets om tegen af te stemmen',
+    'DEGIRO did not report a current total this sync, so the one check that would confirm these numbers could not run. Press Sync now while logged in to DEGIRO.':
+      'DEGIRO gaf bij deze synchronisatie geen actueel totaal, dus de enige controle die deze cijfers zou bevestigen kon niet draaien. Druk op Nu synchroniseren terwijl je bij DEGIRO ingelogd bent.',
+    'It did send {n} other field(s) for the account total ({names}), so the total is probably there under a name this extension does not know yet — please send the bug report.':
+      'Er kwamen wel {n} andere veld(en) mee voor het rekeningtotaal ({names}), dus het totaal zit er waarschijnlijk onder een naam die deze extensie nog niet kent — stuur alsjeblieft het foutrapport.',
+    'A position disagrees with DEGIRO': 'Een positie wijkt af van DEGIRO',
+    'Price history does not fit the trades': 'Koershistorie past niet bij de transacties',
+    'Prices rescaled': 'Koersen herschaald',
+    'Instruments with no price history': 'Instrumenten zonder koershistorie',
+    'Possible share split': 'Mogelijke aandelensplitsing',
+    'The reconstructed history looks wrong': 'De gereconstrueerde historie ziet er onjuist uit',
+    'Cash movements nobody has classified': 'Kasmutaties die niemand heeft geclassificeerd',
+    'Contract size could not be measured': 'Contractgrootte kon niet worden gemeten',
+    'Contract size estimated, not measured': 'Contractgrootte geschat, niet gemeten',
+    'Exchange rates derived from your own trades': 'Wisselkoersen afgeleid uit je eigen transacties',
+    'An exchange rate is out of date': 'Een wisselkoers is verouderd',
+    'A currency has no rate at all': 'Een valuta heeft helemaal geen koers',
+    'Nothing to reconstruct yet': 'Nog niets om te reconstrueren',
+
+    // --- windows DEGIRO would not serve --------------------------------------
+    'Part of your history could not be fetched': 'Een deel van je historie kon niet worden opgehaald',
+    'DEGIRO refused {n} date window(s) even one month at a time: {windows}. Those rows are missing from everything on this page. Press Sync now to try them again — this is usually temporary.':
+      'DEGIRO weigerde {n} periode(s), zelfs per maand: {windows}. Die regels ontbreken in alles op deze pagina. Druk op Nu synchroniseren om het opnieuw te proberen — dit is meestal tijdelijk.',
+
+    // --- failures nobody was watching ---------------------------------------
+    'Something failed in the background': 'Er ging iets mis op de achtergrond',
+    '{times} failure(s) happened while nothing was on screen, most often: {message} ({where}). The chart is built from whatever the last successful sync fetched, so it may be out of date rather than wrong. The bug report carries all of them.':
+      '{times} fout(en) gebeurden terwijl er niets op het scherm stond, meestal: {message} ({where}). De grafiek is gebouwd op wat de laatste geslaagde synchronisatie ophaalde, dus hij kan verouderd zijn in plaats van fout. Het foutrapport bevat ze allemaal.',
+    unknown: 'onbekend',
+
     // --- severities --------------------------------------------------------
     Error: 'Fout',
     Warning: 'Waarschuwing',
