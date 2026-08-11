@@ -46,9 +46,14 @@ The first sync takes a few minutes — one request per 1,1 seconds, deliberately
 an earlier version? Press **Wipe & resync**: every number is recomputed from the raw
 responses, and stored ones may predate a fix.
 
-Release notes are in [CHANGELOG.md](CHANGELOG.md). What it cannot do, and where it is known
-to be wrong, is in [docs/LIMITATIONS.md](docs/LIMITATIONS.md) — worth reading before you
-judge a number on screen.
+**[→ What it does and what changed, in Dutch (WHATS-NEW.md)](WHATS-NEW.md)** — written for
+whoever is *using* this rather than building it, and grouped by what you get rather than by
+version. Its middle section is the one that matters: the corrections that changed what the
+numbers say, and therefore which versions you must resync from.
+
+Full release notes are in [CHANGELOG.md](CHANGELOG.md). What it cannot do, and where it is
+known to be wrong, is in [docs/LIMITATIONS.md](docs/LIMITATIONS.md) — worth reading before
+you judge a number on screen.
 
 ## Where the data comes from
 

@@ -80,6 +80,22 @@ architecture that §1 and §3 of the spec already settled.
    an export, or stolen from IndexedDB — and a wrong authentication attempt is the one action a
    broker answers by locking the account rather than by returning an error (see rule 5).
 
+## Two changelogs, both updated in the release commit
+
+`CHANGELOG.md` is written for whoever is deciding whether to resync: what was wrong and what it
+did to the numbers. `WHATS-NEW.md` is written for whoever is *using* this — Dutch, grouped by
+what you get rather than by version, and with the corrections that changed the numbers as its
+middle section rather than scattered through twenty-eight releases.
+
+**Both are updated in the same commit as the change they describe.** Not every entry goes in both:
+a refactor is a `CHANGELOG.md` line and nothing else. But anything a reader would notice —
+a feature, a correction to a figure, a new failure they might see — belongs in both, and the
+user-facing one gets the version tag so it stays possible to answer "do I need to resync?".
+
+The test for whether something belongs in `WHATS-NEW.md`: **would it change what someone does?**
+A correction they must resync from, a screen they did not know existed, a number that does not
+mean what they assumed. If it would not change what they do, it is a `CHANGELOG.md` entry.
+
 ## Layout
 
 ```

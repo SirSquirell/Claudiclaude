@@ -3,6 +3,10 @@
 Notable changes per release. Entries are written for someone deciding whether to resync, so
 they say what was wrong and what it did to the numbers, not which functions moved.
 
+There is a second changelog beside this one: **[WHATS-NEW.md](WHATS-NEW.md)**, in Dutch, written
+for whoever is using the extension rather than building it. Anything a reader would notice goes in
+both — see [CLAUDE.md](CLAUDE.md) for which entries those are.
+
 This file is updated in the same commit as the change it describes. Every story lands as one
 commit carrying its identifier, so a single change can be undone with
 `git revert <sha>` — see [docs/BACKLOG.md §6](docs/BACKLOG.md) for what that does and does not
