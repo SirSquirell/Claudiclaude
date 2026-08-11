@@ -45,8 +45,43 @@ const STALE_FX_DAYS = 92;
  *  wide the picture stops distinguishing anything. */
 const MAX_HORIZON_MONTHS = 60;
 
-/** Below this many observable windows, a scenario is an example, not history. */
+/**
+ * Below this many **independent** stretches, a scenario is an example, not
+ * history.
+ *
+ * The word that was missing is *independent*. `rollingOutcomes` slides its
+ * window one month at a time, so five and a half years of history yields eight
+ * five-year windows that share fifty-nine of their sixty months. Those are not
+ * eight observations; they are about one, and the card on screen already said
+ * so — *"treat 8 as fewer independent observations than it looks"* — while the
+ * code counted them as eight and called the result `historical`.
+ *
+ * A tester's account rode that straight to a projection of **€ 89 million** on
+ * a portfolio worth thirty-three thousand.
+ *
+ * The overlapping windows are still what the distribution is measured from —
+ * they are real months and throwing them away loses information. What changes
+ * is that the *right to call it history* is gated on how many genuinely
+ * separate stretches there are, which is `floor(months / horizon)`.
+ */
 const MIN_WINDOWS = 3;
+
+/**
+ * Beyond this annual rate, in either direction, the number is not describing a
+ * market and must not be drawn as a projection.
+ *
+ * Deliberately a wide band rather than a tuned one, and it is a judgement, so
+ * here is the reasoning: the three lines are labelled *good market*, *expected
+ * market* and *bad market*. No broad equity market has compounded near this
+ * over five years in either direction. A rate outside it is therefore not a
+ * market outcome at all — it is an account whose measured history is dominated
+ * by something else, which on the accounts that produced it meant deposits
+ * landing a day out of step with the positions they bought.
+ *
+ * Refusing beats clamping. Clamping would invent a number, and this project's
+ * standing rule is that a figure must not look more confident than it is.
+ */
+const PLAUSIBLE_ANNUAL = 50;
 
 /**
  * Smallest currency conversion, in the base currency, that states a usable rate.
@@ -1958,28 +1993,73 @@ export function projectPortfolio(result, opts = {}) {
   const reinvest = opts.reinvest ?? derived.reinvest;
 
   const outcomes = rollingOutcomes(result, months);
-  const basis = outcomes.length >= MIN_WINDOWS ? 'historical' : 'illustrative';
+  /**
+   * How many genuinely separate stretches this long the history contains.
+   *
+   * `outcomes.length` counts overlapping ones and is what the distribution is
+   * measured from; this counts the independent ones and is what decides whether
+   * the word "history" may be used at all. See `MIN_WINDOWS`.
+   */
+  const independent = Math.floor(monthlyReturns(result).length / months);
+  const manual = opts.growthPct != null || opts.yieldPct != null;
 
-  // The middle line is the account's own expectation; the outer two are tails.
-  // Where there is not enough history to see a tail, they are derived from the
-  // monthly spread scaled by the square root of the horizon — stated as an
-  // example, never as history.
   const total = growthPct + yieldPct;
-  const expectedAnnual = basis === 'historical' ? median(outcomes) : total;
-  const spread = basis === 'historical'
-    ? { bad: tailMean(outcomes, 'low'), good: tailMean(outcomes, 'high') }
-    : illustrativeTails(result, total, months);
 
-  const scenarios = {
-    bad: buildPath(result, months, monthly, spread.bad, yieldPct, reinvest),
-    expected: buildPath(result, months, monthly, expectedAnnual, yieldPct, reinvest),
-    good: buildPath(result, months, monthly, spread.good, yieldPct, reinvest),
-  };
+  /**
+   * A rate the reader typed is the reader's, and it overrides everything.
+   *
+   * It did not. `expectedAnnual` read `basis === 'historical' ? median(outcomes)
+   * : total`, so on any account with enough windows the typed growth rate was
+   * discarded for all three lines and only the yield survived. Someone set
+   * growth to 100 % and watched nothing move — the control was a decoration.
+   *
+   * The historical dispersion is still used, because it is real information
+   * about *this* account: the tails are **recentred** on the reader's number
+   * rather than replaced by a formula. "Good market" then means what a good
+   * market did to this portfolio, relative to the expectation they chose.
+   */
+  const haveHistory = independent >= MIN_WINDOWS && outcomes.length > 0;
+  const expectedAnnual = manual || !haveHistory ? total : median(outcomes);
+
+  let spread;
+  if (haveHistory) {
+    const shift = manual ? total - median(outcomes) : 0;
+    spread = { bad: tailMean(outcomes, 'low') + shift, good: tailMean(outcomes, 'high') + shift };
+  } else {
+    spread = illustrativeTails(result, total, months);
+  }
+
+  /**
+   * Three states, not two.
+   *
+   * `historical` — enough independent stretches to call it history.
+   * `illustrative` — not enough, so it is arithmetic on an assumption and the
+   * UI must say so.
+   * `unsupported` — the middle line is not a market outcome at all, so no
+   * projection is drawn. That is new, and it is the only honest answer when a
+   * measured rate says a portfolio compounds at several hundred percent a year:
+   * the history is real, and what it measures is not growth.
+   *
+   * A rate the reader typed is never `unsupported`. They were told it is an
+   * assumption, and it is theirs to make.
+   */
+  const credible = manual || Math.abs(expectedAnnual) <= PLAUSIBLE_ANNUAL;
+  const basis = !credible ? 'unsupported' : haveHistory ? 'historical' : 'illustrative';
+
+  const scenarios = credible
+    ? {
+        bad: buildPath(result, months, monthly, spread.bad, yieldPct, reinvest),
+        expected: buildPath(result, months, monthly, expectedAnnual, yieldPct, reinvest),
+        good: buildPath(result, months, monthly, spread.good, yieldPct, reinvest),
+      }
+    : null;
 
   return {
     months,
     basis,
     windows: outcomes.length,
+    independentWindows: independent,
+    manual,
     rates: {
       growthPct: round2(growthPct),
       yieldPct: round2(yieldPct),

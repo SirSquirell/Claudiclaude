@@ -3,7 +3,7 @@
 `docs/BACKLOG.md` is 2 000 lines of reasoning and evidence, which is the right place for *why* and
 a bad place to find out *where things stand*. This is the index.
 
-**Last updated at 0.37.0.** It had been stale since 0.21.0, which is fifteen releases — if it looks
+**Last updated at 0.38.0.** It had been stale since 0.21.0, which is fifteen releases — if it looks
 stale again, trust the CHANGELOG and fix this.
 
 ## Shipped and confirmed against a real account
@@ -52,6 +52,7 @@ person.** This is the gate that is open.
 | US-33 | Outlook — one, three or five years, scenarios from your own history | 0.35.0 |
 | — | Every stage that loads or processes can report its own failure | 0.36.0 |
 | — | F1–F5 from five testers' accounts — see below | 0.37.0 |
+| — | F6–F9: the projection, and a losing holding that reported no loss | 0.38.0 |
 
 **What to look at first**, if you only look at one thing: the Notices tab after a sync. 0.36.0 made
 background failures visible for the first time, so if something has been quietly failing for weeks
@@ -60,7 +61,7 @@ it will appear there now and nowhere else.
 ## From five testers' accounts — see [FINDINGS-TESTERS.md](FINDINGS-TESTERS.md)
 
 Five real accounts in one evening, five defects, none of which the synthetic fixtures produce.
-F1–F5 shipped in 0.37.0. U1–U5 need a decision rather than a fix.
+F1–F5 shipped in 0.37.0, F6–F9 in 0.38.0. U1–U5 need a decision rather than a fix.
 
 | # | What | State |
 |---|---|---|

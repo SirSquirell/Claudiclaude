@@ -15,6 +15,40 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.38.0] — 2026-08-11
+
+The projection release. Five testers ran 0.37.0 and the Outlook section produced a five-year
+forecast of **€ 89 million** on one account and **−42 % a year** on another. Three separate defects,
+one shared cause: it trusted its own history far too readily.
+
+### Fixed
+
+- **Eight overlapping windows are not eight observations.** The projection slides a five-year window
+  over your history one month at a time, so five and a half years of data yields eight windows that
+  share fifty-nine of their sixty months. Those are not eight observations — they are about one.
+  The caption on screen already said *"treat 8 as fewer independent observations than it looks"*
+  while the code counted them as eight and called the result **history**.
+
+  It now counts the genuinely separate stretches. Most accounts will find their Outlook has become
+  an *example* rather than a scenario from their own past, which is what it always was.
+
+- **The rate you type is now used.** Setting *Growth % a year* did nothing on any account with
+  enough windows: all three lines came from the historical distribution and the typed figure was
+  discarded. Only the dividend yield survived. The control was a decoration. Your number is now the
+  middle line, and the spread your own account really showed is kept and recentred on it — so
+  "good market" still means what a good market did to *this* portfolio.
+
+- **A rate that is not a market outcome draws no chart.** Where the measured growth comes out at
+  several hundred percent a year, there is no honest projection to draw: the history is real and
+  what it measures is not growth — it is deposits and the trades they paid for being recorded a day
+  apart. The section now says so and stays empty, and you can still set the rates yourself. Refusing
+  beats clamping; a clamp would invent a number.
+
+- **A losing holding said it had lost nothing.** The bar on the holdings table read
+  *"100 % paid in · 0 % lost"* beside a result of −€ 766. Two numbers on one row contradicting each
+  other. When a position is under water the money you put in is *more* than what it is worth, so the
+  bar is now scaled to what you paid in and reads **"23 % of what you paid in is gone"**.
+
 ## [0.37.0] — 2026-08-11
 
 Three testers' accounts, three findings. **Press Wipe & resync after updating** — the percentages

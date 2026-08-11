@@ -2158,7 +2158,24 @@ function renderOutlook(r, t) {
     future.push(d.toISOString().slice(0, 10));
   }
 
-  if (onScreen('#c-outlook')) {
+  /**
+   * No projection at all, when the measured rate is not a market outcome.
+   *
+   * Two testers' accounts derived several hundred percent a year, which drew a
+   * dashed line to €89 million beside a portfolio worth thirty-three thousand.
+   * There is no honest chart for that: the history is real and what it measures
+   * is not growth. So the canvas is emptied and the reason takes its place —
+   * refusing beats clamping, which would invent a number.
+   */
+  const unsupported = p.basis === 'unsupported' || !p.scenarios;
+  $('#c-outlook').closest('.card, section, div')?.classList.toggle('is-unsupported', unsupported);
+  $('#c-outlook').hidden = unsupported;
+  if (state.charts.outlook && unsupported) {
+    state.charts.outlook.destroy();
+    state.charts.outlook = null;
+  }
+
+  if (!unsupported && onScreen('#c-outlook')) {
     // Monthly points for the history too, or 2 000 daily values sit beside 60
     // projected ones and the projection is a stub at the end of a wall.
     const step = Math.max(1, Math.round(r.days.length / 120));
@@ -2179,7 +2196,10 @@ function renderOutlook(r, t) {
   }
 
   const years = (p.months / 12).toFixed(0);
-  $('#outlook-basis').textContent = p.basis === 'historical'
+  $('#outlook-basis').textContent = p.basis === 'unsupported'
+    ? tr('No projection is drawn, because the growth rate measured from your history is {rate}% a year. That is not what a market does — it is what an account looks like when deposits and the trades they paid for are recorded a day apart, which distorts the early months. Set the rates yourself above to see a projection anyway.',
+        { rate: Math.round(p.rates.expectedAnnual) })
+    : p.basis === 'historical'
     ? tr('Built from the {n} separate {years}-year stretches your own history actually contains — worst, middle and best of them. Overlapping stretches, so treat {n} as fewer independent observations than it looks.', { n: p.windows, years })
     : tr('Your history is too short to contain even three {years}-year stretches, so these are an example rather than a scenario drawn from your own past. Treat them as arithmetic on an assumed rate, not as something measured.', { years });
 
@@ -2541,14 +2561,44 @@ function renderHoldings(r, composition, compColours, t, from, to) {
     if (Math.abs(p.current) < 0.005) return '<td class="muted">—</td>';
     const paid = p.paidIn?.at(-1) ?? 0;
     const grown = p.current - paid;
-    const scale = Math.max(Math.abs(p.current), Math.abs(paid), 0.01);
-    const pctPaid = Math.min(100, Math.round((Math.abs(paid) / scale) * 100));
-    const pctGrown = Math.max(0, 100 - pctPaid);
-    const words = paid < 0
-      ? 'all gain — more came out than went in'
-      : `${pctPaid}% paid in · ${pctGrown}% ${grown >= 0 ? 'grown' : 'lost'}`;
+
+    /**
+     * A losing position said **"100 % paid in · 0 % lost"** beside a result of
+     * −€766. The comment above already described the right behaviour and the
+     * code did the opposite: both shares were scaled by whichever of the two
+     * was larger and then clamped to 100, so under water the paid share pinned
+     * at 100 and the loss share was whatever was left, which is nothing.
+     *
+     * Two numbers on one row contradicting each other is the defect this
+     * project is least willing to ship.
+     *
+     * The fix follows the reader's own instinct: when you are down, the money
+     * you put in is *more* than what it is worth, so the bar is scaled to what
+     * you paid in and the missing slice is the loss. Scaling it to the current
+     * value instead would need a bar longer than itself.
+     */
+    let words;
+    let keptPct;
+    let lostPct;
+    if (paid < 0) {
+      // More has come out than went in: every euro on screen is the market's.
+      words = tr('all gain — more came out than went in');
+      keptPct = 0;
+      lostPct = 100;
+    } else if (grown >= 0) {
+      const pctPaid = Math.round((paid / Math.max(p.current, 0.01)) * 100);
+      words = tr('{paid}% paid in · {grown}% grown', { paid: pctPaid, grown: Math.max(0, 100 - pctPaid) });
+      keptPct = pctPaid;
+      lostPct = Math.max(0, 100 - pctPaid);
+    } else {
+      const lost = Math.round((-grown / Math.max(paid, 0.01)) * 100);
+      words = tr('{lost}% of what you paid in is gone', { lost });
+      keptPct = Math.max(0, 100 - lost);
+      lostPct = lost;
+    }
+
     return `<td class="split">
-      <span class="bar" title="${esc(words)}"><i style="width:${paid < 0 ? 0 : pctPaid}%"></i><em class="${grown >= 0 ? 'up' : 'down'}" style="width:${paid < 0 ? 100 : pctGrown}%"></em></span>
+      <span class="bar" title="${esc(words)}"><i style="width:${keptPct}%"></i><em class="${grown >= 0 ? 'up' : 'down'}" style="width:${lostPct}%"></em></span>
       <span class="muted">${esc(words)}</span>
     </td>`;
   };

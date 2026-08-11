@@ -79,6 +79,44 @@ not, because a holding treated as domestic when it is foreign is valued without 
 
 This one is a detector, not a cure. See U1.
 
+### F6 — Eight overlapping windows counted as eight observations · **shipped 0.38.0**
+
+The projection slides a five-year window one month at a time, so 5½ years of history yields eight
+windows sharing 59 of their 60 months. `MIN_WINDOWS = 3` passed trivially and the result was called
+`historical`. The caption already said *"treat 8 as fewer independent observations than it looks"* —
+the code knew and did nothing. One account rode that to a forecast of **€ 89 million** on a
+portfolio worth thirty-three thousand.
+
+Now gated on `floor(months / horizon)`: the genuinely separate stretches. Most accounts move from
+`historical` to `illustrative`, which is what they always were.
+
+### F7 — "I set them" did not · **shipped 0.38.0**
+
+`expectedAnnual` read `basis === 'historical' ? median(outcomes) : total`, so a typed growth rate was
+discarded for all three lines on any account with enough windows. Only the yield survived; the
+control was a decoration. A tester set growth to 100 % and watched nothing move.
+
+The typed rate is now the middle line, and the account's observed dispersion is **recentred** on it
+rather than replaced — the spread is real information about that portfolio and worth keeping.
+
+### F8 — A rate that is not a market outcome now draws nothing · **shipped 0.38.0**
+
+Several hundred percent a year is not a forecast, it is an account whose measured history is
+dominated by deposits landing a day out of step with the trades they paid for. The section says so
+and stays empty; the reader may still set the rates themselves. **Refusing beats clamping** — a clamp
+invents a number.
+
+### F9 — A losing holding reported that it had lost nothing · **shipped 0.38.0**
+
+The holdings bar read *"100 % paid in · 0 % lost"* beside a result of −€ 766. Both shares were scaled
+by whichever of paid-in and current value was larger and then clamped to 100, so under water the
+paid share pinned at 100 and nothing was left for the loss. The comment directly above the code
+described the correct behaviour; the code did the opposite.
+
+Reported by the user from a tester's screen, with the right diagnosis attached: when you are down,
+your money is *more* than 100 % of what the position is worth. The bar is now scaled to what was
+paid in.
+
 ---
 
 ## Not patched — these need a decision, not a fix

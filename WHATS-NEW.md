@@ -89,9 +89,12 @@ een tegel, de export of het foutrapport terecht; dat zijn metingen. `0.35.0`
 - **Het slechte geval is het gemiddelde van het slechtste tiende deel**, niet het tiende
   percentiel. Een percentiel zegt "het was minstens zo erg"; het gemiddelde van de staart zegt
   "als het slecht ging, ging het gemiddeld zó slecht".
-- **Het zegt hoeveel bewijs het had.** Vijf jaar historie bevat maar een handvol overlappende
-  periodes van vijf jaar. Een lijn getrokken uit één waarneming mag er niet uitzien als een lijn
-  uit vijftig.
+- **Het zegt hoeveel bewijs het had, en handelt ernaar.** Vijf jaar historie bevat precies één
+  *onafhankelijke* periode van vijf jaar, hoeveel overlappende vensters je er ook uit schuift.
+  Onder de drie heet het een voorbeeld en geen scenario uit je eigen verleden. En komt het gemeten
+  percentage uit op iets wat geen markt beschrijft, dan wordt er helemaal niets getekend — een lijn
+  uit één waarneming mag er niet uitzien als een lijn uit vijftig, en een lijn uit een boekhoudkundig
+  artefact hoort er niet te zijn.
 - **Groei en dividendrendement staan apart**, en zijn zo afgeleid dat ze elkaar niet dubbeltellen.
 - **Dividend groeit alleen mee als het echt herbelegd is**, en de kaart begrenst of dat bij jou
   zo was.
@@ -116,6 +119,10 @@ jouw grafiek ook niet — en helpt alleen Wipe & resync.**
 | **Wisselkoersen** | **Een bedrag in centen werd als wisselkoers gebruikt.** Gevonden via een foutrapport van een tester, en precies waarvoor dat rapport bestaat. | `0.28.0` |
 | **Eerlijkheid** | **Een contractgrootte via een geïnterpoleerde koers claimt niet langer "gemeten".** Hij heet nu *geschat*, wat hij was. Een getal mag er niet zekerder uitzien dan het is. | `0.29.0` |
 | **Rekenwerk** | **De verstreken tijd was één dag te lang.** Bij het omrekenen naar jaarrendement werd een *aantal* dagen gebruikt waar de *afstand* ertussen nodig was. | `0.33.0` |
+| **Prognose** | **Acht overlappende periodes zijn geen acht waarnemingen.** De prognose schuift een venster van vijf jaar één maand per keer over je historie, dus vijfenhalf jaar data levert acht vensters die 59 van hun 60 maanden delen. Dat is er ongeveer één. Het bijschrift zei het zelf al — *"treat 8 as fewer independent observations than it looks"* — terwijl de code ze als acht telde en het resultaat **historie** noemde. Op één rekening leidde dat tot een voorspelling van **€ 89 miljoen** op een portefeuille van drieëndertigduizend. Bij de meeste rekeningen wordt de Vooruitblik nu een *voorbeeld* in plaats van een scenario uit je eigen verleden — wat het altijd al was. | `0.38.0` |
+| **Prognose** | **Het percentage dat je zelf invulde werd genegeerd.** *Groei % per jaar* deed niets bij elke rekening met genoeg vensters: alle drie de lijnen kwamen uit de historische verdeling. De knop was decoratie. Jouw getal is nu de middelste lijn, en de spreiding die je eigen rekening liet zien blijft eromheen staan. | `0.38.0` |
+| **Prognose** | **Geen grafiek bij een percentage dat geen markt beschrijft.** Komt de gemeten groei uit op honderden procenten per jaar, dan valt er niets eerlijks te tekenen: de historie is echt, maar wat hij meet is geen groei — het zijn stortingen en de aankopen die ermee betaald zijn, een dag uit elkaar geboekt. Het vak zegt dat nu en blijft leeg. Je kunt de percentages nog steeds zelf invullen. | `0.38.0` |
+| **Weergave** | **Een verliesgevende positie meldde dat hij niets verloren had.** De balk las *"100% paid in · 0% lost"* naast een resultaat van −€ 766. Sta je onder water, dan is je inleg *meer* dan wat het waard is — de balk wordt nu op je inleg geschaald en zegt **"23% van je inleg is weg"**. | `0.38.0` |
 | **Rendement** | **Een percentage waar niets was om het op te verdienen.** Eén rekening toonde **+291.949,64%** als resultaat over de hele periode en **−60.006,26%** als slechtste maand, naast een doodgewone +19,64% beste maand. De berekening sloeg alleen dagen over die met *niets* begonnen, dus een dag die met twee cent begon en vijf euro bewoog vermenigvuldigde het lopende cijfer met 250. Dat zijn de openingsdagen van een rekening, waar een storting en de aankoop die ermee betaald is een dag uit elkaar vallen. Een dagresultaat moet nu passen binnen wat er aan het begin van die dag in zat. | `0.37.0` |
 | **Controle** | **De controle die alle cijfers bevestigt ontbrak op twee van de drie rekeningen.** DEGIRO stuurde bij die twee geen rekeningtotaal — alleen kasvelden — dus de enige toets die bewijst dat de historie klopt kon helemaal niet draaien. Hij draait nu tegen de som van de positiewaarden en het kassaldo die DEGIRO wél stuurt, en de pagina zegt erbij dat dat een iets zwakkere controle is. | `0.37.0` |
 | **Privacy** | **Een geldig sessie-id kon in het geëxporteerde bestand belanden.** Foutmeldingen knipten de query-string van een URL af, maar niet overal. Sindsdien declareert de export wát er mee mag in plaats van wat eruit moet — zie hieronder. | `0.20.0` |

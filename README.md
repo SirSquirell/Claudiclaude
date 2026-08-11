@@ -22,9 +22,15 @@ from.
 **Outlook is the one section that is not a measurement**, and it is separate for exactly that
 reason. Everything else here is reconstructed from what actually happened and checked against
 DEGIRO's own total; a projection cannot be checked against anything. So it lives on its own page
-with the caveat above the numbers, its scenarios are built from the stretches your own history
-actually contains rather than from an assumed distribution, and it says how many of those there
-were — because a line drawn from one observation must not look like a line drawn from fifty.
+with the caveat above the numbers, and its scenarios are built from the stretches your own history
+actually contains rather than from an assumed distribution.
+
+It also counts those stretches honestly, which is harder than it sounds: five and a half years of
+history contains **one** independent five-year stretch, however many overlapping windows you slide
+out of it. Below three it says so and calls itself an example. And where the rate measured from your
+own history is not something a market does, **no chart is drawn at all** — you are told why, and you
+can set the rates yourself. A line drawn from one observation must not look like a line drawn from
+fifty, and a line drawn from a bookkeeping artefact should not be drawn.
 
 ## Install it
 

@@ -341,7 +341,12 @@ const DICT = {
     'These charts are built from generated fixtures with the same code path that runs against your real account — good for checking the UI, useless as financial information.':
       'Deze grafieken zijn gebouwd op gegenereerde testdata via exact dezelfde code die op je echte rekening draait — prima om de interface te bekijken, waardeloos als financiële informatie.',
     'Total matches DEGIRO': 'Totaal komt overeen met DEGIRO',
+    'all gain \u2014 more came out than went in': 'puur winst \u2014 er kwam meer uit dan erin ging',
+    '{paid}% paid in \u00b7 {grown}% grown': '{paid}% ingelegd \u00b7 {grown}% gegroeid',
+    '{lost}% of what you paid in is gone': '{lost}% van je inleg is weg',
     'Total matches what DEGIRO reports': 'Totaal komt overeen met wat DEGIRO meldt',
+    'No projection is drawn, because the growth rate measured from your history is {rate}% a year. That is not what a market does \u2014 it is what an account looks like when deposits and the trades they paid for are recorded a day apart, which distorts the early months. Set the rates yourself above to see a projection anyway.':
+      'Er wordt geen prognose getekend, want het groeipercentage gemeten uit jouw historie is {rate}% per jaar. Dat doet een markt niet \u2014 zo ziet een rekening eruit als stortingen en de aankopen die ermee betaald zijn een dag uit elkaar geboekt staan, wat de eerste maanden vertekent. Stel de percentages hierboven zelf in om toch een prognose te zien.',
     'Reconstructed total is exactly {total}. DEGIRO sent no account total this sync, so this is checked against the sum of the position values and the cash balance it did send \u2014 an independent check, but one that cannot catch an error already in DEGIRO\u2019s own position values.':
       'Het gereconstrueerde totaal is precies {total}. DEGIRO gaf bij deze synchronisatie geen rekeningtotaal, dus dit is getoetst aan de som van de positiewaarden en het kassaldo die wél meekwamen \u2014 een onafhankelijke controle, maar \u00e9\u00e9n die een fout die al in DEGIRO\u2019s eigen positiewaarden zit niet kan opmerken.',
     'Reconstructed total is exactly {total}.': 'Het gereconstrueerde totaal is precies {total}.',

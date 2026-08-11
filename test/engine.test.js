@@ -1991,3 +1991,109 @@ test('a genuinely foreign trade is not the target of this check', () => {
   });
   assert.ok(!r.warnings.some((x) => x.code === 'settled-amount-mismatch'));
 });
+
+// ---------------------------------------------------------------------------
+// The projection: three defects a tester found in one screenshot each
+// ---------------------------------------------------------------------------
+
+/**
+ * A history of `n` months averaging `pct` a month, at a plausible account size.
+ *
+ * The returns have to *vary*, or every window is identical, the tails collapse
+ * onto the median and a test about dispersion passes vacuously. The first draft
+ * of this helper used a constant and did exactly that.
+ */
+function historyOf(months, pct, start = 10000) {
+  const days = [];
+  const value = [];
+  const pnl = [];
+  let v = start;
+  for (let m = 0; m < months; m++) {
+    for (let d = 1; d <= 28; d++) {
+      const day = `${2015 + Math.floor(m / 12)}-${String((m % 12) + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      // A deterministic wobble around `pct`, so consecutive windows differ.
+      const swing = pct * 0.6 * Math.sin(m * 1.7);
+      const gain = d === 28 ? v * ((pct + swing) / 100) : 0;
+      days.push(day);
+      pnl.push(gain);
+      v += gain;
+      value.push(v);
+    }
+  }
+  return { days, value, pnl, income: { dividendGross: 0, dividendTax: 0 }, cash: [0] };
+}
+
+test('eight overlapping windows are not eight observations', () => {
+  /**
+   * `rollingOutcomes` slides one month at a time, so 67 months of history gives
+   * eight five-year windows that share fifty-nine of their sixty months. The
+   * card said "treat 8 as fewer independent observations than it looks" while
+   * the code counted them as eight and called the result history.
+   */
+  const p = projectPortfolio(historyOf(67, 0.5), { months: 60 });
+  assert.ok(p.windows >= 3, 'the overlapping count is still what the spread is measured from');
+  assert.equal(p.independentWindows, 1, '67 months contains one separate five-year stretch');
+  assert.notEqual(p.basis, 'historical', 'and one observation is not history');
+});
+
+test('enough genuinely separate stretches is still called history', () => {
+  // 15 years of monthly data holds three independent five-year stretches.
+  const p = projectPortfolio(historyOf(180, 0.5), { months: 60 });
+  assert.ok(p.independentWindows >= 3);
+  assert.equal(p.basis, 'historical');
+});
+
+test('a rate the reader types is used, which it was not', () => {
+  /**
+   * `expectedAnnual` read `basis === 'historical' ? median(outcomes) : total`,
+   * so on any account with enough windows the typed growth rate was discarded
+   * for all three lines and only the yield survived. Someone set growth to
+   * 100 % and watched nothing move.
+   */
+  const history = historyOf(180, 0.5);
+  const auto = projectPortfolio(history, { months: 60 });
+  const mine = projectPortfolio(history, { months: 60, growthPct: 100, yieldPct: 0 });
+
+  assert.equal(mine.manual, true);
+  assert.ok(Math.abs(mine.rates.expectedAnnual - 100) < 1e-6, `expected 100, got ${mine.rates.expectedAnnual}`);
+  assert.notEqual(mine.rates.expectedAnnual, auto.rates.expectedAnnual);
+  assert.ok(
+    mine.scenarios.expected.path.at(-1) > auto.scenarios.expected.path.at(-1),
+    'and the line it draws actually moves',
+  );
+});
+
+test('a typed rate keeps the spread this account really showed, recentred', () => {
+  // The dispersion is real information about this portfolio; the middle is the
+  // reader's assumption. Both survive.
+  const history = historyOf(180, 0.5);
+  const auto = projectPortfolio(history, { months: 60 });
+  const mine = projectPortfolio(history, { months: 60, growthPct: 20, yieldPct: 0 });
+
+  const autoWidth = auto.rates.goodAnnual - auto.rates.badAnnual;
+  const mineWidth = mine.rates.goodAnnual - mine.rates.badAnnual;
+  assert.ok(Math.abs(autoWidth - mineWidth) < 1e-6, 'the observed dispersion is kept, not replaced');
+  assert.ok(mine.rates.goodAnnual > mine.rates.expectedAnnual);
+  assert.ok(mine.rates.badAnnual < mine.rates.expectedAnnual);
+});
+
+test('a rate that is not a market outcome draws no projection at all', () => {
+  /**
+   * A tester's account measured several hundred percent a year and drew a
+   * dashed line to €89 million beside a portfolio worth thirty-three thousand.
+   * There is no honest chart for that. Refusing beats clamping: a clamp would
+   * invent a number.
+   */
+  const p = projectPortfolio(historyOf(180, 20), { months: 60 });
+  assert.equal(p.basis, 'unsupported');
+  assert.equal(p.scenarios, null, 'nothing is drawn');
+  assert.ok(Math.abs(p.rates.expectedAnnual) > 50, 'and the report still says what was measured');
+});
+
+test('but the reader may overrule that and set their own', () => {
+  // They were told it is an assumption. It is theirs to make.
+  const p = projectPortfolio(historyOf(180, 20), { months: 60, growthPct: 7, yieldPct: 0 });
+  assert.notEqual(p.basis, 'unsupported');
+  assert.ok(p.scenarios, 'a projection is drawn from their number');
+  assert.ok(Math.abs(p.rates.expectedAnnual - 7) < 1e-6);
+});
