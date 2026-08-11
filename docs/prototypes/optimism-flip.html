@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Optimism Mode — how the chart should turn around</title>
+<!--
+  A standalone prototype for US-35c. Open it in a browser; it needs nothing.
+
+  It exists so the transform can be *seen and argued about* before it goes into
+  `src/ui/`, and so whoever implements it can lift the functions verbatim: the
+  four in `TRANSFORMS` below are pure, take `(value, deposits)` and return a new
+  array, which is exactly the shape `frown.flipSeries` needs.
+
+  The data is invented and shaped like the account that prompted this: money
+  paid in three times, a run up, then a long slide. No real account data is in
+  this file, and none should ever be — CLAUDE.md rule 7.
+-->
+<style>
+  :root {
+    --page:#f5f1ea; --surface:#fffdfa; --sunk:#f7f2ea; --ink:#141d27;
+    --ink-2:#5a6774; --ink-3:#8b97a3; --border:#e3dbcd; --accent:#b8532f;
+    --pos:#0b5fc4; --neg:#c02434; --grid:#eae2d5;
+    --sans:system-ui,-apple-system,'Segoe UI',sans-serif;
+    --mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+    --serif:'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme=light]) {
+      --page:#0d151d; --surface:#141e28; --sunk:#1a2531; --ink:#e8eef4;
+      --ink-2:#9aa8b8; --ink-3:#6d7b8a; --border:#273544; --accent:#e08355;
+      --pos:#63a6f6; --neg:#f4737f; --grid:#212e3c;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--page); color: var(--ink); font-family: var(--sans);
+    line-height: 1.6; margin: 0 auto; max-width: 60rem;
+    padding: clamp(1.25rem, 4vw, 3rem);
+  }
+  h1 { font-family: var(--serif); font-size: clamp(1.6rem,1.2rem+2vw,2.4rem);
+       line-height:1.1; letter-spacing:-.02em; margin:0 0 .4rem; }
+  .lede { color: var(--ink-2); margin: 0 0 1.75rem; max-width: 64ch; }
+  .modes { display:flex; flex-wrap:wrap; gap:.5rem; margin-bottom:1.25rem; }
+  button {
+    font: inherit; font-size:.85rem; cursor:pointer; padding:.45rem .9rem;
+    border-radius:999px; border:1px solid var(--border);
+    background:var(--surface); color:var(--ink-2);
+  }
+  button:hover { border-color: var(--accent); color: var(--ink); }
+  button[aria-pressed=true] { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .card { background:var(--surface); border:1px solid var(--border);
+          border-radius:.75rem; padding:1rem 1rem .5rem; }
+  canvas { width:100%; height:auto; display:block; }
+  .legend { display:flex; gap:1.25rem; flex-wrap:wrap; font-size:.8rem;
+            color:var(--ink-2); padding:.5rem .25rem 0; }
+  .swatch { display:inline-block; width:.75rem; height:.2rem; vertical-align:middle;
+            margin-right:.4rem; border-radius:2px; }
+  .facts { display:grid; grid-template-columns:repeat(auto-fit,minmax(9rem,1fr));
+           gap:1px; background:var(--border); border:1px solid var(--border);
+           border-radius:.6rem; overflow:hidden; margin:1.25rem 0; }
+  .fact { background:var(--surface); padding:.7rem .9rem; }
+  .fact b { display:block; font-size:1.15rem; font-variant-numeric:tabular-nums; }
+  .fact span { font-size:.7rem; text-transform:uppercase; letter-spacing:.1em; color:var(--ink-3); }
+  .why { border-left:3px solid var(--accent); background:var(--surface);
+         padding:.9rem 1.15rem; border-radius:0 .5rem .5rem 0; margin:1.25rem 0; }
+  .why p { margin:.35rem 0; max-width:66ch; }
+  pre { background:var(--sunk); border:1px solid var(--border); border-radius:.5rem;
+        padding:.85rem 1rem; overflow-x:auto; font-family:var(--mono); font-size:.8rem;
+        line-height:1.55; }
+  h2 { font-family:var(--serif); font-size:1.25rem; margin:2.25rem 0 .5rem; }
+  code { font-family:var(--mono); font-size:.85em; }
+</style>
+</head>
+<body>
+
+<h1>Optimism Mode: how the chart should turn around</h1>
+<p class="lede">
+  Same invented account in every mode — <b>€ 17.000 paid in</b>, worth <b>€ 3.300</b>, so
+  <b>€ 13.700</b> lost. Switch between them and watch what happens to the deposit steps, which is
+  where the current version falls apart.
+</p>
+
+<div class="modes" id="modes"></div>
+
+<div class="card">
+  <canvas id="c" width="1120" height="420"></canvas>
+  <div class="legend">
+    <span><i class="swatch" style="background:var(--ink-3)"></i>Money paid in</span>
+    <span><i class="swatch" id="sw" style="background:var(--neg)"></i><span id="swlabel">Portfolio value</span></span>
+  </div>
+</div>
+
+<div class="facts" id="facts"></div>
+<div class="why" id="why"></div>
+
+<h2>The transforms, ready to lift</h2>
+<p>Pure, <code>(value, deposits) → number[]</code> — the shape <code>frown.flipSeries</code> needs.</p>
+<pre id="src"></pre>
+
+<script>
+// --- the data -------------------------------------------------------------
+// Invented, shaped like the account that prompted this. Never real data here.
+const DEPOSITS = [0,5000,5000,5000,5000,5000,12000,12000,12000,12000,12000,12000,
+                  12000,17000,17000,17000,17000,17000,17000,17000,17000,17000];
+const VALUE    = [0,5000,5400,6100,5200,5600,12300,13100,11800,10400,9600,8800,
+                  7900,12100,11200,9800,8100,6400,5200,4600,3900,3300];
+
+// --- the transforms -------------------------------------------------------
+
+/** What actually happened. */
+const actual = (v) => v.slice();
+
+/**
+ * What 0.41.0 does. Reflect the levels about their own midpoint.
+ * Rejected: it inverts the *deposits* too, so paying money in reads as a drop.
+ */
+function mirror(v) {
+  const mid = Math.min(...v) + Math.max(...v);
+  return v.map((x) => mid - x);
+}
+
+/**
+ * Keep the deposits, negate only the performance.
+ * `value = deposits + cumulative P/L`, so this is `deposits - P/L`.
+ */
+function invertPnl(v, d) {
+  return v.map((x, i) => 2 * d[i] - x);
+}
+
+/**
+ * UP ONLY. Every move becomes an up move — the line can never fall again.
+ * The most absurd of the four, and therefore the hardest to mistake for real.
+ */
+function upOnly(v) {
+  const out = [v[0]];
+  for (let i = 1; i < v.length; i++) out.push(out[i - 1] + Math.abs(v[i] - v[i - 1]));
+  return out;
+}
+
+const TRANSFORMS = {
+  actual: { fn: actual, label: 'What happened', colour: 'var(--neg)',
+    why: '<p>The deposits step up three times. The value climbs after each one and then slides away underneath them. <b>€ 13.700 lost.</b></p>' },
+  mirror: { fn: mirror, label: 'Mirror (0.41.0)', colour: 'var(--ink-3)',
+    why: '<p><b>This is the one that was rejected.</b> Look at the deposit steps: every moment money went <em>in</em>, the line now drops. The start is invented and nothing matches what happened.</p><p>Worth knowing: “invert every daily change” is the same operation — it expands to a reflection about the first value. Rewording it does not fix the deposits.</p>' },
+  pnl: { fn: invertPnl, label: 'Invert the P/L', colour: 'var(--pos)',
+    why: '<p>Deposits stay deposits; only what the market did turns around. Every week that sank now climbs the same amount, a withdrawal is still a drop, and the line ends exactly as far <em>above</em> the paid-in line as it really sits below it.</p><p><b>€ 13.700 lost becomes € 13.700 gained.</b></p>' },
+  up: { fn: upOnly, label: 'UP ONLY', colour: 'var(--pos)',
+    why: '<p>Every movement — up or down — becomes an up movement. The line is incapable of falling.</p><p>The least defensible and the most obviously a joke, which by this feature’s own logic makes it the <em>safest</em>: nobody can mistake a monotonic staircase for a portfolio. It also throws away the shape entirely, so the account is no longer recognisably yours.</p>' },
+};
+
+// --- drawing --------------------------------------------------------------
+let mode = 'actual';
+const c = document.getElementById('c');
+const ctx = c.getContext('2d');
+
+const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+function draw() {
+  const t = TRANSFORMS[mode];
+  const series = t.fn(VALUE, DEPOSITS);
+  const all = [...series, ...DEPOSITS, 0];
+  const lo = Math.min(...all);
+  const hi = Math.max(...all);
+  const P = { l: 78, r: 18, t: 18, b: 30 };
+  const W = c.width, H = c.height;
+
+  ctx.clearRect(0, 0, W, H);
+  const x = (i) => P.l + (i / (series.length - 1)) * (W - P.l - P.r);
+  const y = (v) => H - P.b - ((v - lo) / (hi - lo || 1)) * (H - P.t - P.b);
+
+  // gridlines + axis
+  ctx.strokeStyle = css('--grid'); ctx.fillStyle = css('--ink-3');
+  ctx.lineWidth = 1; ctx.font = '13px ui-monospace, monospace'; ctx.textAlign = 'right';
+  for (let k = 0; k <= 5; k++) {
+    const v = lo + ((hi - lo) * k) / 5;
+    ctx.beginPath(); ctx.moveTo(P.l, y(v)); ctx.lineTo(W - P.r, y(v)); ctx.stroke();
+    ctx.fillText('€ ' + Math.round(v).toLocaleString('nl-NL'), P.l - 8, y(v) + 4);
+  }
+
+  // deposits
+  ctx.strokeStyle = css('--ink-3'); ctx.setLineDash([6, 5]); ctx.lineWidth = 2;
+  ctx.beginPath(); DEPOSITS.forEach((v, i) => (i ? ctx.lineTo(x(i), y(v)) : ctx.moveTo(x(i), y(v))));
+  ctx.stroke(); ctx.setLineDash([]);
+
+  // the series
+  ctx.strokeStyle = css(t.colour.replace('var(', '').replace(')', '')) || t.colour;
+  ctx.lineWidth = 3; ctx.lineJoin = 'round';
+  ctx.beginPath(); series.forEach((v, i) => (i ? ctx.lineTo(x(i), y(v)) : ctx.moveTo(x(i), y(v))));
+  ctx.stroke();
+
+  // facts
+  const paid = DEPOSITS.at(-1), worth = Math.round(series.at(-1));
+  const result = worth - paid;
+  document.getElementById('facts').innerHTML = [
+    ['Paid in', '€ ' + paid.toLocaleString('nl-NL')],
+    ['Worth', '€ ' + worth.toLocaleString('nl-NL')],
+    ['Result', (result >= 0 ? '+' : '−') + ' € ' + Math.abs(result).toLocaleString('nl-NL')],
+    ['Lowest point', '€ ' + Math.round(Math.min(...series)).toLocaleString('nl-NL')],
+  ].map(([k, v]) => `<div class="fact"><span>${k}</span><b>${v}</b></div>`).join('');
+
+  document.getElementById('why').innerHTML = t.why;
+  document.getElementById('sw').style.background = t.colour;
+  document.getElementById('swlabel').textContent = t.label;
+  document.getElementById('src').textContent = t.fn.toString();
+}
+
+document.getElementById('modes').innerHTML = Object.entries(TRANSFORMS)
+  .map(([k, t]) => `<button data-m="${k}" aria-pressed="${k === mode}">${t.label}</button>`)
+  .join('');
+
+document.getElementById('modes').addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  mode = b.dataset.m;
+  document.querySelectorAll('#modes button').forEach((x) =>
+    x.setAttribute('aria-pressed', String(x.dataset.m === mode)));
+  draw();
+});
+
+draw();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', draw);
+</script>
+</body>
+</html>

@@ -2310,6 +2310,30 @@ It is also the safer of the two, which is the argument that settles it. A mirror
 plausible — it is a chart that *could* be true. This one says you have € 30.700 on € 17.000 paid in,
 beside a stamp saying it is not real. Absurdity is the safety mechanism; plausibility is the danger.
 
+### A fourth option, worth looking at first: **UP ONLY**
+
+```
+out[i] = out[i-1] + |v[i] − v[i-1]|
+```
+
+Every movement, up or down, becomes an up movement. The line is *incapable* of falling.
+
+It is the least defensible and the most obviously a joke, which by this feature's own logic makes
+it the safest — nobody mistakes a monotonic staircase for a portfolio. Against it: it throws the
+shape away entirely, so the account stops being recognisably yours, and half the comedy of the
+other option is that the crash is still visible, just pointing the other way.
+
+### The prototype
+
+**`docs/prototypes/optimism-flip.html`** — open it in a browser, no build, no dependencies. Four
+buttons, the same invented account in each, and the transform's own source printed underneath.
+The functions are pure `(value, deposits) → number[]`, which is the shape `frown.flipSeries` takes,
+so they can be lifted verbatim.
+
+One thing the prototype settled on its own: **the mirror does not even achieve the goal.** On this
+account it still reports a loss — −€ 7 200 instead of −€ 13 700. It makes the number smaller and
+the picture wrong, which is the worst of both.
+
 ### Still to decide before building
 
 - **The second chart, *Money paid in vs what it is worth*.** The flipped value line would cross the
