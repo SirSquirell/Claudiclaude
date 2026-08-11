@@ -787,6 +787,105 @@ not a per-chart setting: the whole page describes one selection.
 
 ---
 
+### US-30 — A year you can read *(new, refined)*
+
+**As someone doing their yearly review — or handing something to an accountant — I want one block
+per calendar year instead of twelve cells in a grid.**
+
+The month matrix already holds every number. What it does not have is a *year*: opening and closing
+value, what went in and out, what it made, what it paid, and how it compares to the year before.
+Zeus ships this and we do not; it is the one content gap a competitor actually fills.
+
+*Per year:* opening value, closing value, deposits, withdrawals, result in euros, return in percent,
+dividend received, tax withheld, fees, interest, best and worst month, number of trades.
+
+#### Three traps, and the third is the one that matters
+
+1. **The first year does not open on 1 January.** It opens when the account did. Showing €0 as the
+   opening value of the first year makes its return infinite; showing 1 January makes it wrong by
+   however long the account had been running. Use the account's own first day and say so in the row.
+2. **A year's return is not (close − open) ÷ open.** A deposit in March inflates that. It must be
+   the daily-chained return the month grid already uses, for the same reason and by the same code.
+3. **This is not a tax document, and it will be mistaken for one.** Our dividend tax figure is what
+   DEGIRO withheld, not what is reclaimable. There is no cost basis anywhere in this project —
+   deliberately, see US-27 trap 1 — so the capital-gains number a tax return wants **cannot** be
+   derived from it. If a year block does not say that in the year block itself, somebody will file
+   with it. A footnote elsewhere is not enough.
+
+*Acceptance criteria:*
+
+- ☐ The first year states its real opening date rather than implying 1 January.
+- ☐ Each year's return equals the chained return over that year's days, and a test proves a year
+  containing a large deposit and no market movement reports ~0 %.
+- ☐ Every year block carries the "not a tax document, and here is what is missing" line.
+- ☐ Years with no activity are absent rather than rendered as rows of zeros.
+- ☐ It reads sensibly when the account opened in December: a three-week first year is a three-week
+  first year, and is not annualised into anything.
+
+### US-31 — Annualised return *(new, refined — a decision first)*
+
+**As someone comparing this to a savings rate or a fund, I want one number per year.**
+
+#### The decision, which is not an implementation detail
+
+Two different questions, two different answers, and they can differ by a lot:
+
+| | Answers | We already show |
+|---|---|---|
+| **Time-weighted** | *"How did the portfolio perform, ignoring when I paid in?"* | yes — the month grid's chained return |
+| **Money-weighted** (IRR over the actual cashflows) | *"What did my money earn?"* | no |
+
+*Recommendation: build the money-weighted one*, because "what did my money earn" is the question a
+private investor is actually asking — **and label both, in words, everywhere they appear.** Putting
+a money-weighted figure beside a time-weighted one without naming either is how a page contradicts
+itself, and this page already shows the second.
+
+#### Two traps in the arithmetic
+
+1. **An IRR can have more than one root.** Descartes' rule: every sign change in the cashflow
+   sequence permits another solution. An account that pays in, takes out, and pays in again has
+   several, and a solver will confidently return whichever one it walks into first. **Report
+   `unresolved` when more than one root is found in a plausible band** rather than picking — the
+   same rule that governs a contract size, for the same reason.
+2. **A short history annualises into nonsense.** Three months at +10 % is +46 % a year, stated with
+   a straight face. Below a year it should show the period return and say the period, never an
+   annualised figure.
+
+*Acceptance criteria:*
+
+- ☐ Both returns are named in words wherever either appears. Never a bare "return".
+- ☐ A test with a known IRR — a single deposit and a single closing value — matches to four
+  decimal places.
+- ☐ A cashflow sequence with multiple sign changes and multiple roots reports `unresolved`.
+- ☐ Under one year, no annualised number is shown at all.
+- ☐ The solver is bounded: it terminates on a pathological input rather than iterating forever.
+
+### US-32 — Dutch, with a flag *(new)*
+
+**As a Dutch user I want the interface in Dutch.**
+
+Every tester is Dutch and the entire interface is English, including a card literally headed
+*"Profit and loss per product"* sitting beside a proposal that says *"Winst en verlies per
+product"*. There is no translation layer at all.
+
+*Shape:* a language toggle beside the theme toggle, flag plus code, with the choice stored the same
+way. English stays the source: the dictionary is keyed by the English string, so an untranslated
+string renders in English rather than as a missing key.
+
+*The rule that keeps it honest:* **untranslated strings are counted, not hidden.** A half-translated
+page that silently falls back looks finished and is not; the count says how far it actually got.
+
+*Acceptance criteria:*
+
+- ☐ Switching language re-renders without a reload and survives closing the page.
+- ☐ Numbers and dates stay `nl-NL` formatted in both languages — that is a locale for money, not a
+  language for prose, and it was already right.
+- ☐ A missing translation falls back to English and is counted.
+- ☐ Nothing in the bug report or the export changes with the language: a diagnostic that shifts
+  wording per reader is a diagnostic nobody can grep.
+
+---
+
 ## Stories out of the third mockup — the per-product page
 
 A proposal from a tester's friend: one page carrying **profit and loss per product**, **positions**
