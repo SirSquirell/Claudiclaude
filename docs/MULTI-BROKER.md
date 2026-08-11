@@ -207,6 +207,47 @@ is a complete answer to R1 and contains nothing dangerous.
 
 ---
 
+## 3c. What the POC branch has built, and what it has not
+
+Branch `claude/multi-broker-poc`. **The refined half only** — Trade Republic is not in it, because
+R2–R5 are unanswered and an adapter written now would be endpoints invented rather than observed,
+which §2 names as the thing not to do.
+
+**Built and green (255 tests):**
+
+| | |
+|---|---|
+| `src/lib/combine.js` | The arithmetic. Per-broker results in, one result out. Pure |
+| `src/lib/brokers/index.js` | The adapter boundary, its registry, and `missingMembers` |
+| `src/lib/brokers/degiro.js` | DEGIRO as an adapter. A façade over `session`/`degiro`/`parse`, no behaviour of its own |
+| `test/combine.test.js` | T1–T10, plus two calendar cases the arithmetic hides |
+| `test/brokers.test.js` | Conformance, written against the registry so a new broker cannot be added unchecked |
+
+**A1 held: `engine.js` is unchanged.** One thing pushed on it and was refused — merging holdings
+needs an ISIN, which the engine does not put on `byProduct`. Adding a passthrough field would have
+been a two-character change and the start of the boundary eroding, so the caller supplies its own
+product map instead.
+
+**Three defects the tests caught before any of this ran anywhere**, all in the fixtures rather
+than the code, and all of them the kind that would have made the arithmetic look right:
+
+1. Cash rows built without a `category` were silently `UNKNOWN`, so a withdrawal was not external
+   and the transfer test reported a €1 000 loss. The engine reads `row.category` and classifies
+   nothing itself — which is *why* the per-broker rule table belongs in the adapter, and the
+   fixtures now go through the real classifier rather than asserting a category by hand.
+2. A trade with no cash leg holds the money twice, once as stock and once as cash. The value was
+   double throughout, and every relative assertion still passed — only the return percentage,
+   which has a denominator, showed it.
+3. `netExternal` must never be carried forward the way a stock is. Carrying it turns one deposit
+   into a deposit every day until the next observation, and the resulting line looks entirely
+   plausible on the way up. There is a test for it now.
+
+**Not built:** the storage broker dimension, per-broker sync and wipe (US-23), the UI filter
+(US-24). Those touch IndexedDB and the page; the arithmetic and the boundary come first because
+everything else is built on whether they are right.
+
+---
+
 ## 4. Acceptance criteria
 
 Split by what they depend on, because the first group can be satisfied **before Trade Republic
