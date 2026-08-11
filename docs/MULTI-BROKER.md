@@ -459,135 +459,143 @@ structure is the thing that would make it nearly free.
 
 ---
 
-## 8. Trading 212 — the data is a *better* fit than DEGIRO's, and both gates are open
+## 8. Trading 212 — the most promising of the three, and R4 is answered at the shape level
 
-Asked 2026-08-11. **Desk research only: no capture, no account, nothing run against the broker.**
-Everything here comes from Trading 212's own published API documentation and from third-party
-importers that consume its CSV export. That is a genuinely better evidence base than section 2
-started with — an *official, documented* API is not the same kind of claim as a reverse-engineered
-one — but it is still not a capture, and the two rows that decide the story are exactly the two
-nobody can answer from documentation.
+Asked 2026-08-11. **Desk research only.** Trading 212 is unreachable from this machine — the egress
+proxy blocks every `trading212.com` host — so nothing here was measured. The evidence is Trading
+212's own published API documentation, two independently-written unofficial clients, and one
+committed example response.
 
-**Nothing in section 8 justifies writing an adapter.** Same rule as section 2.
+That is a better base than section 2 had, and it is still not a capture. **Nothing here justifies
+writing an adapter.**
 
 ### 8a. What is established
 
 | Claim | Status |
 |---|---|
-| There is an **official, documented public API**, base `https://live.trading212.com/api/v0` (demo: `demo.trading212.com/api/v0`) | **Documented by Trading 212.** In beta, "under active development" |
-| It authenticates with **HTTP Basic — an API key and secret the user generates in the app** | **Documented.** This is the gate. See 8d |
-| Endpoints include order history, dividends, transactions, CSV report export, account summary, portfolio, instrument metadata | **Documented.** List endpoints are cursor-paginated |
-| Available for General Invest and Stocks & Shares ISA; **not** for SIPP | **Documented** |
-| **No market-data or historical-candle endpoint exists in it** | **Documented by absence** — the reference lists no such section. This is R4, and it is the likely blocker. See 8c |
-| `live.trading212.com` maintains an ordinary **session cookie** for the web app | Reported consistently by people extracting it from DevTools. **Unverified here** |
-| The web client sends an `X-Trader-Client` header carrying an app version and a **device UUID** | Reported. **Unverified**, and it matters — see 8d |
-| Nobody has reverse-engineered the login itself | Reported, and *good*: rule 9 means we would not want it if they had |
-| The web app's own chart endpoint | **Unknown.** The web app draws charts, so something serves them. Whether it is reachable, and whether it goes back years at daily granularity, is R4 |
+| An **official, documented public API** at `https://live.trading212.com/api/v0` | **Documented by Trading 212.** Beta. HTTP Basic with an **API key + secret the user generates** |
+| It covers order history, dividends, transactions, CSV export, account summary, portfolio, instrument metadata; cursor-paginated | **Documented.** General Invest and Stocks & Shares ISA only, not SIPP |
+| **The official API has no market-data endpoint** | **Documented by absence.** But see 8c — this stopped mattering |
+| A **charting endpoint on the web host**: `POST https://live.trading212.com/charting/v2/batch` | **Two independent sources.** Viaduct calls exactly this; `node-trading212` calls `/charting/prices?withFakes=false` — a different path, same host, same family, same "fakes" concept |
+| It serves **daily candles**: `ChartPeriod.D1 = "ONE_DAY"`, alongside minute through monthly | **Source-level evidence** from Viaduct's enum |
+| A candle is `{timestamp, bid:{open,high,low,close}, ask:{…}, volume, fake}` | **A committed example response**, `ONE_DAY`, five candles, February 2021 |
+| Web-session cookies are **`CUSTOMER_SESSION`** and **`TRADING212_SESSION_LIVE`** | Named explicitly by `node-trading212`, which reads them out of DevTools |
+| Instruments are keyed by Trading 212's own id, e.g. `TSLA_US_EQ`, not ISIN | Same example response. `/rest/v2/instruments/` exists to map |
+| A `wss://live.trading212.com/streaming/events/` socket | Live prices, not history. Not needed |
 
 ### 8b. R2 and R3 are yes — and stronger than DEGIRO's
 
-This is the surprise, and it is worth stating plainly because it inverts the assumption that
-DEGIRO is the well-supported case and everything else degrades from it.
+This is the part that inverts the usual assumption that DEGIRO is the supported case and everything
+else degrades from it.
 
-The CSV export carries: `Action`, `Time` (UTC), `ISIN`, `Ticker`, `Name`, `No. of shares`,
-`Price / share`, `Currency (Price / share)`, **`Exchange rate`**, `Result`, **`Total`** (all-in
-cash moved, in the account currency), `Withholding tax`.
+The CSV export carries `Action`, `Time` (UTC), `ISIN`, `Ticker`, `Name`, `No. of shares`,
+`Price / share`, `Currency (Price / share)`, **`Exchange rate`**, `Result`, **`Total`** (all-in cash
+in the account currency), `Withholding tax`.
 
-- **R2 is yes, and the FX problem largely disappears.** DEGIRO does not state a rate, so
-  `deriveFxRates` divides the settled euro amount by price × quantity — and that division is what
-  produced the worst defect this project has shipped, CHF at 107,1 because every trade in the
-  currency happened to be an option. **Trading 212 states the rate outright, per row.** A rate you
-  are told is not a rate you infer, and the entire class of bug goes with it.
-- **R3 is yes, and rule 4 gets easier rather than harder.** `Action` is a *typed* field —
-  `Market buy`, `Market sell`, `Dividend`, `Deposit`, `Withdrawal` — not free text to be matched
-  against a rule table. `classify.js` exists because DEGIRO writes prose; here the category is
-  given. Withholding tax is its own column rather than a separate row to be paired up.
-- **R5 is probably yes**: an account-summary endpoint is documented. Whether it reports a figure
-  comparable to the reconstruction is unverified, and section 6 already says a "no" here is
-  shippable with the missing check stated in red.
+- **R2 is yes, and the worst class of bug in this project disappears.** DEGIRO states no rate, so
+  `deriveFxRates` divides the settled amount by price × quantity — and that division is what put
+  CHF at 107,1 because every trade in the currency happened to be an option. **Trading 212 states
+  the rate per row.** A rate you are told is not a rate you infer.
+- **R3 is yes, and rule 4 gets easier.** `Action` is *typed* — `Market buy`, `Dividend`, `Deposit`,
+  `Withdrawal` — not prose to be matched. `classify.js` exists because DEGIRO writes sentences;
+  here the category is given, and withholding tax is its own column rather than a row to pair up.
+- **R5 is probably yes.** An account-summary endpoint is documented; whether its figure is
+  comparable to the reconstruction is unverified, and section 6 already says a "no" is shippable
+  with the check missing and stated in red.
 
-Caveat on sourcing: the column list is documented by several independent third-party importers
-rather than by Trading 212. It is consistent across them, which is reassuring and is not the same
-as a real export.
+Sourcing caveat: the column list comes from several third-party importers, consistent with each
+other, not from Trading 212 and not from a real export.
 
-### 8c. R4 is the likely blocker, and it is the same shape as it was for Trade Republic
+### 8c. R4 — the blocker that turned out not to be one
 
-The reconstruction values yesterday's positions at yesterday's close. **No daily price series, no
-chart, no product** — section 1 says so and it has not softened.
+The first pass at this concluded R4 was the likely blocker, on the grounds that the *official* API
+documents no market data. That was true and it was the wrong place to look. The web app draws
+charts, and the endpoint that serves them is visible in two independent clients:
 
-The official API documents no market-data endpoint at all. That is not a gap in my reading; the
-reference has no such section, and the community threads asking for historical data read as
-requests for something absent.
+```
+POST https://live.trading212.com/charting/v2/batch
+{"candles":[{"ticker":"TSLA_US_EQ","period":"ONE_DAY","size":5,"includeFake":false}]}
+```
 
-Three things this does *not* settle, in decreasing order of hope:
+and a candle comes back as `{timestamp, bid:{o,h,l,c}, ask:{o,h,l,c}, volume, fake}`.
 
-1. **The web app's chart endpoint.** Trading 212 plainly draws price charts, so one exists. Whether
-   an extension can reach it, and whether it serves *daily closes going back years* rather than
-   intraday for a recent window, is unknown and is the single most valuable thing a capture would
-   answer.
-2. **A third-party price source is not a fallback, it is a different product.** It means a fetch to
-   a host that is not the broker, an ISIN-to-ticker mapping nobody maintains, and a second
-   throttled queue beside the one rule 5 insists is single. It also breaks the property that makes
-   this extension defensible — that it only ever reads from the broker the user is already logged
-   into. If R4 fails, the answer is dropping the story, not sourcing prices elsewhere.
-3. **Transaction prices alone are not a substitute.** They give a step function between trades,
-   which is a plausible-looking wrong chart — the exact failure mode this project exists to
-   prevent.
+**Daily granularity, a timestamp and a close: that is what the engine needs.** Four things this
+does *not* settle, and three of them are design decisions rather than unknowns:
 
-### 8d. R1 has two routes, and one of them is a decision that is not mine to take
+1. **How far back `size` reaches.** The one genuine unknown. Five years is ~1300 trading days; the
+   example requests five. DEGIRO's chart endpoint has the same shape and does go back years, which
+   is a reason to hope and not a reason to believe.
+2. **Bid *and* ask, where DEGIRO gives one close.** Someone has to decide which values a holding,
+   and the honest answer is not obvious — bid is what you could have sold at, mid is what the
+   position is conventionally marked at, and the spread on an illiquid instrument is the difference
+   between two defensible charts. This is a **domain decision to be made deliberately and written
+   down**, not one to be settled by whichever field the parser reads first.
+3. **`fake` is a per-candle boolean, and it is a rule-4-shaped hazard.** Trading 212 pads its series
+   with synthetic candles. A fabricated close silently entering a reconstruction is precisely the
+   failure this project exists to prevent, so the flag gets respected explicitly and the count
+   surfaced — `includeFake:false` being the default is not enough on its own.
+4. **Instruments are `TSLA_US_EQ`, not ISIN.** A mapping step through `/rest/v2/instruments/`, which
+   exists. Ordinary work, but it is work DEGIRO does not need.
 
-**Route A — the official API key.** Documented, sanctioned, read-capable, cursor-paginated,
-revocable, and it answers R2, R3 and R5 cleanly. It also requires the user to paste **an API key
-and secret** into the extension, which the extension then stores.
+### 8d. R1 — and the two routes turn out not to compete
 
-Rule 9 says no, and says it in words that fit this exactly: *"it does not store a credential"*.
-But rule 9 was written with DEGIRO and Trade Republic in mind — brokers where the only way in is a
-password — and an official, user-generated, revocable, scope-limited key is genuinely a different
-object from a password. The honest argument on both sides:
+**Route A, the official API key**, is documented, sanctioned and revocable, and it answers R2, R3
+and R5 cleanly. It requires storing an API key and secret, which rule 9 forbids in words that fit
+exactly: *"it does not store a credential"*.
 
-| For allowing it | Against |
-|---|---|
-| Explicitly sanctioned by the broker. It removes the README's standing caveat that automated access *may* conflict with terms | It is a credential in IndexedDB. Rule 9's safety argument — *nothing that does not exist can be stolen from IndexedDB* — applies to it word for word |
-| Revocable without changing the password, and scoped. Losing it is not losing the account | It is a **new secret on the egress surface**. Rule 7's allowlist would need to guarantee it never reaches the export, the bug report or a diagnostic. That is a real obligation, and 0.10.0's leak is what happens when one is missed |
-| It cannot be phished in the way a login form can, because there is no form to imitate | Rule 9 is a **product promise in the README's first paragraph about data**, not a preference. Weakening it changes what the product claims, for every broker, not just this one |
+**Route B, the web session**, is the DEGIRO pattern: cookies `CUSTOMER_SESSION` and
+`TRADING212_SESSION_LIVE` that the user's own login already placed. This is what rule 9 was written
+to permit.
 
-**This is a product and risk decision, so it is yours.** My recommendation is *no* — but the
-reason is not the rule, it is that route A **still fails R4**, so accepting a credential would buy
-a ledger without a chart. If R4 were solved, the trade would be worth a real conversation.
+The first pass framed these as a trade-off for the user to decide. **They are not a trade-off.**
+The charting endpoint in 8c is on the web host, not on `/api/v0` — so **route B is the only one
+that can reach the prices**, and without prices there is no chart whatever else works. Route A
+would buy a ledger and no history, at the cost of the product's central promise.
 
-**Route B — the web session, the DEGIRO pattern.** `live.trading212.com` holds a session cookie
-the user's own login already put there. This is what rule 9 was written to permit, and it is the
-only route that could also reach the chart endpoint from 8c. Two unknowns, both empirical:
+So rule 9 is not under pressure here, and no decision is being asked of anyone. The route that
+satisfies the rule is the only route that works.
 
-- **`SameSite`.** The exact question that decided Trade Republic's R1. If the cookie is
-  `SameSite=Strict` or `Lax`, an extension's fetch may not carry it, and the route closes.
-- **`X-Trader-Client`, and the device UUID in it.** If a request is only accepted with a device
-  identifier the *client* generated, then replaying it is closer to *"signing a request with a
-  device key it created"* than to reading a session — and rule 9 names that too. Reading a UUID
-  the web app already made and sending it back is arguably still reading, not authenticating, but
-  it is a line worth drawing deliberately rather than discovering later.
+What route B still turns on, both empirical:
 
-### 8e. What would actually answer this
+- **`SameSite`.** The exact question that decided Trade Republic. If those cookies are `Strict` or
+  `Lax`, an extension's fetch may not carry them and the route closes. Note the two clients
+  disagree in a way that is *not* evidence either way: Viaduct attaches no cookie to the charting
+  call, `node-trading212` attaches cookies to everything indiscriminately. Neither tells us what
+  the endpoint requires. **If the charting endpoint needs no session at all, that is a
+  simplification, not a finding to assume.**
+- **`Origin` and CORS.** Viaduct sets `Origin: https://live.trading212.com` by hand. An extension's
+  fetch sends its own origin, and whether the endpoint cares is unknown.
 
-In order, cheapest first. **All of it needs a Trading 212 account, which nobody on this project
-has said they have.**
+### 8e. The evidence is real and it may be dated
 
-1. **One HAR from a logged-in web session**, run through `tools/har-shapes.mjs` — which prints
-   field names, types and counts and never a value, and is already broker-agnostic for exactly
-   this. That answers the chart endpoint (R4), the cookie's attributes, whether
-   `X-Trader-Client` is required, and the real shape of the transaction rows in one capture.
-2. **One CSV export**, read where it sits and never copied, to confirm the columns in 8b against
-   reality rather than against importers.
-3. Only then, R1's sendability test — the protocol in §3b, unchanged.
+Held against this whole section: the example response is from **February 2021**, and the two
+clients call **different charting paths** — `/charting/v2/batch` against `/charting/prices` — which
+says the API has already versioned at least once since somebody wrote one of them. An endpoint that
+existed then may not exist now, or may want different fields.
 
-### 8f. The answer, in one paragraph
+This is the same mistake shape as `docs/ENDPOINT-REPORT.md` records: shapes that look like evidence
+because they are specific. They are worth exactly one capture's worth of scepticism.
 
-**Trading 212's account data is a better fit for this engine than DEGIRO's** — it states exchange
-rates instead of making us divide for them, and it types its cash movements instead of writing
-prose we have to pattern-match. If the spike ran and passed, the adapter would be *less* work than
-the DEGIRO one and would carry fewer ways to be wrong. **But the official API has no price
-history, which is the one thing the chart cannot be built without**, and it costs a stored
-credential to use. So the whole question reduces to a single unknown: **does the web app's chart
-endpoint serve daily closes, backwards, to a session an extension may read?** If yes, this is a
-strong second broker. If no, it is section 6's first bullet — drop it, and the correct outcome of
-the spike is closing the story rather than looking for a way around rule 9.
+### 8f. What would answer it
+
+**All of it needs a Trading 212 account.** In order, cheapest first:
+
+1. **One HAR from a logged-in web session, with the price chart opened on one instrument and the
+   range set to maximum.** Run through `tools/har-shapes.mjs`, which prints field names, types and
+   counts and never a value. That answers `size`'s real ceiling, the cookies' attributes, whether
+   `X-Trader-Client` is required, the live charting path, and the transaction shapes — all at once.
+2. **One CSV export**, read where it sits and never copied, to confirm 8b against reality.
+3. Then R1's sendability test, protocol unchanged from §3b.
+
+### 8g. The answer
+
+**Trading 212 is the most promising of the three brokers looked at, and it is a better fit for this
+engine than DEGIRO.** It states exchange rates instead of making us divide for them, types its cash
+movements instead of writing prose to pattern-match, and serves daily candles with timestamps from
+an endpoint two independent clients agree on. If a capture confirms it, the adapter would be less
+work than the DEGIRO one and would carry fewer ways to be wrong.
+
+Three things stand between here and that: **how far back the candle endpoint reaches**, whether an
+extension's fetch **carries the session cookie**, and a deliberate decision about **bid, ask or
+mid**. The first two need one HAR from somebody with an account. None of them needs a change to
+rule 9, which is the outcome the first pass of this section did not expect.
