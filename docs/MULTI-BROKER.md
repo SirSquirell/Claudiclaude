@@ -39,14 +39,81 @@ exists because of it.
 |---|---|
 | Trade Republic is app-first; the web client is the newer surface | Widely reported, low risk, still unverified here |
 | Authentication is phone number + PIN, then a second factor | Widely reported. **Unverified** |
-| The session is carried over a WebSocket rather than as a cookie on REST calls | Reported by third-party clients. **Unverified, and it is the single most important claim in this table** |
+| The session is carried over a WebSocket **rather than** as a cookie | **Contradicted, in part.** `app.traderepublic.com` sets cookies, and one of them is a plausible session claim — see 2c. Whether a socket *also* carries data is still open |
 | There is a device-pairing step producing a key pair, and requests are signed | Reported for the *mobile* API. Whether the *web* client does this is **unknown** |
-| A logged-in web tab holds something an extension can read and replay | **Unknown. This is the R1 question and nothing else can be planned until it is answered** |
+| A logged-in web tab holds something an extension can read and replay | **Probably yes**, and better than expected — see 2c. Not yet proven to be the *authenticating* credential |
 | Historical daily closes are available per instrument | **Unknown.** R4 |
 | The API reports an account total | **Unknown.** R5 |
 
-**What must not happen:** writing an adapter against this table. Every row above is a hypothesis,
-and three of them are the ones that decide whether the story exists.
+**What must not happen:** writing an adapter against this table. The rows still marked unknown are
+hypotheses, and two of them decide whether the story exists.
+
+### 2c. First real observation — one probe run, 2026-08-11
+
+`tools/r1-probe.js` on a logged-in `app.traderepublic.com` tab. Names, lengths and shapes only;
+no value was read, transmitted or recorded, and none is recorded here.
+
+**Cookies, readable from JavaScript** — which means **not** `HttpOnly`:
+
+| Name | Length | Shape | Reading |
+|---|---:|---|---|
+| `tr_claims` | 843 | opaque token-like | **The candidate.** "Claims" is session vocabulary and 843 characters is the right order of magnitude for one |
+| `tr_external_id` | 36 | uuid-like | An account or device identifier |
+| `aws-waf-token` | 378 | uuid-like | See 2d — this is the finding that matters most |
+| `_sp_id.a13a`, `_sp_ses.a13a` | 153, 1 | | Snowplow analytics. Irrelevant |
+| `tr_locale`, `pro-trading_consent` | 2, 7 | | Preferences |
+
+`localStorage` and `sessionStorage` hold feature flags, UI preferences, a Snowplow queue and
+Grafana Faro telemetry — nothing session-shaped. Two entries are worth naming anyway:
+`awswaf_session_storage` (658) and `awswaf_token_refresh_timestamp`, both from 2d, and
+`idleLogoutPhoneNumber`, which is a phone number sitting in the page's own storage. **An adapter
+must never copy `localStorage` wholesale into anything** — rule 7 applied before the code exists.
+
+**What this does and does not establish.**
+
+It establishes that the web client uses cookies at all, which the assumption above said it might
+not. That is the difference between "same shape as DEGIRO" and "a rewrite of the transport", and
+it lands on the good side.
+
+It does **not** establish that `tr_claims` is what authenticates a request. A perfectly ordinary
+design is a readable claims cookie for the UI *plus* an `HttpOnly` session cookie the probe cannot
+see by construction. Either way the answer to R1 is likely yes — an extension can read HttpOnly
+cookies through `chrome.cookies`, which is exactly how `JSESSIONID` is read today — but *which*
+cookie matters for building anything.
+
+**Still open, and both are two minutes:** the names and `HttpOnly` flags in Application → Cookies,
+and whether Network → Fetch/XHR carries ordinary requests or everything is on the socket.
+
+### 2d. AWS WAF is in front of this API, and it outranks the token question
+
+`aws-waf-token`, `awswaf_session_storage` and `awswaf_token_refresh_timestamp` say Trade Republic
+runs AWS WAF's bot-control challenge in front of the web client. That is a bigger deal for this
+project than which cookie holds the session:
+
+- **WAF exists to distinguish a real browser from automated traffic**, and that is what an
+  hourly background sync *is*, however slowly it goes. DEGIRO has nothing like this in the path.
+- Its token is **refreshed by a JavaScript challenge the page solves**. A service worker replaying
+  requests is not running that page, so it inherits a token it cannot renew — and the failure mode
+  when it expires is a challenge or a block, not a clean 401.
+- Reproducing the challenge ourselves is out of the question. It is indistinguishable in kind from
+  defeating a bot check, and CLAUDE.md rule 9 already closes the door on anything shaped like
+  authenticating on the user's behalf.
+
+*Consequence for the design, if the story proceeds:* requests would have to be made **while a
+Trade Republic tab is open and the user is present**, riding a live token rather than a stored
+one — closer to the existing opportunistic `chrome.tabs.onUpdated` sync than to the hourly alarm.
+Which happens to be the same conclusion 2e reaches from a different direction.
+
+### 2e. The session almost certainly expires quickly
+
+`lastActivityAt`, `lastActive` and `idleLogoutPhoneNumber` in `localStorage` describe an idle
+logout. DEGIRO's cookie survives long enough that an hourly alarm usually finds a live session;
+if Trade Republic logs out after minutes of inactivity, **the hourly sync would fail nearly every
+time**, and the honest design is not to have one.
+
+Not a blocker, but it changes what the feature *is*: a broker that syncs when you visit it, rather
+than one that quietly keeps itself up to date. That belongs in US-10's acceptance criteria and on
+the page, not as a surprise for whoever installs it.
 
 ### 2b. The rate-limit posture is different, and it is the risk that is not about code
 
