@@ -559,11 +559,218 @@ Four things a new adapter has to supply, and each has a way of being absent:
   DEGIRO one uses.
 - ☐ An unrecognised cash description is `UNKNOWN` and visible, exactly as it is today.
 
-#### What is deliberately not in scope
+#### What was deliberately not in scope, and now is
 
-One extension holding two brokers at once. Two accounts, two sets of instruments, two currencies
-of record, and a combined total nobody can reconcile against anything. SPEC §7 already stops at
-one account; this stops at one broker per install until there is a reason.
+This story used to end here:
+
+> *One extension holding two brokers at once. Two accounts, two sets of instruments, two
+> currencies of record, and a combined total nobody can reconcile against anything. SPEC §7
+> already stops at one account; this stops at one broker per install until there is a reason.*
+
+**There is now a reason, and it is the actual product.** Money sits at more than one broker, and
+the question people want answered — *what am I worth, and what did it make* — is not a
+per-broker question. US-22 to US-24 below replace this paragraph. One of the objections in it
+turns out to be wrong, and saying which one is most of the design.
+
+---
+
+### US-22 — One extension, several brokers *(new, refined — read §A first)*
+
+**As someone with money at more than one broker, I want one chart for all of it, and the ability
+to look at one broker at a time.**
+
+#### A. The objection above was wrong, and here is the arithmetic
+
+The old scope note said a combined total is something *"nobody can reconcile against anything"*.
+That conflates two different things, and the difference decides the whole architecture.
+
+SPEC §1.4 is `pnl[t] = (value[t] − value[t−1]) − netExternal[t]`. Both sides of that are sums
+over whatever is in the account, so for two brokers D and T:
+
+```
+value_combined[t]       = value_D[t] + value_T[t]
+netExternal_combined[t] = netExt_D[t] + netExt_T[t]
+
+pnl_combined[t] = Δvalue_combined[t] − netExternal_combined[t]
+                = (Δvalue_D − netExt_D) + (Δvalue_T − netExt_T)
+                = pnl_D[t] + pnl_T[t]
+```
+
+**Combined profit and loss is exactly the sum of the per-broker series.** Not approximately, not
+subject to a convention — identically, because the identity is linear and both sides add. That
+is a theorem about the model, and three consequences fall straight out of it:
+
+1. **`engine.js` needs no change at all.** Not "a small change". Run it once per broker on that
+   broker's own rows, then add the daily arrays together. The engine keeps never having heard of
+   a broker, which is the property US-10 already made an acceptance criterion.
+2. **Reconciliation stays per broker, and the combined total is never reconciled.** Each broker
+   has its own anchor and its own check; the combined figure has no counterpart at any broker, so
+   there is nothing to compare it to. This is the part the old note got right — it just does not
+   condemn the feature, it decides where the check lives.
+3. **Percentages do not add.** `windowReturnPct` chains daily returns against the previous day's
+   value, so a combined return must be computed on the combined series. Averaging two brokers'
+   percentages is wrong and would be an easy mistake to ship.
+
+#### B. Moving money between brokers, which is the case everyone assumes breaks it
+
+Withdraw €10 000 from DEGIRO on Monday, and it lands at Trade Republic on Wednesday. It is
+tempting to invent a `TRANSFER` category that nets the two out. **Do not** — and the arithmetic
+says why it is unnecessary:
+
+| | Δvalue | netExternal | pnl |
+|---|---|---|---|
+| Mon, DEGIRO | −10 000 | −10 000 | **0** |
+| Wed, Trade Republic | +10 000 | +10 000 | **0** |
+
+Each side is already self-consistent, so the combined P/L is zero on both days. **No profit is
+fabricated and none is lost.** A `TRANSFER` category would be inventing a classification to fix a
+problem that does not exist, against rule 4.
+
+There *is* a visible artefact, and it is in a different place than expected: for Tuesday the
+money is at neither broker, so the **combined value line dips by €10 000 for two days**. That is
+not an error — the money genuinely was not at either broker — but it reads as a loss to the eye
+while the P/L correctly says nothing happened.
+
+*Recommendation: annotate, never net.* A withdrawal at one broker matched by a deposit of the
+same amount at another within a few days is almost certainly a transfer; mark it on the chart and
+say so in the tooltip. **It must change no number** — it is a label on a true value, and the
+moment it starts adjusting figures it is a guess about intent that rule 4 forbids.
+
+#### C. What a broker is, as a module
+
+Today `session.js`, `degiro.js`, `parse.js` and `classify.js` are four modules with DEGIRO's
+assumptions in them. They become one **adapter** per broker behind a named interface, and the
+interface is the deliverable of this story:
+
+| The adapter must supply | Why it cannot be shared |
+|---|---|
+| `id`, `label` | Everything is keyed by it |
+| `resolveSession()` | Cookie for DEGIRO; whatever Trade Republic turns out to need |
+| `fetchTransactions`, `fetchCashRows`, `fetchProducts`, `fetchPrices` | Different endpoints, different shapes |
+| `fetchLiveTotal()` | The reconciliation anchor, per broker |
+| **its own `classify` rule table** | `classify.js` is DEGIRO's wording in Dutch and English. Another broker's descriptions are its own vocabulary, and rule 4 means every unmatched row is `UNKNOWN` and counted — **per broker**, so one broker's unclassified rows cannot hide inside another's clean sheet |
+| its own throttle queue | See §E |
+
+#### D. Instruments held at two brokers
+
+100 ASML at DEGIRO and 50 at Trade Republic is one holding of 150 in the combined view, and two
+rows when filtered. Merge on **ISIN**, never on the broker's own product id, which is
+broker-local by definition. An instrument with no ISIN — most derivatives — stays separate and
+says so, rather than being matched on a name string.
+
+#### E. Rate limiting, which is a safety question and not a performance one
+
+CLAUDE.md rule 5 puts every outbound request through one module-global queue at ≥1,1 s. With two
+brokers that single queue is both too strict and too loose: a Trade Republic request would wait
+behind a DEGIRO one for no reason, and — worse — a shared budget makes it possible to reason
+about the total rate while getting each individual broker's rate wrong. **One queue per broker**,
+and brokers sync one after another rather than at the same time, so a slow first sync cannot
+double the worker's outbound rate.
+
+#### F. Storage, and the migration nobody can skip
+
+Every store gains a broker dimension; keys become `broker:id`, because two brokers will
+eventually issue the same numeric product id and one silently overwriting the other is a class of
+bug that produces a plausible wrong chart. That is a `dbVersion` bump, and per rule 2 there is
+nothing to migrate — the raw responses are re-fetchable, so the upgrade is a wipe and a resync,
+announced.
+
+#### Acceptance criteria
+
+- ☐ `engine.js` is byte-for-byte unchanged by this story.
+- ☐ A test proves the theorem in §A on real fixtures: engine-per-broker-then-sum equals the
+  combined series, to the cent, for `value`, `netExternal` and `pnl`.
+- ☐ A test proves a cross-broker transfer produces **zero** combined P/L on both days.
+- ☐ Each broker reconciles against its own anchor. The combined view shows the **weakest** status
+  of its parts and names the broker responsible — a green combined banner over one unverified
+  broker is exactly the plausible-wrong-chart failure this project exists to prevent.
+- ☐ Combined return is computed on the combined series, and a test fails if anyone averages two
+  percentages.
+- ☐ Unclassified cash rows are counted per broker and surfaced per broker.
+- ☐ Instruments merge on ISIN; one without an ISIN stays separate and says why.
+- ☐ The bug report and the export gain a broker dimension and stay default-deny (rule 7).
+  Findings name accounts and now brokers — never people.
+
+#### Recommended order, and it is not the obvious one
+
+**Do the refactor while there is still only one broker.** Introduce the adapter interface, the
+broker key in storage and the run-per-broker-then-sum path with DEGIRO as the only implementation
+and nothing visible changing. Every existing test must still pass, and any that break are
+describing a real behaviour change.
+
+The alternative — build Trade Republic first and generalise afterwards — means doing the risky
+structural change with two brokers to get wrong instead of one, while the second one is also the
+one nobody understands yet.
+
+---
+
+### US-23 — Sync and wipe, per broker *(new, refined)*
+
+**As someone with two brokers connected, I want to sync or wipe one of them without touching the
+other.**
+
+A single **Sync now** that always does everything is wrong in both directions once there are two
+brokers: a Trade Republic outage should not stop a DEGIRO sync, and a DEGIRO session that has
+expired should not force a five-minute Trade Republic re-download to find that out.
+
+*Shape:* **Sync now** keeps doing all connected brokers — the common case stays one click — with a
+split control beside it listing each broker plus its last-synced time. **Wipe & resync** gets the
+same treatment, and per broker it wipes only that broker's rows.
+
+*The part that will be got wrong:* the guards. `runSync` today holds one module-global `running`
+promise and `wipeAndResync` awaits it, and that is what stops a wipe landing halfway through a
+sync — a failure that once produced a real report of a portfolio with cash and no holdings. With
+two brokers that becomes **one guard per broker**, and a wipe of broker A must wait for A's run
+only. A single global guard would serialise everything and quietly re-introduce the multi-minute
+wait §E is trying to avoid; a guard per broker that is forgotten re-introduces the wipe race.
+
+*Acceptance criteria:*
+
+- ☐ Syncing one broker leaves the other's rows and its last-synced time untouched.
+- ☐ Wiping one broker leaves the other's data intact, and the page still reconciles the survivor.
+- ☐ A broker whose session has expired reports that against **that broker's** row, and the others
+  still sync.
+- ☐ The wipe-during-sync race is tested per broker, not assumed.
+- ☐ One connected broker looks exactly like today: no submenu for a choice of one.
+
+---
+
+### US-24 — Combine, and filter *(new, refined)*
+
+**As someone looking at €50 000 at DEGIRO and €60 000 at Trade Republic, I want to see €110 000,
+and to be able to take either one out of the picture.**
+
+*Shape:* a broker filter beside the range control, defaulting to everything, driving every chart
+and every figure on the page — the same way the range control already does. Not a sixth tab and
+not a per-chart setting: the whole page describes one selection.
+
+*Three things that must be true and are easy to miss:*
+
+1. **Every figure has to say what it covers.** "Total value €110 000" is a different claim from
+   "€50 000 (DEGIRO only)", and the tile note is where that belongs — the `i` tooltips added in
+   0.26.0 are the place for the caveat.
+2. **Colour follows the instrument, not the broker.** The composition chart's rule is that a
+   series keeps its colour when the range changes; the same must hold when a broker is filtered
+   out, or every repaint invents a new reading. ASML is one colour whether it is held at one
+   broker or two.
+3. **Filtering to one broker must produce exactly what a single-broker install produces.** That
+   is the strongest available test of the whole design, and it is cheap: the fixtures for one
+   broker already exist.
+
+*Acceptance criteria:*
+
+- ☐ Filtering to a single broker reproduces the single-broker numbers exactly.
+- ☐ The reconciliation shown is the filtered selection's, not the combined one's.
+- ☐ Every tile states which brokers it covers when the selection is not everything.
+- ☐ An instrument's colour does not change when a broker is filtered out.
+- ☐ A cross-broker transfer is marked on the value chart and changes no number.
+
+#### What is still deliberately not in scope
+
+Two accounts **at the same broker**. It sounds like the same feature and it is not: one DEGIRO
+login reaches one account, so a second one means a second session, and the whole
+"no password, we only read the cookie your browser already has" promise has to be re-examined
+before anything is built. Separate story, separate spike.
 
 ## 5. Definition of Done — reconciling the two versions
 

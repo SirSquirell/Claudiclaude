@@ -210,6 +210,12 @@ verified.
 Stop after 7. No multi-account support, no benchmarks, no tax reporting, no export to
 Portfolio Performance unless asked.
 
+> **Amended, 0.26.0.** "No multi-account" is superseded for the *multi-broker* case: money at
+> more than one broker, combined and filterable, is now the product direction — see US-22 to
+> US-24 in `docs/BACKLOG.md`. Two accounts at the *same* broker remains out of scope, because
+> that one needs a second session and would put the "we only read the cookie your browser
+> already has" promise back on the table. The rest of §7 stands.
+
 ## 8. Bootstrap prompt for Claude Code
 
 Put this file in the repo root as `SPEC.md`, put the HAR captures in `fixtures/`, then:
