@@ -11,6 +11,34 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.32.0] — 2026-08-11
+
+### Added
+
+- **Nederlands**, with a flag beside the theme toggle. Every tester is Dutch and the entire
+  interface was English — including a card headed *"Profit and loss per product"* sitting next to a
+  proposal that says *"Winst en verlies per product"*. There was no translation layer at all.
+
+  **English stays the source language**, and the dictionary is keyed by the English string rather
+  than by an identifier. So a string with no translation renders in English instead of
+  `tiles.totalValue.label`, the English text stays visible in the code that uses it, and there is
+  no key to get wrong because the key *is* the text.
+
+  The cost of that choice is that editing an English string orphans its translation — which is why
+  **an untranslated string is counted rather than hidden**. A page that silently falls back looks
+  finished and is not, and this project already has a rule about numbers that look more confident
+  than they are. Right now the count is zero: all 121 strings are translated, tile explanations
+  included, which is the half a Dutch reader most needs since it is where every caveat lives.
+
+  Numbers and dates stay `nl-NL` in both languages. That is a locale for money, not a language for
+  prose: two people looking at the same DEGIRO account should see the same € 1.234,56.
+
+### Fixed
+
+- **Controls built once at boot did not re-label.** The first version switched to Dutch and left
+  the tab bar and the theme buttons in English — the static markup is walked on every change, but
+  anything whose text is written by JavaScript has to be told. Caught in a browser, not by a test.
+
 ## [0.31.0] — 2026-08-11
 
 Three tables on the Holdings section, from the per-product page proposal (US-27, US-28, US-29).

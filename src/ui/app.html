@@ -11,16 +11,17 @@
     <div class="wrap">
       <header class="top">
         <div>
-          <h1>Portfolio history</h1>
+          <h1 data-i18n>Portfolio history</h1>
           <div class="sub" id="subtitle">Loading…</div>
         </div>
         <div class="actions">
+          <div class="group" id="lang-group" role="group" aria-label="Language"></div>
           <div class="group" id="theme-group" role="group" aria-label="Appearance"></div>
-          <button id="btn-sync" type="button">Sync now</button>
-          <button id="btn-diagnose" type="button">Check connection</button>
-          <button id="btn-bugreport" type="button" data-act="bugreport">Copy bug report</button>
-          <button id="btn-export" type="button">Export JSON</button>
-          <button id="btn-wipe" type="button">Wipe &amp; resync</button>
+          <button id="btn-sync" type="button" data-i18n>Sync now</button>
+          <button id="btn-diagnose" type="button" data-i18n>Check connection</button>
+          <button id="btn-bugreport" type="button" data-act="bugreport" data-i18n>Copy bug report</button>
+          <button id="btn-export" type="button" data-i18n>Export JSON</button>
+          <button id="btn-wipe" type="button" data-i18n>Wipe &amp; resync</button>
         </div>
       </header>
 
@@ -28,23 +29,23 @@
       <div id="banners"></div>
 
       <div class="card" id="diagnostics" hidden>
-        <h2>Connection check</h2>
+        <h2 data-i18n>Connection check</h2>
         <p class="hint" id="diag-summary"></p>
         <div class="table-scroll">
           <table id="diag-table">
             <thead>
               <tr>
-                <th>Step</th>
-                <th>Result</th>
-                <th>Detail</th>
+                <th data-i18n>Step</th>
+                <th data-i18n>Result</th>
+                <th data-i18n>Detail</th>
               </tr>
             </thead>
             <tbody></tbody>
           </table>
         </div>
         <div class="actions" style="margin-top: 12px">
-          <button id="btn-copy-diag" type="button">Copy report</button>
-          <button id="btn-hide-diag" type="button">Hide</button>
+          <button id="btn-copy-diag" type="button" data-i18n>Copy report</button>
+          <button id="btn-hide-diag" type="button" data-i18n>Hide</button>
         </div>
         <p class="hint" style="margin-top: 8px">
           Safe to share: statuses, counts and field names only — no session id, account number or amounts.
@@ -57,10 +58,10 @@
 
       <div class="controls">
         <div class="group" id="range-group">
-          <span class="glabel">Range</span>
+          <span class="glabel" data-i18n>Range</span>
         </div>
         <div class="group" id="gran-group">
-          <span class="glabel">Results per</span>
+          <span class="glabel" data-i18n>Results per</span>
         </div>
         <label class="check">
           <input type="checkbox" id="toggle-cash" checked />
@@ -71,7 +72,7 @@
       <div data-tab="overview" class="grid">
         <div class="card">
           <div class="zoom-state" id="zoom-state" hidden></div>
-          <h2>Portfolio value including cash</h2>
+          <h2 data-i18n>Portfolio value including cash</h2>
           <p class="hint">
             Daily total, reconstructed from your trades, cash movements and daily closing prices.
             Triangles on the baseline mark days money went in (up) or out (down).
@@ -82,14 +83,14 @@
 
       <div data-tab="perf" class="grid two" style="margin-top: 16px">
         <div class="card">
-          <h2>Result per period</h2>
+          <h2 data-i18n>Result per period</h2>
           <p class="hint">Value change with deposits and withdrawals removed, so only performance is left.</p>
           <div class="chart-box"><canvas id="c-pnl"></canvas></div>
         </div>
         <div class="card">
           <div class="card-head">
             <div>
-              <h2>Cumulative result</h2>
+              <h2 data-i18n>Cumulative result</h2>
               <p class="hint" id="cum-hint">The same numbers, added up over the selected range.</p>
             </div>
             <div class="group" id="cum-view"></div>
@@ -100,7 +101,7 @@
 
       <div data-tab="comp" class="grid" style="margin-top: 16px">
         <div class="card">
-          <h2>What the portfolio is made of</h2>
+          <h2 data-i18n>What the portfolio is made of</h2>
           <p class="hint">
             Stacked daily value per holding, with cash at the top. The largest positions get their own band;
             the rest are folded into “Other”.
@@ -111,7 +112,7 @@
 
       <div data-tab="overview" class="grid" style="margin-top: 16px">
         <div class="card">
-          <h2>Money paid in vs what it is worth</h2>
+          <h2 data-i18n>Money paid in vs what it is worth</h2>
           <p class="hint">The gap between the two lines is growth — everything that is not your own deposits.</p>
           <div class="chart-box"><canvas id="c-invested"></canvas></div>
         </div>
@@ -119,7 +120,7 @@
 
       <div data-tab="perf" class="grid" style="margin-top: 16px">
         <div class="card">
-          <h2>What moved, in this range</h2>
+          <h2 data-i18n>What moved, in this range</h2>
           <p class="hint">
             Result per instrument over the selected range — the same number the holdings table prints, as a shape.
             Deposits and withdrawals are already out of it, so a bar is performance and nothing else.
@@ -130,7 +131,7 @@
 
       <div data-tab="comp" class="grid two" style="margin-top: 16px">
         <div class="card">
-          <h2>Currency exposure</h2>
+          <h2 data-i18n>Currency exposure</h2>
           <p class="hint">
             Which currencies today's value is riding on. Everything on this page is in euros; this is what those
             euros depend on.
@@ -138,7 +139,7 @@
           <div class="chart-box"><canvas id="c-currency"></canvas></div>
         </div>
         <div class="card">
-          <h2>Uninvested cash over time</h2>
+          <h2 data-i18n>Uninvested cash over time</h2>
           <p class="hint">How much was sitting idle, day by day.</p>
           <div class="chart-box"><canvas id="c-cash"></canvas></div>
         </div>
@@ -146,7 +147,7 @@
 
       <div data-tab="income" class="grid" style="margin-top: 16px">
         <div class="card">
-          <h2>Deposits and withdrawals per month</h2>
+          <h2 data-i18n>Deposits and withdrawals per month</h2>
           <p class="hint">Net external cashflow. Nothing here counts as profit or loss.</p>
           <div class="chart-box"><canvas id="c-deposits"></canvas></div>
         </div>
@@ -156,14 +157,14 @@
         <div class="card">
           <div class="card-head">
             <div>
-              <h2>Month by month</h2>
+              <h2 data-i18n>Month by month</h2>
               <p class="hint">
                 Every month of every year, so you can read across a row for one year or down a column to compare
                 the same month across years. Whole history, not the selected range.
               </p>
             </div>
             <div class="group" id="metric-group">
-              <span class="glabel">Show</span>
+              <span class="glabel" data-i18n>Show</span>
             </div>
           </div>
           <div class="table-scroll">
@@ -178,14 +179,14 @@
         <div class="card">
           <div class="card-head">
             <div>
-              <h2>Compare months</h2>
+              <h2 data-i18n>Compare months</h2>
               <p class="hint" id="compare-hint">
                 Click a single month in the grid to compare specific months — September 2025 against November 2020.
                 Click a month name in the header instead to compare that month across every year.
               </p>
             </div>
             <div class="group">
-              <button id="btn-clear-months" type="button">Clear selection</button>
+              <button id="btn-clear-months" type="button" data-i18n>Clear selection</button>
             </div>
           </div>
           <div class="chart-box" id="compare-box" hidden><canvas id="c-compare"></canvas></div>
@@ -193,13 +194,13 @@
             <table id="compare-summary">
               <thead>
                 <tr>
-                  <th>Month</th>
-                  <th>Years</th>
-                  <th id="th-total">Total</th>
-                  <th id="th-avg">Average</th>
-                  <th>Best</th>
-                  <th>Worst</th>
-                  <th>Positive</th>
+                  <th data-i18n>Month</th>
+                  <th data-i18n>Years</th>
+                  <th id="th-total" data-i18n>Total</th>
+                  <th id="th-avg" data-i18n>Average</th>
+                  <th data-i18n>Best</th>
+                  <th data-i18n>Worst</th>
+                  <th data-i18n>Positive</th>
                 </tr>
               </thead>
               <tbody></tbody>
@@ -210,7 +211,7 @@
 
       <div data-tab="income" class="grid" style="margin-top: 16px">
         <div class="card">
-          <h2>Dividend per month</h2>
+          <h2 data-i18n>Dividend per month</h2>
           <p class="hint">Net cash received, with withholding tax shown below the line. Whole history, not the selected range.</p>
           <div class="chart-box"><canvas id="c-dividends"></canvas></div>
         </div>
@@ -220,7 +221,7 @@
         <div class="card">
           <div class="card-head">
             <div>
-              <h2>Holdings</h2>
+              <h2 data-i18n>Holdings</h2>
               <p class="hint" id="holdings-hint">
                 The same series as the stacked chart, as numbers — so nothing depends on telling two colours apart.
               </p>
@@ -232,15 +233,15 @@
             <table id="holdings">
               <thead>
                 <tr>
-                  <th>Instrument</th>
-                  <th>Quantity</th>
-                  <th>Price</th>
-                  <th>Average paid</th>
-                  <th>Value</th>
-                  <th>Paid in vs grown</th>
-                  <th>Result</th>
-                  <th>Share</th>
-                  <th>Currency</th>
+                  <th data-i18n>Instrument</th>
+                  <th data-i18n>Quantity</th>
+                  <th data-i18n>Price</th>
+                  <th data-i18n>Average paid</th>
+                  <th data-i18n>Value</th>
+                  <th data-i18n>Paid in vs grown</th>
+                  <th data-i18n>Result</th>
+                  <th data-i18n>Share</th>
+                  <th data-i18n>Currency</th>
                 </tr>
               </thead>
               <tbody></tbody>
@@ -253,7 +254,7 @@
         <div class="card">
           <div class="card-head">
             <div>
-              <h2>Profit and loss per product</h2>
+              <h2 data-i18n>Profit and loss per product</h2>
               <p class="hint" id="products-hint">
                 Everything ever traded, closed positions included — which is where most of the answer to
                 “was that a good idea” lives. Result is what the position made; dividend is beside it rather
@@ -267,14 +268,14 @@
             <table id="products">
               <thead>
                 <tr>
-                  <th>Product</th>
-                  <th>Type</th>
-                  <th>Status</th>
-                  <th class="num">Bought</th>
-                  <th class="num">Sold</th>
-                  <th class="num">Dividend</th>
-                  <th class="num">Value now</th>
-                  <th class="num">Result</th>
+                  <th data-i18n>Product</th>
+                  <th data-i18n>Type</th>
+                  <th data-i18n>Status</th>
+                  <th class="num" data-i18n>Bought</th>
+                  <th class="num" data-i18n>Sold</th>
+                  <th class="num" data-i18n>Dividend</th>
+                  <th class="num" data-i18n>Value now</th>
+                  <th class="num" data-i18n>Result</th>
                   <th class="num">% of bought</th>
                 </tr>
               </thead>
@@ -289,7 +290,7 @@
         <div class="card">
           <div class="card-head">
             <div>
-              <h2>Transactions</h2>
+              <h2 data-i18n>Transactions</h2>
               <p class="hint" id="tx-hint">Newest first, for the selected range.</p>
             </div>
             <div class="group" id="tx-scope"></div>
@@ -298,12 +299,12 @@
             <table id="transactions">
               <thead>
                 <tr>
-                  <th>Date</th>
-                  <th>Type</th>
-                  <th>Product</th>
-                  <th class="num">Quantity</th>
-                  <th class="num">Price</th>
-                  <th class="num">Amount</th>
+                  <th data-i18n>Date</th>
+                  <th data-i18n>Type</th>
+                  <th data-i18n>Product</th>
+                  <th class="num" data-i18n>Quantity</th>
+                  <th class="num" data-i18n>Price</th>
+                  <th class="num" data-i18n>Amount</th>
                 </tr>
               </thead>
               <tbody></tbody>
@@ -316,14 +317,14 @@
         <div class="card">
           <div class="card-head">
             <div>
-              <h2>Notices</h2>
+              <h2 data-i18n>Notices</h2>
               <p class="hint">
                 Everything the reconstruction wants you to say out loud. Anything that makes a number untrustworthy
                 also stays pinned at the top of every section — this is where the rest of it lives, with the detail.
               </p>
             </div>
             <div class="group">
-              <button type="button" data-act="bugreport">Copy bug report</button>
+              <button type="button" data-act="bugreport" data-i18n>Copy bug report</button>
             </div>
           </div>
           <div class="chips" id="note-chips"></div>

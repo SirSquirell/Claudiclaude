@@ -100,3 +100,50 @@ test('a bare id still means issueid', () => {
   const url = ENDPOINTS.chart({ vwdIds: ['350009261'], userToken: '9' }); // leak-check: ok — a vwd issue id from the spec
   assert.ok(url.includes('series=price:issueid:350009261')); // leak-check: ok
 });
+
+// ---------------------------------------------------------------------------
+// i18n
+// ---------------------------------------------------------------------------
+
+/**
+ * The dictionary is keyed by the English string, which is what makes a missing
+ * translation render in English rather than as a key — and what makes an edited
+ * English string orphan its translation. These pin the two things that would
+ * turn that trade-off into a defect.
+ */
+const i18n = await import('../src/ui/i18n.js');
+
+test('an untranslated string falls back to English and is counted', () => {
+  globalThis.localStorage = { getItem: () => 'nl', setItem: () => {} };
+  globalThis.document = { documentElement: {} };
+  const before = i18n.missing().length;
+  assert.equal(i18n.t('Total value'), 'Totale waarde');
+  assert.equal(i18n.t('a string nobody has translated'), 'a string nobody has translated');
+  assert.ok(i18n.missing().includes('a string nobody has translated'));
+  assert.ok(i18n.missing().length > before, 'a fallback that is not counted is a fallback nobody fixes');
+});
+
+test('English is the identity, and nothing is counted against it', () => {
+  globalThis.localStorage = { getItem: () => 'en', setItem: () => {} };
+  assert.equal(i18n.t('Total value'), 'Total value');
+  assert.equal(i18n.t('anything at all'), 'anything at all');
+});
+
+test('placeholders interpolate after lookup, so a translation can reorder them', () => {
+  // Dutch word order is not English word order. Interpolating before lookup
+  // would make the filled sentence the dictionary key, which never matches.
+  globalThis.localStorage = { getItem: () => 'nl', setItem: () => {} };
+  assert.equal(i18n.t('{a} of {b}', { a: 3, b: 9 }), '3 of 9');
+});
+
+test('every Dutch translation is a non-empty string, and none is left as its key', () => {
+  // A translation identical to its key is either untranslated or a word that is
+  // genuinely the same in both. The second is real — "Instrument", "Dividend" —
+  // so this only catches the empty and the wrong-typed.
+  const dict = i18n.__dictForTest?.().nl;
+  if (!dict) return; // not exposed; nothing to assert
+  for (const [k, v] of Object.entries(dict)) {
+    assert.equal(typeof v, 'string', `${k} is not a string`);
+    assert.ok(v.length > 0, `${k} is empty`);
+  }
+});

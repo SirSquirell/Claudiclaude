@@ -24,6 +24,7 @@ import {
 } from './charts.js';
 import { buildBugReport } from '../lib/report.js';
 import { isSameRun } from '../lib/sync.js';
+import { LANGS, applyStatic, getLang, missing as missingTranslations, setLang, t as tr } from './i18n.js';
 import { THEMES, alpha, applyTheme, fmtEurCents, fmtPct, fmtSigned, getTheme, onThemeChange, setTheme, tokens } from './theme.js';
 import { inExtension, load, send, wantsDemo } from './datasource.js';
 
@@ -128,6 +129,11 @@ async function init() {
   buildControls();
   wireActions();
   applyTheme();
+  // The attribute matters beyond styling: it is what a screen reader and the
+  // browser's own translation prompt read.
+  document.documentElement.lang = getLang();
+  applyStatic();
+  buildLangControl();
   buildThemeControl();
   wireTips();
   onThemeChange(() => render());
@@ -176,15 +182,70 @@ async function refresh() {
  * variables, so a chart already on screen keeps the old theme's palette until
  * it is rebuilt — which is the same reason `onThemeChange` exists for the OS.
  */
+/**
+ * English or Dutch, as a flag and a code.
+ *
+ * Changing it re-renders rather than reloads: every visible string is produced
+ * either by `applyStatic` over the markup or by `tr()` inside a render, so one
+ * pass rebuilds the page. The choice is stored the same way the theme is.
+ */
+function buildLangControl() {
+  const group = $('#lang-group');
+  if (!group) return;
+  group.innerHTML = '';
+  for (const l of LANGS) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'flag';
+    b.textContent = `${l.flag} ${l.code.toUpperCase()}`;
+    b.title = l.label;
+    b.setAttribute('aria-pressed', String(l.code === getLang()));
+    b.addEventListener('click', () => {
+      setLang(l.code);
+      for (const other of group.querySelectorAll('button')) {
+        other.setAttribute('aria-pressed', String(other === b));
+      }
+      retranslate();
+    });
+    group.append(b);
+  }
+}
+
+/**
+ * Re-label everything that is built once and then left alone.
+ *
+ * The static markup is easy — `applyStatic` walks it. The trap is the controls
+ * assembled in JavaScript at boot: the tab bar, the theme buttons, the range
+ * and granularity groups. They render their own text once and never look at it
+ * again, so the first version of this switched to Dutch and left the tabs in
+ * English. Anything whose label is written by code has to be told.
+ */
+function retranslate() {
+  applyStatic();
+  for (const b of $('#tabs').querySelectorAll('button')) {
+    const tab = TABS.find((x) => x.key === b.dataset.tab);
+    const count = b.querySelector('.count');
+    if (tab) b.firstChild.textContent = tr(tab.label);
+    if (count) b.append(count);
+  }
+  for (const b of $('#theme-group').querySelectorAll('button')) {
+    b.textContent = tr(b.dataset.key === 'auto' ? 'Auto' : b.dataset.key === 'light' ? 'Light' : 'Dark');
+  }
+  // Segmented controls cache a signature to avoid rebuilding on every render;
+  // the label text just changed underneath them.
+  for (const host of document.querySelectorAll('[data-sig]')) delete host.dataset.sig;
+  render();
+}
+
 function buildThemeControl() {
   const group = $('#theme-group');
   if (!group) return;
-  group.innerHTML = '<span class="glabel">Theme</span>';
+  group.innerHTML = `<span class="glabel">${esc(tr('Theme'))}</span>`;
   for (const key of THEMES) {
     const b = document.createElement('button');
     b.type = 'button';
     b.dataset.key = key;
-    b.textContent = key === 'auto' ? 'Auto' : key === 'light' ? 'Light' : 'Dark';
+    b.textContent = tr(key === 'auto' ? 'Auto' : key === 'light' ? 'Light' : 'Dark');
     b.setAttribute('aria-pressed', String(key === getTheme()));
     b.addEventListener('click', () => {
       setTheme(key);
@@ -316,7 +377,7 @@ function buildControls() {
     b.dataset.tab = t.key;
     b.setAttribute('role', 'tab');
     const count = document.querySelectorAll(`[data-tab="${t.key}"] > .card`).length;
-    b.innerHTML = `${esc(t.label)}<span class="count">${count}</span>`;
+    b.innerHTML = `${esc(tr(t.label))}<span class="count">${count}</span>`;
     b.addEventListener('click', () => {
       state.tab = t.key;
       render();
@@ -498,8 +559,8 @@ function wireActions() {
     return startAndFollow({
       message: { type: 'sync', force: true },
       btn: e.target,
-      busyLabel: 'Syncing',
-      idleLabel: 'Sync now',
+      busyLabel: tr('Syncing'),
+      idleLabel: tr('Sync now'),
     });
   });
 
@@ -509,7 +570,7 @@ function wireActions() {
       return;
     }
     e.target.disabled = true;
-    e.target.textContent = 'Checking…';
+    e.target.textContent = tr('Checking…');
     clearNotices();
     try {
       // Longer than the default: the check makes several real requests, and
@@ -520,7 +581,7 @@ function wireActions() {
       notice('error', `Could not run the check: ${err.message ?? err}`);
     } finally {
       e.target.disabled = false;
-      e.target.textContent = 'Check connection';
+      e.target.textContent = tr('Check connection');
     }
   });
 
@@ -588,8 +649,8 @@ function wireActions() {
     return startAndFollow({
       message: { type: 'wipe' },
       btn: e.target,
-      busyLabel: 'Resyncing',
-      idleLabel: 'Wipe & resync',
+      busyLabel: tr('Resyncing'),
+      idleLabel: tr('Wipe & resync'),
     });
   });
 
@@ -1190,10 +1251,10 @@ function renderTiles(r, from = 0, to = r.days.length - 1) {
     .map(
       (t) => `
       <div class="tile">
-        <div class="label">${esc(t.label)}${
+        <div class="label">${esc(tr(t.label))}${
           TILE_TIPS[t.label]
-            ? `<button type="button" class="info" aria-label="What “${esc(t.label)}” means"
-                 data-tip="${esc(TILE_TIPS[t.label])}">i</button>`
+            ? `<button type="button" class="info" aria-label="${esc(tr(t.label))}"
+                 data-tip="${esc(tr(TILE_TIPS[t.label]))}">i</button>`
             : ''
         }</div>
         <div class="value ${t.cls ?? ''}" style="--len:${[...t.value].length}">${esc(t.value)}</div>
@@ -1430,6 +1491,8 @@ function renderBanners(data, r) {
 
 const LEVEL_ORDER = { error: 0, warn: 1, info: 2, ok: 3 };
 const LEVEL_LABEL = { error: 'Error', warn: 'Warning', info: 'Note', ok: 'OK' };
+/** Severity words are translated at the point of display, not in the table. */
+const levelWord = (k) => tr(LEVEL_LABEL[k]);
 
 function renderNotes(notes) {
   const counts = { error: 0, warn: 0, info: 0, ok: 0 };
@@ -1437,7 +1500,7 @@ function renderNotes(notes) {
 
   $('#note-chips').innerHTML = ['error', 'warn', 'info', 'ok']
     .filter((k) => counts[k])
-    .map((k) => `<span class="chip ${k}">${counts[k]} ${esc(LEVEL_LABEL[k])}${counts[k] === 1 ? '' : 's'}</span>`)
+    .map((k) => `<span class="chip ${k}">${counts[k]} ${esc(levelWord(k))}</span>`)
     .join('');
 
   const sorted = [...notes].sort((a, b) => LEVEL_ORDER[a.level] - LEVEL_ORDER[b.level]);
@@ -1446,7 +1509,7 @@ function renderNotes(notes) {
         .map(
           (n) => `
       <div class="note-row ${n.level}">
-        <span class="chip ${n.level}">${esc(LEVEL_LABEL[n.level])}</span>
+        <span class="chip ${n.level}">${esc(levelWord(n.level))}</span>
         <div>
           <div class="note-title">${esc(n.title)}</div>
           <div class="note-body">${esc(n.body)}</div>
@@ -1454,7 +1517,7 @@ function renderNotes(notes) {
       </div>`,
         )
         .join('')
-    : '<p class="hint">Nothing to report.</p>';
+    : `<p class="hint">${esc(tr('Nothing to report.'))}</p>`;
 
   // The count is how many rows are in there, so the tab never says 0 over a
   // section with something in it. The *colour* is the severity: grey when
@@ -1959,9 +2022,9 @@ function renderProducts(r, from, to) {
   // Chips are built from the types actually present. A hardcoded list would
   // show an empty "Warrants" filter to someone who has never held one.
   const types = [...new Set(rows.map((x) => x.type))].sort();
-  buildChoice('#products-filter', [{ key: 'ALL', label: 'All' }, ...types.map((k) => ({ key: k, label: titleCase(k) }))],
+  buildChoice('#products-filter', [{ key: 'ALL', label: tr('All') }, ...types.map((k) => ({ key: k, label: titleCase(k) }))],
     () => state.productType, (k) => { state.productType = k; render(); });
-  buildChoice('#products-sort', [{ key: 'best', label: 'Best first' }, { key: 'worst', label: 'Worst first' }],
+  buildChoice('#products-sort', [{ key: 'best', label: tr('Best first') }, { key: 'worst', label: tr('Worst first') }],
     () => state.productSort, (k) => { state.productSort = k; render(); });
 
   const shown = rows
@@ -1978,7 +2041,7 @@ function renderProducts(r, from, to) {
           (x) => `<tr>
         <td>${esc(x.name)}${x.symbol ? ` <span class="muted">${esc(x.symbol)}</span>` : ''}</td>
         <td><span class="chip">${esc(titleCase(x.type))}</span></td>
-        <td><span class="chip ${x.open ? 'info' : ''}">${x.open ? 'Open' : 'Closed'}</span></td>
+        <td><span class="chip ${x.open ? 'info' : ''}">${esc(tr(x.open ? 'Open' : 'Closed'))}</span></td>
         <td class="num">${x.bought > 0.005 ? esc(fmtEurCents(x.bought)) : '<span class="muted">—</span>'}</td>
         <td class="num">${x.sold > 0.005 ? esc(fmtEurCents(x.sold)) : '<span class="muted">—</span>'}</td>
         <td class="num">${Math.abs(x.dividend) > 0.005 ? esc(fmtEurCents(x.dividend)) : '<span class="muted">—</span>'}</td>
@@ -2015,7 +2078,7 @@ function renderTransactions(data, r, from, to) {
   const inRange = state.txScope === 'all' ? all : all.filter((t) => t.date >= r.days[from] && t.date <= r.days[to]);
   const names = Object.fromEntries((r.byProduct ?? []).map((p) => [p.productId, p.symbol || p.name]));
 
-  buildChoice('#tx-scope', [{ key: 'range', label: 'This range' }, { key: 'all', label: 'Everything' }],
+  buildChoice('#tx-scope', [{ key: 'range', label: tr('This range') }, { key: 'all', label: tr('Everything') }],
     () => state.txScope, (k) => { state.txScope = k; render(); });
 
   // A cap with the number said out loud. Several thousand rows is a second of
@@ -2035,7 +2098,7 @@ function renderTransactions(data, r, from, to) {
           const buy = (t.quantity ?? 0) > 0;
           return `<tr>
         <td>${esc(formatDay(t.date))}</td>
-        <td><span class="chip ${buy ? 'info' : 'warn'}">${buy ? 'Buy' : 'Sell'}</span></td>
+        <td><span class="chip ${buy ? 'info' : 'warn'}">${esc(tr(buy ? 'Buy' : 'Sell'))}</span></td>
         <td>${esc(names[t.productId] ?? t.productId)}</td>
         <td class="num">${(t.quantity ?? 0).toLocaleString('nl-NL', { maximumFractionDigits: 4 })}</td>
         <td class="num">${esc(fmtEurCents(t.price ?? 0))}</td>

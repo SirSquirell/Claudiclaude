@@ -1168,3 +1168,10 @@ td .chip {
   padding: 2px 8px;
   font-size: 0.625rem;
 }
+
+/* The language toggle. A flag alone is a poor label — several countries share
+   one, and it says nothing to a screen reader — so the code sits beside it. */
+.flag {
+  padding: 7px 12px;
+  letter-spacing: 0;
+}
