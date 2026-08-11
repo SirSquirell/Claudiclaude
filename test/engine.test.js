@@ -1383,3 +1383,75 @@ test('a currency whose only conversions were all too small still reports itself'
   assert.equal(usd.observations, 0);
   assert.equal(usd.dropped, 1);
 });
+
+// ---------------------------------------------------------------------------
+// B11 — a size measured through an interpolated rate is not "measured"
+// ---------------------------------------------------------------------------
+
+/**
+ * The contract size is `|totalBase − fee| ÷ |price × quantity| ÷ rate`, so any
+ * error in the rate lands directly on the size and then gets rounded. A true
+ * 100 measured through a rate 8 % out reads 108 and rounds there — and the row
+ * used to report `anchored: false` and `verdict: 'measured'` side by side,
+ * contradicting itself, with the UI believing the confident half.
+ *
+ * The number is still used: falling back to one share per contract would be a
+ * hundredfold error in place of an eight percent one. It is reported as an
+ * estimate instead.
+ */
+test('a contract size measured far from any stated rate is reported as estimated', () => {
+  const days = dayRange('2024-01-01', '2024-06-30');
+  const dayIndex = new Map(days.map((d, i) => [d, i]));
+
+  // One rate observation, on day 0 only. The trade is 150 days later, so its
+  // rate is extrapolated flat and is whatever the truth has drifted to since.
+  const observedAt = { NOK: [0] };
+  const rateUsed = 0.08; // what the interpolation believes
+  const trueRate = 0.0864; // what it actually was on the trade date, 8 % away
+
+  const products = { X: { id: 'X', currency: 'NOK', name: 'SPRS P75', productType: 'OPTION' } };
+  const transactions = [
+    {
+      id: 't1',
+      date: days[150],
+      productId: 'X',
+      quantity: -6,
+      price: 9.4,
+      currency: 'NOK',
+      // What actually settled: 6 contracts × 100 shares × 9,40 NOK × the true rate.
+      totalBase: 6 * 100 * 9.4 * trueRate,
+      fee: 0,
+    },
+  ];
+
+  const { sizes, report } = deriveContractSizes(
+    transactions,
+    products,
+    () => rateUsed,
+    'EUR',
+    observedAt,
+    dayIndex,
+  );
+
+  const row = report.find((r) => r.productId === 'X');
+  assert.equal(row.anchored, false);
+  assert.equal(row.verdict, 'estimated', 'a number derived through an interpolated rate is not measured');
+  assert.equal(row.size, 108, 'and it is 8 % out, which is exactly why it must not claim to be measured');
+  // Still used, deliberately: one share per contract would be a hundredfold error.
+  assert.equal(sizes.X, 108);
+});
+
+test('a contract size measured beside a stated rate still says measured', () => {
+  const days = dayRange('2024-01-01', '2024-06-30');
+  const dayIndex = new Map(days.map((d, i) => [d, i]));
+  const products = { X: { id: 'X', currency: 'NOK', name: 'SPRS P75', productType: 'OPTION' } };
+  const transactions = [
+    { id: 't1', date: days[10], productId: 'X', quantity: -6, price: 9.4, currency: 'NOK', totalBase: 6 * 100 * 9.4 * 0.08, fee: 0 },
+  ];
+
+  const { report } = deriveContractSizes(transactions, products, () => 0.08, 'EUR', { NOK: [10] }, dayIndex);
+  const row = report.find((r) => r.productId === 'X');
+  assert.equal(row.anchored, true);
+  assert.equal(row.verdict, 'measured');
+  assert.equal(row.size, 100);
+});

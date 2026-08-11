@@ -434,7 +434,17 @@ export function deriveContractSizes(transactions, products, fxAt, baseCurrency =
       continue;
     }
     sizes[productId] = rounded;
-    report.push({ ...row, verdict: 'measured' });
+    // **`measured` means measured.** A size derived through an interpolated
+    // exchange rate is an estimate, and calling it anything else is the whole of
+    // B11: the report already carried `anchored: false` and the verdict beside
+    // it said "measured", so the row contradicted itself and the UI believed the
+    // confident half.
+    //
+    // The number is still used. Falling back to one share per contract would be
+    // a hundredfold error in place of an eight percent one, and the
+    // reconciliation is what catches the remainder — on the synthetic account it
+    // names the instrument and the euros. But it is reported as what it is.
+    report.push({ ...row, verdict: anchored ? 'measured' : 'estimated' });
   }
   return { sizes, report };
 }
@@ -1052,7 +1062,11 @@ export function computePortfolio(input) {
     );
   }
 
-  const unanchoredSizes = contractReport.filter((r) => r.verdict === 'measured' && !r.anchored);
+  // `estimated` *is* the unanchored case now, so this reads the verdict rather
+  // than reconstructing it. Written the old way it silently stopped matching
+  // the moment the verdict was corrected, and the warning would have vanished
+  // along with the lie it was compensating for.
+  const unanchoredSizes = contractReport.filter((r) => r.verdict === 'estimated');
   if (unanchoredSizes.length) {
     warn(
       'warn',

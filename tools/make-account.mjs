@@ -74,7 +74,7 @@ const round = (n, p = 2) => Math.round(n * 10 ** p) / 10 ** p;
 // One true rate per currency, drifting slowly. Every conversion and every trade
 // is settled at whatever this says on the day, so the engine has one right
 // answer to find and the test can assert it found it.
-const FX = { EUR: 1, USD: 0.92, CHF: 1.07, GBX: 0.0117, GBP: 1.17, SEK: 0.088 };
+const FX = { EUR: 1, USD: 0.92, CHF: 1.07, GBX: 0.0117, GBP: 1.17, SEK: 0.088, NOK: 0.086 };
 const fxOn = (ccy, day) => {
   if (ccy === 'EUR') return 1;
   const t = days.indexOf(day) / Math.max(1, days.length - 1);
@@ -104,6 +104,17 @@ const INSTRUMENTS = [
   { id: '2005', name: 'ADJ P38.81 15DEC28', symbol: 'ADJ', ccy: 'EUR', type: 'OPTION', size: 103, px: 7.7, vwd: '9105' },
   // A currency reached ONLY through options: rates must not come from these.
   { id: '2006', name: 'ALP C220.00 18DEC26', symbol: 'ALP', ccy: 'CHF', type: 'OPTION', size: 100, px: 5.5, vwd: '9106' },
+  // B11, restored. An option in a currency this account converts twice in five
+  // years, with both conversions hundreds of days from the trade — so its rate
+  // on the trade date is a straight line drawn between two distant points, and
+  // the contract size is measured through that line.
+  //
+  // This case used to exist and was lost: the conversion cadence below was made
+  // "realistic" from an account that books 915 USD conversions, which put every
+  // trade within a fortnight of a stated rate and quietly repaired B11 in the
+  // fixture while leaving it in the wild. A real account reports contract sizes
+  // of 101, 104 and 218 today.
+  { id: '2007', name: 'SPRS P75.00 20MAR27', symbol: 'SPRS', ccy: 'NOK', type: 'OPTION', size: 100, px: 9.4, vwd: '9107' },
 ];
 const byId = Object.fromEntries(INSTRUMENTS.map((i) => [i.id, i]));
 
@@ -196,12 +207,15 @@ for (const [n, ccy, amt] of [
   [8, 'SEK', 120000], [420, 'SEK', 60000],
   [12, 'GBP', 6000], [560, 'GBP', 4000],
   [30, 'CHF', 8000], [610, 'CHF', 5000],
+  // NOK: twice, and deliberately nowhere near the option trade on day 470.
+  [15, 'NOK', 90000], [1150, 'NOK', 40000],
 ]) convert(d(n), ccy, amt);
 
 // A realistic cadence. A real account converts often — one of them books 915
 // USD conversions — so nearly every trade sits close to a stated rate, which is
 // what makes a contract size measurable. Roughly monthly here, plus one on the
 // last trading day so no rate is extrapolated to today.
+// NOK is deliberately absent from this list: it is the sparse case.
 for (const ccy of ['USD', 'SEK', 'GBP', 'CHF']) {
   for (let n = 40; n < days.length - 3; n += 31) convert(d(n), ccy, 800 + (n % 7) * 50);
   convert(trading.at(-1), ccy, 1000);
@@ -229,6 +243,7 @@ trade(d(340), '2003', 3);    // long call, USD
 trade(d(360), '2004', -2);   // short put, contract size 10
 trade(d(380), '2005', -1);   // short put, contract size 103
 trade(d(400), '2006', -4);   // short call, CHF — the options-only currency
+trade(d(470), '2007', -6);   // short put, NOK — 455 days from the nearest stated rate
 trade(d(520), '2001', -2);   // partially closed
 trade(d(560), '2003', -3);   // fully closed: a call round trip
 

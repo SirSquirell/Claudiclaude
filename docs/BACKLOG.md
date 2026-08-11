@@ -993,6 +993,7 @@ plus telling people to resync, not a silent rollback.
 | ~~B2~~ | ~~Closing transaction on expiry?~~ **Answered: yes, zero phantom positions** | — |
 | ~~B3~~ | ~~Is GME −4,0941 a real short?~~ **Answered: no — fabricated by the split rescaling** | now US-09 |
 | B10 | Does DEGIRO book a split as a transaction pair? the first account's rescaled instruments are all closed | US-09 |
+| ~~B11~~ | ~~Contract size measured through an interpolated rate lands on the wrong integer~~ **Partly answered, 0.29.0.** It reproduces (a true 100 reads 108 on a currency converted twice in five years) and the number is still used, because falling back to one share per contract is a hundredfold error in place of an eight percent one. What is fixed is the **lie**: the row reported `anchored: false` and `verdict: 'measured'` side by side, and the UI believed the confident half. Now `estimated`. Measuring it *better* is still open, and needs an account that converts rarely | US-02 |
 | ~~B4~~ | ~~Which slicer, which chart?~~ **Answered: "Results per", scoped to 2 of 8 charts** | US-06 |
 | ~~B8~~ | ~~KPI tiles: range or all-time?~~ **Decided: follow the range, with the period in the label.** Same reasoning as US-06 — a global control half the page ignores reads as a dead button. The percentage uses the daily-chained return the month grid already uses, so a deposit inside the window does not flatter it | US-06 |
 | B9 | US-08: replace the summary table, colour by selection order, keep both modes? | US-08 |

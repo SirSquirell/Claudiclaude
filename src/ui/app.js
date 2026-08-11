@@ -93,7 +93,7 @@ const NOTE_TITLES = {
   'implausible-history': 'The reconstructed history looks wrong',
   'unclassified-cash-rows': 'Cash movements nobody has classified',
   'contract-size-unresolved': 'Contract size could not be measured',
-  'contract-size-unanchored': 'Contract size measured without an anchor',
+  'contract-size-unanchored': 'Contract size estimated, not measured',
   'fx-derived': 'Exchange rates derived from your own trades',
   'fx-stale': 'An exchange rate is out of date',
   'fx-unknown': 'A currency has no rate at all',

@@ -11,6 +11,29 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.29.0] — 2026-08-11
+
+### Fixed
+
+- **A contract size derived through an interpolated exchange rate no longer claims to be
+  measured.** The row carried `anchored: false` and `verdict: "measured"` side by side — it
+  contradicted itself, and the UI believed the confident half. It now reads `estimated`.
+
+  The number is still used, deliberately: falling back to one share per contract would be a
+  hundredfold error in place of an eight percent one, and the reconciliation is what catches the
+  remainder — it already names the instrument and the euros.
+
+  **The reproduction had been lost, which is the more interesting half.** The synthetic account
+  used to show this and stopped: its conversion cadence was made "realistic" from an account that
+  books 915 USD conversions, which put every trade within a fortnight of a stated rate and quietly
+  repaired the fixture while leaving the defect in the wild. A real account still reports contract
+  sizes of 101, 104 and 218 where 100 belongs. The generator now carries a currency converted
+  twice in five years, with the trade 455 days from the nearest stated rate, and a true 100 reads
+  108 there — as it should, until the measurement itself gets better.
+
+  Measuring it *better* remains open (B11). This release closes only the part where the report was
+  untrue about its own confidence.
+
 ## [0.28.0] — 2026-08-11
 
 ### Fixed
