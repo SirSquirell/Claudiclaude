@@ -2178,3 +2178,54 @@ test('an ordinary euro instrument is untouched by any of this', () => {
   const held = r.byProduct.find((p) => String(p.productId) === '1');
   assert.ok(Math.abs(held.current - 1000) < 1);
 });
+
+test('every warning branch actually runs — a ReferenceError in one takes the page down', () => {
+  /**
+   * `fx-stale` reached for `value`, which is declared eighty lines further
+   * down, and threw `Cannot access 'value' before initialization`. The whole
+   * page went white on a tester's account while **341 tests stayed green**,
+   * because nothing exercised that branch end to end.
+   *
+   * The arithmetic tests cover the numbers. This one covers the *reachability*
+   * of each warning, which is a different failure and the one that has now
+   * taken this page down twice. It asserts nothing about the values on purpose:
+   * if the branch throws, the test fails, and that is the whole job.
+   */
+  const codes = new Set();
+  const r = computePortfolio({
+    products: {
+      1: { id: '1', name: 'A', currency: 'USD', vwdId: '900' },      // foreign, stale rate
+      2: { id: '2', name: 'B', currency: 'EUR', vwdId: null },       // no price series
+      3: { id: '3', name: 'C', currency: 'EUR', vwdId: '901' },      // settled-amount mismatch
+      4: { id: '4', name: 'D', currency: 'EUR', vwdId: '902' },      // rescaled
+    },
+    prices: {
+      900: { start: '2024-01-01', stepDays: 1, points: [{ offsetDays: 0, close: 100 }, { offsetDays: 500, close: 100 }] },
+      901: { start: '2024-01-01', stepDays: 1, points: [{ offsetDays: 0, close: 100 }, { offsetDays: 500, close: 100 }] },
+      902: { start: '2024-01-01', stepDays: 1, points: [{ offsetDays: 0, close: 300 }, { offsetDays: 500, close: 300 }] },
+    },
+    transactions: [
+      { date: '2024-01-01', productId: '1', quantity: 10, price: 100, currency: 'USD', fee: -1, totalBase: -851 },
+      { date: '2024-01-02', productId: '2', quantity: 5, price: 10, currency: 'EUR', fee: -1, totalBase: -51 },
+      { date: '2024-01-03', productId: '3', quantity: 10, price: 100, currency: 'EUR', fee: -1, totalBase: -851 },
+      { date: '2024-06-03', productId: '3', quantity: 10, price: 100, currency: 'EUR', fee: -1, totalBase: -851 },
+      { date: '2024-01-04', productId: '4', quantity: 10, price: 100, currency: 'EUR', fee: -1, totalBase: -1001 },
+    ],
+    cashRows: [
+      { date: '2024-01-01', description: 'Deposit', change: 100000, currency: 'EUR', category: 'DEPOSIT' },
+      { date: '2024-01-02', description: 'Valuta Creditering', change: -1000, currency: 'USD', category: 'FX' },
+      { date: '2024-01-05', description: 'Something nobody wrote a rule for', change: -1, currency: 'EUR' },
+    ],
+    today: '2025-06-01',
+    liveTotal: 1,
+    livePositions: [{ productId: '1', size: 10, value: 851 }],
+  });
+
+  for (const w of r.warnings) codes.add(w.code);
+  // Not an exhaustive list — the point is that each of these was *entered* and
+  // came back rather than throwing.
+  for (const code of ['fx-derived', 'fx-stale', 'no-price-series', 'settled-amount-mismatch']) {
+    assert.ok(codes.has(code), `${code} never fired, so this test is not covering it any more`);
+  }
+  assert.ok(Number.isFinite(r.value.at(-1)), 'and the result is a number');
+});

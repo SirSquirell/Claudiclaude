@@ -1324,7 +1324,16 @@ export function computePortfolio(input) {
      * the number that decides whether a half-percent reconciliation gap is
      * explained by this or not.
      */
-    const totalNow = Math.abs(value[n - 1]) || 1;
+    /**
+     * `cash + positionsValue`, not `value`.
+     *
+     * `value` is the same sum — and it is declared eighty lines *below* this,
+     * so reading it here threw `Cannot access 'value' before initialization`
+     * and took the whole page down on a tester's account. Second temporal-dead-
+     * zone defect of the day, both mine, both from reaching for a name that
+     * reads correctly and does not exist yet.
+     */
+    const totalNow = Math.abs(cash[n - 1] + positionsValue[n - 1]) || 1;
     for (const f of staleFx) {
       let exposed = Math.abs(cashSeriesByCurrency[f.currency]?.[n - 1] ?? 0) * (fxSeries[f.currency]?.[n - 1] ?? 1);
       for (const p of byProduct) {

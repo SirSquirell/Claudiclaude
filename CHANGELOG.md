@@ -15,6 +15,24 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.40.0] — 2026-08-11
+
+### Fixed
+
+- **0.39.0 could not load at all on some accounts.** *"Sync failed: Cannot access 'value' before
+  initialization"*, a white page, and no button anywhere — including the new one. The stale-rate
+  warning added in 0.39.0 reached for a total that is assembled eighty lines further down the same
+  function. It reads the two halves it is made of instead, which exist by then.
+
+  **Anyone who saw that message should update and press Sync.** Nothing was stored wrong; the
+  reconstruction never finished.
+
+- **The test suite stayed green through it**, which is the more serious half. Every warning's
+  arithmetic was covered and nothing checked that the branches could be *entered*, so a reference
+  error inside one was invisible to 341 passing tests. There is now a test that walks an account
+  through every warning path and asserts only that each comes back — the second time a defect of
+  exactly this shape has taken this page down.
+
 ## [0.39.0] — 2026-08-11
 
 ### Fixed
