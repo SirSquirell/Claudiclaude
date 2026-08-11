@@ -984,10 +984,19 @@ here rather than leave it in Excel.
    it. Adopt the shape anyway, because it is simply better design than a single curve, and because
    the ceiling is the right instinct written down by people who have watched this go wrong:
 
-   - three lines, named, with the pessimistic one a tenth-percentile outcome rather than a
-     round-number haircut;
-   - and **the optimistic line may not exceed what the account's own history actually did.** A
-     projection that beats the past it was derived from is a projection nobody should have drawn.
+   **Name them the way a Dutch reader already knows them.** Brand New Day shows exactly this over
+   five years as *goede markt / verwachte markt / slechte markt*, which is the same three scenarios
+   in plain language — and a pension provider's wording is a better label than a regulator's,
+   because the reader has met it before.
+
+   - three lines, named, with *slechte markt* a tenth-percentile outcome rather than a round-number
+     haircut, and *goede markt* its ninetieth;
+   - **the ceiling applies to the middle line, not to the outer ones.** An earlier draft of this
+     said the optimistic line may not exceed what the account's own history did, and that is wrong:
+     a ninetieth-percentile outcome exceeding the historical mean is what a ninetieth percentile
+     *is*, and capping it would misdraw the very tail it exists to show. It is *verwachte markt*
+     that must not quietly beat the past it was derived from;
+   - five years as the default horizon, again because that is the one a reader has already seen.
 
    The band comes from *his own* monthly spread, which the month grid already holds, rather than
    from a textbook volatility number he cannot check. Same argument as everywhere else here: a
