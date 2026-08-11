@@ -974,10 +974,24 @@ here rather than leave it in Excel.
 3. **Future contributions are an input too.** A forecast that ignores the monthly deposit is
    useless to someone who makes one, and quietly assuming zero is the same class of error as
    assuming a deposit is a gain.
-4. **One line is a lie.** The same average return with a different order of years lands somewhere
-   else entirely, and it matters more the more he contributes. Show a band, not a curve — and
-   derive it from *his own* monthly spread, which the month grid already holds, rather than from a
-   textbook volatility number.
+4. **One line is a lie, and there is an established shape for saying so.** The Dutch regulator
+   prescribes, for firms that must show a projected return, **three scenarios rather than one**: a
+   *historical* one (neutral, on the last twenty years), a fixed *4 %* one, and a *pessimistic* one
+   set so that it is exceeded in ninety percent of cases. A firm may substitute its own method
+   **provided the figure never exceeds the historical scenario** — an explicit ceiling on optimism.
+
+   **We are not a regulated provider** — this is a personal-use extension and none of that binds
+   it. Adopt the shape anyway, because it is simply better design than a single curve, and because
+   the ceiling is the right instinct written down by people who have watched this go wrong:
+
+   - three lines, named, with the pessimistic one a tenth-percentile outcome rather than a
+     round-number haircut;
+   - and **the optimistic line may not exceed what the account's own history actually did.** A
+     projection that beats the past it was derived from is a projection nobody should have drawn.
+
+   The band comes from *his own* monthly spread, which the month grid already holds, rather than
+   from a textbook volatility number he cannot check. Same argument as everywhere else here: a
+   number derived from his data beats a number derived from an assumption about people like him.
 5. **Backtest the assumption against his own history, on the same chart.** "This rate, applied from
    five years ago, would have predicted X; you actually have Y." That single comparison is worth
    more than the projection itself, and it is the honest way to show how much a forecast is worth.
@@ -997,6 +1011,24 @@ here rather than leave it in Excel.
 - ☐ Under a year of history, no projection at all — the same guard as US-31, for the same reason.
 - ☐ A distributing holding whose dividends were *not* reinvested does not compound them, and the
   card says that is what happened.
+
+#### Where it lives: its own section, and that is the safeguard
+
+**A seventh tab, not a card on Overview.** The temptation is to continue the value line straight off
+the right-hand edge of the chart everybody already looks at, and that is exactly the thing not to
+do: every other number on this page is measured and checked against DEGIRO's own total, and a
+forecast drawn in the same frame inherits that credibility without earning it.
+
+So:
+
+- the projection gets **its own section**, with the caveat at the top of it, so anyone reading a
+  projected number has passed the sentence explaining what it is;
+- it draws **its own chart** — history *and* projection, with a visible break at today — rather
+  than extending the Overview one. Overview stays entirely measured;
+- the tab carries no count badge. There is nothing to count, and a number there would read as
+  findings;
+- and nothing from this section appears in a tile, the export or the bug report. Tiles are
+  measurements; a projected figure among them would be indistinguishable from one.
 
 #### What it is not
 
