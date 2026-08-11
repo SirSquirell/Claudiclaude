@@ -39,9 +39,9 @@ exists because of it.
 |---|---|
 | Trade Republic is app-first; the web client is the newer surface | Widely reported, low risk, still unverified here |
 | Authentication is phone number + PIN, then a second factor | Widely reported. **Unverified** |
-| The session is carried over a WebSocket **rather than** as a cookie | **Contradicted, in part.** `app.traderepublic.com` sets cookies, and one of them is a plausible session claim — see 2c. Whether a socket *also* carries data is still open |
+| The session is carried over a WebSocket **rather than** as a cookie | **Contradicted.** Dozens of ordinary XHRs to `api.traderepublic.com`, with the token in a header the page sets — see 2g |
 | There is a device-pairing step producing a key pair, and requests are signed | Reported for the *mobile* API. Whether the *web* client does this is **unknown** |
-| A logged-in web tab holds something an extension can read and replay | **Yes.** Seven cookies, none `HttpOnly`, `tr_claims` at 843 characters — see 2c. What is not yet settled is whether it can be *sent*: see 2f |
+| A logged-in web tab holds something an extension can read and replay | **Yes, both halves.** Readable (2c) and sendable (2g): the page sets the token as a header, so nothing depends on the browser attaching a cookie by itself |
 | Historical daily closes are available per instrument | **Unknown.** R4 |
 | The API reports an account total | **Unknown.** R5 |
 
@@ -89,7 +89,12 @@ There is no hidden session cookie — whatever authenticates a request is among 
 So **R1 is yes on the reading half**: an extension with a host permission can get at this, and it
 does not even need `chrome.cookies` to do it.
 
-### 2f. `SameSite` is the next question, and DEGIRO never had to answer it
+### 2f. `SameSite` — asked, and answered *no longer a problem* by 2g
+
+*Kept because the reasoning is right for the next broker, even though it turned out not to bite
+here: 2g found the token in a header the page sets, so nothing depends on the browser attaching a
+cookie by itself.*
+
 
 `tr_claims` and `tr_external_id` show a different `SameSite` from the analytics cookies — the
 column reads `S…` where Snowplow's read `Lax`, which is almost certainly `Strict`. That matters
@@ -128,34 +133,49 @@ authenticating, and none of the three rows above involves logging in — but the
 involve making a request look more like the page's than it is, and that deserves a decision rather
 than an implementation.
 
-### 2g. Second probe run — no ordinary API calls at all
+### 2g. Third probe run — R1 is yes, and the second run was wrong
 
-`tools/r1-headers-probe.js` armed on a logged-in tab, then several seconds of clicking around the
-app. Two requests were captured, and **neither is data**:
+**The finding.** 69 requests captured while using the app:
 
 | | |
 |---|---|
-| `xhr` → `app.traderepublic.com/app-version.txt` | a version poll |
-| `fetch` → `otel.production.traderepublic…/collect` | their OpenTelemetry beacon |
+| `xhr` → `api.traderepublic.com` on `/api`, `/api-gateway`, `/web-trading-gateway` | ordinary REST, dozens of calls |
+| headers | `accept`, `accept-language`, and an `x-…` header the probe matched as auth-shaped |
+| credentials | `include` — cookies go too |
+| `fetch` → `otel.production.traderepublic…/collect` | telemetry, ignorable |
 
-The probe's first version drew a confident conclusion from those two rows — *"no auth header, the
-cookie is carrying the session"* — which was drawn from nothing at all. It now refuses to conclude
-without at least one request that looks like data. Same defect this project keeps finding in
-itself: a verdict the evidence does not support.
+So: **plain HTTPS requests to an API host, with the token in a header the page sets itself.** An
+extension can read `tr_claims` (2c: not `HttpOnly`) and set a header on its own request —
+`Authorization` and `x-*` are not forbidden header names, only `Cookie` is. That is the same shape
+as DEGIRO, where the session id is read from a cookie and written into the URL.
 
-**But the absence is the finding.** Clicking through the app produced no `fetch` and no `XHR`
-carrying account data. Combined with 2c, where the session is plainly in a cookie, the reading is:
+**R1 is answered: yes.** The `SameSite` worry in 2f does not bite, because nothing depends on the
+browser attaching the cookie by itself.
 
-> the data very probably arrives over a **WebSocket opened at page load** — before any console
-> paste can patch the constructor, which is why the probe saw no socket either.
+#### The second run said the opposite, and that is worth keeping
 
-That is the original assumption from §2, partly restored: cookies for the session, a socket for the
-data. It changes what an adapter would be — `degiro.js` is a set of `fetch` wrappers, and a socket
-is a different transport with a different throttle story.
+The previous run caught two requests — an `app-version.txt` poll and a telemetry beacon — and this
+document concluded from them that *"the data very probably arrives over a WebSocket opened at page
+load"*. Wrong, and wrong from a sample of two rows neither of which was data.
 
-**Next, and it needs no probe:** DevTools → Network → **WS**, with the panel open across a reload.
-Is there a socket, to which host, and does its first frame look like a handshake carrying a token?
-Names and shapes only, as ever.
+That is twice in one day: the same over-reading produced the retracted AWS WAF paragraph in 2d.
+Both times the mechanism was identical — a plausible story built on a measurement too small to
+carry it, written down with more confidence than the evidence had. The probe now refuses to
+conclude unless it has seen a request that looks like account data, which is the tooling fix; the
+habit is the actual one.
+
+#### What is still needed, and it is one line
+
+The probe reports header *names* but the console truncated the column. The exact name is what an
+adapter would set, so:
+
+```js
+[...new Set(__probeRowsForTest
+  .filter((r) => /(^|\.)traderepublic\.com$/.test(r.host) && !/^otel\./.test(r.host))
+  .flatMap((r) => r.headers.split(' ')))].sort().join('\n')
+```
+
+Names only, and safe to paste.
 
 ### 2d. AWS WAF is in front of this API — a scheduling constraint, not a safety cliff
 
