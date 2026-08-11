@@ -35,31 +35,57 @@ guessing "deposit" would silently turn your own money into profit.
 - **An option's contract size is measured, not read.** Where no exchange rate was observed
   near the trades it was measured from, the number is still used — falling back to one share
   per contract would be a hundredfold error instead of a two percent one — but it says so.
-- **Only written puts have ever met a real options account.** The arithmetic makes no
-  distinction — a position is a signed quantity times a price times a contract size, so a call
-  is the same sum as a put — and the generated account exercises long calls, short calls, long
-  puts and short puts, all of which pass. But every contract in the one real options account
-  this was verified against is a written put.
-
-  So calls and bought puts rest on **arithmetic plus synthetic evidence, and no capture**. What
-  that cannot rule out is a field name: the parsers accept several candidates per value, a name
-  that matches nothing returns zero quietly, and a fixture built from shapes we already believe
-  in cannot catch a belief that is wrong. If you hold calls, run `npm run audit` on an export
-  and tell us either way — it is an afternoon and it would close this.
-
-  *Covered* calls need nothing extra: a covered call is a short call and a long position, and
-  neither leg has to know about the other.
-- **Crypto has never been considered at all**, not merely untested. Nothing in the code has
-  ever seen one, and two things would need looking at before it could be trusted: a fractional
-  quantity settled to the cent makes the contract-size measurement unreliable in exactly the way
-  a one-cent currency conversion did, and a market that trades at the weekend against a
-  weekday-only price series would report most of its history as estimated.
+- **Coverage is not uniform across instrument types.** See the matrix below: some of it has met
+  a real account and some of it has only ever met a generator.
 - **The zoom needs a mouse.** Dragging across the value chart has no keyboard equivalent,
   which was an acceptance criterion of the story that shipped it and was not built.
 - **`fixtures/` is generated, not captured.** The demo data reproduces the response *shapes*
   the spec describes. Real accounts have confirmed many of them; their data is not in this
   repository and will not be. What is evidence and what is still an assumption is written
   out per endpoint in [ENDPOINT-REPORT.md](ENDPOINT-REPORT.md).
+
+## Instrument coverage, per broker
+
+Written as a matrix rather than as prose, and with a broker column from the start, because
+coverage is a property of **an adapter against an instrument type** — not of this project as a
+whole. A second broker adds a column here; it does not get a document of its own, and it does not
+inherit DEGIRO's evidence.
+
+**Four levels, and the middle two are the ones people conflate:**
+
+| Level | Means |
+|---|---|
+| **captured** | A real account holding this has been run through `npm run audit` and the invariants held |
+| **synthetic** | A generated account exercises it and passes. The generator states the truth and the engine is never told it, so this is real evidence about the *arithmetic* |
+| **arithmetic** | The model handles it by construction and nothing exercises it |
+| **none** | Never considered. Not "probably fine" |
+
+The gap between *captured* and *synthetic* is the whole reason for the table. A synthetic fixture
+reproduces the response shapes we already believe in, so it cannot catch a belief that is wrong —
+and the parsers accept several candidate field names per value, where a name matching nothing
+returns zero **quietly**. Only a real capture closes that.
+
+| Instrument type | DEGIRO | Notes |
+|---|---|---|
+| Shares, ETFs | **captured** | |
+| Bonds | **synthetic** | |
+| Written (short) puts | **captured** | 27 contracts in one real account, every one a `P` |
+| Long calls | **synthetic** | Never met a real account |
+| Short calls | **synthetic** | Never met a real account |
+| Bought (long) puts | **synthetic** | A different sign from the 27 that were captured |
+| Covered calls | **captured**, by construction | Not a separate case: a short call plus a long position, and neither leg needs to know about the other |
+| Futures, warrants, turbos | **none** | |
+| Crypto | **none** | Never considered. See below |
+
+**If you hold calls or bought puts**, running `npm run audit` on an export and reporting the result
+either way turns two rows from *synthetic* into *captured*. It is an afternoon, and it is the
+single cheapest thing anyone can do for this project.
+
+**Crypto is unconsidered rather than untested**, and two things would have to be looked at first.
+A fractional quantity settled to the cent makes the contract-size measurement unreliable in
+exactly the way a one-cent currency conversion made an exchange rate unreliable — the same
+mechanism, in a second place. And a market that trades at the weekend, valued against a
+weekday-only price series, would report most of its history as estimated: honest, and confusing.
 
 ## Checking it against your own account
 

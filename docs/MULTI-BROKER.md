@@ -284,6 +284,10 @@ from the existing fixtures.
 - **B4** No retry on any authentication-shaped failure.
 - **B5** `npm run audit` passes against a real export from that broker.
 - **B6** Fixtures are synthetic. No value from a real account appears in `test/`.
+- **B7** The adapter starts at **none** for every instrument type in the coverage matrix
+  (`docs/LIMITATIONS.md`) and earns each level itself. It does not inherit DEGIRO's rows —
+  the arithmetic is shared, the field names are not, and it is the field names that fail
+  quietly. See US-26.
 
 ---
 
