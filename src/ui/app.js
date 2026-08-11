@@ -25,6 +25,18 @@ import {
 } from './charts.js';
 import { buildBugReport } from '../lib/report.js';
 import { captured, installErrorCapture } from './errors.js';
+import * as frown from './frown.js';
+
+/**
+ * The build on screen in demo mode, fetched once from the manifest.
+ *
+ * Declared up here rather than beside `loadDemoVersion` further down: `init()`
+ * runs while the module is still evaluating, so a `let` declared below it is in
+ * the temporal dead zone and the first render throws
+ * `Cannot access 'demoVersion' before initialization` — which took the whole
+ * page down, exactly the class of defect 0.36.0's error capture exists for.
+ */
+let demoVersion = null;
 import { isSameRun } from '../lib/sync.js';
 import { LANGS, applyStatic, getLang, missing as missingTranslations, setLang, t as tr } from './i18n.js';
 import { THEMES, alpha, applyTheme, fmtEurCents, fmtPct, fmtSigned, getTheme, onThemeChange, setTheme, tokens } from './theme.js';
@@ -145,6 +157,18 @@ async function init() {
   buildThemeControl();
   wireTips();
   onThemeChange(() => render());
+
+  // Optimism Mode. Never restored from storage: a joke you turned on in March
+  // must not still be on in June when you are trying to read the thing.
+  $('#frown-toggle').addEventListener('click', (e) => {
+    const now = frown.setFrown(!frown.isOn());
+    e.currentTarget.setAttribute('aria-pressed', String(now));
+    e.currentTarget.classList.toggle('on', now);
+    render();
+  });
+  // Not awaited: the footer is the last thing anyone reads, and a manifest
+  // fetch must not hold up the charts. It re-renders when it lands.
+  if (!inExtension || wantsDemo()) loadDemoVersion().then(() => render());
 
   if (inExtension && !wantsDemo()) {
     // If a sync is already running (the worker starts one when a DEGIRO tab
@@ -754,7 +778,17 @@ function render() {
       : data.lastSyncAt
         ? `Last synced ${new Date(data.lastSyncAt).toLocaleString('nl-NL')}.`
         : 'Not synced yet.';
-  $('#subtitle').textContent = `${r.start} → ${r.end} · ${r.days.length} days · ${modeNote}`;
+  /**
+   * The build, in the header rather than only in the footer.
+   *
+   * A tester reported against **v0.21.0** without noticing — the version sat in
+   * small grey text at the very bottom of a long page, so an unpacked extension
+   * that had gone stale looked identical to a current one. It is the first
+   * thing a bug report needs and now the first thing on screen.
+   */
+  const build = inExtension ? chrome.runtime.getManifest().version : demoVersion;
+  $('#subtitle').textContent =
+    `${build ? `v${build} · ` : ''}${r.start} → ${r.end} · ${r.days.length} days · ${modeNote}`;
 
   renderBanners(data, r);
 
@@ -764,6 +798,16 @@ function render() {
 
   // Below the window, not above it. B8's whole defect was that the tiles were
   // rendered before the range existed, so they could only ever be all-time.
+  // The switch belongs to the Overview and nowhere else. Leaving it visible on
+  // Performance would invite flipping the page somebody is trying to read.
+  const onOverview = state.tab === 'overview';
+  $('#frown-bar').hidden = !onOverview;
+  if (!onOverview && frown.isOn()) {
+    frown.setFrown(false);
+    $('#frown-toggle').setAttribute('aria-pressed', 'false');
+    $('#frown-toggle').classList.remove('on');
+  }
+
   renderTiles(r, from, to);
   const slice = (arr) => arr.slice(from, to + 1);
 
@@ -1172,6 +1216,24 @@ function renderTiles(r, from = 0, to = r.days.length - 1) {
   // already exist are four or five per screen, each answering a question the
   // charts underneath it are also about. `overview` is the headline set and
   // deliberately repeats a few, because that is what an overview is.
+  /**
+   * The result as a share of the money behind it.
+   *
+   * All-time uses everything paid in. A window uses what was already at work
+   * when it opened plus anything added inside it — the money that could have
+   * produced that result, and nothing earlier. Where neither is meaningful the
+   * share is omitted rather than invented, which is the case for a window that
+   * opens with an empty account.
+   */
+  const resultShare = (res, fromIdx, lastIdx, pnl) => {
+    const paidTotal = res.cumulativeDeposited[lastIdx] ?? 0;
+    const base = fromIdx <= 0
+      ? paidTotal
+      : (res.value[fromIdx - 1] ?? 0) + Math.max(0, paidTotal - (res.cumulativeDeposited[fromIdx - 1] ?? 0));
+    if (!(Math.abs(base) > 1)) return tr('no base to compare against');
+    return `${fmtPct((pnl / Math.abs(base)) * 100)} ${tr('of what you paid in')}`;
+  };
+
   const tiles = [
     // A value is a position, not a period: it is what the account was worth on
     // the last day of the window, and saying "as of" is what stops that reading
@@ -1183,11 +1245,30 @@ function renderTiles(r, from = 0, to = r.days.length - 1) {
       value: fmtEurCents(r.cumulativeDeposited[last]),
       note: `deposits minus withdrawals, to ${asOf}`,
     },
+    /**
+     * The percentage under a euro result is read as "that much of what I put
+     * in", because the euro figure it sits under and the money-paid-in tile
+     * beside it invite exactly that division. It was a **time-weighted chained
+     * return** instead, and on one account that read **+207 %** next to
+     * +€ 16 621 on € 16 676 paid in — two tiles apart, and a reader dividing
+     * them gets 100 %.
+     *
+     * The chained return is not wrong, it answers a different question, and it
+     * breaks down badly on an account that sat at three cents for three years:
+     * the years with no money in them dominate a measure designed to ignore
+     * when money arrived. It already has a home under **Annualised return →
+     * The portfolio**, where it is labelled and explained.
+     *
+     * So this says what it looks like it says. The denominator is money paid
+     * in, which cannot be near zero while there is a result to divide, so it
+     * cannot produce the five-digit percentages this project has now shipped
+     * twice.
+     */
     {
       tabs: ['overview', 'perf'],
       label: 'Result',
       value: fmtSigned(windowPnl),
-      note: `${fmtPct(windowReturnPct(r, from, last))} · ${period}`,
+      note: `${resultShare(r, from, last, windowPnl)} · ${period}`,
       cls: signClass(windowPnl),
     },
     {
@@ -1281,21 +1362,37 @@ function renderTiles(r, from = 0, to = r.days.length - 1) {
     },
   ];
 
+  /**
+   * Optimism Mode, applied at the last possible moment.
+   *
+   * Deliberately here and nowhere earlier: every number above this line is the
+   * real one, so nothing downstream of the engine — the export, the bug report,
+   * a chart's own data — can ever see the cheerful version. It is a rendering
+   * state and the quarantine is structural rather than promised.
+   */
+  const cheerful = frown.isOn() && state.tab === 'overview';
+
   $('#tiles').innerHTML = tiles
     .filter((t) => t.tabs.includes(state.tab))
-    .map(
-      (t) => `
-      <div class="tile">
+    .map((t) => {
+      // `signClass` returns 'up' / 'down', not 'pos' / 'neg'. Guessing that
+      // wrong made the whole feature a no-op that still looked wired up.
+      const down = t.cls === 'down';
+      const value = cheerful && down ? frown.cheerUp(t.value) : t.value;
+      const note = cheerful && down ? frown.spin(t.label) : t.note;
+      const cls = cheerful && down ? 'up flipped' : (t.cls ?? '');
+      return `
+      <div class="tile${cheerful && down ? ' tile-flipped' : ''}">
         <div class="label">${esc(tr(t.label))}${
           TILE_TIPS[t.label]
             ? `<button type="button" class="info" aria-label="${esc(tr(t.label))}"
                  data-tip="${esc(tr(TILE_TIPS[t.label]))}">i</button>`
             : ''
         }</div>
-        <div class="value ${t.cls ?? ''}" style="--len:${[...t.value].length}">${esc(t.value)}</div>
-        <div class="note">${esc(t.note)}</div>
-      </div>`,
-    )
+        <div class="value ${cls}" style="--len:${[...value].length}">${esc(value)}</div>
+        <div class="note">${esc(note)}</div>
+      </div>`;
+    })
     .join('');
 }
 
@@ -2703,8 +2800,28 @@ function renderHoldingsShare(composition, rows, compColours, t, r) {
       `is for reading proportions at a glance, not for ranking.`;
 }
 
+/**
+ * The build on screen, in both modes.
+ *
+ * The extension reads its manifest. The demo could not, so it said "demo" and
+ * nothing else — and the demo is the page that gets screenshotted and shown to
+ * people, so those screenshots could not be tied to a build at all. It fetches
+ * the same manifest the extension reads, once, and falls back to "demo" if that
+ * fails rather than pretending.
+ */
+async function loadDemoVersion() {
+  if (demoVersion !== null) return demoVersion;
+  try {
+    const res = await fetch(new URL('../../manifest.json', import.meta.url));
+    demoVersion = String((await res.json()).version ?? '');
+  } catch {
+    demoVersion = '';
+  }
+  return demoVersion;
+}
+
 function renderFooter(r, data) {
-  const version = inExtension ? chrome.runtime.getManifest().version : null;
+  const version = inExtension ? chrome.runtime.getManifest().version : demoVersion;
   const bits = [
     // Which build is on screen. Without it a bug report is about a version
     // nobody can name, and this project ships four in an afternoon.

@@ -344,6 +344,9 @@ const DICT = {
     'all gain \u2014 more came out than went in': 'puur winst \u2014 er kwam meer uit dan erin ging',
     '{paid}% paid in \u00b7 {grown}% grown': '{paid}% ingelegd \u00b7 {grown}% gegroeid',
     '{lost}% of what you paid in is gone': '{lost}% van je inleg is weg',
+    'Put that frown upside down': 'Zet die frons op z\u2019n kop',
+    'of what you paid in': 'van je inleg',
+    'no base to compare against': 'geen basis om mee te vergelijken',
     'Total matches what DEGIRO reports': 'Totaal komt overeen met wat DEGIRO meldt',
     'No projection is drawn, because the growth rate measured from your history is {rate}% a year. That is not what a market does \u2014 it is what an account looks like when deposits and the trades they paid for are recorded a day apart, which distorts the early months. Set the rates yourself above to see a projection anyway.':
       'Er wordt geen prognose getekend, want het groeipercentage gemeten uit jouw historie is {rate}% per jaar. Dat doet een markt niet \u2014 zo ziet een rekening eruit als stortingen en de aankopen die ermee betaald zijn een dag uit elkaar geboekt staan, wat de eerste maanden vertekent. Stel de percentages hierboven zelf in om toch een prognose te zien.',

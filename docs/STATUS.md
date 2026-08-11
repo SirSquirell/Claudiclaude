@@ -3,7 +3,7 @@
 `docs/BACKLOG.md` is 2 000 lines of reasoning and evidence, which is the right place for *why* and
 a bad place to find out *where things stand*. This is the index.
 
-**Last updated at 0.38.0.** It had been stale since 0.21.0, which is fifteen releases — if it looks
+**Last updated at 0.39.0.** It had been stale since 0.21.0, which is fifteen releases — if it looks
 stale again, trust the CHANGELOG and fix this.
 
 ## Shipped and confirmed against a real account
@@ -53,6 +53,8 @@ person.** This is the gate that is open.
 | — | Every stage that loads or processes can report its own failure | 0.36.0 |
 | — | F1–F5 from five testers' accounts — see below | 0.37.0 |
 | — | F6–F9: the projection, and a losing holding that reported no loss | 0.38.0 |
+| US-35 | **Put that frown upside down** — Optimism Mode on the Overview | 0.39.0 |
+| — | U1, U2, U4, U5 resolved; the Result percentage; the version in the header | 0.39.0 |
 
 **What to look at first**, if you only look at one thing: the Notices tab after a sync. 0.36.0 made
 background failures visible for the first time, so if something has been quietly failing for weeks
@@ -65,11 +67,11 @@ F1–F5 shipped in 0.37.0, F6–F9 in 0.38.0. U1–U5 need a decision rather tha
 
 | # | What | State |
 |---|---|---|
-| U1 | **Decide an instrument's currency instead of defaulting it to EUR.** F5 detects the disagreement; resolving it changes numbers on screen | Story. The likely answer is rule 4's — refuse and mark `UNKNOWN` |
-| U2 | **A stale exchange rate is reported and never bounded.** Gaps of 358 to 1 746 days, on every account holding a foreign currency | Story. Leading candidate for the half-percent residual |
+| ~~U1~~ | **Done, 0.39.0.** Valued through the rate its own trades state; one observation or contradictory ones are refused and still reported | — |
+| ~~U2~~ | **Bounded, 0.39.0.** The warning now states the share of today's total riding on the stale rate | — |
 | U3 | One account is **5,8 %** out — different in kind from the rest | Blocked on a fresh 0.37.0 report, which now carries the ratios that would say |
-| U4 | A rescale factor measured from trades that **disagree by 60 %** | Story. Where the line between rescale and reject belongs needs more than one account |
-| U5 | Two counts that look comparable and are not (`no-price-series` against `missingPriceSeries`) | Small, but a naming decision |
+| ~~U4~~ | **Done, 0.39.0.** Called estimated rather than measured, and counted | — |
+| ~~U5~~ | **Done, 0.39.0.** Each says what it counts | — |
 
 ## Refined, not built
 

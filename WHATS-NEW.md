@@ -119,6 +119,9 @@ jouw grafiek ook niet — en helpt alleen Wipe & resync.**
 | **Wisselkoersen** | **Een bedrag in centen werd als wisselkoers gebruikt.** Gevonden via een foutrapport van een tester, en precies waarvoor dat rapport bestaat. | `0.28.0` |
 | **Eerlijkheid** | **Een contractgrootte via een geïnterpoleerde koers claimt niet langer "gemeten".** Hij heet nu *geschat*, wat hij was. Een getal mag er niet zekerder uitzien dan het is. | `0.29.0` |
 | **Rekenwerk** | **De verstreken tijd was één dag te lang.** Bij het omrekenen naar jaarrendement werd een *aantal* dagen gebruikt waar de *afstand* ertussen nodig was. | `0.33.0` |
+| **Valuta** | **Een buitenlands instrument wordt nu omgerekend met de koers die z’n eigen transacties noemen.** 0.38.0 signaleerde alleen dat er iets niet klopte; nu wordt het opgelost — zonder te gokken wélke munt het is, want de verhouding tussen wat er afgerekend en wat er verhandeld is, í́s de koers. | `0.39.0` |
+| **Rendement** | **"+207% all time" naast +€ 16.621 op € 16.676 inleg.** Het percentage onder een euroresultaat lees je als "zoveel van wat ik erin stopte" — die twee tegels staan naast elkaar. Het was een tijdgewogen keten, die een andere vraag beantwoordt. Nu zegt het wat het lijkt te zeggen. | `0.39.0` |
+| **Versie** | **Het versienummer staat in de kop.** Een tester meldde een bug op **v0.21.0** zonder het door te hebben, omdat het nummer in kleine grijze letters onderaan een lange pagina stond. | `0.39.0` |
 | **Prognose** | **Acht overlappende periodes zijn geen acht waarnemingen.** De prognose schuift een venster van vijf jaar één maand per keer over je historie, dus vijfenhalf jaar data levert acht vensters die 59 van hun 60 maanden delen. Dat is er ongeveer één. Het bijschrift zei het zelf al — *"treat 8 as fewer independent observations than it looks"* — terwijl de code ze als acht telde en het resultaat **historie** noemde. Op één rekening leidde dat tot een voorspelling van **€ 89 miljoen** op een portefeuille van drieëndertigduizend. Bij de meeste rekeningen wordt de Vooruitblik nu een *voorbeeld* in plaats van een scenario uit je eigen verleden — wat het altijd al was. | `0.38.0` |
 | **Prognose** | **Het percentage dat je zelf invulde werd genegeerd.** *Groei % per jaar* deed niets bij elke rekening met genoeg vensters: alle drie de lijnen kwamen uit de historische verdeling. De knop was decoratie. Jouw getal is nu de middelste lijn, en de spreiding die je eigen rekening liet zien blijft eromheen staan. | `0.38.0` |
 | **Prognose** | **Geen grafiek bij een percentage dat geen markt beschrijft.** Komt de gemeten groei uit op honderden procenten per jaar, dan valt er niets eerlijks te tekenen: de historie is echt, maar wat hij meet is geen groei — het zijn stortingen en de aankopen die ermee betaald zijn, een dag uit elkaar geboekt. Het vak zegt dat nu en blijft leeg. Je kunt de percentages nog steeds zelf invullen. | `0.38.0` |
@@ -150,6 +153,18 @@ rode balk en een schouderophalen.
   adres, dat nu elke keer opnieuw wordt opgehaald.
 
 ---
+
+## Zet die frons op z’n kop
+
+Een knop op het Overzicht die elk verliesgevend getal omdraait, er een vleiendere omschrijving bij
+zet, de tegels op hun kop kantelt en er confetti overheen gooit. `0.39.0`
+
+Er staat **NOT THE REAL NUMBERS** dwars overheen gestempeld, en dat is geen bijgeplakte
+disclaimer — het is de reden dat de grap mag bestaan. Geloofwaardigheid is het gevaar, niet
+onzin: een net omgedraaide grafiek is er één die iemand screenshot en naar z’n boekhouder stuurt.
+Dit kan met niets verward worden. Hij verdwijnt zodra je naar een ander tabblad gaat, staat uit na
+herladen, en niets erachter kan hem zien — niet de export, niet het foutrapport, geen enkel
+opgeslagen getal.
 
 ## Wat het met je gegevens doet
 

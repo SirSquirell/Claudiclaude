@@ -54,7 +54,21 @@
 
       <nav class="tabs" id="tabs" role="tablist" aria-label="Sections"></nav>
 
-      <section class="tiles" id="tiles"></section>
+      <!--
+        Optimism Mode. Hidden on every tab but Overview, and stamped so a still
+        frame gives it away — see src/ui/frown.js for why that stamp is the most
+        important element in the feature rather than the silliest.
+      -->
+      <div class="frown-bar" id="frown-bar" hidden>
+        <button type="button" class="btn frown-btn" id="frown-toggle" aria-pressed="false">
+          <span aria-hidden="true">🙃</span> <span data-i18n>Put that frown upside down</span>
+        </button>
+      </div>
+
+      <div class="frown-wrap">
+        <section class="tiles" id="tiles"></section>
+        <div class="frown-stamp" aria-hidden="true"><span>NOT THE REAL NUMBERS</span></div>
+      </div>
 
       <div class="controls">
         <div class="group" id="range-group">

@@ -2097,3 +2097,84 @@ test('but the reader may overrule that and set their own', () => {
   assert.ok(p.scenarios, 'a projection is drawn from their number');
   assert.ok(Math.abs(p.rates.expectedAnnual - 7) < 1e-6);
 });
+
+// ---------------------------------------------------------------------------
+// U1 — an instrument valued through the rate its own trades state
+// ---------------------------------------------------------------------------
+
+/** A EUR-labelled instrument whose trades settle at `rate`, held to the end. */
+function foreignInDisguise({ rate = 0.85, trades = 2, spread = 1 } = {}) {
+  const dates = ['2024-01-01', '2024-06-03', '2024-12-02'];
+  const tx = [];
+  for (let k = 0; k < trades; k++) {
+    const r = rate * (k === 1 ? spread : 1);
+    tx.push({
+      date: dates[k],
+      productId: '1',
+      quantity: 10,
+      price: 100,
+      currency: 'EUR',
+      fee: -1,
+      totalBase: -(10 * 100 * r + 1),
+    });
+  }
+  return computePortfolio({
+    products: { 1: { id: '1', name: 'A', currency: 'EUR', vwdId: '900' } },
+    prices: { 900: { start: '2024-01-01', stepDays: 1, points: [{ offsetDays: 0, close: 100 }, { offsetDays: 365, close: 100 }] } },
+    transactions: tx,
+    cashRows: [{ date: '2024-01-01', description: 'Deposit', change: 100000, currency: 'EUR', category: 'DEPOSIT' }],
+    today: '2024-12-31',
+  });
+}
+
+test('an instrument is valued through the rate its own trades state', () => {
+  /**
+   * 0.37.0 detected that a "EUR" trade had settled at 0,85 of what it traded
+   * for and stopped there, because resolving it changes numbers on somebody's
+   * screen. This is the resolution, and it needs no guess about *which*
+   * currency the instrument is in: the ratio of settled to traded is the
+   * conversion DEGIRO itself applied, on a known date.
+   */
+  const r = foreignInDisguise({ rate: 0.85, trades: 2 });
+  const held = r.byProduct.find((p) => String(p.productId) === '1');
+  // 20 shares at a quote of 100, converted at 0,85 — not 2 000 euros.
+  assert.ok(Math.abs(held.current - 1700) < 5, `expected about 1 700, got ${held.current}`);
+
+  const w = r.warnings.find((x) => x.code === 'settled-amount-mismatch');
+  assert.ok(w, 'and it still says what it did');
+  assert.equal(w.detail.resolved, 1);
+  assert.equal(w.level, 'warn', 'downgraded from error once every instrument is resolved');
+});
+
+test('one observation states a rate on one day and nothing about any other', () => {
+  // A single trade cannot be interpolated between. Left alone, and still loud.
+  const r = foreignInDisguise({ rate: 0.85, trades: 1 });
+  const held = r.byProduct.find((p) => String(p.productId) === '1');
+  assert.ok(Math.abs(held.current - 1000) < 5, 'valued unconverted, as before');
+  const w = r.warnings.find((x) => x.code === 'settled-amount-mismatch');
+  assert.equal(w.level, 'error', 'and it stays an error, because nothing was fixed');
+  assert.equal(w.detail.resolved, 0);
+  assert.equal(w.detail.unresolved[0].observations, 1);
+});
+
+test('observations that disagree with each other are not measuring a currency', () => {
+  // Applying the median of those would swap a visible error for an invisible
+  // one, which is the worse of the two.
+  const r = foreignInDisguise({ rate: 0.85, trades: 2, spread: 2.5 });
+  const w = r.warnings.find((x) => x.code === 'settled-amount-mismatch');
+  assert.equal(w.detail.resolved, 0);
+  assert.ok(w.detail.unresolved[0].spread > 1.6);
+});
+
+test('an ordinary euro instrument is untouched by any of this', () => {
+  const r = computePortfolio({
+    products: { 1: { id: '1', name: 'A', currency: 'EUR', vwdId: '900' } },
+    prices: { 900: { start: '2024-01-01', stepDays: 1, points: [{ offsetDays: 0, close: 100 }, { offsetDays: 30, close: 100 }] } },
+    transactions: [{ date: '2024-01-01', productId: '1', quantity: 10, price: 100, currency: 'EUR', fee: -1, totalBase: -1001 }],
+    cashRows: [{ date: '2024-01-01', description: 'Deposit', change: 100000, currency: 'EUR', category: 'DEPOSIT' }],
+    today: '2024-01-31',
+  });
+  assert.ok(!r.warnings.some((x) => x.code === 'settled-amount-mismatch'));
+  const held = r.byProduct.find((p) => String(p.productId) === '1');
+  assert.ok(Math.abs(held.current - 1000) < 1);
+});

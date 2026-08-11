@@ -15,6 +15,49 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.39.0] — 2026-08-11
+
+### Fixed
+
+- **A foreign instrument is now valued through the rate its own trades state.** 0.38.0 spotted that
+  a trade booked in euros had settled for 0,851 of what it traded for and stopped there. The ratio
+  of what settled to what was traded *is* the conversion DEGIRO applied, on a known date — no guess
+  about which currency the instrument is in required. Instruments stating a consistent rate across
+  at least two trades are now converted with it. One trade only, or trades that disagree, is
+  refused and still reported: applying a rate measured from contradictory evidence would swap a
+  visible error for an invisible one.
+
+- **"+207 % all time" next to +€ 16.621 on € 16.676 paid in.** The percentage under a euro result
+  is read as "that much of what I put in" — the two tiles sit beside each other and a reader
+  divides them. It was a time-weighted chained return, which answers a different question and falls
+  apart on an account that sat at three cents for three years. It now says what it looks like it
+  says. The chained return still lives under **Annualised return → The portfolio**, labelled.
+
+- **The version is in the header.** A tester reported against **v0.21.0** without noticing, because
+  the version sat in small grey text at the bottom of a long page. Demo mode shows it too, so a
+  screenshot from the demo can be tied to a build.
+
+- **A stale exchange rate now says how much it matters.** Every account holding a foreign currency
+  reported one, with gaps from 358 to 1 746 days, and none could say whether the answer was a
+  rounding error or a fifth of the portfolio. It now states the share of today's total riding on it.
+
+- **A rescale factor measured from trades that disagree is called estimated**, not measured — the
+  same distinction 0.29.0 drew for contract sizes. And *"no price history"* now says it means the
+  instrument never had one, which is a different thing from a series that failed to arrive.
+
+### Added
+
+- **Put that frown upside down.** A button on the Overview that turns every losing figure the right
+  way up, gives it a more flattering description, tips the tiles onto their heads and throws
+  confetti at them.
+
+  It stamps **NOT THE REAL NUMBERS** across the whole thing, and that is not a disclaimer bolted on
+  — it is the reason the feature is allowed to exist. Plausibility is the danger, not absurdity: a
+  tastefully inverted chart is one somebody screenshots and sends to their accountant. This cannot
+  be mistaken for anything. It never leaves the Overview, switches itself off when you navigate
+  away, is gone on reload, and nothing downstream can see it — not the export, not the bug report,
+  not a single stored figure. There is a test for each of those.
+
 ## [0.38.0] — 2026-08-11
 
 The projection release. Five testers ran 0.37.0 and the Outlook section produced a five-year

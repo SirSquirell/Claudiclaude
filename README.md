@@ -7,7 +7,9 @@ already holds.
 
 ![The charts](docs/screenshot.png)
 
-**English or Dutch**, with a flag in the header, and a light/dark/auto switch beside it.
+**English or Dutch**, with a flag in the header, and a light/dark/auto switch beside it. The build
+number is in the header line too, because a bug report against a version nobody noticed had gone
+stale is a bug report about the wrong code.
 
 The page is seven sections — Overview, Performance, Composition, Income & cost, Holdings, Outlook
 and Notices — each with the figures that belong to it above its charts. Every figure carries an

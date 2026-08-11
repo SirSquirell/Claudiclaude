@@ -12,6 +12,7 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 const { record, captured, __resetForTest } = await import('../src/ui/errors.js');
 const { scrub, fold, firstFrame, MAX_KEPT } = await import('../src/lib/errlog.js');
@@ -109,4 +110,55 @@ test('a repeat folds into a count rather than evicting anything', () => {
   for (let i = 0; i < 167; i++) fold(ring, { kind: 'alarm-sync', message: 'HTTP 502' }, { evictOldest: true });
   assert.equal(ring.length, 1);
   assert.equal(ring[0].count, 168);
+});
+
+// ---------------------------------------------------------------------------
+// US-35 — Optimism Mode, and the parts of it that are not a joke
+// ---------------------------------------------------------------------------
+
+const frown = await import('../src/ui/frown.js');
+
+test('only the sign changes, never the magnitude', () => {
+  // The number stays recognisably the reader's own, which is funnier than a
+  // fabricated one and keeps the gag anchored to something real.
+  assert.equal(frown.cheerUp('€ -504,32'), '€ +504,32');
+  assert.equal(frown.cheerUp('€ −16.523,14'), '€ +16.523,14');
+  assert.equal(frown.cheerUp('-12,5%'), '+12,5%');
+  assert.equal(frown.cheerUp('€ 1.000,00'), '€ 1.000,00', 'a gain is left alone');
+  assert.equal(frown.cheerUp(null), null);
+});
+
+test('a euphemism is stable per tile, so a re-render does not reshuffle it', () => {
+  const a = frown.spin('Deepest fall');
+  assert.equal(frown.spin('Deepest fall'), a);
+  assert.notEqual(frown.spin('Today'), undefined);
+});
+
+test('the mode does not persist itself anywhere', () => {
+  // A joke you turned on in March must not still be on in June. Asserted
+  // structurally: the module exposes no storage of any kind.
+  const src = readFileSync(new URL('../src/ui/frown.js', import.meta.url), 'utf8');
+  assert.ok(!/localStorage|sessionStorage|setMeta|indexedDB/.test(src), 'it stores nothing');
+});
+
+test('nothing downstream can read it', () => {
+  /**
+   * The one rule this feature has. It inverts losses, so if the export or the
+   * bug report could see it, this project would be shipping a tool that lies.
+   * The quarantine is structural — the cheerful value is produced inside the
+   * tile renderer and never enters the result — and this pins it.
+   */
+  const app = readFileSync(new URL('../src/ui/app.js', import.meta.url), 'utf8');
+  const usage = [...app.matchAll(/frown\.\w+/g)].map((m) => m[0]);
+  assert.ok(usage.length > 0, 'it is actually wired up');
+  // From the *call site*, not the import at the top of the file — slicing from
+  // the first occurrence caught this test file's own import and failed on it.
+  const call = app.indexOf('buildBugReport({');
+  assert.ok(call > 0, 'the report is still built here');
+  const report = app.slice(call, call + 1400);
+  assert.ok(!/frown/.test(report), 'the bug report cannot see it');
+  const store = readFileSync(new URL('../src/lib/store.js', import.meta.url), 'utf8');
+  assert.ok(!/frown/.test(store), 'neither can the export');
+  const engine = readFileSync(new URL('../src/lib/engine.js', import.meta.url), 'utf8');
+  assert.ok(!/frown/.test(engine), 'nor the engine');
 });

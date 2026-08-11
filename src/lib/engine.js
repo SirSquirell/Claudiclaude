@@ -84,6 +84,29 @@ const MIN_WINDOWS = 3;
 const PLAUSIBLE_ANNUAL = 50;
 
 /**
+ * How far the rates implied by one instrument's own trades may disagree before
+ * they stop being a currency.
+ *
+ * A real exchange rate moves. EUR/USD spanned roughly 1.03 to 1.25 over the
+ * histories these accounts cover, which is about 1.2 end to end, so the band
+ * has to be wider than that or a genuine multi-year holding is refused. It must
+ * also be tight enough that a set of ratios measuring something *other* than a
+ * currency — a contract size, a split, a fee model — falls outside it.
+ */
+const MAX_IMPLIED_FX_SPREAD = 1.6;
+
+/**
+ * Beyond this, a rescale factor is estimated rather than measured.
+ *
+ * Well inside `MAX_FACTOR_SPREAD`, which decides whether the series is usable
+ * at all. This decides whether the number may be described as measured — the
+ * same distinction 0.29.0 drew for contract sizes, where a row claimed
+ * `verdict: 'measured'` beside `anchored: false` and the UI believed the
+ * confident half.
+ */
+const SHAKY_FACTOR_SPREAD = 1.25;
+
+/**
  * Smallest currency conversion, in the base currency, that states a usable rate.
  *
  * Both legs are rounded to the cent, so the rate a conversion states carries a
@@ -904,13 +927,36 @@ export function computePortfolio(input) {
   }
 
   if (rescaled.length) {
+    /**
+     * A factor measured from trades that disagree with each other is not a
+     * measurement.
+     *
+     * One account rescaled an instrument by 0,223 with a spread of **1,6** —
+     * the trades behind the factor differed by sixty percent. `MAX_FACTOR_SPREAD`
+     * is 5, so it sailed through and the factor was applied to the whole series
+     * as if it were known.
+     *
+     * 0.29.0 fixed the same shape one level up: a contract size reported
+     * `anchored: false` and `verdict: 'measured'` side by side, and the UI
+     * believed the confident half. The answer there was to stop calling it
+     * measured, and it is the answer here. The factor is still used — falling
+     * back would be a hundredfold error in place of a proportional one — but
+     * the ones resting on disagreeing evidence are counted and named, so a
+     * reader can tell a pence-to-pounds conversion apart from a guess.
+     */
+    const shaky = rescaled.filter((r) => r.spread > SHAKY_FACTOR_SPREAD);
     warn(
       'warn',
       'price-scale-adjusted',
       `${rescaled.length} instrument(s) quote in different units than their trades were booked in — a share ` +
         `split, or pence versus pounds. The quoted history is real; the quotes were converted back into the ` +
-        `units your shares are booked in. Without this the value would be wrong by that factor.`,
-      { instruments: rescaled.slice(0, 25) },
+        `units your shares are booked in. Without this the value would be wrong by that factor.` +
+        (shaky.length
+          ? ` ${shaky.length} of them ${shaky.length === 1 ? 'rests' : 'rest'} on trades that disagree with each ` +
+            `other by more than a quarter, so ${shaky.length === 1 ? 'that factor is' : 'those factors are'} ` +
+            `estimated rather than measured.`
+          : ''),
+      { instruments: rescaled.slice(0, 25), shaky: shaky.length },
     );
   }
 
@@ -997,6 +1043,8 @@ export function computePortfolio(input) {
    * account over fractional shares and fee models nobody has modelled.
    */
   const settledMismatches = [];
+  /** productId -> the dated conversions its own trades state. See below. */
+  const impliedFx = new Map();
   for (const t of transactions) {
     const ccy = products[t.productId]?.currency ?? t.currency ?? baseCurrency;
     if (ccy !== baseCurrency) continue;
@@ -1005,20 +1053,80 @@ export function computePortfolio(input) {
     if (!(traded > 0) || !(settled > 0)) continue;
     const r = settled / traded;
     if (r > 0.98 && r < 1.02) continue;
-    settledMismatches.push({ productId: String(t.productId), ratio: Number(r.toPrecision(4)) });
+    const id = String(t.productId);
+    settledMismatches.push({ productId: id, ratio: Number(r.toPrecision(4)) });
+    const i = dayIndex.get(t.date);
+    if (i !== undefined) {
+      if (!impliedFx.has(id)) impliedFx.set(id, []);
+      impliedFx.get(id).push({ date: t.date, index: i, ratio: r });
+    }
   }
+
+  /**
+   * Use the rate the trades state, rather than the currency the record claims.
+   *
+   * 0.37.0 detected the disagreement and stopped there, because resolving it
+   * changes numbers on somebody's screen and that is not a patch. This is the
+   * resolution, and it needs no guess about *which* currency the instrument is
+   * in — which is fortunate, because there is no way to know.
+   *
+   * The evidence is already complete. `|totalBase| − |fee|` over
+   * `|price × quantity|` is the conversion DEGIRO itself applied, to the cent,
+   * on a known date. That is the same construction `fxFromConversions` uses for
+   * currency rows, and it is the strongest kind of evidence in this data: not a
+   * field that might be wrong, but two amounts whose ratio can only be a rate.
+   *
+   * So the instrument keeps its stated currency for every other purpose and is
+   * *valued* through its own dated conversions, interpolated between trades the
+   * way every other rate here is.
+   *
+   * **Two guards, both refusals.** A single observation states a rate on one
+   * day and nothing about any other, and a set of observations that disagree
+   * with each other is not measuring a currency at all — it is measuring
+   * something else, and applying its median would replace a visible error with
+   * an invisible one. Either way the instrument is left alone and the warning
+   * still fires, which is 0.37.0's behaviour and the honest floor.
+   */
+  const impliedRates = new Map();
+  const impliedRejected = [];
+  for (const [id, obs] of impliedFx) {
+    const sorted = [...obs].sort((a, b) => a.index - b.index);
+    const rates = sorted.map((o) => o.ratio).sort((a, b) => a - b);
+    const spread = rates.at(-1) / rates[0];
+    if (sorted.length < 2 || spread > MAX_IMPLIED_FX_SPREAD) {
+      impliedRejected.push({ productId: id, observations: sorted.length, spread: Number(spread.toPrecision(3)) });
+      continue;
+    }
+    impliedRates.set(id, sorted);
+  }
+
   if (settledMismatches.length) {
     const affected = new Set(settledMismatches.map((m) => m.productId));
     const sorted = settledMismatches.map((m) => m.ratio).sort((a, b) => a - b);
+    const median = Number(sorted[Math.floor(sorted.length / 2)].toPrecision(4));
+    const fixed = impliedRates.size;
     warn(
-      'error',
+      fixed === affected.size ? 'warn' : 'error',
       'settled-amount-mismatch',
       `${settledMismatches.length} trade(s) across ${affected.size} instrument(s) are booked in ${baseCurrency} but ` +
-        `settled for a different amount than they traded for — a median of ` +
-        `${Number(sorted[Math.floor(sorted.length / 2)].toPrecision(4))}× . That ratio is what an exchange rate ` +
-        `looks like, so those instruments are probably not in ${baseCurrency} at all, and anything held in them is ` +
-        `valued without the conversion it needs.`,
-      { trades: settledMismatches.length, instruments: affected.size, ratios: sorted.slice(0, 20) },
+        `settled for a different amount than they traded for — a median of ${median}×. That ratio is what an ` +
+        `exchange rate looks like, so those instruments are probably not in ${baseCurrency} at all. ` +
+        (fixed
+          ? `${fixed} of them state a consistent rate across at least two trades and ${fixed === 1 ? 'is' : 'are'} ` +
+            `now valued through it. `
+          : '') +
+        (fixed < affected.size
+          ? `${affected.size - fixed} do not — one trade only, or trades that disagree — and ${
+              affected.size - fixed === 1 ? 'is' : 'are'
+            } still valued without the conversion ${affected.size - fixed === 1 ? 'it needs' : 'they need'}.`
+          : ''),
+      {
+        trades: settledMismatches.length,
+        instruments: affected.size,
+        resolved: fixed,
+        ratios: sorted.slice(0, 20),
+        unresolved: impliedRejected.slice(0, 20),
+      },
     );
   }
 
@@ -1081,6 +1189,11 @@ export function computePortfolio(input) {
     // account actually paid is already in those units and is left alone.
     const audit = priceByProduct.get(productId).audit;
     const unit = audit?.verdict === 'rescale' ? factorByDay(audit.ratios, n) : null;
+    // Interpolated between the trades that state it, exactly as every other
+    // rate in this file is. `null` for the ordinary case.
+    const implied = impliedRates.has(String(productId))
+      ? factorByDay(impliedRates.get(String(productId)), n)
+      : null;
     // A quote is per share. One unit of this instrument covers this many.
     const shares = unitsOf(productId);
 
@@ -1094,7 +1207,9 @@ export function computePortfolio(input) {
       const quoted = covered[i] || !traded.close[i];
       const price = quoted ? (unit ? close[i] / unit[i] : close[i]) : traded.close[i];
       // Quotes are in the instrument's own currency; the portfolio is in euros.
-      values[i] = q * price * shares * fxAt(meta.currency ?? baseCurrency, i);
+      // An instrument whose own trades state a conversion is valued through it,
+      // whatever currency its record claims. See `impliedRates`.
+      values[i] = q * price * shares * (implied ? implied[i] : fxAt(meta.currency ?? baseCurrency, i));
       positionsValue[i] += values[i];
       if (priceEstimated[i] || !covered[i]) estimatedDay[i] = 1;
     }
@@ -1173,9 +1288,10 @@ export function computePortfolio(input) {
     warn(
       'warn',
       'no-price-series',
-      `${noPriceSeries.length} instrument(s) have no price history at DEGIRO. They are valued at the last ` +
-        `price they traded at, so their movement between trades is not real. Usually a delisting, or an ` +
-        `instrument DEGIRO no longer carries a chart for.`,
+      `${noPriceSeries.length} instrument(s) have never had a price history at DEGIRO. They are valued at the ` +
+        `last price they traded at, so their movement between trades is not real. Usually a delisting, or an ` +
+        `instrument DEGIRO no longer carries a chart for. This is a permanent property of the instrument, not ` +
+        `a series that failed to arrive this sync — that is counted separately, as "series not fetched".`,
       { instruments: noPriceSeries.slice(0, 40) },
     );
   }
@@ -1194,12 +1310,38 @@ export function computePortfolio(input) {
 
   const staleFx = fxReport.filter((f) => f.stale);
   if (staleFx.length) {
+    /**
+     * How much of today's total is riding on a rate nobody has observed lately.
+     *
+     * The warning said a rate was stale and left the reader to guess whether
+     * that mattered. It matters in proportion to what is held in that currency,
+     * and that is computable: the positions in it, plus the cash balance in it,
+     * over the total. Every account holding a foreign currency reported this
+     * warning, with gaps from 358 to 1 746 days, and none of them could say
+     * whether the answer was "a rounding error" or "a fifth of your portfolio".
+     *
+     * A share, not a euro amount, so it travels in the bug report — and it is
+     * the number that decides whether a half-percent reconciliation gap is
+     * explained by this or not.
+     */
+    const totalNow = Math.abs(value[n - 1]) || 1;
+    for (const f of staleFx) {
+      let exposed = Math.abs(cashSeriesByCurrency[f.currency]?.[n - 1] ?? 0) * (fxSeries[f.currency]?.[n - 1] ?? 1);
+      for (const p of byProduct) {
+        if (products[p.productId]?.currency !== f.currency) continue;
+        exposed += Math.abs(p.values[n - 1] ?? 0);
+      }
+      f.exposureShare = Number((exposed / totalNow).toFixed(4));
+    }
+    const worst = [...staleFx].sort((a, b) => (b.exposureShare ?? 0) - (a.exposureShare ?? 0))[0];
     warn(
       'warn',
       'fx-stale',
       `${staleFx.map((f) => `${f.currency} (${f.widestGapDays} days)`).join(', ')} went that long without a rate ` +
         `to observe, so the euro value of anything held in it over that stretch is a straight line between two ` +
-        `points rather than the real rate.`,
+        `points rather than the real rate. ` +
+        `Today ${Math.round((worst.exposureShare ?? 0) * 100)}% of your total is held in ${worst.currency}, so ` +
+        `that is roughly how much of the figure moves if the rate is wrong.`,
       { currencies: staleFx },
     );
   }

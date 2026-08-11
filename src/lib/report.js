@@ -58,6 +58,9 @@ const DETAIL_SUMMARY = {
   // `sample` carries the prices actually paid.
   'price-scale-adjusted': (d) => ({
     instruments: (d.instruments ?? []).length,
+    // How many rest on trades that disagree with each other — estimated rather
+    // than measured. Nothing else in the report distinguished the two.
+    shaky: Number(d.shaky) || 0,
     factors: (d.instruments ?? []).slice(0, 20).map((i) => ({
       factor: round(i.factor),
       spread: round(i.spread, 3),
@@ -129,6 +132,13 @@ const DETAIL_SUMMARY = {
   'settled-amount-mismatch': (d) => ({
     trades: Number(d.trades) || 0,
     instruments: Number(d.instruments) || 0,
+    // How many were resolved by the rate their own trades state, and why the
+    // rest were not. See the engine's `impliedRates`.
+    resolved: Number(d.resolved) || 0,
+    unresolved: (d.unresolved ?? []).slice(0, 20).map((u) => ({
+      observations: Number(u.observations) || 0,
+      spread: round(u.spread, 3),
+    })),
     ratios: (d.ratios ?? []).slice(0, 20).map((r) => round(r, 4)),
   }),
 
@@ -140,6 +150,9 @@ const DETAIL_SUMMARY = {
       observations: c.observations,
       widestGapDays: c.widestGapDays,
       median: round(c.median),
+      // A share of today's total, so it says whether a stale rate is a
+      // rounding error or a fifth of the portfolio. The warning could not.
+      exposureShare: round(c.exposureShare, 4),
     })),
   }),
 
