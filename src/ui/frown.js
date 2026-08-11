@@ -61,6 +61,51 @@ const euphemismFor = (seed) => {
   return EUPHEMISMS[h % EUPHEMISMS.length];
 };
 
+/**
+ * The ticker this whole feature is for.
+ *
+ * Optimism Mode is an inside joke aimed at one person, and it only appears for
+ * people holding the thing the joke is about. Everyone else never sees the
+ * button, which is not a limitation — it is the best property this feature has:
+ *
+ *  - a tester who would not get it cannot be confused by it,
+ *  - it cannot be found by accident, which was the objection to making it a
+ *    hidden easter egg in the first place,
+ *  - and the audience for a screenshot of it is exactly the audience who
+ *    already knows it is a bit.
+ *
+ * A list rather than a constant, because the next friend will hold something
+ * else and this should be a one-line change rather than a refactor.
+ */
+const QUALIFYING = ['PROP'];
+
+/**
+ * Is the joke's subject held inside the window currently on screen?
+ *
+ * The *sliced* range, deliberately: filter the position out and the button goes
+ * with it. A joke about a holding you are not looking at is just clutter.
+ */
+export function qualifies(r, from = 0, to = (r?.days?.length ?? 1) - 1) {
+  const held = r?.byProduct ?? [];
+  return held.some((p) => {
+    const tag = String(p.symbol || p.name || '').toUpperCase();
+    if (!QUALIFYING.some((q) => tag.includes(q))) return false;
+    // Held at any point inside the window, not merely ever owned.
+    const qty = p.qty ?? [];
+    for (let i = Math.max(0, from); i <= Math.min(to, qty.length - 1); i++) {
+      if (Math.abs(qty[i]) > 1e-9) return true;
+    }
+    return false;
+  });
+}
+
+/** The name to build the jokes around, once `qualifies` has said yes. */
+export function subjectOf(r) {
+  const held = r?.byProduct ?? [];
+  const hit = held.find((p) => QUALIFYING.some((q) => String(p.symbol || p.name || '').toUpperCase().includes(q)));
+  return hit?.symbol || hit?.name || QUALIFYING[0];
+}
+
 let on = false;
 
 /** Never persisted, never exported. A joke you turned on in March must not
@@ -138,7 +183,7 @@ export function flipSeries(values) {
  * @param {object} r  a computePortfolio result, already combined
  * @param {(n:number)=>string} money  the page's own currency formatter
  */
-export function optimismTiles(r, money) {
+export function optimismTiles(r, money, subject = null) {
   const held = (r.byProduct ?? []).filter((p) => Math.abs(p.current) > 0.005);
   const worst = [...(r.byProduct ?? [])].sort((a, b) => (a.pnl ?? 0) - (b.pnl ?? 0))[0];
   const loss = Math.min(0, worst?.pnl ?? 0);
@@ -167,7 +212,7 @@ export function optimismTiles(r, money) {
     return [
       { label: 'Certified genius', value: money(total), note: 'no notes 🧠' },
       { label: 'Modesty', value: '0%', note: 'and rightly so 😎' },
-      { label: 'Conviction', value: `${believedSince} days`, note: 'never once doubted 🪨' },
+      { label: 'Conviction', value: `${believedSince} days`, note: `${subject ? `never doubted ${subject}` : 'never once doubted'} 🪨` },
       { label: 'Moon progress', value: `${Math.round(moon)}%`, note: 'and climbing 🚀' },
       { label: 'Positions held', value: String(held.length), note: 'all of them excellent ✨' },
       { label: 'Regrets', value: 'none', note: 'this is not financial advice 🙃' },
@@ -178,33 +223,43 @@ export function optimismTiles(r, money) {
     ];
   }
 
-  const name = worst?.symbol || worst?.name || 'it';
+  // The joke's subject if it is here, otherwise the worst holding. `qualifies`
+  // has already said one of them is on screen.
+  const name = subject || worst?.symbol || worst?.name || 'it';
   const years = Math.max(1, believedSince / 365);
 
+  /**
+   * The notes are written *about* the holding rather than around it.
+   *
+   * "1325 days of unwavering belief" is a joke about a tile. "1325 days of
+   * unwavering belief in PROP" is a joke about a person, and the name is the
+   * only reason it lands. `qualifies` has already established the reader is
+   * that person.
+   */
   return [
-    { label: 'Discount secured', value: money(Math.abs(total)), note: 'off the original price 🏷️' },
-    { label: 'Conviction', value: `${believedSince} days`, note: 'of unwavering belief 🪨' },
+    { label: 'Discount secured', value: money(Math.abs(total)), note: `${name} at a historic markdown 🏷️` },
+    { label: 'Conviction', value: `${believedSince} days`, note: `of unwavering belief in ${name} 🪨` },
     { label: 'Moon progress', value: `${Math.round(moon)}%`, note: 'of the way back to where you started 🚀' },
     {
       label: 'Diamond hands',
       // Ten out of ten for anyone who has held a loser for two years.
       value: `${Math.min(10, Math.max(1, Math.round(believedSince / 73)))}/10 💎`,
-      note: 'certified by nobody',
+      note: `${believedSince > 700 ? 'legendary' : 'promising'} grip strength`,
     },
-    { label: 'Tuition', value: money(Math.abs(loss)), note: 'an education in patience 🎓' },
+    { label: 'Tuition', value: money(Math.abs(loss)), note: `a masterclass from ${name} 🎓` },
     { label: 'Still believing in', value: name, note: 'it is just resting 😴' },
-    { label: 'Analyst consensus', value: 'STRONG BUY', note: `the analyst is you 📈` },
+    { label: 'Analyst consensus', value: 'STRONG BUY', note: `on ${name}, from the analyst that is you 📈` },
     {
       label: 'Lambo ETA',
       // Absurd on purpose and derived from something real, which is funnier
       // than a random number: how long back to break-even at the rate so far.
       value: `${Math.max(1, Math.round(years * (100 / Math.max(1, moon)) * 4))} years`,
-      note: 'give or take 🏎️',
+      note: `once ${name} does its thing 🏎️`,
     },
     { label: 'Beating the market', value: 'YES', note: 'which market, though 🌍' },
-    { label: 'Panic level', value: '0%', note: 'we do not do that here 🧘' },
+    { label: 'Panic level', value: '0%', note: `${name} has never let you down 🧘` },
     { label: 'Exit strategy', value: 'NEVER', note: `${name} to the moon 🌕` },
-    { label: 'Portfolio rating', value: 'S TIER', note: 'S is for strategic 🏆' },
+    { label: 'Portfolio rating', value: 'S TIER', note: `S is for ${name} 🏆` },
   ];
 }
 

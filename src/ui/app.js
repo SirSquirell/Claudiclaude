@@ -800,7 +800,13 @@ function render() {
   // rendered before the range existed, so they could only ever be all-time.
   // The switch belongs to the Overview and nowhere else. Leaving it visible on
   // Performance would invite flipping the page somebody is trying to read.
-  const onOverview = state.tab === 'overview';
+  /**
+   * The button only exists for someone holding the thing the joke is about, and
+   * only while that holding is inside the range on screen. Filter it out and
+   * the button goes with it — a joke about a position you are not looking at is
+   * clutter. See `QUALIFYING` in frown.js.
+   */
+  const onOverview = state.tab === 'overview' && frown.qualifies(r, from, to);
   $('#frown-bar').hidden = !onOverview;
   if (!onOverview && frown.isOn()) {
     frown.setFrown(false);
@@ -1385,7 +1391,7 @@ function renderTiles(r, from = 0, to = r.days.length - 1) {
   // about a tile, and "847 days of unwavering belief" is a joke about the
   // person. Same data, funnier. See `optimismTiles`.
   const shown = cheerful
-    ? frown.optimismTiles(r, fmtSigned).map((t) => ({ ...t, tabs: ['overview'], cls: 'up' }))
+    ? frown.optimismTiles(r, fmtSigned, frown.subjectOf(r)).map((t) => ({ ...t, tabs: ['overview'], cls: 'up' }))
     : tiles;
 
   $('#tiles').innerHTML = shown

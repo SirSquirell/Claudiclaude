@@ -157,7 +157,11 @@ rode balk en een schouderophalen.
 
 ## Zet die frons op z’n kop
 
-De 🙃-knop rechtsboven op het Overzicht. `0.39.0` · `0.41.0`
+De 🙃-knop rechtsboven op het Overzicht. `0.39.0` · `0.41.0` · `0.42.0`
+
+**Hij verschijnt alleen als je het aandeel bezit waar de grap over gaat**, en alleen zolang dat
+binnen de periode valt die je bekijkt. Filter je hem weg, dan verdwijnt de knop mee. Zie je hem
+niet, dan is hij niet voor jou bedoeld.
 
 **De grafieken draaien om**, zodat een dalende lijn klimt — maar alleen de goede kant op: een
 rekening die al stijgt blijft staan zoals hij staat. **De tegels worden compleet vervangen** door

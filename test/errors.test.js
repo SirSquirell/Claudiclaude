@@ -265,3 +265,39 @@ test('the switch does not survive a reload, because nothing writes it down', () 
   frown.setFrown(false);
   assert.equal(frown.isOn(), false, 'and it turns off cleanly');
 });
+
+test('the button only exists for someone holding the thing the joke is about', () => {
+  /**
+   * Optimism Mode is aimed at one person and appears only for people holding
+   * what it is about. That is the best property it has: a tester who would not
+   * get it cannot be confused by it, and it cannot be found by accident —
+   * which was the whole objection to making it a hidden easter egg.
+   */
+  const withProp = { days: ['a', 'b', 'c'], byProduct: [{ symbol: 'PROP', name: 'Prop Holdings', qty: [0, 1, 1] }] };
+  const without = { days: ['a', 'b', 'c'], byProduct: [{ symbol: 'ASML', name: 'ASML', qty: [1, 1, 1] }] };
+
+  assert.equal(frown.qualifies(withProp), true);
+  assert.equal(frown.qualifies(without), false, 'no button for anyone else');
+  assert.equal(frown.qualifies({ byProduct: [] }), false);
+  assert.equal(frown.qualifies(null), false, 'and it survives being asked too early');
+});
+
+test('filtering the holding out of the range takes the button with it', () => {
+  // The *sliced* window, not the whole history: a joke about a position you
+  // are not looking at is clutter.
+  const r = { days: ['a', 'b', 'c', 'd'], byProduct: [{ symbol: 'PROP', qty: [1, 1, 0, 0] }] };
+  assert.equal(frown.qualifies(r, 0, 1), true, 'inside the window it was held');
+  assert.equal(frown.qualifies(r, 2, 3), false, 'outside it, nothing to joke about');
+});
+
+test('the tiles are written about the holding, by name', () => {
+  const money = (v) => `€ ${v.toFixed(0)}`;
+  const r = {
+    days: Array.from({ length: 800 }, (_, i) => `d${i}`),
+    value: [50], totals: { totalPnl: -5000 }, cumulativeDeposited: [20000],
+    byProduct: [{ name: 'Prop Holdings', symbol: 'PROP', pnl: -5000, current: 10, qty: Array(800).fill(1) }],
+  };
+  const notes = frown.optimismTiles(r, money, frown.subjectOf(r)).map((t) => t.note).join(' ');
+  assert.ok(notes.includes('PROP'), 'the name is what makes it land, and it appears');
+  assert.ok((notes.match(/PROP/g) ?? []).length >= 4, 'in more than one place');
+});

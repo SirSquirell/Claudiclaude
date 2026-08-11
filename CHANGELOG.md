@@ -15,6 +15,32 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.42.0] — 2026-08-11
+
+### Changed
+
+- **Optimism Mode only exists for people holding what the joke is about.** The 🙃 button does not
+  appear at all otherwise — and only while that holding is inside the range currently on screen, so
+  filtering it out takes the button with it.
+
+  This is the best property the feature has rather than a limitation. A tester who would not get the
+  joke cannot be confused by it, and it cannot be stumbled into by accident, which was the standing
+  objection to making it a hidden easter egg. The qualifying list is one line in
+  `src/ui/frown.js`, because the next person will hold something else.
+
+- **The tiles are written about the holding, by name.** *"1325 days of unwavering belief"* is a joke
+  about a tile; *"1325 days of unwavering belief in PROP"* is a joke about a person, and the name is
+  the only reason it lands. The name now appears throughout — the analyst consensus, the panic
+  level, the exit strategy, the portfolio rating.
+
+### Still pending
+
+The chart transform is **not** in this release. 0.41.0's mirror was rejected, and the prototype at
+`docs/prototypes/optimism-flip.html` shows why: it inverts the deposit steps along with everything
+else, and on the example account it does not even reach its own goal — it reports a smaller loss
+rather than a gain. Three ways to do it properly are in there, switchable, with their source. See
+US-35c.
+
 ## [0.41.0] — 2026-08-11
 
 ### Added
