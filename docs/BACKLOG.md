@@ -2119,11 +2119,16 @@ example response from **February 2021** on a path that has since versioned.
 
 ### The three things between here and a story
 
-| # | Question | Kind |
-|---|---|---|
-| 1 | **How far back does `size` reach on the candle endpoint?** | The one real unknown. Decides the story |
-| 2 | Does an extension's fetch carry `CUSTOMER_SESSION` / `TRADING212_SESSION_LIVE`? | Empirical. The `SameSite` question that decided Trade Republic |
-| 3 | **Bid, ask or mid?** | A domain decision, not an unknown. See below |
+| # | Question | Kind | Costs |
+|---|---|---|---|
+| 1 | **How far back does `size` reach on the candle endpoint?** | The one real unknown. Decides the story | A logged-out browser. Trading 212 publishes instrument pages with charts to anyone |
+| 2 | Does an extension's fetch carry `CUSTOMER_SESSION` / `TRADING212_SESSION_LIVE`? | Empirical. The `SameSite` question that decided Trade Republic | **An account.** Only worth asking after 1 says yes |
+| 3 | **Bid, ask or mid?** | A domain decision, not an unknown. See below | Nothing. A decision |
+
+The schemas behind R2, R3 and R5 need none of that: **Trading 212 publishes them**, and only the
+API *key* requires an account. That was missed on the first pass and it is most of what the spike
+was for. `docs/T212-SPIKE-BRIEF.md` is split into three phases on exactly this ordering — read the
+docs, then the public chart, and only then decide whether R1 is worth anyone opening an account.
 
 ### Decision 3, stated now so it is not made by accident
 
