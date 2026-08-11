@@ -893,6 +893,82 @@ page that silently falls back looks finished and is not; the count says how far 
 
 ---
 
+### US-33 — Where does this go from here *(new, refined — the riskiest thing in this backlog)*
+
+**As someone who keeps a spreadsheet projecting my ETF forward, I want the extension to do it, so
+I stop maintaining a worse copy of it beside the real data.**
+
+Found by asking a tester what he keeps open *next to* us. The answer was a spreadsheet compounding
+an ETF forward as a rough forecast — which is the sharpest feature list there is, because it is by
+definition the thing we do not provide.
+
+#### Why this is the most dangerous story here
+
+Everything else in this project is a **measurement**, checked against DEGIRO's own total and
+refused when it cannot be verified. A projection is the opposite: a number that is definitionally
+unverifiable, drawn in the same typeface as numbers that are. Rule 6 exists because a plausible
+wrong chart is the failure mode; a forecast *is* a plausible chart with no right answer.
+
+So the argument for building it is not "it would be nice". It is that **he is already doing it, in
+a tool with worse inputs than ours**, and a spreadsheet compounding a price series is wrong in ways
+we can see and it cannot:
+
+- **A distributing ETF's dividends sit in cash and do not compound** unless they were reinvested. A
+  spreadsheet compounding the price return assumes they did. We hold the dividend rows and the cash
+  balance, so we know which actually happened.
+- **The rate he is compounding is probably the wrong one.** Growth measured off a value line that
+  includes his own deposits is not a return (SPEC §1.4, in a spreadsheet).
+
+If we build it, those two are the reason. If we cannot beat the spreadsheet on them, do not build
+it at all.
+
+#### The rules it has to obey
+
+1. **A projection is never drawn in the same treatment as history.** Different line, visible break
+   at today, and the word *projection* on the chart itself rather than in a caption. If somebody
+   screenshots it, the screenshot has to carry the caveat.
+2. **The rate is an input, shown and editable, never a hidden assumption.** Default it to the
+   *time-weighted* annualised return from US-31 — that is the portfolio's own rate, independent of
+   when he happened to pay in, which is exactly what a forecast needs. Money-weighted is about his
+   past timing and must not be the default here.
+3. **Future contributions are an input too.** A forecast that ignores the monthly deposit is
+   useless to someone who makes one, and quietly assuming zero is the same class of error as
+   assuming a deposit is a gain.
+4. **One line is a lie.** The same average return with a different order of years lands somewhere
+   else entirely, and it matters more the more he contributes. Show a band, not a curve — and
+   derive it from *his own* monthly spread, which the month grid already holds, rather than from a
+   textbook volatility number.
+5. **Backtest the assumption against his own history, on the same chart.** "This rate, applied from
+   five years ago, would have predicted X; you actually have Y." That single comparison is worth
+   more than the projection itself, and it is the honest way to show how much a forecast is worth.
+6. **Never a tax or a retirement claim.** No "you will have enough". A number and a band, and
+   nothing that reads as advice.
+
+#### Acceptance criteria
+
+- ☐ The projected segment is visually distinct from history, and labelled on the chart.
+- ☐ Rate and contribution are visible inputs with stated defaults, not constants in the code.
+- ☐ The default rate is the time-weighted figure, and the card says which rate it used.
+- ☐ A band, derived from the account's own monthly distribution.
+- ☐ The backtest line is present and its gap against reality is stated in words.
+- ☐ Under a year of history, no projection at all — the same guard as US-31, for the same reason.
+- ☐ A distributing holding whose dividends were *not* reinvested does not compound them, and the
+  card says that is what happened.
+
+#### What it is not
+
+Not per-instrument. Not a goal planner. Not a Monte Carlo with a thousand paths and a confidence
+interval nobody can interpret — the band comes from his own months, which he can check.
+
+---
+
+### Where we now stand against Zeus
+
+The competitor analysis in `docs/NEXT.md` §3b listed four things Zeus had and we did not. Three are
+now done: **annual reports** (US-30), a **language switch** (0.32.0), **trade markers** on the value
+chart, and an **arbitrary date range** (drag-to-zoom, 0.14.0). A tester uses both, which is the
+useful signal: the gap that keeps a spreadsheet open is US-33, and Zeus does not fill it either.
+
 ## Stories out of the third mockup — the per-product page
 
 A proposal from a tester's friend: one page carrying **profit and loss per product**, **positions**
