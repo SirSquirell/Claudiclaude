@@ -84,25 +84,41 @@ cookie matters for building anything.
 **Still open, and both are two minutes:** the names and `HttpOnly` flags in Application → Cookies,
 and whether Network → Fetch/XHR carries ordinary requests or everything is on the socket.
 
-### 2d. AWS WAF is in front of this API, and it outranks the token question
+### 2d. AWS WAF is in front of this API — a scheduling constraint, not a safety cliff
 
 `aws-waf-token`, `awswaf_session_storage` and `awswaf_token_refresh_timestamp` say Trade Republic
-runs AWS WAF's bot-control challenge in front of the web client. That is a bigger deal for this
-project than which cookie holds the session:
+runs AWS WAF's bot-control challenge in front of the web client. DEGIRO has nothing like it in
+the path.
 
-- **WAF exists to distinguish a real browser from automated traffic**, and that is what an
-  hourly background sync *is*, however slowly it goes. DEGIRO has nothing like this in the path.
-- Its token is **refreshed by a JavaScript challenge the page solves**. A service worker replaying
-  requests is not running that page, so it inherits a token it cannot renew — and the failure mode
-  when it expires is a challenge or a block, not a clean 401.
-- Reproducing the challenge ourselves is out of the question. It is indistinguishable in kind from
-  defeating a bot check, and CLAUDE.md rule 9 already closes the door on anything shaped like
-  authenticating on the user's behalf.
+**Calibrating this correctly matters, because the first draft of this section overstated it** and
+an overstated risk gets a story dropped for the wrong reason.
 
-*Consequence for the design, if the story proceeds:* requests would have to be made **while a
-Trade Republic tab is open and the user is present**, riding a live token rather than a stored
-one — closer to the existing opportunistic `chrome.tabs.onUpdated` sync than to the hourly alarm.
-Which happens to be the same conclusion 2e reaches from a different direction.
+What is true:
+
+- WAF's token is **refreshed by a JavaScript challenge the page solves**. A service worker is not
+  running that page, so it inherits a token it cannot renew. When it expires the answer is a
+  challenge or a block rather than a clean 401.
+- Reproducing the challenge is out. It is indistinguishable in kind from defeating a bot check,
+  and rule 9 closes that door already.
+
+What is **not** true, and was claimed here before:
+
+- *"A wrong move gets the account locked."* It does not. **WAF blocks requests; it does not lock
+  accounts.** Account lockouts come from failed authentication attempts, and this extension never
+  authenticates — so the mechanism that produces a lockout is one we cannot reach. Those two were
+  run together in one paragraph; they are separate things.
+- *"Automated traffic will be detected."* A sync is a burst of a few dozen requests at 1,1 s
+  intervals, from **Chrome itself**, with the browser's own TLS fingerprint and headers, carrying
+  the same cookie the page carries. That is a great deal closer to ordinary browsing than to the
+  scripted traffic WAF is aimed at, and no persistent connection is involved.
+
+So the real consequence is about **when**, not whether: the WAF token has to be one the page has
+recently refreshed, which means syncing **while a Trade Republic tab is open and the user is
+present** rather than on a schedule. Closer to the existing opportunistic `chrome.tabs.onUpdated`
+sync than to the hourly alarm — the same conclusion 2e reaches from a different direction.
+
+And a clean failure is available: on a WAF challenge, one failure, no retry, and *"open Trade
+Republic and press Sync again"* on screen. That is an ordinary error path, not an incident.
 
 ### 2e. The session almost certainly expires quickly
 
@@ -117,19 +133,19 @@ the page, not as a surprise for whoever installs it.
 
 ### 2b. The rate-limit posture is different, and it is the risk that is not about code
 
-DEGIRO hands the browser a cookie and accepts it on ordinary requests; a wrong move looks like a
-misbehaving browser. If Trade Republic's session is device-bound and signed, **a wrong move looks
-like an unrecognised device authenticating** — which is the shape of an attack, and brokers
-respond to that shape by locking the account rather than by returning 401.
+**Partly retracted by 2c and 2d — read those first.** This section was written before the probe
+ran, on the assumption that Trade Republic's session was device-bound and signed. It is not
+obviously either: the web client uses cookies. The lockout scenario below therefore describes a
+design we have no evidence of, and the calibrated version is in 2d.
 
-CLAUDE.md rule 5 already says rate limits are an account-safety issue and forbids retrying
-401/403. For Trade Republic that rule needs to be *stricter*, not merely inherited:
+What survives, and is worth keeping whatever the broker turns out to be:
 
-- one queue for this broker alone (US-22 §E), and
-- **no retry on any authentication-shaped failure at all**, not even the first, and
-- the spike is run against an account whose owner has been told it may get locked.
+- one throttle queue for this broker alone (US-22 §E), and
+- **no retry on any authentication-shaped failure**, not even the first — rule 5 already forbids
+  retrying 401/403, and a broker whose auth we understand less well is not the place to soften it.
 
-That last point is not paperwork. It is the difference between a spike and an incident.
+What does not survive: the claim that a wrong move gets the account locked. That is what a *failed
+login* does, and rule 9 means this extension never makes one.
 
 ---
 
