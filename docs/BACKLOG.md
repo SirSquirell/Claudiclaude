@@ -961,6 +961,51 @@ here rather than leave it in Excel.
 *Three states, and each is real:* reinvested (compound it), left in cash (do not), or withdrawn
 (it leaves the account entirely and is not part of the portfolio's future at all).
 
+#### Scenario method — what the research settled, and what it corrected
+
+Two Dutch regimes were looked at. **Neither binds a personal-use extension**; the point was to find
+out what people who have watched this go wrong actually do.
+
+**The old regime (Nrgfo art. 3:9, GUISE)** prescribes a historical scenario, a fixed 4 % one, and a
+pessimistic one. Three of its details are worth taking:
+
+- **The bad scenario is not a percentile — it is the *average of the worst tenth*.** GUISE is
+  literally *"gemiddelde uitbetaling in geval van slechte eventualiteiten"*, approximated as
+  `0,3125·x₀,₀₁ + 0,4375·x₀,₀₅ + 0,25·x₀,₁₀`. **This corrects an earlier draft of this story**,
+  which said tenth percentile. The mean of a tail is the more honest statistic: a tenth percentile
+  says "it was at least this bad", the mean of the worst tenth says "when it went badly, this is
+  how badly on average", and only the second answers the question a reader is asking.
+- **The bad scenario is horizon-dependent, and steeply.** For equities the prescribed pessimistic
+  annual return is **−30,4 % at one year, −10,7 % at five, −5,3 % at ten and +0,6 % at thirty**. So
+  a single "bad market" haircut applied across horizons is wrong whatever number is chosen — it has
+  to be computed per horizon.
+- **The naming rule, which is the strongest thing in the article and maps straight onto us.** With
+  twenty years of history you may head it *"Historisch scenario"*; with four to twenty you may fill
+  the gap with a prescribed parameter and still call it historical; **with under four years you may
+  not call it historical at all — it must be headed *"Voorbeeld scenario"***. Our accounts are five
+  and two years old. So: **an account with under four years of history gets scenarios labelled as
+  illustrative, not as "based on your history"**, and the card says which of the two it is doing.
+
+**The living regime is PRIIPs, not GUISE** — and it points at a better method. Four scenarios
+(stress, unfavourable, moderate, favourable) built from **actual historical subperiods rather than a
+fitted normal distribution**, because lognormality makes the tail systematically too thin, which is
+precisely where the scenario is used.
+
+That is also this project's own principle arriving from outside: **measure, do not assume.** So the
+method is rolling windows over the account's own returns, not a distribution fitted to them — and
+where there is not enough history to cut a five-year window from, that is not a modelling problem
+to paper over, it is the *"you may not call this historical"* case above.
+
+*The fallback parameters, if one is ever needed:* the AFM's own recalibrated standard deviations
+(1999–2024) — developed-market equities **17,5 %**, emerging **22,5 %**, investment-grade euro
+corporates **5 %**, cash **2,5 %**. Prefer these to the Nrgfo's, which are visibly stale: they still
+price a deposit at 3,7 % and put equity σ at 25,5 %.
+
+*Single-sourced, and marked as such:* the μ/σ table above came from one retrieval of the Nrgfo
+appendix, and the appendix listing expected returns per class could not be fetched whole. Treat the
+numbers as indicative until a second source confirms them — the same standard `ENDPOINT-REPORT.md`
+holds DEGIRO's field names to.
+
 #### The rules it has to obey
 
 1. **A projection is never drawn in the same treatment as history.** Different line, visible break
@@ -974,38 +1019,26 @@ here rather than leave it in Excel.
 3. **Future contributions are an input too.** A forecast that ignores the monthly deposit is
    useless to someone who makes one, and quietly assuming zero is the same class of error as
    assuming a deposit is a gain.
-4. **One line is a lie, and there is an established shape for saying so.** The Dutch regulator
-   prescribes, for firms that must show a projected return, **three scenarios rather than one**: a
-   *historical* one (neutral, on the last twenty years), a fixed *4 %* one, and a *pessimistic* one
-   set so that it is exceeded in ninety percent of cases. A firm may substitute its own method
-   **provided the figure never exceeds the historical scenario** — an explicit ceiling on optimism.
-
-   **We are not a regulated provider** — this is a personal-use extension and none of that binds
-   it. Adopt the shape anyway, because it is simply better design than a single curve, and because
-   the ceiling is the right instinct written down by people who have watched this go wrong:
+4. **One line is a lie, and there is an established shape for saying so.** Researched rather than
+   invented — the sources and the caveats are in §Scenario method below. The short version:
 
    **Name them the way a Dutch reader already knows them.** Brand New Day shows exactly this over
-   five years as *goede markt / verwachte markt / slechte markt*, which is the same three scenarios
-   in plain language — and a pension provider's wording is a better label than a regulator's,
-   because the reader has met it before.
+   five years as *goede markt / verwachte markt / slechte markt*, which is the same idea in plain
+   language, and a pension provider's wording beats a regulator's because the reader has met it.
 
-   - three lines, named, with *slechte markt* a tenth-percentile outcome rather than a round-number
-     haircut, and *goede markt* its ninetieth;
-   - **the ceiling applies to the middle line, not to the outer ones.** An earlier draft of this
-     said the optimistic line may not exceed what the account's own history did, and that is wrong:
-     a ninetieth-percentile outcome exceeding the historical mean is what a ninetieth percentile
-     *is*, and capping it would misdraw the very tail it exists to show. It is *verwachte markt*
-     that must not quietly beat the past it was derived from;
+   - three lines, named;
+   - **the ceiling applies to the middle line, not to the outer ones.** An earlier draft said the
+     optimistic line may not exceed what the account's own history did, and that is wrong: an
+     outcome in the good tail exceeding the historical mean is what a good tail *is*, and capping
+     it would misdraw the very thing the line exists to show. It is *verwachte markt* that must not
+     quietly beat the past it was derived from;
    - **five years, and that is a ceiling rather than a default.** Partly because it is the horizon
-     a reader has already seen at a pension provider, and partly for a reason of our own: the band
-     widens with the square root of time while the middle line grows linearly, so somewhere past
-     five years the good and bad cases are so far apart that the picture stops distinguishing
-     anything. A ten-year projection is not more information than a five-year one — it is the same
-     information drawn wider, and read as though it were more.
+     a reader has already seen, and partly for a reason of our own: the band widens with the square
+     root of time while the middle line grows linearly, so past five years the good and bad cases
+     are so far apart that the picture stops distinguishing anything. A ten-year projection is not
+     more information than a five-year one — it is the same information drawn wider, and read as
+     though it were more.
 
-   The band comes from *his own* monthly spread, which the month grid already holds, rather than
-   from a textbook volatility number he cannot check. Same argument as everywhere else here: a
-   number derived from his data beats a number derived from an assumption about people like him.
 5. **Backtest the assumption against his own history, on the same chart.** "This rate, applied from
    five years ago, would have predicted X; you actually have Y." That single comparison is worth
    more than the projection itself, and it is the honest way to show how much a forecast is worth.
