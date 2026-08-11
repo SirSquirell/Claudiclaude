@@ -11,6 +11,45 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.27.0] — 2026-08-11
+
+**Research only. No behaviour change, no new code paths — the extension does exactly what 0.26.0
+did.** Version bumped so the study has a name to be referred to.
+
+### Added
+
+- **`docs/MULTI-BROKER.md`** — the compatibility study behind US-22 to US-24: what a broker has
+  to be able to answer, what is actually known about Trade Republic against what is merely
+  assumed, how the spike gets run, 13 structural acceptance criteria that can be met **before a
+  second broker exists**, and 25 numbered test cases split by whether they need a real capture.
+
+  Three things in it are worth reading even if multi-broker never ships:
+
+  - **Every Trade Republic claim is marked unverified**, including the one everything else rests
+    on — whether an extension can reach a session from a logged-in tab the way it reads DEGIRO's
+    cookie. Writing an adapter against that table is named as the thing not to do.
+  - **The rate-limit posture has to be stricter, not merely inherited.** DEGIRO accepts a cookie,
+    so a wrong move looks like a misbehaving browser. If Trade Republic's session is device-bound
+    and signed, a wrong move looks like an unrecognised device authenticating — which is the
+    shape of an attack, and brokers answer that shape by locking the account rather than by
+    returning 401. So: no retry on any authentication-shaped failure at all, and the spike runs
+    against an account whose owner has been warned it may get locked.
+  - **What would make us stop**, agreed in advance while it is cheap to agree to.
+- **A correction on two accounts at the same broker.** The reason given for excluding it was "we
+  have no login system", which is close to right rather than right. Two *logins* is genuinely out
+  — that needs a stored credential and the README promises there will never be one. But DEGIRO
+  identifies an account by `intAccount`, and one client login can cover more than one account
+  number; in that case both are reachable with the session already in the browser and the blocker
+  is not authentication at all — it is that `session.js` reads one `intAccount` and everything
+  downstream assumes it. **Two logins is out; two `intAccount`s under one login has never been
+  looked at**, and is plausibly much cheaper than multi-broker because it needs no new adapter,
+  no new classify table and no new price source.
+
+### Changed
+
+- SPEC §7's "no multi-account support" is amended for the multi-broker case, with the
+  same-broker case explicitly still excluded and the reason recorded.
+
 ## [0.26.0] — 2026-08-11
 
 ### Added
