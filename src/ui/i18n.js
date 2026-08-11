@@ -294,6 +294,35 @@ const DICT = {
     'Not a tax document. \u201cDividend\u201d is what was received after the tax DEGIRO withheld at source \u2014 not what you can reclaim \u2014 and this project holds no cost basis at all, deliberately, so the capital-gains figure a tax return asks for cannot be derived from anything here.':
       'Geen belastingdocument. \u201cDividend\u201d is wat er binnenkwam ná de belasting die DEGIRO aan de bron inhield \u2014 niet wat je kunt terugvragen \u2014 en dit project houdt bewust nergens een kostprijsbasis bij, dus het vermogenswinstcijfer dat een aangifte vraagt is hier nergens uit af te leiden.',
 
+    // --- outlook -------------------------------------------------------------
+    Outlook: 'Vooruitblik',
+    'What this is, before the numbers': 'Wat dit is, vóór de getallen',
+    Horizon: 'Horizon',
+    'Monthly deposit': 'Maandelijkse inleg',
+    Rates: 'Percentages',
+    'Dividends put back to work': 'Dividend weer aan het werk',
+    'Growth % a year': 'Groei % per jaar',
+    'Dividend yield % a year': 'Dividendrendement % per jaar',
+    '1 year': '1 jaar',
+    '3 years': '3 jaar',
+    '5 years': '5 jaar',
+    'From your history': 'Uit jouw historie',
+    'I set them': 'Zelf instellen',
+    'What actually happened': 'Wat er werkelijk gebeurde',
+    'Good market': 'Goede markt',
+    'Expected market': 'Verwachte markt',
+    'Bad market': 'Slechte markt',
+    'Every other number in this extension is reconstructed from what actually happened and checked against DEGIRO\u2019s own total. This one is not: it is what would happen if the future resembled the past, which it does not have to. The three lines are scenarios, not a forecast, and none of them is a promise.':
+      'Elk ander getal in deze extensie is gereconstrueerd uit wat er werkelijk gebeurde en getoetst aan DEGIRO\u2019s eigen totaal. Dit getal niet: dit is wat er zou gebeuren als de toekomst op het verleden lijkt, en dat hoeft niet. De drie lijnen zijn scenario\u2019s, geen voorspelling, en geen ervan is een belofte.',
+    'Built from the {n} separate {years}-year stretches your own history actually contains \u2014 worst, middle and best of them. Overlapping stretches, so treat {n} as fewer independent observations than it looks.':
+      'Gebouwd uit de {n} losse periodes van {years} jaar die jouw eigen historie werkelijk bevat \u2014 de slechtste, de middelste en de beste ervan. Die periodes overlappen, dus zie {n} als minder onafhankelijke waarnemingen dan het lijkt.',
+    'Your history is too short to contain even three {years}-year stretches, so these are an example rather than a scenario drawn from your own past. Treat them as arithmetic on an assumed rate, not as something measured.':
+      'Jouw historie is te kort om zelfs drie periodes van {years} jaar te bevatten, dus dit is een voorbeeld en geen scenario uit je eigen verleden. Zie het als rekenwerk op een aangenomen percentage, niet als iets gemetens.',
+    'No dividends received yet, so nothing turns on whether they were put back to work.':
+      'Nog geen dividend ontvangen, dus het maakt hier niets uit of het herbelegd werd.',
+    'You hold {cash} in cash against {div} of dividend received, so at most {share}% of it can still be sitting uninvested \u2014 the rest demonstrably went somewhere. A ceiling rather than a measurement, so it only sets the default of the switch above.':
+      'Je hebt {cash} aan cash tegenover {div} ontvangen dividend, dus hooguit {share}% daarvan kan nog stilstaan \u2014 de rest is aantoonbaar ergens heen gegaan. Een bovengrens en geen meting, dus het zet alleen de stand van de schakelaar hierboven.',
+
     // --- severities --------------------------------------------------------
     Error: 'Fout',
     Warning: 'Waarschuwing',

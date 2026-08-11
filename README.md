@@ -7,10 +7,24 @@ already holds.
 
 ![The charts](docs/screenshot.png)
 
-The page is six sections — Overview, Performance, Composition, Income & cost, Holdings and
-Notices — each with the figures that belong to it above its charts. **Notices** is where
-anything the reconstruction is unsure about is written down; anything that would make a number
-untrustworthy also stays pinned to the top, where it cannot be navigated away from.
+**English or Dutch**, with a flag in the header, and a light/dark/auto switch beside it.
+
+The page is seven sections — Overview, Performance, Composition, Income & cost, Holdings, Outlook
+and Notices — each with the figures that belong to it above its charts. Every figure carries an
+**i** explaining what it means and, more usefully, what it does *not*: that "fees paid" excludes
+what a margin balance costs, that a deposit is never a gain, that the biggest winner is a position
+rather than a trade.
+
+**Notices** is where anything the reconstruction is unsure about is written down; anything that
+would make a number untrustworthy also stays pinned to the top, where it cannot be navigated away
+from.
+
+**Outlook is the one section that is not a measurement**, and it is separate for exactly that
+reason. Everything else here is reconstructed from what actually happened and checked against
+DEGIRO's own total; a projection cannot be checked against anything. So it lives on its own page
+with the caveat above the numbers, its scenarios are built from the stretches your own history
+actually contains rather than from an assumed distribution, and it says how many of those there
+were — because a line drawn from one observation must not look like a line drawn from fifty.
 
 ## Install it
 

@@ -11,6 +11,42 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.35.0] — 2026-08-11
+
+### Added
+
+- **Outlook** — where this goes over the next one, three or five years, with a monthly deposit if
+  you make one. **The only screen in this extension showing a number nobody can check**, which is
+  why it is a section of its own with the caveat above the numbers rather than a continuation of
+  the value chart. Nothing from it reaches a tile, the export or the bug report; those are
+  measurements.
+
+  - **Scenarios come from your own history, not from a fitted curve.** *Good market / expected
+    market / bad market* are the best, middle and worst of the stretches your account actually
+    lived through — the method the current European standard uses, and for the reason it gives:
+    assuming a normal distribution makes the tail systematically too thin exactly where the
+    scenario is used. It is also this project's own rule arriving from outside. **The bad case is
+    the average of the worst tenth**, not the tenth percentile: a percentile says "it was at least
+    this bad", the mean of the tail says "when it went badly, this is how badly on average".
+  - **It says how much evidence it had.** Five years of history contains 9 overlapping five-year
+    stretches and 57 one-year ones, and the card states which — including that overlapping
+    stretches are fewer independent observations than they look. Below three, the scenarios are
+    labelled an **example** rather than drawn from your past, which is the rule the Dutch regulator
+    applies below four years of track record and the strongest thing in it.
+  - **Growth and dividend yield are separate, and derived so they cannot double-count.** A dividend
+    is internal, so it is already inside the total return; taking that total as "growth" and adding
+    a yield on top counts it twice, and on a dividend-led portfolio over five years that is not a
+    rounding error. Both are shown, and both can be overridden.
+  - **Dividends only compound if they went back to work**, and the card bounds whether yours did:
+    dividend still uninvested must still be in your cash balance, so today's cash is a ceiling on
+    how much of it can be idle. A bound rather than an estimate — the first version compared the
+    drift in cash against dividends received and was swamped by ordinary purchases, reading "100 %
+    reinvested" on any account that had ever bought anything. Right for the wrong reason is worse
+    than no number.
+  - **Five years is a ceiling, not a default.** The band widens with the square root of time while
+    the middle line grows linearly, so past five years the good and bad cases are so far apart the
+    picture stops distinguishing anything.
+
 ## [0.34.0] — 2026-08-11
 
 ### Added

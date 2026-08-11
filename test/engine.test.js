@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { aggregatePnl, buildComposition, candleSeries, computePortfolio, deriveContractSizes, deriveFxRates, fxFromConversions, expandSeries, monthlyTable, rangeEndIndex, rangeStartIndex, windowReturnPct, annualisedReturn, maxDrawdown } from '../src/lib/engine.js';
+import { aggregatePnl, buildComposition, candleSeries, computePortfolio, deriveContractSizes, deriveFxRates, fxFromConversions, expandSeries, monthlyTable, rangeEndIndex, rangeStartIndex, windowReturnPct, annualisedReturn, projectPortfolio, maxDrawdown } from '../src/lib/engine.js';
 import { classifyCashRow } from '../src/lib/classify.js';
 import { parseCashMovements, parseChartResponse, parseProducts, parseTransactions, parseUpdate } from '../src/lib/parse.js';
 import { dayRange } from '../src/lib/dates.js';
@@ -1646,4 +1646,80 @@ test('US-30: income splits into calendar years and the years sum to the total', 
   // The split cannot drift from the whole.
   const summed = Object.values(r.incomeByYear).reduce((a, y) => a + y.dividendGross, 0);
   assert.equal(round2(summed), r.income.dividendGross);
+});
+
+// ---------------------------------------------------------------------------
+// US-33 — the projection, and the guards that stop it lying
+// ---------------------------------------------------------------------------
+
+/** A five-year account that grew steadily and paid a dividend. */
+function grower() {
+  const days = dayRange('2020-01-01', '2024-12-31');
+  const cashRow = (id, d, description, change) => {
+    const row = { id, date: d, description, change, currency: 'EUR' };
+    return { ...row, category: classifyCashRow(row) };
+  };
+  const rows = [cashRow('dep', '2020-01-01', 'Storting', 10000), cashRow('buy', '2020-01-02', 'Koop', -10000)];
+  for (let y = 2020; y <= 2024; y++) rows.push(cashRow(`div${y}`, `${y}-06-01`, 'Dividend', 300));
+  return computePortfolio({
+    transactions: [{ id: 't', date: '2020-01-02', productId: 'P', quantity: 100, price: 100, currency: 'EUR', totalBase: -10000, fee: 0 }],
+    cashRows: rows,
+    products: { P: { id: 'P', name: 'P', symbol: 'P', currency: 'EUR', vwdId: 'P' } },
+    prices: { P: { start: '2020-01-01', points: days.map((_, i) => ({ offsetDays: i, close: 100 * 1.08 ** (i / 365) })) } },
+    today: '2024-12-31',
+    liveTotal: null,
+  });
+}
+
+test('the derived rates do not double-count the dividends', () => {
+  // The trap: a dividend is internal, so it is already inside the total return.
+  // Taking the total as "growth" and adding a yield on top counts it twice.
+  const r = grower();
+  const p = projectPortfolio(r, { months: 12 });
+  const { growthPct, yieldPct, totalAnnual } = p.rates.derived;
+  assert.ok(Math.abs(growthPct + yieldPct - totalAnnual) < 0.001, 'the two halves must sum to the whole');
+  assert.ok(yieldPct > 0, 'this account pays a dividend, so the yield is not zero');
+});
+
+test('a horizon longer than the history is an example, not a scenario', () => {
+  // Five years of history cannot contain three separate five-year stretches.
+  const r = grower();
+  assert.equal(projectPortfolio(r, { months: 60 }).basis, 'illustrative');
+  assert.equal(projectPortfolio(r, { months: 12 }).basis, 'historical');
+});
+
+test('the horizon is capped at five years however much is asked for', () => {
+  assert.equal(projectPortfolio(grower(), { months: 600 }).months, 60);
+});
+
+test('the bad case is never above the expected one, and the good never below', () => {
+  const p = projectPortfolio(grower(), { months: 12 });
+  assert.ok(p.rates.badAnnual <= p.rates.expectedAnnual);
+  assert.ok(p.rates.goodAnnual >= p.rates.expectedAnnual);
+  assert.ok(p.scenarios.bad.end <= p.scenarios.expected.end);
+  assert.ok(p.scenarios.expected.end <= p.scenarios.good.end);
+});
+
+test('dividends left in cash do not compound, and the difference is visible', () => {
+  const r = grower();
+  const reinvested = projectPortfolio(r, { months: 60, reinvest: true });
+  const idle = projectPortfolio(r, { months: 60, reinvest: false });
+  assert.ok(reinvested.scenarios.expected.end > idle.scenarios.expected.end,
+    'reinvesting must beat leaving it in cash over five years');
+  assert.ok(idle.scenarios.expected.idleCash > 0, 'and the uninvested cash is stated');
+});
+
+test('the idle-dividend ceiling is a bound, not an estimate', () => {
+  // Cash today bounds how much dividend can still be sitting uninvested. It
+  // cannot be confounded by purchases, which is what broke the first version.
+  const d = projectPortfolio(grower(), { months: 12 }).rates.derived;
+  assert.ok(d.maxIdleShare >= 0 && d.maxIdleShare <= 100);
+  assert.ok(d.cashNow <= d.dividendSeen * (d.maxIdleShare / 100) + 0.01 || d.maxIdleShare === 100);
+});
+
+test('a monthly deposit ends up in the projection', () => {
+  const without = projectPortfolio(grower(), { months: 12, monthly: 0 });
+  const with250 = projectPortfolio(grower(), { months: 12, monthly: 250 });
+  assert.ok(with250.scenarios.expected.end > without.scenarios.expected.end + 2900,
+    'twelve deposits of 250 have to show up');
 });

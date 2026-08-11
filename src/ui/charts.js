@@ -915,3 +915,56 @@ export function currencyChart(ctx, { labels, values, colours }, t) {
     options: opts,
   });
 }
+
+/**
+ * History, and then three futures.
+ *
+ * The break at today is the whole design. Every other chart on this page is a
+ * reconstruction checked against DEGIRO's own total; these three lines are not
+ * checkable at all, so they must not read as a continuation of one that is.
+ * Dashed, thinner, and starting exactly where the measured line stops.
+ *
+ * The label lives on the chart rather than in a caption, because a screenshot
+ * of this has to carry its own caveat.
+ */
+export function projectionChart(ctx, { days, value, future, bad, expected, good, labels }, t) {
+  const opts = baseOptions(t);
+  opts.plugins.legend.display = true;
+  opts.plugins.legend.position = 'bottom';
+  opts.plugins.tooltip.callbacks = { label: (i) => `${i.dataset.label}: ${fmtEur(i.parsed.y)}` };
+
+  const pad = new Array(days.length - 1).fill(null);
+  const dashed = (data, colour, label, width = 1.5) => ({
+    label,
+    data: [...pad, value.at(-1), ...data],
+    borderColor: colour,
+    borderDash: [5, 4],
+    borderWidth: width,
+    pointRadius: 0,
+    tension: 0,
+    fill: false,
+  });
+
+  return new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: [...days, ...future],
+      datasets: [
+        {
+          label: labels.history,
+          data: value,
+          borderColor: t.series[0],
+          backgroundColor: alpha(t.series[0], 0.14),
+          borderWidth: 1.6,
+          pointRadius: 0,
+          tension: 0,
+          fill: true,
+        },
+        dashed(good, t.pos, labels.good),
+        dashed(expected, t.textSecondary, labels.expected, 2),
+        dashed(bad, t.neg, labels.bad),
+      ],
+    },
+    options: opts,
+  });
+}

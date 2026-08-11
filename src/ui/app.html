@@ -354,6 +354,36 @@
         </div>
       </div>
 
+      <div data-tab="outlook" class="grid" style="margin-top: 16px">
+        <div class="card">
+          <h2 data-i18n>What this is, before the numbers</h2>
+          <p class="hint" id="outlook-caveat"></p>
+        </div>
+      </div>
+
+      <div data-tab="outlook" class="grid" style="margin-top: 16px">
+        <div class="card">
+          <div class="controls" style="margin: 0 0 14px">
+            <div class="group" id="outlook-horizon"><span class="glabel" data-i18n>Horizon</span></div>
+            <label class="check">
+              <span data-i18n>Monthly deposit</span>
+              <input type="number" id="outlook-monthly" min="0" step="50" value="0" style="width: 7rem" />
+            </label>
+            <div class="group" id="outlook-rates"><span class="glabel" data-i18n>Rates</span></div>
+            <label class="check"><input type="checkbox" id="outlook-reinvest" /> <span data-i18n>Dividends put back to work</span></label>
+          </div>
+          <div class="group" id="outlook-manual" hidden style="margin-bottom: 14px">
+            <label class="check"><span data-i18n>Growth % a year</span>
+              <input type="number" id="outlook-growth" step="0.5" style="width: 6rem" /></label>
+            <label class="check"><span data-i18n>Dividend yield % a year</span>
+              <input type="number" id="outlook-yield" step="0.1" style="width: 6rem" /></label>
+          </div>
+          <div class="chart-box tall"><canvas id="c-outlook"></canvas></div>
+          <p class="hint" id="outlook-basis" style="margin-top: 12px"></p>
+          <p class="hint" id="outlook-reinvest-note"></p>
+        </div>
+      </div>
+
       <div data-tab="notices" class="grid" style="margin-top: 16px">
         <div class="card">
           <div class="card-head">

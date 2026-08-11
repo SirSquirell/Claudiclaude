@@ -41,6 +41,13 @@ const IMPLAUSIBLE_MULTIPLE = 20;
  */
 const STALE_FX_DAYS = 92;
 
+/** Five years. A ceiling, not a default — see US-33: past it the band is so
+ *  wide the picture stops distinguishing anything. */
+const MAX_HORIZON_MONTHS = 60;
+
+/** Below this many observable windows, a scenario is an example, not history. */
+const MIN_WINDOWS = 3;
+
 /**
  * Smallest currency conversion, in the base currency, that states a usable rate.
  *
@@ -1729,6 +1736,234 @@ function solveIrr(flows, lo = -0.95, hi = 5, steps = 400) {
     else b = mid;
   }
   return (a + b) / 2;
+}
+
+
+/**
+ * Where this goes from here — the only unverifiable number in this project.
+ *
+ * Everything else here is a measurement, checked against DEGIRO's own total and
+ * refused when it cannot be. A projection is definitionally uncheckable, so the
+ * rules around it do the work the reconciliation does everywhere else:
+ *
+ *  - **scenarios come from the account's own history, not from a fitted
+ *    distribution.** PRIIPs — the living standard, where the older Dutch GUISE
+ *    method is legacy — builds them from actual historical subperiods, because
+ *    assuming lognormality makes the tail systematically too thin exactly where
+ *    the scenario is used. It is also this project's own principle: measure,
+ *    do not assume.
+ *  - **the bad case is the *average of the worst tenth*, not the tenth
+ *    percentile.** A percentile says "it was at least this bad"; the mean of
+ *    the tail says "when it went badly, this is how badly on average", and only
+ *    the second answers the question being asked.
+ *  - **`basis` says how much evidence there was.** A five-year horizon over a
+ *    five-year history has exactly one observable window, and a projection
+ *    drawn from one observation must not look like one drawn from fifty. Under
+ *    `MIN_WINDOWS` the scenarios are `illustrative` and the UI is required to
+ *    label them as an example rather than as history — the same rule the Dutch
+ *    regulator applies below four years of track record, and the strongest
+ *    thing in that regulation.
+ *
+ * Deterministic: no random draws, no Monte Carlo. Overlapping windows over real
+ * months, so the reader can in principle find every input on their own screen.
+ *
+ * @param {object} result       a computePortfolio result
+ * @param {object} opts
+ * @param {number} opts.months          horizon, capped at MAX_HORIZON_MONTHS
+ * @param {number} opts.monthly         contribution per month, base currency
+ * @param {number|null} opts.growthPct  annual price growth; null = derive
+ * @param {number|null} opts.yieldPct   annual dividend yield; null = derive
+ * @param {boolean} opts.reinvest       do dividends go back to work
+ */
+export function projectPortfolio(result, opts = {}) {
+  const months = Math.max(1, Math.min(MAX_HORIZON_MONTHS, Math.round(opts.months ?? 60)));
+  const monthly = opts.monthly ?? 0;
+
+  const derived = deriveRates(result);
+  const growthPct = opts.growthPct ?? derived.growthPct;
+  const yieldPct = opts.yieldPct ?? derived.yieldPct;
+  const reinvest = opts.reinvest ?? derived.reinvest;
+
+  const outcomes = rollingOutcomes(result, months);
+  const basis = outcomes.length >= MIN_WINDOWS ? 'historical' : 'illustrative';
+
+  // The middle line is the account's own expectation; the outer two are tails.
+  // Where there is not enough history to see a tail, they are derived from the
+  // monthly spread scaled by the square root of the horizon — stated as an
+  // example, never as history.
+  const total = growthPct + yieldPct;
+  const expectedAnnual = basis === 'historical' ? median(outcomes) : total;
+  const spread = basis === 'historical'
+    ? { bad: tailMean(outcomes, 'low'), good: tailMean(outcomes, 'high') }
+    : illustrativeTails(result, total, months);
+
+  const scenarios = {
+    bad: buildPath(result, months, monthly, spread.bad, yieldPct, reinvest),
+    expected: buildPath(result, months, monthly, expectedAnnual, yieldPct, reinvest),
+    good: buildPath(result, months, monthly, spread.good, yieldPct, reinvest),
+  };
+
+  return {
+    months,
+    basis,
+    windows: outcomes.length,
+    rates: {
+      growthPct: round2(growthPct),
+      yieldPct: round2(yieldPct),
+      expectedAnnual: round2(expectedAnnual),
+      badAnnual: round2(spread.bad),
+      goodAnnual: round2(spread.good),
+      derived,
+      reinvest,
+    },
+    scenarios,
+  };
+}
+
+/**
+ * The two rates, split so they cannot double-count.
+ *
+ * A dividend is internal (rule 3), so it is already inside `pnl` and therefore
+ * inside the total return. Taking that total as "growth" and adding a yield on
+ * top counts dividends twice, and on a dividend-led portfolio over five years
+ * that is not a rounding error. So the yield is measured and the growth is what
+ * is left of the total after it.
+ */
+function deriveRates(result) {
+  const n = result.days.length;
+  const years = Math.max(1 / 12, (n - 1) / 365);
+
+  const dividend = (result.income?.dividendGross ?? 0) + (result.income?.dividendTax ?? 0);
+  let sum = 0;
+  for (const v of result.value) sum += v;
+  const averageValue = sum / Math.max(1, n);
+  const yieldPct = averageValue > 0 ? (dividend / years / averageValue) * 100 : 0;
+
+  const chained = 1 + windowReturnPct(result, 0, n - 1) / 100;
+  const totalAnnual = chained > 0 ? (chained ** (1 / years) - 1) * 100 : 0;
+
+  return {
+    yieldPct,
+    growthPct: totalAnnual - yieldPct,
+    totalAnnual,
+    ...reinvestment(result, dividend),
+  };
+}
+
+/**
+ * Did the dividends go back to work?
+ *
+ * A **bound**, not an estimate, and the difference is the point.
+ *
+ * The first version of this compared the drift in the cash balance against the
+ * dividends received, after removing deposits and withdrawals. It was dominated
+ * by something else entirely — every purchase moves cash too — so on any
+ * account that ever bought anything it read a drift of tens of thousands
+ * against a few thousand of dividend and clamped to "100 % reinvested". A
+ * number that is right for the wrong reason, which is worse than no number.
+ *
+ * What can be said without a model: **dividends that are still uninvested must
+ * still be in the cash balance.** So the cash held today is a ceiling on how
+ * much of the dividend could be sitting idle, and everything above that ceiling
+ * demonstrably went somewhere. That is a bound, it cannot be confounded by
+ * purchases, and it is checkable against two numbers already on the reader's
+ * screen.
+ *
+ * It sets the *default* of a switch the reader can flip, which is the right
+ * weight for a bound rather than a measurement.
+ */
+function reinvestment(result, dividend) {
+  const cash = result.cash.at(-1) ?? 0;
+  if (!(dividend > 0)) return { reinvest: true, maxIdleShare: null, cashNow: round2(cash) };
+  const maxIdle = Math.min(1, Math.max(0, cash) / dividend);
+  return {
+    reinvest: maxIdle < 0.5,
+    maxIdleShare: Math.round(maxIdle * 100),
+    cashNow: round2(cash),
+    dividendSeen: round2(dividend),
+  };
+}
+
+/** Every H-month stretch the history actually contains, as an annual rate. */
+function rollingOutcomes(result, months) {
+  const monthly = monthlyReturns(result);
+  const out = [];
+  for (let i = 0; i + months <= monthly.length; i++) {
+    let factor = 1;
+    for (let k = 0; k < months; k++) factor *= 1 + monthly[i + k] / 100;
+    if (factor > 0) out.push((factor ** (12 / months) - 1) * 100);
+  }
+  return out.sort((a, b) => a - b);
+}
+
+/** Chained monthly returns, from the same table the month grid draws. */
+function monthlyReturns(result) {
+  return monthlyTable(result)
+    .years.flatMap((y) => y.months.map((m) => (m ? m.returnPct : null)))
+    .filter((x) => x != null);
+}
+
+/**
+ * Tails when the history cannot show one.
+ *
+ * The monthly spread scaled by the square root of the horizon — the textbook
+ * move, used here only because the alternative is silence. `basis` is already
+ * `illustrative` whenever this runs, and the UI is required to say so.
+ */
+function illustrativeTails(result, totalAnnual, months) {
+  const monthly = monthlyReturns(result);
+  if (monthly.length < 2) return { bad: totalAnnual, good: totalAnnual };
+  const mean = monthly.reduce((a, b) => a + b, 0) / monthly.length;
+  const variance = monthly.reduce((a, b) => a + (b - mean) ** 2, 0) / (monthly.length - 1);
+  // 1,28 σ is the tenth percentile of a normal; the *mean* of that tail sits
+  // further out, at about 1,75 σ. Using the tail mean keeps the definition the
+  // same as the historical branch's.
+  const annualSigma = Math.sqrt(variance) * Math.sqrt(12);
+  return { bad: totalAnnual - 1.75 * annualSigma, good: totalAnnual + 1.75 * annualSigma };
+}
+
+/**
+ * One scenario, month by month.
+ *
+ * Growth compounds inside the position. The dividend yield arrives as cash and
+ * only compounds if it was put back to work — which is the whole reason the two
+ * rates are separate, and the difference that matters most on a distributing
+ * holding over five years.
+ */
+function buildPath(result, months, monthly, annualPct, yieldPct, reinvest) {
+  const start = result.totals?.value ?? result.value.at(-1) ?? 0;
+  // The scenario rate is a *total* return; the part of it that is dividend is
+  // handled explicitly below, so only the rest compounds inside the position.
+  const priceMonthly = (1 + Math.max(-0.99, (annualPct - yieldPct) / 100)) ** (1 / 12) - 1;
+  const yieldMonthly = yieldPct / 100 / 12;
+
+  const path = [];
+  let invested = start;
+  let idleCash = 0;
+  for (let m = 1; m <= months; m++) {
+    invested *= 1 + priceMonthly;
+    const income = invested * yieldMonthly;
+    if (reinvest) invested += income;
+    else idleCash += income;
+    invested += monthly;
+    path.push(round2(invested + idleCash));
+  }
+  return { path, end: path.at(-1) ?? start, idleCash: round2(idleCash) };
+}
+
+const median = (sorted) => sorted[Math.floor(sorted.length / 2)] ?? 0;
+
+/**
+ * The mean of the worst or best tenth — not the percentile at its edge.
+ *
+ * GUISE's own definition, and the better statistic: a percentile says "it was
+ * at least this bad", the mean of the tail says "when it went badly, this is
+ * how badly on average".
+ */
+function tailMean(sorted, side) {
+  const take = Math.max(1, Math.round(sorted.length / 10));
+  const slice = side === 'low' ? sorted.slice(0, take) : sorted.slice(-take);
+  return slice.reduce((a, b) => a + b, 0) / slice.length;
 }
 
 export function buildComposition(result, topN = 6, fromIndex = 0, toIndex = result.days.length - 1) {

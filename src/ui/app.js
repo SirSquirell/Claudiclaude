@@ -5,7 +5,7 @@
  * an external cashflow."
  */
 
-import { aggregatePnl, annualisedReturn, buildComposition, candleSeries, maxDrawdown, monthlyTable, rangeEndIndex, rangeStartIndex, windowReturnPct } from '../lib/engine.js';
+import { aggregatePnl, annualisedReturn, buildComposition, projectPortfolio, candleSeries, maxDrawdown, monthlyTable, rangeEndIndex, rangeStartIndex, windowReturnPct } from '../lib/engine.js';
 import { formatDay, monthKey, weekKey } from '../lib/dates.js';
 import {
   candleChart,
@@ -20,6 +20,7 @@ import {
   holdingsPieChart,
   monthCompareChart,
   pnlChart,
+  projectionChart,
   valueChart,
 } from './charts.js';
 import { buildBugReport } from '../lib/report.js';
@@ -42,6 +43,8 @@ const state = {
   /** Product table: which type chip is active, and which way it is sorted. */
   productType: 'ALL',
   productSort: 'best',
+  /** Outlook: horizon in months, contribution, and whether rates are derived. */
+  outlook: { months: 60, monthly: 0, manual: false, growthPct: null, yieldPct: null, reinvest: null },
   /** 'money' (what my money earned) or 'time' (how the portfolio performed). */
   annualisedView: 'money',
   /** Transaction list: follow the range, or show the lot. */
@@ -79,6 +82,7 @@ const TABS = [
   { key: 'comp', label: 'Composition' },
   { key: 'income', label: 'Income & cost' },
   { key: 'holdings', label: 'Holdings' },
+  { key: 'outlook', label: 'Outlook' },
   { key: 'notices', label: 'Notices' },
 ];
 
@@ -617,6 +621,18 @@ function wireActions() {
     }
   });
 
+  for (const [id, key] of [['#outlook-monthly', 'monthly'], ['#outlook-growth', 'growthPct'], ['#outlook-yield', 'yieldPct']]) {
+    $(id).addEventListener('change', (e) => {
+      const v = Number(e.target.value);
+      state.outlook[key] = Number.isFinite(v) ? v : 0;
+      render();
+    });
+  }
+  $('#outlook-reinvest').addEventListener('change', (e) => {
+    state.outlook.reinvest = e.target.checked;
+    render();
+  });
+
   $('#btn-copy-diag').addEventListener('click', async () => {
     if (await copy(state.diagnostics)) notice('ok', 'Report copied to the clipboard.');
   });
@@ -821,6 +837,7 @@ function render() {
 
   renderHoldings(r, composition, compColours, t, from, to);
   renderYears(r);
+  renderOutlook(r, t);
   renderAnnualised(r, from, to);
   renderProducts(r, from, to);
   renderTransactions(data, r, from, to);
@@ -1984,6 +2001,96 @@ const sumWindow = (arr, from, to) => {
   for (let i = Math.max(0, from); i <= to && i < arr.length; i++) s += arr[i];
   return s;
 };
+
+/**
+ * The only screen in this project that shows a number nobody can check.
+ *
+ * Which is why it is a section of its own rather than a card on Overview. The
+ * tempting thing is to continue the value line off the right-hand edge of the
+ * chart everybody already looks at; that chart is reconciled against DEGIRO's
+ * own total, and a forecast sharing its frame inherits credibility it has not
+ * earned. Here the caveat is the first thing on the page, the projected lines
+ * are dashed and broken at today, and nothing from this section reaches a tile,
+ * the export or the bug report.
+ */
+function renderOutlook(r, t) {
+  const o = state.outlook;
+
+  buildChoice('#outlook-horizon',
+    [{ key: 12, label: tr('1 year') }, { key: 36, label: tr('3 years') }, { key: 60, label: tr('5 years') }],
+    () => o.months, (k) => { o.months = k; render(); });
+  buildChoice('#outlook-rates',
+    [{ key: false, label: tr('From your history') }, { key: true, label: tr('I set them') }],
+    () => o.manual, (k) => { o.manual = k; render(); });
+
+  const p = projectPortfolio(r, {
+    months: o.months,
+    monthly: o.monthly,
+    growthPct: o.manual ? o.growthPct : null,
+    yieldPct: o.manual ? o.yieldPct : null,
+    reinvest: o.reinvest,
+  });
+
+  // First render fills the manual inputs from the derived figures, so switching
+  // to "I set them" starts from something measured rather than from a blank.
+  const growthInput = $('#outlook-growth');
+  const yieldInput = $('#outlook-yield');
+  if (o.growthPct == null) {
+    o.growthPct = p.rates.derived.growthPct;
+    o.yieldPct = p.rates.derived.yieldPct;
+    growthInput.value = o.growthPct.toFixed(1);
+    yieldInput.value = o.yieldPct.toFixed(2);
+  }
+  if (o.reinvest == null) {
+    o.reinvest = p.rates.reinvest;
+    $('#outlook-reinvest').checked = o.reinvest;
+  }
+  $('#outlook-manual').hidden = !o.manual;
+
+  $('#outlook-caveat').textContent = tr(
+    'Every other number in this extension is reconstructed from what actually happened and checked against DEGIRO’s own total. This one is not: it is what would happen if the future resembled the past, which it does not have to. The three lines are scenarios, not a forecast, and none of them is a promise.',
+  );
+
+  // Future month-ends, labelled the way the history is.
+  const last = r.days.at(-1);
+  const future = [];
+  for (let m = 1; m <= p.months; m++) {
+    const d = new Date(`${last}T00:00:00Z`);
+    d.setUTCMonth(d.getUTCMonth() + m);
+    future.push(d.toISOString().slice(0, 10));
+  }
+
+  if (onScreen('#c-outlook')) {
+    // Monthly points for the history too, or 2 000 daily values sit beside 60
+    // projected ones and the projection is a stub at the end of a wall.
+    const step = Math.max(1, Math.round(r.days.length / 120));
+    const days = r.days.filter((_, i) => i % step === 0 || i === r.days.length - 1);
+    const value = r.value.filter((_, i) => i % step === 0 || i === r.days.length - 1);
+    state.charts.outlook = projectionChart($('#c-outlook'), {
+      days, value, future,
+      bad: p.scenarios.bad.path,
+      expected: p.scenarios.expected.path,
+      good: p.scenarios.good.path,
+      labels: {
+        history: tr('What actually happened'),
+        good: tr('Good market'),
+        expected: tr('Expected market'),
+        bad: tr('Bad market'),
+      },
+    }, t);
+  }
+
+  const years = (p.months / 12).toFixed(0);
+  $('#outlook-basis').textContent = p.basis === 'historical'
+    ? tr('Built from the {n} separate {years}-year stretches your own history actually contains — worst, middle and best of them. Overlapping stretches, so treat {n} as fewer independent observations than it looks.', { n: p.windows, years })
+    : tr('Your history is too short to contain even three {years}-year stretches, so these are an example rather than a scenario drawn from your own past. Treat them as arithmetic on an assumed rate, not as something measured.', { years });
+
+  const d = p.rates.derived;
+  $('#outlook-reinvest-note').textContent = d.maxIdleShare == null
+    ? tr('No dividends received yet, so nothing turns on whether they were put back to work.')
+    : tr('You hold {cash} in cash against {div} of dividend received, so at most {share}% of it can still be sitting uninvested — the rest demonstrably went somewhere. A ceiling rather than a measurement, so it only sets the default of the switch above.',
+        { cash: fmtEurCents(d.cashNow), div: fmtEurCents(d.dividendSeen ?? 0), share: d.maxIdleShare });
+}
 
 /**
  * A calendar year as a row: what it opened at, what it closed at, what went in
