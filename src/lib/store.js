@@ -23,7 +23,7 @@ const KEY_PATHS = {
 
 let dbPromise = null;
 
-export function openDb() {
+function openDb() {
   if (dbPromise) return dbPromise;
   dbPromise = new Promise((resolve, reject) => {
     const req = indexedDB.open(STORAGE.dbName, STORAGE.dbVersion);
@@ -104,7 +104,7 @@ export async function put(storeName, record) {
   return putAll(storeName, [record]);
 }
 
-export async function clearStore(storeName) {
+async function clearStore(storeName) {
   const db = await openDb();
   const { t, done } = tx(db, [storeName], 'readwrite');
   t.objectStore(storeName).clear();

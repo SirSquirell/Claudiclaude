@@ -42,11 +42,6 @@ export function weekday(iso) {
   return new Date(toEpoch(iso)).getUTCDay();
 }
 
-export function isWeekend(iso) {
-  const d = weekday(iso);
-  return d === 0 || d === 6;
-}
-
 /** 'YYYY-MM'. */
 export function monthKey(iso) {
   return iso.slice(0, 7);

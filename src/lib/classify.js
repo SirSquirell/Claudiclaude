@@ -45,7 +45,7 @@ export const CATEGORY = {
  * them would double the balance. If your reconciliation comes out exactly wrong
  * by the sweep total, flip this one flag.
  */
-export const CATEGORY_META = {
+const CATEGORY_META = {
   [CATEGORY.DEPOSIT]: { external: true, inCash: true },
   [CATEGORY.WITHDRAWAL]: { external: true, inCash: true },
   [CATEGORY.DIVIDEND]: { external: false, inCash: true },
@@ -88,7 +88,7 @@ function normalise(s) {
  * Ordered rules. First match wins, so the specific patterns come before the
  * general ones ("dividendbelasting" must beat "dividend").
  */
-export const RULES = [
+const RULES = [
   // --- taxes on dividend, before plain dividend ---
   { re: /dividendbelasting|withholding tax|dividend tax|belasting op dividend/, cat: CATEGORY.DIVIDEND_TAX },
 

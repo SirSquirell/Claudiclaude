@@ -7,7 +7,7 @@
  */
 
 export const TRADER = 'https://trader.degiro.nl';
-export const CHARTING = 'https://charting.vwdservices.com';
+const CHARTING = 'https://charting.vwdservices.com';
 
 /**
  * The only host a discovered base URL may live on, and the same one the
@@ -19,7 +19,7 @@ export const CHARTING = 'https://charting.vwdservices.com';
 export const TRADER_HOST = 'trader.degiro.nl';
 
 /** Reporting API versions. Bump these when DEGIRO drifts. */
-export const API_VERSIONS = {
+const API_VERSIONS = {
   update: 'v5',
   transactions: 'v4',
   accountOverview: 'v6',
