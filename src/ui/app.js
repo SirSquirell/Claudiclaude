@@ -828,11 +828,20 @@ function render() {
 
   destroyCharts();
 
+  /**
+   * Optimism Mode reflects the chart's own series, so a falling line climbs.
+   *
+   * Applied here, at the last step before drawing, for the same reason the
+   * tiles are: everything upstream stays the real number, so nothing the export
+   * or the bug report can reach ever sees the cheerful version.
+   */
+  const cheer = (arr) => (frown.isOn() && state.tab === 'overview' ? frown.flipSeries(arr) : arr);
+
   if (onScreen('#c-value')) state.charts.value = valueChart(
     $('#c-value'),
     {
       days: atEnds(r.days),
-      value: atEnds(r.value),
+      value: cheer(atEnds(r.value)),
       positionsValue: atEnds(r.positionsValue),
       // A flow is summed over the bucket, or a deposit inside a month would
       // vanish unless it happened to land on the last day of it.
@@ -1372,12 +1381,19 @@ function renderTiles(r, from = 0, to = r.days.length - 1) {
    */
   const cheerful = frown.isOn() && state.tab === 'overview';
 
-  $('#tiles').innerHTML = tiles
+  // Replaced outright rather than flipped: a flipped "Deepest fall" is a joke
+  // about a tile, and "847 days of unwavering belief" is a joke about the
+  // person. Same data, funnier. See `optimismTiles`.
+  const shown = cheerful
+    ? frown.optimismTiles(r, fmtSigned).map((t) => ({ ...t, tabs: ['overview'], cls: 'up' }))
+    : tiles;
+
+  $('#tiles').innerHTML = shown
     .filter((t) => t.tabs.includes(state.tab))
     .map((t) => {
       // `signClass` returns 'up' / 'down', not 'pos' / 'neg'. Guessing that
       // wrong made the whole feature a no-op that still looked wired up.
-      const down = t.cls === 'down';
+      const down = !cheerful && t.cls === 'down';
       const value = cheerful && down ? frown.cheerUp(t.value) : t.value;
       const note = cheerful && down ? frown.spin(t.label) : t.note;
       const cls = cheerful && down ? 'up flipped' : (t.cls ?? '');

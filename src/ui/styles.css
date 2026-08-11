@@ -1206,9 +1206,16 @@ td .chip {
 .frown-btn {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  white-space: nowrap;
+  justify-content: center;
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0.3rem 0.55rem;
+  filter: grayscale(0.6);
+  transition: filter 150ms, transform 150ms;
 }
+
+.frown-btn:hover { filter: none; transform: rotate(-15deg) scale(1.15); }
+.frown-btn.on { filter: none; transform: rotate(180deg); }
 
 .frown-btn.on {
   background: var(--accent);
@@ -1265,10 +1272,9 @@ td .chip {
   color: var(--pos);
 }
 
-/* Charts invert with their axis, so the picture is self-consistently absurd
-   rather than quietly false: a rising line over a scale that still counts down
-   is not a gag, it is a wrong chart. */
-.frown #panel-overview canvas { transform: scaleY(-1); }
+/* The charts are inverted in the *data*, not here — see `flipSeries`. Flipping
+   the canvas mirrors the axis labels, which are drawn inside it, and an
+   unreadable axis is noise rather than a joke. */
 
 .frown-stamp {
   position: absolute;
@@ -1315,4 +1321,59 @@ td .chip {
   .frown-stamp span { animation: none; }
   /* Still upside down — that is the feature — just not moving. */
   .frown .tile-flipped { animation: none; transform: rotate(180deg); }
+}
+
+
+/* --- Optimism Mode, turned all the way up ---------------------------------
+   Once the switch is on there is nothing on this page worth trusting, so the
+   restraint that governs everything else here does not apply. The stamp is the
+   only element that still has a job. */
+
+.frown .app,
+.frown main {
+  animation: frown-hue 6s linear infinite;
+}
+
+@keyframes frown-hue {
+  0%   { filter: hue-rotate(0deg) saturate(1.15); }
+  50%  { filter: hue-rotate(25deg) saturate(1.5); }
+  100% { filter: hue-rotate(0deg) saturate(1.15); }
+}
+
+/* The header joins in. */
+.frown #subtitle::after {
+  content: ' · 🚀 ALL-TIME HIGH · 📈 UP ONLY';
+  color: var(--pos);
+  font-weight: 700;
+}
+
+.frown h1::after {
+  content: ' 🚀';
+  display: inline-block;
+  animation: frown-launch 1.6s ease-in-out infinite;
+}
+
+@keyframes frown-launch {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50%      { transform: translateY(-0.35em) rotate(12deg); }
+}
+
+/* Every tile gets a shimmer, because why not. */
+.frown .tile {
+  animation: frown-glow 2.8s ease-in-out infinite;
+}
+
+@keyframes frown-glow {
+  0%, 100% { box-shadow: 0 0 0 rgba(0, 0, 0, 0); }
+  50%      { box-shadow: 0 0 22px color-mix(in srgb, var(--pos) 35%, transparent); }
+}
+
+/* The charts lean, so even the shapes look pleased with themselves. */
+.frown #panel-overview .card { transform: rotate(0.6deg); }
+
+@media (prefers-reduced-motion: reduce) {
+  .frown .app,
+  .frown main,
+  .frown h1::after,
+  .frown .tile { animation: none; }
 }

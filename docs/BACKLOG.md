@@ -2217,3 +2217,52 @@ the product:
   negated *figure* is the thing that could actually mislead; an upside-down *line* is visibly a
   gag.)
 - Is there a sound? There should probably not be a sound.
+
+---
+
+## US-35b — Optimism Mode, phase two *(refined)*
+
+0.39.0 shipped the switch, the stamp, the flipped tiles and the confetti. Two things were asked for
+after seeing it work, and one of them needs a decision before it is built.
+
+### The charts
+
+**Reflect the series about its own midpoint**, rather than flipping the canvas.
+
+`transform: scaleY(-1)` on the canvas is one line and wrong: the axis labels are drawn *inside* the
+canvas, so they mirror into unreadable glyphs and the picture becomes noise rather than a joke. A
+joke has to be legible to land.
+
+Reflecting the data — `y' = (min + max) − y` — inverts the *shape* while leaving the axis reading
+in real euros at real gridlines. A line that fell from €22 to €0 climbs from €0 to €22. It is
+absurd and it is readable, which is the whole design brief for this feature, and it is why the
+stamp exists.
+
+Explicitly **not** negating the values (`y' = −y`), which would put the line in negative territory
+and look like a bug rather than a bit.
+
+### The tiles
+
+Replace them outright rather than flipping the existing ones. A flipped "Deepest fall" is a joke
+about a tile; a tile that says **"847 DAYS OF UNWAVERING BELIEF"** is a joke about the person, and
+that is funnier.
+
+Six, computed from the real result and nothing invented:
+
+| Tile | From | Why it is funny |
+|---|---|---|
+| **Conviction** | days held on the worst position | The number is real and the framing is not |
+| **Discount secured** | total loss, as money "saved" | Reframes the loss without changing it |
+| **Moon progress** | how far back to break-even, as a percentage | A progress bar towards zero |
+| **Diamond hands** | a rating out of ten, from how long losers were held | Arbitrary scale, honest input |
+| **Tuition** | realised losses | Everyone recognises it |
+| **Still believing in** | the worst holding, **by name** | The punchline, and it is their own data |
+
+The last one is the point. Naming the instrument is what makes it land — *"Still believing in PROP"*
+beats *"still believing in your worst position"* — and it is safe for exactly the reason the rest of
+this feature is safe: it renders on their own screen and **nothing downstream can see it**. The
+existing tests pin that. Instrument names are already on screen elsewhere; what must never happen is
+one reaching the export or the bug report, and this touches neither.
+
+Where the account is **up**, the tiles say so and get out of the way. A joke about losses on a
+winning account is not a joke, it is a wrong page.

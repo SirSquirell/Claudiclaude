@@ -157,8 +157,15 @@ rode balk en een schouderophalen.
 
 ## Zet die frons op z’n kop
 
-Een knop op het Overzicht die elk verliesgevend getal omdraait, er een vleiendere omschrijving bij
-zet, de tegels op hun kop kantelt en er confetti overheen gooit. `0.39.0`
+De 🙃-knop rechtsboven op het Overzicht. `0.39.0` · `0.41.0`
+
+**De grafieken draaien om**, zodat een dalende lijn klimt — maar alleen de goede kant op: een
+rekening die al stijgt blijft staan zoals hij staat. **De tegels worden compleet vervangen** door
+twaalf nieuwe, berekend uit je eigen cijfers: *Discount secured*, *Conviction* (hoeveel dagen je je
+slechtste positie al vasthoudt), *Diamond hands*, *Tuition*, *Lambo ETA*, *Analyst consensus:
+STRONG BUY*, en **Still believing in — je slechtste positie, bij naam**. Sta je in de plus, dan
+krijg je een andere set. De kop claimt een all-time high, de pagina verkleurt langzaam, de tegels
+gloeien, en er valt heel veel confetti.
 
 Er staat **NOT THE REAL NUMBERS** dwars overheen gestempeld, en dat is geen bijgeplakte
 disclaimer — het is de reden dat de grap mag bestaan. Geloofwaardigheid is het gevaar, niet

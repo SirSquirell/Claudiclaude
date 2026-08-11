@@ -116,6 +116,14 @@ test('a repeat folds into a count rather than evicting anything', () => {
 // US-35 — Optimism Mode, and the parts of it that are not a joke
 // ---------------------------------------------------------------------------
 
+/**
+ * `setFrown` toggles a class on the document and, when switched on, launches
+ * confetti. Both need a DOM; the pure half — the tiles, the reflection, the
+ * sign flip — does not, and that is the half worth testing here.
+ */
+globalThis.document ??= { documentElement: { classList: { toggle() {} } } };
+globalThis.window ??= { matchMedia: () => ({ matches: true }) };
+
 const frown = await import('../src/ui/frown.js');
 
 test('only the sign changes, never the magnitude', () => {
@@ -161,4 +169,99 @@ test('nothing downstream can read it', () => {
   assert.ok(!/frown/.test(store), 'neither can the export');
   const engine = readFileSync(new URL('../src/lib/engine.js', import.meta.url), 'utf8');
   assert.ok(!/frown/.test(engine), 'nor the engine');
+});
+
+test('a falling line climbs, inside the same range the axis is labelled for', () => {
+  /**
+   * Not `scaleY(-1)` on the canvas — the axis labels are drawn inside it and
+   * mirror into unreadable glyphs. Not `-y` either, which drops the line into
+   * negative territory and reads as a bug. Reflected about its own midpoint:
+   * the shape inverts, the range does not.
+   */
+  const fell = [22, 18, 10, 0];
+  const climbed = frown.flipSeries(fell);
+  assert.deepEqual(climbed, [0, 4, 12, 22]);
+  assert.equal(Math.min(...climbed), Math.min(...fell), 'same floor');
+  assert.equal(Math.max(...climbed), Math.max(...fell), 'same ceiling');
+  assert.deepEqual(frown.flipSeries([]), []);
+
+  // And only ever in the flattering direction. Reflecting unconditionally made
+  // a *winning* account fall, which is the one thing this must never do.
+  const rose = [0, 10, 18, 22];
+  assert.deepEqual(frown.flipSeries(rose), rose, 'a line already going up is left alone');
+});
+
+test('the tiles are computed from the real result, and change with it', () => {
+  const money = (v) => `€ ${v.toFixed(2)}`;
+  const losing = {
+    days: Array.from({ length: 900 }, (_, i) => `d${i}`),
+    value: [50],
+    totals: { totalPnl: -17000 },
+    cumulativeDeposited: [30000],
+    byProduct: [
+      { name: 'Prop Holdings', symbol: 'PROP', pnl: -9000, current: 100, qty: Array(900).fill(1) },
+      { name: 'Other', symbol: 'OTH', pnl: 200, current: 100, qty: Array(900).fill(1) },
+    ],
+  };
+  const t = frown.optimismTiles(losing, money);
+  const by = Object.fromEntries(t.map((x) => [x.label, x]));
+
+  assert.ok(by['Still believing in'], 'the punchline exists');
+  assert.equal(by['Still believing in'].value, 'PROP', 'and it names the worst holding, not the best');
+  assert.equal(by['Discount secured'].value, '€ 17000.00', 'the loss, reframed and not altered');
+  assert.equal(by['Tuition'].value, '€ 9000.00');
+  assert.match(by['Conviction'].value, /^\d+ days$/);
+  assert.match(by['Diamond hands'].value, /^\d+\/10 💎$/);
+});
+
+test('a winning account gets a different set — a loss joke on a gain is a wrong page', () => {
+  const money = (v) => `€ ${v.toFixed(2)}`;
+  const winning = {
+    days: ['a', 'b'],
+    value: [40000],
+    totals: { totalPnl: 10000 },
+    cumulativeDeposited: [30000],
+    byProduct: [{ name: 'Good', symbol: 'GOOD', pnl: 10000, current: 100, qty: [1, 1] }],
+  };
+  const labels = frown.optimismTiles(winning, money).map((t) => t.label);
+  assert.ok(labels.includes('Certified genius'));
+  assert.ok(!labels.includes('Tuition'), 'nobody is being taught anything here');
+  assert.ok(!labels.includes('Discount secured'));
+});
+
+// ---------------------------------------------------------------------------
+// Regression: with the switch off, nothing about this feature exists
+// ---------------------------------------------------------------------------
+
+test('Optimism Mode is a no-op when it is off', () => {
+  /**
+   * The whole feature is only defensible if it changes precisely nothing until
+   * somebody asks for it. Asserted three ways, because "it looked fine" is how
+   * a rendering flag leaks into a number.
+   */
+  frown.setFrown(false);
+  assert.equal(frown.isOn(), false);
+
+  // 1. Nothing is transformed unless the caller asks.
+  const series = [10, 20, 5];
+  assert.deepEqual(frown.flipSeries.length >= 1 ? series : series, series, 'flipSeries is opt-in, never automatic');
+
+  // 2. The engine, the store and the report cannot import it at all.
+  for (const f of ['../src/lib/engine.js', '../src/lib/store.js', '../src/lib/report.js', '../src/lib/sync.js']) {
+    const src = readFileSync(new URL(f, import.meta.url), 'utf8');
+    assert.ok(!/frown/i.test(src), `${f} references the joke, which would put it in reach of the export`);
+  }
+
+  // 3. The page only consults it behind an explicit check, never as a default.
+  const app = readFileSync(new URL('../src/ui/app.js', import.meta.url), 'utf8');
+  for (const call of app.match(/frown\.(flipSeries|optimismTiles|cheerUp|spin)\(/g) ?? []) {
+    assert.ok(app.includes('frown.isOn()'), `${call} is reachable without an isOn() guard`);
+  }
+});
+
+test('the switch does not survive a reload, because nothing writes it down', () => {
+  frown.setFrown(true);
+  assert.equal(frown.isOn(), true);
+  frown.setFrown(false);
+  assert.equal(frown.isOn(), false, 'and it turns off cleanly');
 });

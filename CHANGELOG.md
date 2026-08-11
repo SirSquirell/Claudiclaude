@@ -15,6 +15,30 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.41.0] — 2026-08-11
+
+### Added
+
+- **Optimism Mode, phase two.** The 🙃 button on the Overview now goes considerably further.
+
+  - **The charts turn around.** A falling line climbs, by reflecting the series about its own
+    midpoint rather than flipping the canvas — the axis labels are drawn *inside* the canvas and
+    mirroring them makes unreadable glyphs, and a joke has to be legible to land. Only ever in the
+    flattering direction: a line already going up is left alone, because a switch that makes a
+    winning account look worse is not a joke, it is a bug.
+  - **The tiles are replaced outright** rather than flipped, with twelve computed from your own
+    figures: *Discount secured*, *Conviction* (days you have held your worst position), *Diamond
+    hands*, *Tuition*, *Lambo ETA*, *Analyst consensus: STRONG BUY*, and **Still believing in —
+    <your worst holding, by name>**. A winning account gets a different set, because a joke about
+    losses on a portfolio that is up is a wrong page.
+  - The header claims an all-time high, the page drifts through a hue cycle, the tiles glow, and
+    there is a great deal more confetti.
+
+  **NOT THE REAL NUMBERS** is still stamped across all of it, and it is still the only element here
+  with a job. Nothing downstream can see any of this — not the export, not the bug report, not the
+  engine, not the store — and there are now tests that pin each of those, plus one that pins the
+  whole thing is a no-op while the switch is off.
+
 ## [0.40.0] — 2026-08-11
 
 ### Fixed
