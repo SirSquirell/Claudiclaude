@@ -52,20 +52,17 @@ export async function recordError(kind, err, at = new Date().toISOString()) {
   }
 }
 
-/** What the bug report reads. Always an array. */
+/**
+ * What the bug report reads. Always an array.
+ *
+ * There is no `clear` beside it. `wipeAll` empties the whole meta store, so one
+ * would be a second way to do what a wipe already does — and nothing else
+ * should be clearing this. In particular a sync that succeeds must not:
+ * "it works now" and "it has never failed" are different facts, and the second
+ * is the one a report should not be able to claim falsely. An intermittent
+ * failure is the hardest kind to diagnose and the easiest kind to erase.
+ */
 export async function persistedErrors() {
   const kept = await getMeta(KEY);
   return Array.isArray(kept) ? kept : [];
-}
-
-/**
- * Emptied by a wipe, and by nothing else.
- *
- * Deliberately *not* cleared by a sync that succeeds: "it works now" and "it
- * has never failed" are different facts, and the second is the one a report
- * should not be able to claim falsely. An intermittent failure is the hardest
- * kind to diagnose and the easiest kind to erase.
- */
-export async function clearPersistedErrors() {
-  await setMeta(KEY, []);
 }

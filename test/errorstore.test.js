@@ -23,8 +23,13 @@ import { installFakeIndexedDb } from './fake-indexeddb.js';
 
 installFakeIndexedDb();
 
-const { recordError, persistedErrors, clearPersistedErrors } = await import('../src/lib/errorstore.js');
-const { STORE_MESSAGES, StoreError, EXPORTABLE_META } = await import('../src/lib/store.js');
+const { recordError, persistedErrors } = await import('../src/lib/errorstore.js');
+const { STORE_MESSAGES, StoreError, EXPORTABLE_META, setMeta } = await import('../src/lib/store.js');
+
+// Reset between tests through the store itself. `errorstore.js` deliberately
+// exposes no clear of its own: `wipeAll` already empties the meta store, and a
+// second way to erase this record is the one API it should not have.
+const reset = () => setMeta('persistedErrors', []);
 
 test('a storage failure names the reason and what to do about it', () => {
   const quota = new StoreError('quota', { name: 'QuotaExceededError' });
@@ -89,7 +94,7 @@ test('a failed open is not remembered, so a transient failure stays transient', 
 // ---------------------------------------------------------------------------
 
 test('a background failure survives being written down', async () => {
-  await clearPersistedErrors();
+  await reset();
   await recordError('alarm-sync', new Error('Failed to fetch'));
   const kept = await persistedErrors();
   assert.equal(kept.length, 1);
@@ -100,7 +105,7 @@ test('a background failure survives being written down', async () => {
 test('a recorded failure carries no URL and no long number', async () => {
   // Rule 7. This value goes into the bug report, and an exception message is
   // the one string in this project written by somebody else.
-  await clearPersistedErrors();
+  await reset();
   await recordError(
     'alarm-sync',
     new Error('HTTP 502 for https://trader.degiro.nl/reporting/secure/v4/transactions?intAccount=7654321'), // leak-check: ok
@@ -112,7 +117,7 @@ test('a recorded failure carries no URL and no long number', async () => {
 });
 
 test('an hourly failure for a week is one row and a count', async () => {
-  await clearPersistedErrors();
+  await reset();
   for (let i = 0; i < 168; i++) await recordError('alarm-sync', new Error('session expired'));
   const kept = await persistedErrors();
   assert.equal(kept.length, 1, 'a week of the same failure is one finding');
@@ -122,7 +127,7 @@ test('an hourly failure for a week is one row and a count', async () => {
 test('the recorder never becomes the failure it is reporting', async () => {
   // It is called from `catch` blocks, including the one handling a full disk —
   // where the write it wants to make is exactly the thing that cannot happen.
-  await clearPersistedErrors();
+  await reset();
   await assert.doesNotReject(() => recordError('alarm-sync', undefined));
   await assert.doesNotReject(() => recordError('alarm-sync', { nothing: 'useful' }));
   const kept = await persistedErrors();
@@ -133,13 +138,19 @@ test('a successful sync does not erase the record of a failing one', async () =>
   // "It works now" and "it has never failed" are different facts, and an
   // intermittent failure is the hardest kind to diagnose and the easiest kind
   // to erase.
-  await clearPersistedErrors();
+  // Asserted structurally, because reading the value twice and finding it
+  // unchanged proves nothing — nothing ran in between. The claim is that the
+  // module offers no way to erase this short of a full wipe, so no future
+  // caller can quietly add one to a success path.
+  const mod = await import('../src/lib/errorstore.js');
+  const erasers = Object.keys(mod).filter((k) => /clear|reset|wipe|purge|forget/i.test(k));
+  assert.deepEqual(erasers, [], 'a record that a success path can erase is a record that will be erased');
+  assert.deepEqual(Object.keys(mod).sort(), ['persistedErrors', 'recordError']);
+
+  // And it does keep what it was given across reads.
+  await reset();
   await recordError('alarm-sync', new Error('intermittent'));
-  const before = await persistedErrors();
-  // Nothing in `sw.js` clears on success; the only caller of the clear is a
-  // wipe. Asserted as an absence, since that is what the mistake would be.
-  const after = await persistedErrors();
-  assert.deepEqual(after, before);
+  assert.equal((await persistedErrors())[0].message, 'intermittent');
 });
 
 test('the persisted ring is declared exportable, so it is not redacted out of the report', async () => {
