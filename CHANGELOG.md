@@ -11,6 +11,43 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.28.0] — 2026-08-11
+
+### Fixed
+
+- **A one-cent currency conversion was being used as an exchange rate.** A bug report showed USD
+  with four derived observations, a median of 0.8647 and a **high of exactly 1** — and no currency
+  pair has ever had a rate of 1,0000, so one observation in four was junk. With 1 554 days between
+  observations, one junk point prices years of holdings.
+
+  The mechanism is rounding rather than a coding slip. Both legs of a conversion are stored to the
+  cent, so the rate it states carries a relative error of about `0.005 / amount`: a thousandth of
+  a percent on €500, and fifty percent on a cent. A residual-cent sweep — one cent out, one cent
+  in — divides to exactly 1.
+
+  Conversions below €1 no longer state a rate, and **the count is reported rather than silently
+  discarded**. Declining to use a measurement whose error bar is wider than the thing being
+  measured is not a guess (rule 4); doing it quietly would be. A currency whose every conversion
+  was too small still appears in the report with zero observations, because falling back to 1:1
+  and saying nothing is exactly the silent wrong number this project exists to avoid.
+
+  **Resync to pick this up.** Every derived number is rebuilt from the raw responses, so it needs
+  no re-download — but the cached result predates the fix.
+
+### Changed
+
+- **US-23 and US-24 deferred**, against the recommendation this project made two versions ago.
+  "Do the structural work while there is only one broker to get it wrong with" is right about the
+  arithmetic and the adapter boundary — both pure, both tested, both free. It is not right about a
+  sync submenu over a choice of one, which the acceptance criteria already require to be
+  invisible, nor about the storage rekey, which is a `dbVersion` bump every tester pays for in
+  minutes and cannot see. That migration is the same size the day a second broker is real, so
+  waiting costs nothing and building now buys a maybe with someone else's afternoon. Rule 8.
+
+  The work that *was* done sits on `claude/multi-broker-poc` and is deliberately not merged: with
+  one broker, `combine.js` has no caller, and an unused module on `main` is the thing rule 8 is
+  about.
+
 ## [0.27.0] — 2026-08-11
 
 **Research only. No behaviour change, no new code paths — the extension does exactly what 0.26.0
