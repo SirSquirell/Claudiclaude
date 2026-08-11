@@ -137,7 +137,7 @@ export async function loadDemo() {
     prices: Object.keys(prices).length,
   };
 
-  return { result, meta, counts, mode: 'demo', live: update };
+  return { result, meta, counts, mode: 'demo', live: update, transactions, products };
 }
 
 // --- extension -------------------------------------------------------------
@@ -191,7 +191,11 @@ export async function loadFromExtension() {
     products,
   );
 
-  return { result, mode: 'extension', live, lastSyncAt, lastError, urls, ...diagnosticContext };
+  // The transaction list is handed to the page rather than folded into the
+  // engine result: `sync.js` caches that result, and a few thousand rows of
+  // something no chart reads would be carried through every recompute for the
+  // sake of one table.
+  return { result, mode: 'extension', live, lastSyncAt, lastError, urls, transactions: rawTx, products, ...diagnosticContext };
 }
 
 export async function load() {

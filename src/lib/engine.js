@@ -710,6 +710,48 @@ export function computePortfolio(input) {
   // units, and that has to be reconciled before either is used.
   const productIds = [...new Set(transactions.map((t) => t.productId))];
   /** @type {Map<string, {close, estimated, covered, meta, series}>} */
+  /**
+   * The two halves of what moved through each product, and what it paid out.
+   *
+   * The engine already carries the *net* per product — that is what the
+   * per-holding result rests on — but "what did I put in and what came back
+   * out" needs them apart, and a net figure cannot be split back into them.
+   *
+   * `bought` and `sold` are money, not quantities: what left and what returned,
+   * in the base currency. `dividend` is what actually landed, gross plus the
+   * withholding tax (which is negative), so it is the net cash received.
+   *
+   * A dividend row with no `productId` cannot be attributed to anything, and is
+   * counted rather than dropped — the same rule that makes an unclassified cash
+   * row visible instead of quietly absent.
+   */
+  const boughtByProduct = new Map();
+  const boughtQtyByProduct = new Map();
+  const soldByProduct = new Map();
+  const dividendByProduct = new Map();
+  let unattributedDividend = 0;
+
+  for (const t of transactions) {
+    const spent = -(t.totalBase ?? 0);
+    const target = spent >= 0 ? boughtByProduct : soldByProduct;
+    target.set(t.productId, (target.get(t.productId) ?? 0) + Math.abs(spent));
+    // The quantity bought, alongside the money, so an average price can be
+    // formed from the two without a cost-basis convention entering anywhere.
+    if (spent >= 0 && t.quantity > 0) {
+      boughtQtyByProduct.set(t.productId, (boughtQtyByProduct.get(t.productId) ?? 0) + t.quantity);
+    }
+  }
+
+  for (const row of cashRows) {
+    if (row.category !== CATEGORY.DIVIDEND && row.category !== CATEGORY.DIVIDEND_TAX) continue;
+    const id = row.productId == null || row.productId === '' ? null : String(row.productId);
+    if (id === null) {
+      unattributedDividend++;
+      continue;
+    }
+    dividendByProduct.set(id, (dividendByProduct.get(id) ?? 0) + row.change);
+  }
+
   const priceByProduct = new Map();
 
   for (const productId of productIds) {
@@ -999,6 +1041,11 @@ export function computePortfolio(input) {
 
     byProduct.push({
       productId,
+      isin: meta.isin ?? null,
+      bought: boughtByProduct.get(productId) ?? 0,
+      boughtQty: boughtQtyByProduct.get(productId) ?? 0,
+      sold: soldByProduct.get(productId) ?? 0,
+      dividend: dividendByProduct.get(productId) ?? 0,
       name: meta.name,
       symbol: meta.symbol || meta.name,
       currency: meta.currency ?? baseCurrency,
@@ -1302,6 +1349,11 @@ export function computePortfolio(input) {
     estimated: Array.from(estimatedDay),
     byProduct: byProduct.map((p) => ({
       productId: p.productId,
+      isin: p.isin,
+      bought: round2(p.bought),
+      boughtQty: p.boughtQty,
+      sold: round2(p.sold),
+      dividend: round2(p.dividend),
       name: p.name,
       symbol: p.symbol,
       currency: p.currency,
@@ -1360,6 +1412,8 @@ export function computePortfolio(input) {
           : 0,
       estimatedDays: estimatedDay.reduce((a, b) => a + b, 0),
     },
+    /** Dividend rows DEGIRO did not attach to a product. Counted, never dropped. */
+    unattributedDividends: unattributedDividend,
     stats: { unclassified, categoryTotals: mapValues(categoryTotals, round2), transactions: transactions.length, cashRows: cashRows.length },
     fx: fxReport,
     contracts: contractReport,

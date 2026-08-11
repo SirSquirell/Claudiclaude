@@ -11,6 +11,55 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.31.0] — 2026-08-11
+
+Three tables on the Holdings section, from the per-product page proposal (US-27, US-28, US-29).
+
+### Added
+
+- **Profit and loss per product** — one row per product **including everything you no longer
+  hold**, with what you put in, what came back, what it paid in dividend, and what it left. The
+  holdings table answers *what do I hold*; this answers *was that a good idea*, and on an account
+  that has sold everything the first table is empty while all of the answer sits here.
+
+  Filter chips are built from the product types actually present, so nobody sees an empty
+  *Warrants* filter for warrants they have never held. Sorting best-first or worst-first breaks
+  ties on the name, so equal results do not reorder between renders.
+
+  **Dividend is beside Result, never inside it.** The per-product result is value moved less money
+  put in; a dividend is cash and lands in the cash ledger, not in the instrument's value. Folding
+  it in would make this column disagree with the identically named column one card above, and two
+  columns may not share a name and differ. Dividend rows DEGIRO attaches to no product are counted
+  and said out loud under the table rather than quietly dropped.
+
+  **The percentage names its denominator in the header** — *% of bought*. Result ÷ what you put in
+  is honest and needs no cost-basis convention; divided by a cost basis it would inherit an
+  argument this project refuses to have.
+
+- **Transactions** — the rows behind every figure on the page, newest first, following the range
+  control like everything else, with *Everything* beside it. The count states how many are shown of
+  how many are in range and how many exist, so a filtered list can never be mistaken for the whole
+  history. Capped at 500 rendered rows, and the cap is in that sentence rather than silent.
+
+- **Price and Average paid** on the holdings table — as two columns, **not a second positions
+  table**. The proposal drew one; building it would have put two tables of the same positions on
+  one page with different columns and, eventually, different numbers.
+
+  *Average paid* is total paid ÷ total quantity bought, over every purchase. That is a fact. It is
+  deliberately **not** the running average cost of what remains after partial sales — that is the
+  average-cost method, FIFO answers it differently, and this project picks neither. **No result on
+  the page is derived from it**, so it cannot disagree with anything.
+
+  *Price* is value ÷ quantity in euros, which for a share is the euro price and for a contract
+  covering a hundred shares is a hundred times the quoted premium. Said in the tooltip rather than
+  left to be assumed.
+
+### Engine
+
+- `byProduct` gains `bought`, `sold`, `boughtQty`, `dividend` and `isin`. The net was already
+  there — it is what the per-product result rests on — but a net figure cannot be split back into
+  its halves, and *what went in against what came out* needs them apart.
+
 ## [0.30.1] — 2026-08-11
 
 ### Fixed

@@ -1130,3 +1130,41 @@ td.split .bar em.down {
 td.split .muted {
   font-size: 0.6875rem;
 }
+
+/* --- product and transaction tables -------------------------------------- */
+
+/* Amounts right-aligned so their digits line up; text left as it reads. */
+th.num,
+td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Two tables that can run to hundreds of rows. A card that grows to the height
+   of its longest table pushes everything below it off the page, so they scroll
+   inside a fixed frame — the same reason the mockup drew a scrollbar. */
+.tall-scroll {
+  max-height: 30rem;
+  overflow-y: auto;
+}
+
+/* The magnitude of a result, beside its percentage. Purely comparative: it has
+   no axis and claims none, which is why it is a hairline under the number
+   rather than a bar pretending to be a chart. */
+.minibar {
+  display: block;
+  height: 3px;
+  width: var(--w, 0);
+  margin-top: 4px;
+  margin-left: auto;
+  border-radius: 2px;
+  background: var(--c, var(--text-muted));
+  opacity: 0.55;
+}
+
+/* A chip inside a table row sits on the text baseline rather than above it. */
+td .chip {
+  padding: 2px 8px;
+  font-size: 0.625rem;
+}

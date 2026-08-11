@@ -38,6 +38,11 @@ const state = {
   data: null,
   /** Everything the last render had to say, for the Notices section. */
   notes: [],
+  /** Product table: which type chip is active, and which way it is sorted. */
+  productType: 'ALL',
+  productSort: 'best',
+  /** Transaction list: follow the range, or show the lot. */
+  txScope: 'range',
   range: 'ALL',
   granularity: 'auto',
   includeCash: true,
@@ -752,6 +757,8 @@ function render() {
   renderMonthCompare(months, t);
 
   renderHoldings(r, composition, compColours, t, from, to);
+  renderProducts(r, from, to);
+  renderTransactions(data, r, from, to);
   renderFooter(r, data);
 }
 
@@ -1911,6 +1918,180 @@ const sumWindow = (arr, from, to) => {
   return s;
 };
 
+/**
+ * Everything ever traded, one row per product — closed positions included.
+ *
+ * The holdings table answers "what do I hold"; this answers "was that a good
+ * idea", and for an account that has sold everything the first table is empty
+ * while all of the answer sits here.
+ *
+ * Two column decisions carry the story, both from the refinement:
+ *
+ *  - **Dividend is beside Result, never inside it.** The per-product result is
+ *    value moved less money put in; a dividend is cash and lands in the cash
+ *    ledger, not in the instrument's value. Folding it in would make this column
+ *    disagree with the identically named column on the holdings table, and two
+ *    columns may not share a name and differ.
+ *  - **The percentage says what it is divided by.** Result ÷ bought is honest
+ *    and needs no cost-basis convention; anything divided by a cost basis would
+ *    inherit the argument this project refuses to have.
+ */
+function renderProducts(r, from, to) {
+  const rows = r.byProduct
+    .map((p) => {
+      const result = sumWindow(p.pnl, from, to);
+      const qty = p.qty.at(-1) ?? 0;
+      return {
+        name: p.name,
+        symbol: p.symbol && p.symbol !== p.name ? p.symbol : '',
+        type: p.productType && p.productType !== 'UNKNOWN' ? p.productType : 'OTHER',
+        open: Math.abs(qty) >= 1e-9,
+        bought: p.bought ?? 0,
+        sold: p.sold ?? 0,
+        dividend: p.dividend ?? 0,
+        current: p.current ?? 0,
+        result,
+        pct: p.bought > 0 ? (result / p.bought) * 100 : null,
+      };
+    })
+    .filter((x) => x.bought > 0.005 || x.sold > 0.005 || Math.abs(x.current) > 0.005);
+
+  // Chips are built from the types actually present. A hardcoded list would
+  // show an empty "Warrants" filter to someone who has never held one.
+  const types = [...new Set(rows.map((x) => x.type))].sort();
+  buildChoice('#products-filter', [{ key: 'ALL', label: 'All' }, ...types.map((k) => ({ key: k, label: titleCase(k) }))],
+    () => state.productType, (k) => { state.productType = k; render(); });
+  buildChoice('#products-sort', [{ key: 'best', label: 'Best first' }, { key: 'worst', label: 'Worst first' }],
+    () => state.productSort, (k) => { state.productSort = k; render(); });
+
+  const shown = rows
+    .filter((x) => state.productType === 'ALL' || x.type === state.productType)
+    // Sorted by name as the tiebreak, so equal results do not reorder between
+    // renders — a table that jitters is a table nobody trusts.
+    .sort((a, b) => (state.productSort === 'best' ? b.result - a.result : a.result - b.result) || a.name.localeCompare(b.name));
+
+  const widest = Math.max(1, ...shown.map((x) => Math.abs(x.result)));
+
+  $('#products tbody').innerHTML = shown.length
+    ? shown
+        .map(
+          (x) => `<tr>
+        <td>${esc(x.name)}${x.symbol ? ` <span class="muted">${esc(x.symbol)}</span>` : ''}</td>
+        <td><span class="chip">${esc(titleCase(x.type))}</span></td>
+        <td><span class="chip ${x.open ? 'info' : ''}">${x.open ? 'Open' : 'Closed'}</span></td>
+        <td class="num">${x.bought > 0.005 ? esc(fmtEurCents(x.bought)) : '<span class="muted">—</span>'}</td>
+        <td class="num">${x.sold > 0.005 ? esc(fmtEurCents(x.sold)) : '<span class="muted">—</span>'}</td>
+        <td class="num">${Math.abs(x.dividend) > 0.005 ? esc(fmtEurCents(x.dividend)) : '<span class="muted">—</span>'}</td>
+        <td class="num">${x.open ? esc(fmtEurCents(x.current)) : '<span class="muted">—</span>'}</td>
+        <td class="num ${signClass(x.result)}">${esc(fmtSigned(x.result))}</td>
+        <td class="num ${signClass(x.result)}">${x.pct == null ? '<span class="muted">—</span>' : esc(fmtPct(x.pct))}
+          <span class="minibar" style="--w:${Math.round((Math.abs(x.result) / widest) * 100)}%;--c:${x.result >= 0 ? 'var(--pos)' : 'var(--neg)'}"></span>
+        </td>
+      </tr>`,
+        )
+        .join('')
+    : '<tr><td colspan="9" class="muted">Nothing traded in this range.</td></tr>';
+
+  const unattributed = r.unattributedDividends ?? 0;
+  $('#products-note').textContent =
+    `${shown.length} of ${rows.length} product(s).` +
+    (unattributed
+      ? ` ${unattributed} dividend row(s) carry no product, so they are in the account total but not in any row above.`
+      : '');
+}
+
+/** DEGIRO's own type strings, in sentence case. Its vocabulary, not ours. */
+const titleCase = (s) => String(s).charAt(0) + String(s).slice(1).toLowerCase().replace(/_/g, ' ');
+
+/**
+ * The transactions behind every figure on the page.
+ *
+ * Follows the range control, because the rest of the page does and a list that
+ * ignores it is the inconsistency US-06 was about. The count says how many of
+ * how many, so a filtered view can never be mistaken for the whole history.
+ */
+function renderTransactions(data, r, from, to) {
+  const all = [...(data.transactions ?? [])].sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  const inRange = state.txScope === 'all' ? all : all.filter((t) => t.date >= r.days[from] && t.date <= r.days[to]);
+  const names = Object.fromEntries((r.byProduct ?? []).map((p) => [p.productId, p.symbol || p.name]));
+
+  buildChoice('#tx-scope', [{ key: 'range', label: 'This range' }, { key: 'all', label: 'Everything' }],
+    () => state.txScope, (k) => { state.txScope = k; render(); });
+
+  // A cap with the number said out loud. Several thousand rows is a second of
+  // layout and a minute of scrolling, and silently truncating would make a
+  // partial list look complete.
+  const LIMIT = 500;
+  const shown = inRange.slice(0, LIMIT);
+
+  $('#tx-hint').textContent =
+    `Newest first. ${shown.length.toLocaleString('nl-NL')} shown` +
+    (inRange.length > shown.length ? ` of ${inRange.length.toLocaleString('nl-NL')} in range` : '') +
+    ` · ${all.length.toLocaleString('nl-NL')} in the whole history.`;
+
+  $('#transactions tbody').innerHTML = shown.length
+    ? shown
+        .map((t) => {
+          const buy = (t.quantity ?? 0) > 0;
+          return `<tr>
+        <td>${esc(formatDay(t.date))}</td>
+        <td><span class="chip ${buy ? 'info' : 'warn'}">${buy ? 'Buy' : 'Sell'}</span></td>
+        <td>${esc(names[t.productId] ?? t.productId)}</td>
+        <td class="num">${(t.quantity ?? 0).toLocaleString('nl-NL', { maximumFractionDigits: 4 })}</td>
+        <td class="num">${esc(fmtEurCents(t.price ?? 0))}</td>
+        <td class="num">${esc(fmtSigned(-(t.totalBase ?? 0)))}</td>
+      </tr>`;
+        })
+        .join('')
+    : '<tr><td colspan="6" class="muted">No transactions in this range.</td></tr>';
+}
+
+/** A segmented control, built once per render against current state. */
+function buildChoice(sel, options, get, onPick) {
+  const host = $(sel);
+  if (!host) return;
+  const signature = options.map((o) => o.key).join('|') + '#' + get();
+  if (host.dataset.sig === signature) return;
+  host.dataset.sig = signature;
+  host.innerHTML = '';
+  for (const o of options) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = o.label;
+    b.setAttribute('aria-pressed', String(o.key === get()));
+    b.addEventListener('click', () => onPick(o.key));
+    host.append(b);
+  }
+}
+
+/**
+ * What one unit is worth today, in euros.
+ *
+ * Deliberately *not* labelled as the quoted price. The engine keeps a
+ * position's value in the base currency, so this is value ÷ quantity — which
+ * for a share is the euro price, and for a contract covering a hundred shares
+ * is a hundred times the quoted premium. Calling that "price" without saying so
+ * would be the third number on this page that means something other than its
+ * column header.
+ */
+const unitPrice = (p, qty) => (Math.abs(qty) < 1e-9 ? '—' : fmtEurCents(p.current / qty));
+
+/**
+ * The average price paid, over every purchase ever made.
+ *
+ * **Total paid ÷ total quantity bought.** That is a fact and needs no
+ * convention. What it deliberately is *not* is the running average cost of what
+ * remains after partial sales — that is the average-cost method, FIFO answers
+ * it differently, and this project picks neither. No result on this page is
+ * derived from this number; the Result column stays the identity figure, so the
+ * two cannot disagree.
+ */
+function averagePaid(p) {
+  const q = p.boughtQty ?? 0;
+  if (!(q > 0) || !(p.bought > 0)) return '—';
+  return fmtEurCents(p.bought / q);
+}
+
 function renderHoldings(r, composition, compColours, t, from, to) {
   const total = r.totals.value || 1;
   const colours = colourByProduct(composition, compColours, t);
@@ -1982,6 +2163,8 @@ function renderHoldings(r, composition, compColours, t, from, to) {
       return `<tr>
         <td><span class="swatch" style="background:${colour}"></span>${esc(p.name)}${p.symbol && p.symbol !== p.name ? ` <span class="muted">${esc(p.symbol)}</span>` : ''}${grouped ? ` <span class="muted">· in “${esc(otherLabel)}”</span>` : ''}</td>
         <td>${qty.toLocaleString('nl-NL', { maximumFractionDigits: 4 })}</td>
+        <td>${esc(unitPrice(p, qty))}</td>
+        <td>${esc(averagePaid(p))}</td>
         <td>${esc(fmtEurCents(p.current))}</td>
         ${splitCell(p)}
         ${resultCell(sumWindow(p.pnl, from, to))}
@@ -1993,6 +2176,8 @@ function renderHoldings(r, composition, compColours, t, from, to) {
 
   const cashRow = `<tr>
       <td><span class="swatch" style="background:${t.cash}"></span>Cash <span class="muted">· dividend, interest, fees and currency</span></td>
+      <td class="muted">—</td>
+      <td class="muted">—</td>
       <td class="muted">—</td>
       <td>${esc(fmtEurCents(r.totals.cash))}</td>
       <td class="muted">—</td>

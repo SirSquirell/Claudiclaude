@@ -234,11 +234,76 @@
                 <tr>
                   <th>Instrument</th>
                   <th>Quantity</th>
+                  <th>Price</th>
+                  <th>Average paid</th>
                   <th>Value</th>
                   <th>Paid in vs grown</th>
                   <th>Result</th>
                   <th>Share</th>
                   <th>Currency</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div data-tab="holdings" class="grid" style="margin-top: 16px">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h2>Profit and loss per product</h2>
+              <p class="hint" id="products-hint">
+                Everything ever traded, closed positions included — which is where most of the answer to
+                “was that a good idea” lives. Result is what the position made; dividend is beside it rather
+                than inside it, because they are different things.
+              </p>
+            </div>
+            <div class="group" id="products-sort"></div>
+          </div>
+          <div class="group" id="products-filter" style="margin-bottom: 12px"></div>
+          <div class="table-scroll tall-scroll">
+            <table id="products">
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th>Type</th>
+                  <th>Status</th>
+                  <th class="num">Bought</th>
+                  <th class="num">Sold</th>
+                  <th class="num">Dividend</th>
+                  <th class="num">Value now</th>
+                  <th class="num">Result</th>
+                  <th class="num">% of bought</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <p class="hint" id="products-note" style="margin-top: 10px"></p>
+        </div>
+      </div>
+
+      <div data-tab="holdings" class="grid" style="margin-top: 16px">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h2>Transactions</h2>
+              <p class="hint" id="tx-hint">Newest first, for the selected range.</p>
+            </div>
+            <div class="group" id="tx-scope"></div>
+          </div>
+          <div class="table-scroll tall-scroll">
+            <table id="transactions">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Type</th>
+                  <th>Product</th>
+                  <th class="num">Quantity</th>
+                  <th class="num">Price</th>
+                  <th class="num">Amount</th>
                 </tr>
               </thead>
               <tbody></tbody>

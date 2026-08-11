@@ -2,8 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { aggregatePnl, buildComposition, candleSeries, computePortfolio, deriveContractSizes, deriveFxRates, fxFromConversions, expandSeries, monthlyTable, rangeEndIndex, rangeStartIndex, windowReturnPct, maxDrawdown } from '../src/lib/engine.js';
+import { classifyCashRow } from '../src/lib/classify.js';
 import { parseCashMovements, parseChartResponse, parseProducts, parseTransactions, parseUpdate } from '../src/lib/parse.js';
 import { dayRange } from '../src/lib/dates.js';
+
+const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 import { fixture, loadPrices } from './helpers.js';
 
 const near = (a, b, eps = 0.005, msg) =>
@@ -1454,4 +1457,66 @@ test('a contract size measured beside a stated rate still says measured', () => 
   assert.equal(row.anchored, true);
   assert.equal(row.verdict, 'measured');
   assert.equal(row.size, 100);
+});
+
+// ---------------------------------------------------------------------------
+// US-27 — what went in, what came out, and what it paid
+// ---------------------------------------------------------------------------
+
+test('bought and sold are the two halves of the net, not the net', () => {
+  const days = dayRange('2024-01-01', '2024-01-10');
+  const day = (n) => days[n - 1];
+  const cash = (id, d, description, change, productId = '') => ({
+    id, date: day(d), description, change, currency: 'EUR', productId,
+    category: classifyCashRow({ description }),
+  });
+
+  const r = computePortfolio({
+    transactions: [
+      { id: 'a', date: day(2), productId: 'P', quantity: 10, price: 50, currency: 'EUR', totalBase: -500, fee: 0 },
+      { id: 'b', date: day(6), productId: 'P', quantity: -4, price: 60, currency: 'EUR', totalBase: 240, fee: 0 },
+    ],
+    cashRows: [
+      cash('c1', 1, 'Storting', 1000),
+      cash('c2', 2, 'Koop', -500),
+      cash('c3', 6, 'Verkoop', 240),
+      cash('c4', 7, 'Dividend', 30, 'P'),
+      cash('c5', 7, 'Dividendbelasting', -4.5, 'P'),
+      // No productId: cannot be attributed, must be counted rather than dropped.
+      cash('c6', 8, 'Dividend', 11),
+    ],
+    products: { P: { id: 'P', name: 'P', symbol: 'P', currency: 'EUR', isin: 'NL0000000001', vwdId: 'P' } },
+    prices: { P: { start: day(1), points: days.map((_, i) => ({ offsetDays: i, close: 50 })) } },
+    today: day(10),
+    liveTotal: null,
+  });
+
+  const p = r.byProduct.find((x) => x.productId === 'P');
+  assert.equal(p.bought, 500, 'money that left');
+  assert.equal(p.sold, 240, 'money that came back');
+  // The net the per-product result rests on is still bought - sold, so the two
+  // halves and the whole cannot drift apart.
+  assert.equal(round2(p.bought - p.sold), 260);
+  assert.equal(p.dividend, 25.5, 'gross plus the withheld tax, i.e. what landed');
+  assert.equal(p.isin, 'NL0000000001');
+  assert.equal(r.unattributedDividends, 1, 'the row with no product is counted, not lost');
+});
+
+test('a product that was only ever sold has a zero bought half', () => {
+  // A transfer-in, or an account whose history starts mid-position. The row
+  // must not silently become a purchase.
+  const days = dayRange('2024-01-01', '2024-01-05');
+  const r = computePortfolio({
+    transactions: [
+      { id: 'a', date: days[1], productId: 'P', quantity: -3, price: 20, currency: 'EUR', totalBase: 60, fee: 0 },
+    ],
+    cashRows: [],
+    products: { P: { id: 'P', name: 'P', symbol: 'P', currency: 'EUR' } },
+    prices: {},
+    today: days[4],
+    liveTotal: null,
+  });
+  const p = r.byProduct.find((x) => x.productId === 'P');
+  assert.equal(p.bought, 0);
+  assert.equal(p.sold, 60);
 });
