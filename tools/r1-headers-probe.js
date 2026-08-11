@@ -157,7 +157,13 @@
       return;
     }
 
-    const auth = data.some((r) => /authorization|bearer|x-.*token/i.test(r.headers));
+    // `x-.*token` was the first version of this, and on a real tab it matched
+    // `x-aws-waf-token` — a bot-challenge token — and announced an auth header
+    // that did not exist. A pattern loose enough to catch any scheme is loose
+    // enough to catch something else, and the wrong answer here is the one that
+    // gets a broker declared compatible.
+    const AUTH = /\b(authorization|proxy-authorization)\b|x-[a-z-]*(auth|session|jwt|bearer)[a-z-]*/i;
+    const auth = data.some((r) => AUTH.test(r.headers));
     console.log(
       auth
         ? 'An auth header is set by the page: the token can be transcribed, like DEGIRO’s session id.'

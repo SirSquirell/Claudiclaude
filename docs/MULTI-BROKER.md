@@ -41,7 +41,7 @@ exists because of it.
 | Authentication is phone number + PIN, then a second factor | Widely reported. **Unverified** |
 | The session is carried over a WebSocket **rather than** as a cookie | **Contradicted.** Dozens of ordinary XHRs to `api.traderepublic.com`, with the token in a header the page sets — see 2g |
 | There is a device-pairing step producing a key pair, and requests are signed | Reported for the *mobile* API. Whether the *web* client does this is **unknown** |
-| A logged-in web tab holds something an extension can read and replay | **Yes, both halves.** Readable (2c) and sendable (2g): the page sets the token as a header, so nothing depends on the browser attaching a cookie by itself |
+| A logged-in web tab holds something an extension can read and replay | **Readable: yes** (2c). **Sendable: one test away** — the session is in a cookie and nothing in the request carries it, so it turns on whether an extension's fetch attaches it. See 2g |
 | Historical daily closes are available per instrument | **Unknown.** R4 |
 | The API reports an account total | **Unknown.** R5 |
 
@@ -133,49 +133,66 @@ authenticating, and none of the three rows above involves logging in — but the
 involve making a request look more like the page's than it is, and that deserves a decision rather
 than an implementation.
 
-### 2g. Third probe run — R1 is yes, and the second run was wrong
+### 2g. What the requests actually carry — three readings, and only the third is evidence
 
-**The finding.** 69 requests captured while using the app:
+Three probe runs, in order, because the wrong two are the useful part of this section.
 
-| | |
-|---|---|
-| `xhr` → `api.traderepublic.com` on `/api`, `/api-gateway`, `/web-trading-gateway` | ordinary REST, dozens of calls |
-| headers | `accept`, `accept-language`, and an `x-…` header the probe matched as auth-shaped |
-| credentials | `include` — cookies go too |
-| `fetch` → `otel.production.traderepublic…/collect` | telemetry, ignorable |
+| Run | Caught | Concluded | Verdict |
+|---|---|---|---|
+| 1 | nothing yet | — | — |
+| 2 | an `app-version.txt` poll and a telemetry beacon | *"the data probably arrives over a WebSocket"* | **wrong**, from two rows neither of which was data |
+| 3 | 69 XHRs to `api.traderepublic.com` | *"an auth header is set, the token is transcribable"* | **wrong**, and this one was the tool's fault |
 
-So: **plain HTTPS requests to an API host, with the token in a header the page sets itself.** An
-extension can read `tr_claims` (2c: not `HttpOnly`) and set a header on its own request —
-`Authorization` and `x-*` are not forbidden header names, only `Cookie` is. That is the same shape
-as DEGIRO, where the session id is read from a cookie and written into the URL.
+**Run 3, read properly.** The headers the page sets on `api.traderepublic.com` are exactly:
 
-**R1 is answered: yes.** The `SameSite` worry in 2f does not bite, because nothing depends on the
-browser attaching the cookie by itself.
-
-#### The second run said the opposite, and that is worth keeping
-
-The previous run caught two requests — an `app-version.txt` poll and a telemetry beacon — and this
-document concluded from them that *"the data very probably arrives over a WebSocket opened at page
-load"*. Wrong, and wrong from a sample of two rows neither of which was data.
-
-That is twice in one day: the same over-reading produced the retracted AWS WAF paragraph in 2d.
-Both times the mechanism was identical — a plausible story built on a measurement too small to
-carry it, written down with more confidence than the evidence had. The probe now refuses to
-conclude unless it has seen a request that looks like account data, which is the tooling fix; the
-habit is the actual one.
-
-#### What is still needed, and it is one line
-
-The probe reports header *names* but the console truncated the column. The exact name is what an
-adapter would set, so:
-
-```js
-[...new Set(__probeRowsForTest
-  .filter((r) => /(^|\.)traderepublic\.com$/.test(r.host) && !/^otel\./.test(r.host))
-  .flatMap((r) => r.headers.split(' ')))].sort().join('\n')
+```
+accept   accept-language   content-type   x-aws-waf-token   x-tr-platform
 ```
 
-Names only, and safe to paste.
+There is **no `authorization`, and no session header of any kind.** `x-aws-waf-token` is the AWS
+WAF bot-challenge token and `x-tr-platform` identifies the client as web. The probe's pattern was
+`x-.*token`, which matched the WAF token and announced an auth header that does not exist — a
+pattern loose enough to catch any scheme is loose enough to catch something else, and this is the
+kind of wrong answer that gets a broker declared compatible. Tightened.
+
+#### So what is observed, stated separately from what is inferred
+
+**Observed:**
+
+- Dozens of ordinary XHRs to `api.traderepublic.com`, on `/api`, `/api-gateway` and
+  `/web-trading-gateway`. Not a WebSocket-only API — run 2's conclusion stays retracted.
+- Every one of them with `credentials: include`.
+- The page sets no authentication header.
+- `tr_claims` (843 chars) and `aws-waf-token` (378) are cookies, neither `HttpOnly` (2c).
+- `tr_claims` shows a `SameSite` the Application panel renders as `S…` where the analytics cookies
+  render `Lax`. **Probable `Strict`, not confirmed.**
+
+**Inferred, and it is an inference:** nothing else in the request can be carrying the session, so
+the cookie is. Which puts 2f back on the table rather than settling it.
+
+#### The one question left, and it is cheaper to test than to reason about
+
+Does a `fetch` from an extension service worker, holding a host permission for
+`api.traderepublic.com`, carry that cookie?
+
+Chrome's treatment of extension-initiated requests under `SameSite` is not something this document
+should assert from memory — three wrong calls in one day is the argument for not trying a fourth.
+It is **directly testable, and cheaply**: a throwaway unpacked extension with that host permission,
+one `fetch` to one endpoint, and look at whether it comes back as data or as a 401. An afternoon,
+and it answers with a fact instead of a recollection.
+
+Two outcomes:
+
+- **The cookie goes** — the adapter is ordinary. Read `aws-waf-token` from the cookie jar, set
+  `x-aws-waf-token` and `x-tr-platform` by hand (both are settable; only `Cookie` is forbidden),
+  and the session rides along.
+- **The cookie does not go** — then attaching it needs `declarativeNetRequest` header rewriting.
+  That is a heavier permission and a decision for the person whose extension it is, not a detail
+  for whoever is implementing. Bring it back rather than build it.
+
+Either way `x-aws-waf-token` has to be set from the cookie, and it is refreshed by a challenge the
+page solves — so 2d's *scheduling* conclusion survives its retracted risk assessment: sync while a
+tab is open and the token is fresh, not on an hourly alarm.
 
 ### 2d. AWS WAF is in front of this API — a scheduling constraint, not a safety cliff
 
