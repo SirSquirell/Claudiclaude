@@ -71,10 +71,7 @@ That last point is not paperwork. It is the difference between a spike and an in
 Half a day, and the output is this document with the *Status* column rewritten. In order, stopping
 at the first "no":
 
-1. **R1.** Log in to the Trade Republic web client. DevTools → Application: is there a cookie, a
-   `localStorage` entry or a token an extension with `cookies` + `host_permissions` could read?
-   Network: is there any plain HTTPS request carrying it, or is everything on the socket?
-   → *Answer: yes / no / yes-but-signed.*
+1. **R1** — the protocol below. → *Answer: yes / no / yes-but-signed.*
 2. **R4 before R2.** Deliberately out of order: if there is no backwards price history, the story
    is dead regardless of how good the ledger is, and R4 is the cheaper thing to look at.
 3. **R2 and R3.** Export or capture a ledger. Do the rows carry a settled base-currency amount
@@ -85,6 +82,45 @@ at the first "no":
 **Rule 7 applies to the spike itself.** The capture is a real account. Nothing from it enters
 `test/`; fixtures are built synthetically from the observed *shapes*, exactly as
 `tools/make-fixtures.mjs` does today. Findings name the broker and the account, never a person.
+
+### 3b. The R1 protocol, exactly
+
+Five minutes in a browser. It answers the only question that decides whether US-10 exists, and it
+is written out step by step because **the obvious way to report the answer leaks the session.**
+
+> **Never paste, screenshot or send the value of anything found below.** A session token is a live
+> credential: anyone holding it is logged into the account until it expires. What is needed is
+> *whether* something is there, *what it is called* and *roughly how long it is* — never what it
+> says. This is the same rule that makes the connection check report a cookie's length and not
+> its contents, and the same shape of mistake as the 0.10.0 export.
+
+1. Log in to the Trade Republic web client as normal, and open the portfolio.
+2. **F12 → Application** (Chrome) / **Storage** (Firefox).
+3. **Cookies**, the entry for the app's own domain. Write down: how many there are, and their
+   *names*. Values: only the length, and only for anything whose name suggests a session.
+4. **Local storage** and **Session storage** for the same domain. Same again: names only, plus a
+   length and a rough shape for anything session-like — *"looks like a JWT: three
+   dot-separated chunks"* is exactly the right amount of detail, and its contents are not.
+5. **F12 → Network → Fetch/XHR.** Reload the page. Are there ordinary HTTPS requests to an API
+   host, or is the list essentially empty?
+6. **Network → WS.** Is there a WebSocket? Click it → **Messages**. Do not copy the messages;
+   just note whether the first one looks like a handshake carrying a token.
+7. If there *is* a plain HTTPS request: click one → **Headers → Request Headers**. Is there an
+   `Authorization` header, or is the cookie doing the work? Name of the header only.
+
+**What each outcome means:**
+
+| What you find | R1 | What follows |
+|---|---|---|
+| A cookie the browser sends automatically, on ordinary HTTPS requests | **yes** | Same shape as DEGIRO. Continue to R4 |
+| A token in local storage, used as an `Authorization` header | **yes, probably** | An extension can read local storage on a granted host. Continue, but the token is a credential the extension must never store — read per request, exactly as the cookie is today |
+| Everything on a WebSocket, opened with a token from storage | **yes, but harder** | The transport is a rewrite of `degiro.js`, and the throttle has to be re-thought for a socket. Worth continuing only if R4 also says yes |
+| Nothing in storage; the session only exists after a PIN entered in the page | **no** | **Stop.** See §7 and the project rule — the extension does not log in |
+| Requests carry a signature the page computes from a device key | **no, for now** | Replaying it means reproducing their signing, and a wrong attempt looks like an unknown device authenticating. Bring this back to a decision rather than building it |
+
+Report it as prose. *"Two cookies, neither looks like a session; one local-storage key called
+`…state`, about 900 characters, three dot-separated chunks; no Fetch/XHR at all, one WebSocket"*
+is a complete answer to R1 and contains nothing dangerous.
 
 ---
 
@@ -190,8 +226,10 @@ about, and a second broker is a second set of fields arriving at once.
 Written down now, while it is cheap to agree to:
 
 - **R1 is "no".** The extension cannot reach a Trade Republic session read-only from a logged-in
-  tab. → Drop US-10. Do not build a credential form. US-22 to US-24 keep their value regardless,
-  because a third broker may answer differently.
+  tab. → **Drop US-10.** Not "revisit with a login form" — CLAUDE.md rule 9 makes this a product
+  promise rather than a trade-off, so a "no" here is final and the correct outcome of the spike is
+  closing the story. US-22 to US-24 keep their value regardless, because a third broker may answer
+  differently.
 - **R4 is "no".** No backwards daily history. → Drop it; there is no chart to draw.
 - **R3 is "partly".** Descriptions exist but are ambiguous. → Buildable, but every ambiguous
   wording is `UNKNOWN` and visible, and the story ships with an honest count rather than a

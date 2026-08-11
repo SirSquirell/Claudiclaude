@@ -64,6 +64,22 @@ architecture that §1 and §3 of the spec already settled.
    Deleting is cheap: the history has it, and `git revert` is one command. Guessing what will
    be needed is what is expensive.
 
+9. **The extension never authenticates.** It reads a session the browser already holds, and that
+   is the whole of it. It does not collect a password, a PIN, a phone number or a 2FA code; it
+   does not store a credential; it does not sign a request with a device key it created; it does
+   not attempt a login by any other name. `resolveSession` reads a cookie per request and writes
+   it nowhere — that is the pattern, and any future broker adapter matches it or is not built.
+
+   This is a product promise, not a scoping preference, and it is already in the README's first
+   paragraph about data. So it decides questions rather than being weighed against them: a broker
+   whose data cannot be reached from an already-logged-in tab is **out of scope**, however
+   valuable it would be, and the correct outcome of that spike is dropping the story. There is no
+   version of "just a small login form".
+
+   The safety argument is the strong one. Nothing that does not exist can be phished, leaked in
+   an export, or stolen from IndexedDB — and a wrong authentication attempt is the one action a
+   broker answers by locking the account rather than by returning an error (see rule 5).
+
 ## Layout
 
 ```
