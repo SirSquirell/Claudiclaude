@@ -558,6 +558,55 @@ label.check {
   color: var(--text-secondary);
 }
 
+/* --- the "i" on a tile, and what it says --------------------------------- */
+
+.tile .info {
+  /* Reset the pill button: this is a marker, not an action. */
+  all: unset;
+  cursor: help;
+  flex: none;
+  width: 0.95rem;
+  height: 0.95rem;
+  margin-left: auto;
+  border: var(--rule) solid var(--border-strong);
+  border-radius: 50%;
+  color: var(--text-muted);
+  font-size: 0.625rem;
+  font-weight: 700;
+  font-style: italic;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tile .info:hover,
+.tile .info:focus-visible {
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+
+.tile .info:focus-visible {
+  outline: 2px solid var(--series-1);
+  outline-offset: 2px;
+}
+
+.tip {
+  position: fixed;
+  z-index: 50;
+  max-width: min(22rem, calc(100vw - 1rem));
+  padding: 10px 12px;
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  border: var(--rule) solid var(--border-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  font-size: var(--hint);
+  line-height: 1.5;
+  /* It follows the pointer's target, so it must never become the target. */
+  pointer-events: none;
+}
+
 /* --- notices panel ------------------------------------------------------ */
 
 .chips {

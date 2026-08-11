@@ -120,7 +120,7 @@ export async function loadDemo() {
 
 export async function loadFromExtension() {
   const store = await import('../lib/store.js');
-  const [rawTx, rawCash, rawProducts, prices, liveTotal, live, lastSyncAt, lastError, urls, syncLog, lastDataDate, missingPriceSeries] =
+  const [rawTx, rawCash, rawProducts, prices, liveTotal, live, lastSyncAt, lastError, urls, syncLog, lastDataDate, missingPriceSeries, liveTotalFields] =
     await Promise.all([
       store.getAll('transactions'),
       store.getAll('cashflows'),
@@ -134,13 +134,14 @@ export async function loadFromExtension() {
       store.getMeta('syncLog', []),
       store.getMeta('lastDataDate', null),
       store.getMeta('missingPriceSeries', []),
+      store.getMeta('liveTotalFields', null),
     ]);
 
   // What the bug report needs and the charts do not: how the sync went, and how
   // many rows of each kind there are. Gathered here because this is the only
   // module that already touches the store.
   const diagnosticContext = {
-    meta: { lastSyncAt, lastError, urls, syncLog, lastDataDate, missingPriceSeries },
+    meta: { lastSyncAt, lastError, urls, syncLog, lastDataDate, missingPriceSeries, liveTotalFields },
     counts: {
       transactions: rawTx.length,
       cashflows: rawCash.length,

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { extendBackwards, fetchWindowed, isSameRun } from '../src/lib/sync.js';
+import { extendBackwards, fetchWindowed, fieldNames, isSameRun } from '../src/lib/sync.js';
 import { DegiroHttpError } from '../src/lib/degiro.js';
 import { daysBetween } from '../src/lib/dates.js';
 
@@ -150,4 +150,32 @@ test('with no checkpoint at all, the first one that appears is ours', () => {
   assert.equal(isSameRun({ startedAt: 1, done: false }, null), true);
   assert.equal(isSameRun(null, null), false);
   assert.equal(isSameRun(null, { startedAt: 1000, done: false }), false);
+});
+
+// ---------------------------------------------------------------------------
+// fieldNames — what may be reported when the account total cannot be read
+// ---------------------------------------------------------------------------
+
+test('fieldNames keeps identifiers and drops anything that is not one', () => {
+  const out = fieldNames({
+    reportNetliq: 1,
+    total2: 2,
+    free_space: 3,
+    // Everything below is what a value looks like when it lands in a key
+    // position, which is how the first version of the inspect tool leaked a
+    // name and an IBAN. None of these may travel.
+    'Jane Doe': 4,
+    'NL91ABNA0417164300': 5,
+    '12345.67': 6,
+    'has space': 7,
+    '': 8,
+  });
+  assert.deepEqual(out, ['reportNetliq', 'total2', 'free_space']);
+});
+
+test('fieldNames is capped and survives rubbish', () => {
+  const many = Object.fromEntries(Array.from({ length: 200 }, (_, i) => [`field${i}`, i]));
+  assert.equal(fieldNames(many).length, 60);
+  assert.deepEqual(fieldNames(null), []);
+  assert.deepEqual(fieldNames('nope'), []);
 });

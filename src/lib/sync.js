@@ -192,6 +192,32 @@ export async function extendBackwards({ fetchFn, parseFn, session, before, onWin
   return rows;
 }
 
+/**
+ * The keys of an object, filtered down to things that are unmistakably field
+ * names.
+ *
+ * An API field name is letters, and may carry digits or an underscore. A value
+ * that leaked into a key position would not be — and the check is written the
+ * strict way round on purpose, because `tools/inspect-fields.mjs` shipped the
+ * loose version first and let a person's name and an IBAN through on its very
+ * first run. Anything that does not look like an identifier is dropped rather
+ * than reported, and the count is capped so a pathological response cannot turn
+ * into a payload.
+ */
+export function fieldNames(obj, limit = 60) {
+  if (!obj || typeof obj !== 'object') return [];
+  return Object.keys(obj)
+    .filter((k) => /^[A-Za-z][A-Za-z0-9_]{0,31}$/.test(k))
+    // …and no run of three digits, which is the rule that actually earns its
+    // keep. `NL91ABNA0417164300` is a letter followed by alphanumerics and sails
+    // through the line above — the identifier shape alone would have shipped an
+    // IBAN, in the very function whose comment says it will not. The test caught
+    // it. A real field name has a digit or two at most (`total2`, `v4`); a long
+    // digit run means the string is data wearing a name's clothes.
+    .filter((k) => !/\d{3}/.test(k))
+    .slice(0, limit);
+}
+
 /** Steps the UI knows about, so it can show "3 of 6" rather than a spinner. */
 export const SYNC_STEPS = ['session', 'portfolio', 'transactions', 'cashflows', 'products', 'prices', 'derive'];
 
@@ -288,6 +314,18 @@ async function doSync({ force = false, onProgress = () => {} } = {}) {
     // --- current portfolio, for reconciliation --------------------------
     const update = parseUpdate(probe.update);
     if (update.totalValue != null) await setMeta('liveTotal', update.totalValue);
+    // When it is missing, record *which fields DEGIRO did send*, names only.
+    //
+    // Without a total there is no anchor, and the reconciliation — the one check
+    // that says whether any of this is right (CLAUDE.md rule 6) — cannot run at
+    // all. Two real accounts report exactly that, and there has been no way to
+    // tell a broken field name from a genuinely empty response. The candidate
+    // list in `parseUpdate` is a guess made without a real capture; this is how
+    // it stops being a guess.
+    //
+    // Names, never values: this ends up in the bug report, which is the file
+    // people paste into a chat window.
+    await setMeta('liveTotalFields', update.totalValue != null ? null : fieldNames(update.totals));
     await setMeta('liveSnapshot', { at: new Date().toISOString(), ...update });
 
     // --- transactions & cash movements ----------------------------------

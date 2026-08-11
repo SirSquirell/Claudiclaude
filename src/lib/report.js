@@ -187,6 +187,16 @@ export function buildBugReport({ result, meta = {}, counts = {}, version = null,
         message: errorMessage(e.message),
       })),
       missingPriceSeries: (meta.missingPriceSeries ?? []).length,
+      /**
+       * Present only when DEGIRO's current total could not be read, and then it
+       * is the list of field names that *were* in the response.
+       *
+       * Named explicitly here rather than spread in, per rule 7: this file is
+       * an allowlist, and a field that is not written down does not travel.
+       * `sync.js` has already dropped anything that is not shaped like an
+       * identifier — this is the second of the two gates, not the only one.
+       */
+      liveTotalFields: Array.isArray(meta.liveTotalFields) ? meta.liveTotalFields.slice(0, 60) : null,
     },
   };
 }

@@ -11,6 +11,36 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.26.0] — 2026-08-11
+
+### Added
+
+- **An "i" on every figure**, saying what it means on hover, on focus and on tap. Several of
+  these are assertions a reader would reasonably get wrong, and the caveats lived only in the
+  changelog and in code comments — which is to say nowhere near the number: that *Fees paid* does
+  not include what a margin balance costs, that a deposit is not a gain, that *Biggest winner* is
+  a position and not a trade. Escape closes it, and it is a shared fixed-position element because
+  the tile grid clips its own corners and would have sliced a tooltip on the last row in half.
+- **Light / Dark / Auto**, in the header. The stylesheet has been written for exactly these three
+  states for several versions — the dark tokens appear once under `prefers-color-scheme` and
+  again under `[data-theme="dark"]` — and **nothing ever set the attribute**, so the page followed
+  the operating system and only the operating system. Auto stays the default and is a real third
+  state rather than a synonym: someone whose machine flips at sunset should not have to give that
+  up to state a preference once. The choice persists, and the popup follows it.
+- **When DEGIRO's account total cannot be read, the page now reports which fields it *did* send.**
+  Two real accounts come back with `reconciliation: null`, which means the one check that says
+  whether any of this is right could not run at all — and until now a wrong field name looked
+  exactly like an empty response. The candidate names in `parseUpdate` were guessed without a
+  real capture; this is how the guess ends. Names only, never values, and it travels in the bug
+  report.
+
+  The name filter let an IBAN through on first write — `NL91ABNA0417164300` is a letter followed
+  by alphanumerics, so it satisfied "looks like an identifier" — in the very function whose
+  comment said it would not. Its own test caught it before it ran anywhere. This is the second
+  time that exact string shape has beaten a hand-written safe-name check in this project, so the
+  rule is now about digit runs rather than about shape, and there are three independent gates in
+  front of the value rather than one.
+
 ## [0.25.0] — 2026-08-11
 
 ### Added

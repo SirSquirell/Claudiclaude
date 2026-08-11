@@ -228,6 +228,12 @@ export const EXPORTABLE_META = [
   'lastSyncAt',
   'liveSnapshot',
   'liveTotal',
+  // Field *names* from DEGIRO's account-total response, written only when the
+  // total could not be read. Two gates stand in front of it — `fieldNames` in
+  // sync.js drops anything not shaped like an identifier, and report.js names
+  // it explicitly — and this is the third: a key nobody classified does not
+  // leave, whatever it holds.
+  'liveTotalFields',
   'missingPriceSeries',
   'syncLog',
   'syncState',

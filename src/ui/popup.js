@@ -7,7 +7,7 @@
  */
 
 import { sparkline } from './charts.js';
-import { fmtEurCents, fmtSigned, tokens } from './theme.js';
+import { applyTheme, fmtEurCents, fmtSigned, tokens } from './theme.js';
 import { inExtension, loadDemo, send, wantsDemo } from './datasource.js';
 
 const $ = (s) => document.querySelector(s);
@@ -17,6 +17,10 @@ main().catch((err) => {
 });
 
 async function main() {
+  // The popup has no room for a control of its own, but it must not disagree
+  // with the page: a reader who chose Light gets a light popup too.
+  applyTheme();
+
   $('#btn-open').addEventListener('click', () => {
     if (inExtension) send({ type: 'openApp' }).then(() => window.close());
     else window.open('app.html?demo=1', '_blank');

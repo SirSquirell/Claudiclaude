@@ -21,7 +21,7 @@ import {
 } from './charts.js';
 import { buildBugReport } from '../lib/report.js';
 import { isSameRun } from '../lib/sync.js';
-import { alpha, fmtEurCents, fmtPct, fmtSigned, onThemeChange, tokens } from './theme.js';
+import { THEMES, alpha, applyTheme, fmtEurCents, fmtPct, fmtSigned, getTheme, onThemeChange, setTheme, tokens } from './theme.js';
 import { inExtension, load, send, wantsDemo } from './datasource.js';
 
 const RANGES = ['1M', '3M', '6M', 'YTD', '1Y', 'ALL'];
@@ -119,6 +119,9 @@ init().catch(showFatal);
 async function init() {
   buildControls();
   wireActions();
+  applyTheme();
+  buildThemeControl();
+  wireTips();
   onThemeChange(() => render());
 
   if (inExtension && !wantsDemo()) {
@@ -153,6 +156,38 @@ async function refresh() {
 // ---------------------------------------------------------------------------
 // controls
 // ---------------------------------------------------------------------------
+
+/**
+ * Light / Dark / Auto.
+ *
+ * Three buttons rather than one that toggles, because "auto" is a real state
+ * and a two-way switch cannot express it: a reader whose machine flips at
+ * sunset would have to give that up to state a preference once.
+ *
+ * Changing it re-renders. Chart.js is handed resolved colours rather than CSS
+ * variables, so a chart already on screen keeps the old theme's palette until
+ * it is rebuilt — which is the same reason `onThemeChange` exists for the OS.
+ */
+function buildThemeControl() {
+  const group = $('#theme-group');
+  if (!group) return;
+  group.innerHTML = '<span class="glabel">Theme</span>';
+  for (const key of THEMES) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.dataset.key = key;
+    b.textContent = key === 'auto' ? 'Auto' : key === 'light' ? 'Light' : 'Dark';
+    b.setAttribute('aria-pressed', String(key === getTheme()));
+    b.addEventListener('click', () => {
+      setTheme(key);
+      for (const other of group.querySelectorAll('button')) {
+        other.setAttribute('aria-pressed', String(other === b));
+      }
+      render();
+    });
+    group.append(b);
+  }
+}
 
 function buildControls() {
   const rangeGroup = $('#range-group');
@@ -1131,13 +1166,121 @@ function renderTiles(r, from = 0, to = r.days.length - 1) {
     .map(
       (t) => `
       <div class="tile">
-        <div class="label">${esc(t.label)}</div>
+        <div class="label">${esc(t.label)}${
+          TILE_TIPS[t.label]
+            ? `<button type="button" class="info" aria-label="What “${esc(t.label)}” means"
+                 data-tip="${esc(TILE_TIPS[t.label])}">i</button>`
+            : ''
+        }</div>
         <div class="value ${t.cls ?? ''}" style="--len:${[...t.value].length}">${esc(t.value)}</div>
         <div class="note">${esc(t.note)}</div>
       </div>`,
     )
     .join('');
 }
+
+/**
+ * One tooltip element for the whole page, positioned where it is asked for.
+ *
+ * `position: fixed` and a single shared node, rather than a `::after` on each
+ * button, for one concrete reason: `.tiles` sets `overflow: hidden` so its
+ * rounded corners clip the cells, and anything a tile tries to draw outside
+ * itself is cut off at that edge. A tooltip on the last row would be a sliver.
+ * Fixed positioning is measured against the viewport, so it escapes.
+ *
+ * Hover *and* focus, because a control that only answers a mouse answers nobody
+ * on a keyboard or a touchscreen — the same argument the Candles button lost in
+ * 0.15.0. Escape closes it.
+ */
+function wireTips() {
+  const tip = document.createElement('div');
+  tip.className = 'tip';
+  tip.setAttribute('role', 'tooltip');
+  tip.hidden = true;
+  document.body.append(tip);
+
+  const hide = () => {
+    tip.hidden = true;
+  };
+
+  const show = (btn) => {
+    tip.textContent = btn.dataset.tip;
+    tip.hidden = false;
+
+    // Measure after it has content, then clamp to the viewport so a tile at the
+    // right-hand edge does not push it off screen.
+    const b = btn.getBoundingClientRect();
+    const t = tip.getBoundingClientRect();
+    const margin = 8;
+    const left = Math.min(Math.max(margin, b.left + b.width / 2 - t.width / 2), window.innerWidth - t.width - margin);
+    // Above by preference; below when there is no room, which is what happens
+    // for the first row of tiles on a short window.
+    const above = b.top - t.height - margin;
+    tip.style.left = `${Math.round(left)}px`;
+    tip.style.top = `${Math.round(above >= margin ? above : b.bottom + margin)}px`;
+  };
+
+  // Delegated: the tiles are rebuilt on every render, so per-button listeners
+  // would have to be re-attached each time and the old ones leak.
+  const root = $('#tiles');
+  root.addEventListener('pointerover', (e) => {
+    const btn = e.target.closest?.('.info');
+    if (btn) show(btn);
+  });
+  root.addEventListener('pointerout', (e) => {
+    if (e.target.closest?.('.info')) hide();
+  });
+  root.addEventListener('focusin', (e) => {
+    if (e.target.classList?.contains('info')) show(e.target);
+  });
+  root.addEventListener('focusout', hide);
+  // A tap on a touchscreen is a click, not a hover.
+  root.addEventListener('click', (e) => {
+    const btn = e.target.closest?.('.info');
+    if (btn) show(btn);
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') hide();
+  });
+  // A tooltip pinned to a coordinate is wrong the moment the page moves.
+  window.addEventListener('scroll', hide, { passive: true });
+  window.addEventListener('resize', hide);
+}
+
+/**
+ * The explanation behind each tile's "i".
+ *
+ * A number on a dashboard is an assertion, and several of these are assertions
+ * a reader would reasonably get wrong: that fees include what margin costs
+ * (they do not), that a deposit is a gain (it is not), that "biggest winner" is
+ * a trade (it is a position). The caveats existed only in the changelog and in
+ * comments, which is to say nowhere the person reading the number will look.
+ *
+ * Kept as one table rather than inline so the wording is reviewable in one
+ * place, and because a tile with no entry here should be conspicuous.
+ */
+const TILE_TIPS = {
+  'Total value': 'Your positions at their closing prices plus cash, on the last day of the range. It is what the account was worth, not what you would receive: no selling costs and no tax are taken off.',
+  'Money paid in': 'Deposits minus withdrawals — only money that crossed the boundary between you and the broker. Dividends, fees and interest are internal to the account and are not in here; they are part of the result instead.',
+  Result: 'What the account made, with deposits and withdrawals taken out, so paying money in never looks like a gain. The percentage chains the daily returns rather than dividing by the opening value, so a deposit landing mid-range does not flatter it.',
+  Today: 'The last day’s change, again with any deposit or withdrawal that day removed. On a weekend or a holiday there is no new closing price, so this is zero rather than missing.',
+  'Dividend received': 'Cash that actually landed, net of the tax withheld at source. The withheld amount is stated separately because you may be able to reclaim part of it.',
+  'Fees paid': 'Transaction and service costs only: courtage, connectivity, custody and third-party charges. It does not include what a margin balance costs you — that is Interest, and on a leveraged account it is usually the larger of the two.',
+  Interest: 'Credit and debit interest, including the financing cost of a margin (debit) balance. Negative means you paid it. Kept apart from Fees because a financing cost is not a fee.',
+  'Total cost': 'Fees, withheld dividend tax and interest paid, added together — what holding this account has cost you. Each is easy to ignore alone, which is the argument for the sum.',
+  Realised: 'The whole result of every position you no longer hold. Banked: it cannot change any more.',
+  Unrealised: 'What the positions you still hold have made so far. It moves with prices every day and is not yours until you sell.',
+  'Deepest fall': 'The worst peak-to-trough fall in the range, measured on the curve with deposits and withdrawals removed. That matters: on portfolio value, the day you withdrew money would be reported as the worst market event of your life.',
+  'Months in profit': 'How many calendar months ended up, out of every full month in the history. Not the selected range.',
+  'Best month': 'As a percentage rather than in euros, because €500 on a small portfolio and €500 on a large one are not the same month. Whole history.',
+  'Worst month': 'As a percentage rather than in euros, because €500 on a small portfolio and €500 on a large one are not the same month. Whole history.',
+  'Biggest winner': 'The instrument that made the most over the selected range — per instrument, not per trade. A single sale has no result of its own: what it “made” depends on which purchase you match it against, and this project deliberately never picks between FIFO and average cost.',
+  'Biggest loser': 'The instrument that lost the most over the selected range — per instrument, not per trade, for the same reason as the winner: a sale’s profit depends on which purchase you match it against.',
+  'Positions held': 'Instruments with a non-zero quantity today, against how many you have ever held. Options and other contracts count as one position each.',
+  'Largest position': 'The biggest single holding as a share of the total. Concentration, said plainly: a portfolio where one name is 60 % of the value behaves like that name, whatever the other rows suggest.',
+  Cash: 'Uninvested cash, and how much of the total it is. It is in the value chart unless you switch it off with the checkbox.',
+  'Data coverage': 'How many days were valued from a real closing price rather than from the last one known. An instrument DEGIRO has no chart for is held flat at the price it last traded at, so its movement in between is not real — this says how much of the history that affects.',
+};
 
 /**
  * A share of something, unsigned. `fmtPct` always writes a sign because it
@@ -1222,10 +1365,16 @@ function renderBanners(data, r) {
     // identical: no green banner, no red one, nothing. One real account reports
     // exactly this, and its eighteen price rescales have nothing to be verified
     // against.
+    const fields = data.meta?.liveTotalFields;
     add(
       'warn',
       'Nothing to reconcile against',
-      'DEGIRO did not report a current total this sync, so the one check that would confirm these numbers could not run. Press Sync now while logged in to DEGIRO.',
+      'DEGIRO did not report a current total this sync, so the one check that would confirm these numbers could not run. Press Sync now while logged in to DEGIRO.' +
+        // Which is a different problem from an empty response, and until now
+        // the two looked the same. The names travel in the bug report.
+        (fields?.length
+          ? ` It did send ${fields.length} other field${fields.length === 1 ? '' : 's'} for the account total (${fields.slice(0, 8).join(', ')}${fields.length > 8 ? ', …' : ''}), so the total is probably there under a name this extension does not know yet — please send the bug report.`
+          : ''),
     );
   }
 
