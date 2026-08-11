@@ -2083,3 +2083,85 @@ Colour stays the second channel.
 The palette. `--c1…c7` and the gain/loss pair still have to pass the contrast and
 colour-vision check the current palette passed, and that happens in stage 1 before any of this
 is drawn in them.
+
+---
+
+## US-34 — Trading 212 *(new, refined — a spike with a brief, not yet a story)*
+
+> As someone who holds part of my money at Trading 212, I want it in the same chart as my DEGIRO
+> account, so that "what am I worth" is one number rather than two tabs and a calculator.
+
+The compatibility study is `docs/MULTI-BROKER.md` §8; the brief that would close it is
+`docs/T212-SPIKE-BRIEF.md`. This entry is what the backlog needs to know without reading either.
+
+### Why this one is different from US-10
+
+Trade Republic was refined against reported behaviour and three of those reports turned out to be
+wrong. Trading 212 has an **official, documented API**, and the parts that are not documented are
+visible in two independently-written clients that agree with each other. That is a better evidence
+base — and it is still desk research, and §8e records that the strongest single piece of it is an
+example response from **February 2021** on a path that has since versioned.
+
+### What is already established
+
+- **R2 and R3 are yes, and better shaped than DEGIRO's.** Trading 212 states the **exchange rate
+  per row** rather than leaving it to be divided out of the settled amount — which is the division
+  that put CHF at 107,1 — and its cash movements are **typed** (`Dividend`, `Deposit`,
+  `Withdrawal`) rather than prose for `classify.js` to match. Rule 4 gets *easier* here, which is
+  not what anyone expected.
+- **R5 is probably yes**: an account-summary endpoint is documented.
+- **R4 is answered at the shape level.** `POST /charting/v2/batch` returns daily candles as
+  `{timestamp, bid:{o,h,l,c}, ask:{o,h,l,c}, volume, fake}`.
+- **R1 needs no decision.** The charting endpoint is on the web host, not on `/api/v0`, so the
+  cookie route is the only one that reaches prices — and a ledger without prices is not a product.
+  The route that satisfies rule 9 is the only route that works. The official API key, which rule 9
+  would forbid, would buy nothing anyway.
+
+### The three things between here and a story
+
+| # | Question | Kind |
+|---|---|---|
+| 1 | **How far back does `size` reach on the candle endpoint?** | The one real unknown. Decides the story |
+| 2 | Does an extension's fetch carry `CUSTOMER_SESSION` / `TRADING212_SESSION_LIVE`? | Empirical. The `SameSite` question that decided Trade Republic |
+| 3 | **Bid, ask or mid?** | A domain decision, not an unknown. See below |
+
+### Decision 3, stated now so it is not made by accident
+
+DEGIRO returns one close per day. Trading 212 returns a bid and an ask, and **something has to
+choose**. The honest position is that there is no obviously right answer: bid is what the position
+could have been sold at, mid is how a holding is conventionally marked, and on an illiquid
+instrument the spread between them is the difference between two defensible charts.
+
+What must not happen is the parser settling it by reading whichever field comes first. **The
+decision gets written down before it is coded**, and whichever way it goes, the page says which —
+the same treatment `fake` candles and estimated contract sizes already get.
+
+### Acceptance criteria
+
+The structural ones are already in §4A and are met by US-22 having landed. Broker-specific:
+
+- **AC1** The adapter matches `REQUIRED` in `src/lib/brokers/index.js`, and `missingMembers()`
+  returns empty for it. No second fetch path: one throttled queue, per rule 5.
+- **AC2** Reconciliation runs against Trading 212's own account total and is reported per broker,
+  not merged into a single verdict — a cent out at one broker must not be hidden by the other.
+- **AC3** **A `fake` candle never reaches the engine, and the count of them is surfaced.** Trading
+  212 pads its series with synthetic values; a fabricated close entering a reconstruction silently
+  is exactly the failure this project exists to prevent. `includeFake:false` is not enough on its
+  own, because it is a request parameter and the response is the thing to trust.
+- **AC4** An instrument the mapping cannot resolve from `TSLA_US_EQ`-style ids to something the
+  engine can key on is `UNKNOWN`, counted and shown — never silently dropped.
+- **AC5** Rule 7: the export and the bug report gain a second broker's fields, and each is
+  allowlisted by name. `EXPORTABLE_META` and `report.js` both, with a test.
+- **AC6** The chosen price basis (bid/ask/mid) is stated on the page, not only in a doc.
+
+### What would make us stop
+
+Written now, while it is cheap to agree to:
+
+- **The candle endpoint caps at a few hundred days.** → The history is too short to be the chart
+  this project is. Drop the story; do not source prices from a third party. That is a different
+  product and it breaks the property that makes this one defensible.
+- **The session cookie is not carried by an extension fetch.** → Route B closes, route A cannot
+  reach prices, and the story closes with them. Rule 9 makes this final rather than a trade-off.
+- **The charting endpoint is gone or unrecognisable.** → §8e said this was possible. Re-spike or
+  drop; do not build against the 2021 shape.
