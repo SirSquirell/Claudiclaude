@@ -784,6 +784,125 @@ not a per-chart setting: the whole page describes one selection.
 
 ---
 
+
+---
+
+## Stories out of the third mockup — the per-product page
+
+A proposal from a tester's friend: one page carrying **profit and loss per product**, **positions**
+and **transaction history**. Refined here, not built. Its figures were blurred in the screenshot,
+so no account data entered this repository.
+
+Three sections, and they are not three stories: one of them is a table we already ship.
+
+### US-27 — Profit and loss per product *(new)*
+
+**As someone who wants to know which products made me money, I want one row per product —
+including the ones I no longer hold — with what I put in, what came out and what it left me.**
+
+The strongest idea in the proposal and the one the page genuinely lacks. Today's holdings table
+shows what is **held**; this shows everything ever **traded**, closed positions included, which is
+where most of the answer to *"was that a good idea"* actually lives.
+
+| Column | Source | Note |
+|---|---|---|
+| Product, type | `byProduct` + `productType` | The filter chips are DEGIRO's own strings, so per US-26 they are a **per-broker** vocabulary rather than a shared one |
+| Status open / closed | final quantity | Already computed |
+| Gekocht, Verkocht | buy and sell `totalBase` per product | **New** — the engine emits the *net* per product, never the two halves |
+| Dividend | `DIVIDEND` cash rows carrying a `productId` | **New**, and see trap 2 |
+| Huidige waarde | `values.at(-1)` | Already computed |
+| Resultaat | the per-product identity result | Already computed — read trap 2 before adding anything to it |
+| % | see trap 3 | |
+
+#### Trap 1 — GAK is a cost-basis convention, and this project has refused to pick one
+
+The *Posities* section asks for **GAK**, the average purchase price. That is average cost — and the
+reason the per-holding numbers here are trustworthy is that **no cost-basis convention exists
+anywhere in the engine**: a position's result is how its value moved less the money put into it,
+which needs neither FIFO nor average cost.
+
+Two different things are being conflated and only one is safe:
+
+- **"Total paid ÷ total quantity bought", across every purchase.** A fact. Nothing to argue about.
+- **"Average cost of what you still hold", after partial sales.** That *is* a convention — it is
+  the average-cost method, and FIFO gives a different answer. It is also what brokers usually mean
+  by GAK.
+
+*Recommendation:* show the first, label it in those words, and **never compute a result from it**.
+A `(koers − GAK) × aantal` column would be a second number called *Resultaat* disagreeing with the
+first, and a page that contradicts itself about profit is worse than a page missing a column.
+
+#### Trap 2 — the proposal's own subtitle changes what "Resultaat" means
+
+It reads *"Gerealiseerd + ongerealiseerd + dividend"*. Our per-product result is **value moved less
+money put in**; a dividend is cash and lands in the cash ledger, not in the instrument's value, so
+it is *not* in there. Folding it in silently would make this column disagree with the identically
+named column on the holdings table.
+
+*Recommendation:* keep `Resultaat` the identity number, keep `Dividend` its own column exactly as
+the proposal already draws it, and if a combined figure is wanted call it **`Totaal`**. Two columns
+may not share a name and differ.
+
+A dividend row with no `productId` cannot be attributed to anything. Count those and say so, rather
+than dropping them — the same rule that makes an unclassified cash row visible.
+
+#### Trap 3 — the % column needs its denominator stated
+
+Result ÷ *what*? Divided by **Gekocht** it is honest and convention-free: what the money put into
+this product returned. Divided by a cost basis it inherits trap 1. Say which, in the column header
+rather than in a tooltip.
+
+*Acceptance criteria:*
+
+- ☐ Closed positions appear, with their whole result. That is the point of the story.
+- ☐ `Resultaat` equals the holdings table's result for every product appearing in both.
+- ☐ Dividend is its own column, and any dividend that could not be attributed is counted and shown.
+- ☐ The percentage's denominator is named in the column header.
+- ☐ Type filters are built from the product types actually present — a broker with no warrants
+  shows no warrants chip.
+- ☐ Best-first and worst-first sorting is stable for equal values, so the order does not jitter.
+
+### US-28 — The transaction history, on the page *(new)*
+
+**As someone checking a number, I want to see the transactions behind it without exporting JSON.**
+
+Genuinely missing: every figure on this page is derived from the transaction list, and there is no
+way to look at that list.
+
+*Two decisions:*
+
+- **886 rows is not a table, it is a list that needs a strategy.** Rendering all of them costs a
+  second of layout and a minute of scrolling. *Recommendation: follow the range control that
+  already exists* — the rest of the page is about a window, and a history that ignores it is the
+  inconsistency US-06 was about. A "show all" escape hatch beside it.
+- **It has to reconcile with the charts.** If the selected range shows twelve trades, the count
+  says twelve.
+
+*Acceptance criteria:*
+
+- ☐ The list follows the range, and states how many rows it shows out of how many exist.
+- ☐ Newest first, with the columns the proposal names.
+- ☐ No visible pause on an account with several thousand transactions.
+
+### US-29 — Two columns on the holdings table, not a second table *(new, small)*
+
+**As a reader I want the current price and what I paid on average, beside the holding.**
+
+The proposal's *Posities* section is the holdings table we already ship, plus **Koers** and **GAK**.
+Building it separately would put two tables of the same positions on one page, with different
+columns and — eventually — different numbers.
+
+So the story is: **add two columns to the existing table.** Koers is value ÷ quantity on the last
+day. GAK is trap 1's safe definition, labelled as such.
+
+*Acceptance criteria:*
+
+- ☐ No second positions table exists.
+- ☐ The GAK header states it is the average over all purchases, and nothing on the page derives a
+  result from it.
+
+---
+
 ### US-26 — Instrument coverage, declared per broker *(new)*
 
 **As someone whose account is not the one this was built against, I want to know which instrument
