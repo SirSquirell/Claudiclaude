@@ -822,7 +822,7 @@ dividend received, tax withheld, fees, interest, best and worst month, number of
 - ☐ It reads sensibly when the account opened in December: a three-week first year is a three-week
   first year, and is not annualised into anything.
 
-### US-31 — Annualised return *(new, refined — a decision first)*
+### US-31 — Annualised return *(refined — **decided**: a toggle, money-weighted first)*
 
 **As someone comparing this to a savings rate or a fund, I want one number per year.**
 
@@ -835,10 +835,17 @@ Two different questions, two different answers, and they can differ by a lot:
 | **Time-weighted** | *"How did the portfolio perform, ignoring when I paid in?"* | yes — the month grid's chained return |
 | **Money-weighted** (IRR over the actual cashflows) | *"What did my money earn?"* | no |
 
-*Recommendation: build the money-weighted one*, because "what did my money earn" is the question a
-private investor is actually asking — **and label both, in words, everywhere they appear.** Putting
-a money-weighted figure beside a time-weighted one without naming either is how a page contradicts
-itself, and this page already shows the second.
+**Decided: build both, behind a toggle, money-weighted first.**
+
+The objection to showing both was that a money-weighted figure sitting beside a time-weighted one
+without either being named is how a page contradicts itself. A toggle answers that — one at a time,
+each named in the control that selected it — and it is a shape this page already uses three times
+over: Euro / Return %, Line / Candles, Table / Share. Two answers to two different questions is not
+a contradiction as long as the reader is told which question is on screen.
+
+Money-weighted is the default because *"what did my money earn"* is the question a private investor
+is actually asking. Time-weighted is the honest comparison against a fund, and the month grid
+already computes it, so the second half of the toggle is nearly free.
 
 #### Two traps in the arithmetic
 
