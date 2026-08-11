@@ -5,7 +5,7 @@
  * an external cashflow."
  */
 
-import { aggregatePnl, buildComposition, candleSeries, maxDrawdown, monthlyTable, rangeEndIndex, rangeStartIndex, windowReturnPct } from '../lib/engine.js';
+import { aggregatePnl, annualisedReturn, buildComposition, candleSeries, maxDrawdown, monthlyTable, rangeEndIndex, rangeStartIndex, windowReturnPct } from '../lib/engine.js';
 import { formatDay, monthKey, weekKey } from '../lib/dates.js';
 import {
   candleChart,
@@ -42,6 +42,8 @@ const state = {
   /** Product table: which type chip is active, and which way it is sorted. */
   productType: 'ALL',
   productSort: 'best',
+  /** 'money' (what my money earned) or 'time' (how the portfolio performed). */
+  annualisedView: 'money',
   /** Transaction list: follow the range, or show the lot. */
   txScope: 'range',
   range: 'ALL',
@@ -818,6 +820,7 @@ function render() {
   renderMonthCompare(months, t);
 
   renderHoldings(r, composition, compColours, t, from, to);
+  renderAnnualised(r, from, to);
   renderProducts(r, from, to);
   renderTransactions(data, r, from, to);
   renderFooter(r, data);
@@ -1980,6 +1983,58 @@ const sumWindow = (arr, from, to) => {
   for (let i = Math.max(0, from); i <= to && i < arr.length; i++) s += arr[i];
   return s;
 };
+
+/**
+ * One rate per year, and *which* rate, said by the control that chose it.
+ *
+ * Two questions, one on screen at a time. Showing both at once with neither
+ * named is how a page contradicts itself; a toggle is the same answer this page
+ * already gives three times over (Euro / Return %, Line / Candles, Table /
+ * Share). Money-weighted leads because "what did my money earn" is the question
+ * a private investor is asking; time-weighted is the only fair comparison
+ * against a fund.
+ *
+ * Both refusals are shown as refusals rather than as a dash with no reason: an
+ * empty number people invent an explanation for.
+ */
+function renderAnnualised(r, from, to) {
+  buildChoice('#ann-view',
+    [{ key: 'money', label: tr('My money') }, { key: 'time', label: tr('The portfolio') }],
+    () => state.annualisedView, (k) => { state.annualisedView = k; render(); });
+
+  const a = annualisedReturn(r, from, to);
+  const money = state.annualisedView === 'money';
+
+  $('#ann-hint').textContent = money
+    ? tr('What your money earned per year, given when you paid it in — an internal rate of return over your actual deposits and withdrawals.')
+    : tr('How the portfolio performed per year regardless of when you paid in — the daily-chained return, annualised. This is what a fund reports.');
+
+  const value = $('#ann-value');
+  const note = $('#ann-note');
+
+  if (a.reason === 'too-short') {
+    value.textContent = '—';
+    value.className = 'bignum';
+    note.textContent = tr('Less than a year selected. Annualising three months of {pct} would report {year} a year, which is not a number anyone should act on — the period result is above.',
+      { pct: fmtPct(windowReturnPct(r, from, to)), year: fmtPct(((1 + windowReturnPct(r, from, to) / 100) ** 4 - 1) * 100) });
+    return;
+  }
+
+  const pct = money ? a.moneyWeighted : a.timeWeighted;
+  if (pct == null) {
+    value.textContent = '—';
+    value.className = 'bignum';
+    note.textContent = tr('Your deposits and withdrawals cross zero more than once, so this rate has several mathematically valid answers and no way to choose between them. The portfolio figure beside it has only one.');
+    return;
+  }
+
+  value.textContent = fmtPct(pct);
+  value.className = `bignum ${signClass(pct)}`;
+  note.textContent = tr('Over {years} years{name}.', {
+    years: a.years.toFixed(1),
+    name: money ? tr(', money-weighted') : tr(', time-weighted'),
+  });
+}
 
 /**
  * Everything ever traded, one row per product — closed positions included.

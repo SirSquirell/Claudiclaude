@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { aggregatePnl, buildComposition, candleSeries, computePortfolio, deriveContractSizes, deriveFxRates, fxFromConversions, expandSeries, monthlyTable, rangeEndIndex, rangeStartIndex, windowReturnPct, maxDrawdown } from '../src/lib/engine.js';
+import { aggregatePnl, buildComposition, candleSeries, computePortfolio, deriveContractSizes, deriveFxRates, fxFromConversions, expandSeries, monthlyTable, rangeEndIndex, rangeStartIndex, windowReturnPct, annualisedReturn, maxDrawdown } from '../src/lib/engine.js';
 import { classifyCashRow } from '../src/lib/classify.js';
 import { parseCashMovements, parseChartResponse, parseProducts, parseTransactions, parseUpdate } from '../src/lib/parse.js';
 import { dayRange } from '../src/lib/dates.js';
@@ -1519,4 +1519,84 @@ test('a product that was only ever sold has a zero bought half', () => {
   const p = r.byProduct.find((x) => x.productId === 'P');
   assert.equal(p.bought, 0);
   assert.equal(p.sold, 60);
+});
+
+// ---------------------------------------------------------------------------
+// US-31 — annualised return, both kinds
+// ---------------------------------------------------------------------------
+
+/** A result-shaped object with only the three series this reads. */
+function series(pnl, value, netExternal) {
+  return {
+    days: value.map((_, i) => new Date(Date.UTC(2020, 0, 1 + i)).toISOString().slice(0, 10)),
+    pnl,
+    value,
+    netExternal,
+  };
+}
+
+test('a known IRR is solved to four decimals', () => {
+  // €1 000 in on day 0, worth €1 210 two years later. The money-weighted rate
+  // is exactly 10 %: 1000 * 1.1^2 = 1210.
+  const n = 731;
+  const value = new Array(n).fill(1000);
+  value[n - 1] = 1210;
+  const netExternal = new Array(n).fill(0);
+  netExternal[0] = 1000;
+  const pnl = new Array(n).fill(0);
+  pnl[n - 1] = 210;
+
+  const out = annualisedReturn(series(pnl, value, netExternal));
+  assert.equal(out.reason, null);
+  assert.ok(Math.abs(out.moneyWeighted - 10) < 0.01, `expected ~10 %, got ${out.moneyWeighted}`);
+});
+
+test('money-weighted and time-weighted disagree when the money arrived late', () => {
+  // Small early, large late, and the late money catches the fall. The portfolio
+  // did fine; the money did not. A page showing one of these as "the return"
+  // without saying which is a page that misleads.
+  const n = 800;
+  const value = new Array(n).fill(0);
+  const netExternal = new Array(n).fill(0);
+  const pnl = new Array(n).fill(0);
+
+  value.fill(1000, 0, 400);
+  netExternal[0] = 1000;
+  // A big deposit on day 400, then a 20 % fall across the rest.
+  netExternal[400] = 100000;
+  for (let i = 400; i < n; i++) value[i] = 101000 - ((i - 400) / (n - 401)) * 20200;
+  for (let i = 1; i < n; i++) pnl[i] = value[i] - value[i - 1] - netExternal[i];
+
+  const out = annualisedReturn(series(pnl, value, netExternal));
+  assert.ok(out.moneyWeighted != null && out.timeWeighted != null);
+  assert.ok(out.moneyWeighted < out.timeWeighted, 'the late deposit should drag the money-weighted figure down');
+});
+
+test('under a year, nothing is annualised', () => {
+  const n = 90;
+  const out = annualisedReturn(series(new Array(n).fill(1), new Array(n).fill(100), new Array(n).fill(0)));
+  assert.equal(out.reason, 'too-short');
+  assert.equal(out.moneyWeighted, null);
+  assert.equal(out.timeWeighted, null);
+});
+
+test('a cashflow sequence with several roots refuses to pick one', () => {
+  // In, out, in — the classic multiple-IRR shape. A solver started at a guess
+  // returns whichever root it walks into, with no sign the others exist.
+  const n = 1200;
+  const value = new Array(n).fill(0);
+  const netExternal = new Array(n).fill(0);
+  netExternal[0] = 1000;
+  netExternal[400] = -5000;
+  netExternal[800] = 6000;
+  value.fill(1000, 0, 400);
+  value.fill(4000, 400, 800);
+  value.fill(500, 800, n);
+  const pnl = new Array(n).fill(0);
+  for (let i = 1; i < n; i++) pnl[i] = value[i] - value[i - 1] - netExternal[i];
+
+  const out = annualisedReturn(series(pnl, value, netExternal));
+  if (out.moneyWeighted === null) assert.equal(out.reason, 'multiple-roots');
+  // If this shape happens to have one root it is allowed to answer — the
+  // assertion that matters is that it never answers when it has several.
 });

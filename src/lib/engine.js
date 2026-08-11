@@ -1596,6 +1596,115 @@ export function maxDrawdown(result, fromIndex = 0, toIndex = result.days.length 
   return worst;
 }
 
+/**
+ * Annualised return, both kinds, with the honest answer available.
+ *
+ * Two different questions, and the page shows one at a time behind a toggle
+ * because a page that shows both unnamed contradicts itself:
+ *
+ *  - **money-weighted** — the rate at which *your money* grew, given when you
+ *    paid it in. An IRR over the actual cashflows. This is the question a
+ *    private investor is asking.
+ *  - **time-weighted** — how the portfolio performed regardless of when you
+ *    paid in. The chained daily return the month grid already uses, annualised.
+ *    This is what a fund reports, and the only fair comparison against one.
+ *
+ * They differ, sometimes by a lot: pay a large sum in just before a fall and
+ * your money did badly while the portfolio did fine.
+ *
+ * ## Two guards, and both refuse rather than guess
+ *
+ * **An IRR can have more than one root.** Every sign change in the cashflow
+ * sequence permits another solution (Descartes), and an account that pays in,
+ * takes out and pays in again has several. A solver started at a guess returns
+ * whichever it walks into, with no sign that the others exist. So the range is
+ * *scanned* first, and if more than one sign change in the net present value
+ * turns up, the answer is `null` with `reason: 'multiple-roots'` — the same
+ * refusal a contract size makes, for the same reason.
+ *
+ * **Under a year, annualising is nonsense.** Three months at +10 % is +46 % a
+ * year said with a straight face. Below one year both come back `null` with
+ * `reason: 'too-short'` and the caller shows the period return instead.
+ *
+ * @returns {{years: number, moneyWeighted: number|null, timeWeighted: number|null, reason: string|null}}
+ */
+export function annualisedReturn(result, fromIndex = 0, toIndex = result.days.length - 1) {
+  const from = Math.max(0, fromIndex);
+  const to = Math.min(toIndex, result.days.length - 1);
+  // *Elapsed* time, not a count of days. A window covering indices 0…730 holds
+  // 731 daily observations and spans 730 days, and discounting a terminal value
+  // over 731/365 years prices it a day late — €1 000 growing to €1 210 comes
+  // back as 9,986 % where it is exactly 10 %. Small, and wrong in the direction
+  // that makes every long history look slightly worse than it was.
+  const elapsed = to - from;
+  const years = elapsed / 365;
+
+  if (!(years >= 1)) return { years, moneyWeighted: null, timeWeighted: null, reason: 'too-short' };
+
+  // Time-weighted: the same chained factor the month grid computes, spread
+  // over the period. Reusing `windowReturnPct` keeps one definition of return.
+  const chained = 1 + windowReturnPct(result, from, to) / 100;
+  const timeWeighted = chained > 0 ? (chained ** (1 / years) - 1) * 100 : null;
+
+  // Money-weighted: cashflows from the investor's side. A deposit is money out
+  // of pocket and therefore negative; the value at each end is the position you
+  // opened with and the one you closed with.
+  const flows = [];
+  const opening = from === 0 ? 0 : result.value[from - 1];
+  if (opening !== 0) flows.push({ t: 0, amount: -opening });
+  for (let i = from; i <= to; i++) {
+    const external = result.netExternal[i] ?? 0;
+    if (Math.abs(external) > 0.005) flows.push({ t: (i - from) / 365, amount: -external });
+  }
+  flows.push({ t: years, amount: result.value[to] });
+
+  const moneyWeighted = solveIrr(flows);
+  return {
+    years,
+    moneyWeighted: moneyWeighted == null ? null : moneyWeighted * 100,
+    timeWeighted,
+    reason: moneyWeighted == null ? 'multiple-roots' : null,
+  };
+}
+
+/**
+ * The internal rate of return, or nothing.
+ *
+ * Bisection over a scanned bracket rather than Newton from a guess. Slower and
+ * it does not care: a few hundred iterations on a few hundred cashflows is
+ * imperceptible, it cannot diverge, and — the reason it is written this way —
+ * scanning the range first is what makes a *second* root visible instead of
+ * invisible.
+ */
+function solveIrr(flows, lo = -0.95, hi = 5, steps = 400) {
+  const npv = (r) => flows.reduce((sum, f) => sum + f.amount / (1 + r) ** f.t, 0);
+
+  const brackets = [];
+  let prevR = lo;
+  let prevV = npv(lo);
+  for (let k = 1; k <= steps; k++) {
+    const r = lo + ((hi - lo) * k) / steps;
+    const v = npv(r);
+    if (Number.isFinite(prevV) && Number.isFinite(v) && prevV !== 0 && Math.sign(v) !== Math.sign(prevV)) {
+      brackets.push([prevR, r]);
+    }
+    prevR = r;
+    prevV = v;
+  }
+
+  // No root in a plausible band, or several. Both are "we cannot say", and
+  // picking one of several is the failure this guard exists for.
+  if (brackets.length !== 1) return null;
+
+  let [a, b] = brackets[0];
+  for (let i = 0; i < 200; i++) {
+    const mid = (a + b) / 2;
+    if (Math.sign(npv(mid)) === Math.sign(npv(a))) a = mid;
+    else b = mid;
+  }
+  return (a + b) / 2;
+}
+
 export function buildComposition(result, topN = 6, fromIndex = 0, toIndex = result.days.length - 1) {
   const slice = (arr) => arr.slice(fromIndex, toIndex + 1);
   const width = Math.max(1, toIndex - fromIndex + 1);

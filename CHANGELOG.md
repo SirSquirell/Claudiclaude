@@ -11,6 +11,35 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.33.0] — 2026-08-11
+
+### Added
+
+- **Annualised return, both kinds, behind a toggle** — *My money* and *The portfolio*, on
+  Performance. They are answers to two different questions and they genuinely differ: on the demo
+  account, 14,2 % against 11,3 %. Pay a large sum in just before a fall and your money did badly
+  while the portfolio did fine.
+
+  Showing both at once with neither named is how a page contradicts itself, which is what had this
+  story parked. A toggle answers it — one at a time, named by the control that chose it — and it is
+  the shape this page already uses three times over. *My money* leads because that is the question
+  a private investor is asking; *The portfolio* is the only fair comparison against a fund, and the
+  month grid already computed it.
+
+  **Both refusals are refusals, not blank dashes.** An IRR has a root per sign change in the
+  cashflow sequence, so an account that pays in, takes out and pays in again has several
+  mathematically valid answers — the solver scans its range before it bisects, and when it finds
+  more than one root it says so instead of returning whichever it walked into first. And under a
+  year nothing is annualised at all: three months at +6,87 % would report +30,45 % a year, so the
+  card says that in those words rather than showing it.
+
+### Fixed
+
+- **Elapsed time was a day long.** The discounting used a *count* of days where it needed the span
+  between them, so €1 000 growing to €1 210 over two years came back as 9,986 % instead of 10 %.
+  Small, and wrong in the direction that makes every long history look slightly worse than it was.
+  Found because a test asserted the exact rate rather than a range.
+
 ## [0.32.0] — 2026-08-11
 
 ### Added

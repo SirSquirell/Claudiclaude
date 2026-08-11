@@ -262,6 +262,22 @@ const DICT = {
     'Fees, withheld dividend tax and interest paid, added together — what holding this account has cost you. Each is easy to ignore alone, which is the argument for the sum.':
       'Kosten, ingehouden dividendbelasting en betaalde rente bij elkaar — wat het aanhouden van deze rekening je heeft gekost. Elk is los makkelijk te negeren, en dat is juist het argument voor de som.',
 
+    // --- annualised return ---------------------------------------------------
+    'Annualised return': 'Rendement per jaar',
+    'My money': 'Mijn geld',
+    'The portfolio': 'De portefeuille',
+    'What your money earned per year, given when you paid it in — an internal rate of return over your actual deposits and withdrawals.':
+      'Wat jouw geld per jaar opleverde, gegeven wanneer je het inlegde — een intern rendement over je werkelijke stortingen en opnames.',
+    'How the portfolio performed per year regardless of when you paid in — the daily-chained return, annualised. This is what a fund reports.':
+      'Hoe de portefeuille per jaar presteerde, los van wanneer je inlegde — het dagelijks aaneengeschakelde rendement, omgerekend naar een jaar. Dit is wat een fonds rapporteert.',
+    'Less than a year selected. Annualising three months of {pct} would report {year} a year, which is not a number anyone should act on — the period result is above.':
+      'Minder dan een jaar geselecteerd. Drie maanden {pct} omrekenen naar een jaar geeft {year}, en daar moet niemand naar handelen — het resultaat over de periode staat hierboven.',
+    'Your deposits and withdrawals cross zero more than once, so this rate has several mathematically valid answers and no way to choose between them. The portfolio figure beside it has only one.':
+      'Je stortingen en opnames wisselen meer dan één keer van teken, dus dit percentage heeft meerdere wiskundig geldige antwoorden en geen manier om te kiezen. Het cijfer voor de portefeuille ernaast heeft er maar één.',
+    'Over {years} years{name}.': 'Over {years} jaar{name}.',
+    ', money-weighted': ', gewogen naar jouw geld',
+    ', time-weighted': ', gewogen naar tijd',
+
     // --- severities --------------------------------------------------------
     Error: 'Fout',
     Warning: 'Waarschuwing',
