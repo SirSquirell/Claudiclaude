@@ -1406,6 +1406,23 @@ export function computePortfolio(input) {
        * than it is.
        */
       source: anchorSource,
+      /**
+       * Where the total splits, so the residual can be located.
+       *
+       * Two testers' accounts came back with the same signature — off by half a
+       * percent, **every** share count agreeing, and **zero** instruments
+       * disagreeing by more than fifty cents. That combination says the
+       * residual is not in the positions at all, and the report had no way to
+       * say where it *was*: it carried one ratio and stopped.
+       *
+       * These two turn into ratios in `report.js` and never travel as amounts.
+       * A residual that is a sensible fraction of the cash balance, on an
+       * account holding a foreign currency with a stale rate, is a very
+       * different finding from one that is not — and neither could be told
+       * apart before.
+       */
+      cash: round2(cash[n - 1]),
+      positions: round2(positionsValue[n - 1]),
       attribution: attribution.slice(0, 10),
     };
 
@@ -1418,8 +1435,18 @@ export function computePortfolio(input) {
           `(off by ${round2(diff)}).` +
           (positionMismatches.length
             ? ' Your positions do not match either, so the history is wrong — see above.'
-            : ` Every share count matches what DEGIRO reports, so this is a difference in prices, not in the ledger` +
-              (led ? `; the largest is ${led.name} at ${led.diff}, where DEGIRO's last trade and the daily close disagree.` : '.')),
+            : led
+              ? ` Every share count matches what DEGIRO reports, so this is a difference in prices, not in the ledger;` +
+                ` the largest is ${led.name} at ${led.diff}, where DEGIRO's last trade and the daily close disagree.`
+              : // Every share count agrees *and* no single position is out by
+                // more than fifty cents, so the residual is not in the
+                // instruments at all — it is in the cash balance. Two testers'
+                // accounts hit exactly this and were told "a difference in
+                // prices", which sent the reader looking in the one place the
+                // difference demonstrably was not.
+                ` Every share count matches what DEGIRO reports and no individual position disagrees, so the` +
+                ` difference is in the cash balance rather than in any holding — most likely the exchange rate` +
+                ` used for money held in another currency.`),
         reconciliation,
       );
     }

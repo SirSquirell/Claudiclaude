@@ -1904,3 +1904,38 @@ test('an ordinary account is not changed by the guard', () => {
   // (1 + 100/1000) × (1 + −55/1100) − 1 = 1.1 × 0.95 − 1 = 4.5 %
   assert.ok(Math.abs(pct - 4.5) < 1e-9, `expected 4.5 %, got ${pct}`);
 });
+
+test('a year that opens at three cents reports a return, not −101 275 %', () => {
+  /**
+   * Straight off a tester's screen. The account sat at **€ 0,03** through 2022,
+   * 2023 and 2024, then took €12 000 in during 2025 and ended at €16 046,10 —
+   * and the year-by-year table showed its return as **−101 275,55 %** beside a
+   * perfectly correct result of +€ 8 846,09.
+   *
+   * Both numbers come from the same days, which is the whole point: the
+   * deposit is booked on one day and the value moves on the next, so `pnl`
+   * carries −12 000 and then +12 000. Those **cancel in a sum** — the euro
+   * result is right — and they **destroy a product**, because the first of them
+   * is divided by three cents.
+   *
+   * So the fix has to leave the euros alone and only touch the chain.
+   */
+  const days = ['2025-01-01', '2025-01-02', '2025-01-03', '2025-01-04'];
+  const r = {
+    days,
+    value: [0.03, 0.03, 12000, 12600],
+    // day 2: cash booked, value has not caught up. day 3: value catches up.
+    pnl: [0, -12000, 11999.97, 600],
+  };
+
+  const t = monthlyTable(r);
+  const jan = t.years[0].months[0];
+  assert.ok(
+    Math.abs(jan.returnPct) < 100,
+    `the two artefact days are out of the chain, leaving the 600 on 12 000 that was really earned — got ${jan.returnPct} %`,
+  );
+  assert.ok(jan.returnPct > 0, 'and what was earned still shows');
+
+  // The euro result is untouched: that number was always right.
+  assert.ok(Math.abs(jan.pnl - 599.97) < 0.01, `the result stays as it was, got ${jan.pnl}`);
+});

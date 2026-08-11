@@ -220,3 +220,37 @@ test('a ring that is not an array does not become one', () => {
     assert.equal(out.sync.persistedErrors, null);
   }
 });
+
+test('a reconciliation gap says where it is, without saying how much', () => {
+  /**
+   * Two testers' accounts arrived off by half a percent with every share count
+   * agreeing and zero instruments disagreeing — which rules the holdings out
+   * and left nowhere to look next. These two ratios are that next step, and
+   * they are ratios precisely so they can travel.
+   */
+  const out = buildBugReport({
+    result: {
+      byProduct: [],
+      warnings: [
+        {
+          level: 'warn',
+          code: 'reconciliation-failed',
+          detail: { reconstructed: 33296.84, live: 33158.0, cash: 5000, positions: 28296.84, attribution: [] },
+        },
+      ],
+    },
+  });
+
+  const d = out.warnings[0].detail;
+  assert.ok(Math.abs(d.ratio - 1.004187) < 1e-5);
+  assert.equal(d.instrumentsDisagreeing, 0);
+  // 138.84 over 5000 of cash — about 2.8 %, which is a diagnosis.
+  assert.ok(Math.abs(d.residualOverCash - 0.027768) < 1e-5, `got ${d.residualOverCash}`);
+  assert.ok(d.cashShare > 0.14 && d.cashShare < 0.16);
+
+  const json = JSON.stringify(out);
+  assert.ok(!json.includes('33296'), 'the reconstructed amount did not travel');
+  assert.ok(!json.includes('33158'), 'nor DEGIRO’s');
+  assert.ok(!json.includes('5000'), 'nor the cash balance');
+  assert.ok(!json.includes('138.84'), 'nor the gap itself');
+});

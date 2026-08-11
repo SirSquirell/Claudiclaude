@@ -140,6 +140,24 @@ const DETAIL_SUMMARY = {
     ratio: ratio(d.reconstructed, d.live),
     positionsAgree: d.positionsAgree === true,
     instrumentsDisagreeing: (d.attribution ?? []).length,
+    /**
+     * Where the residual is, as ratios rather than amounts.
+     *
+     * Two testers' accounts arrived with the same signature — off by half a
+     * percent, every share count agreeing, zero instruments disagreeing — and
+     * the report could not say where the difference was, only that there was
+     * one. `positionsAgree: true` with `instrumentsDisagreeing: 0` already
+     * rules the holdings out; these say whether what is left is a plausible
+     * fraction of the cash balance, which is the next question and was
+     * unanswerable.
+     *
+     * `cashShare` is cash over the reconstructed total. `residualOverCash` is
+     * the gap over the cash balance — so 0.006 reads as "the cash is out by
+     * about six tenths of a percent", which on an account holding a foreign
+     * currency with a stale rate is a diagnosis rather than a mystery.
+     */
+    cashShare: ratio(d.cash, d.reconstructed),
+    residualOverCash: ratio(d.reconstructed - d.live, d.cash),
   }),
 };
 
