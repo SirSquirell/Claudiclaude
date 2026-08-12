@@ -539,13 +539,33 @@ about the account half, and the earlier argument that *"the cookie route is the 
 reach prices"* is gone. The API-key question is a real question again rather than one answered for
 us by circumstance.
 
-**What was not tested, and is now the whole story: whether a logged-in Trading 212 web session
-exposes positions and transactions to a cookie**, the way DEGIRO's does. The spike ran logged out by
-design and could not look. If it does, the adapter is buildable within rule 9 exactly as the DEGIRO
-one is. If it does not, the choice is a stored credential or no account data — and rule 9 makes that
-a no, leaving Trading 212 as **a price source with no portfolio**, which is not a product.
+**MEASURED 2026-08-12, and the answer is yes for the page context.**
 
-One capture answers it. Nothing else is outstanding.
+```
+GET https://live.services.trading212.com/rest/v1/accounts
+  credentials: 'include'  ->  200
+  credentials: 'omit'     ->  401
+```
+
+That combination is the whole finding. A public endpoint answers 200 to both. An endpoint behind a
+token the page holds in memory answers 401 to both. **200 with the cookie and 401 without means the
+credential is a cookie the browser already has** — which is what rule 9 permits and what the DEGIRO
+adapter already relies on.
+
+It is also a *cross-origin* credentialed read, from `www.trading212.com` to
+`live.services.trading212.com`, so their CORS policy allows one.
+
+Two things remain, and neither is the gate any more:
+
+- **The service worker.** Untested. The precedent is strong — `degiro.js:124` does exactly this in
+  production and never copies a cookie value, because Chrome treats a request made under a host
+  permission as first-party. Per US-37's AC5 a temporary host permission is now justified, since the
+  page-context baseline has passed.
+- **The logged-out control**, worth ten seconds. `omit=401` already rules out the endpoint being
+  public, which is what that control existed for, so it can no longer change the verdict alone.
+
+Recorded as **INCONCLUSIVE overall** rather than PASS, because `verdict()` refuses to call an
+untested worker a pass and that refusal is the point of having it.
 
 ### 8e. Reaching these hosts from a session
 
@@ -567,4 +587,5 @@ credentials.
 deep enough on daily candles, and needs no account.** The engine's two hardest anticipated
 questions — the bid/ask basis and synthetic candles — turned out not to exist.
 
-**R1 is the only thing standing, and it is one capture wide.**
+**R1's page half is answered: the session is cookie-borne.** What is left is the service-worker
+half, which the DEGIRO adapter has been doing in production for weeks.
