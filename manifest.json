@@ -7,7 +7,8 @@
   "permissions": ["storage", "unlimitedStorage", "alarms", "cookies"],
   "host_permissions": [
     "https://trader.degiro.nl/*",
-    "https://charting.vwdservices.com/*"
+    "https://charting.vwdservices.com/*",
+    "https://live.services.trading212.com/*"
   ],
   "background": {
     "service_worker": "src/sw.js",

@@ -77,7 +77,7 @@ F1–F5 shipped in 0.37.0, F6–F9 in 0.38.0. U1–U5 need a decision rather tha
 
 | Story | State | Waiting on |
 |---|---|---|
-| US-37 | **Trading 212 R1 — page context PASSED 2026-08-12.** `include=200, omit=401`: the session is cookie-borne | The service-worker half. A temporary host permission is now justified (AC5 satisfied) |
+| US-37 | **Trading 212 R1 — page context PASSED and the logged-out control PASSED, 2026-08-12.** `in/include=200, in/omit=401, out/include=401`: the session is cookie-borne. The worker probe is built | Run the worker probe. It is on the spike branch only, never `main` — the host permission does not go to testers while the question is open |
 | US-44 | **Trading 212 renders through the existing pipeline** — no separate dashboard | Gated on US-37 and the data gates. Addendum body not yet received |
 | US-45 | Parameterise the session read (`session.js:19`) — renumbered twice | Deferred until R1 clears — rule 8 |
 | US-39–43 | Multi-broker delivery sequence from an external brief | All gated on US-37 |

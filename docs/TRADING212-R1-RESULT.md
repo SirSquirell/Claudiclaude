@@ -1,7 +1,7 @@
 # Trading 212 R1 — result
 
-**Status: page context MEASURED 2026-08-12 — the cookie carries the session.** The service-worker
-half is still open. `tools/trading212-r1/README.md` has the steps.
+**Status: page context PASS, control PASS, measured 2026-08-12 — the cookie carries the session.**
+The service-worker half is the only thing still open. `tools/trading212-r1/README.md` has the steps.
 
 > **Can Claudiclaude read Trading 212 account data while the user is already logged in, without
 > storing a password, API key, secret, token or any other durable broker credential?**
@@ -45,20 +45,29 @@ with a valid session. So that host serves the web app's own calls, the path fami
 > has never been seen in a real Network tab** — `MULTI-BROKER.md` §8 does not contain it. If it 404s,
 > the real path comes out of the Network tab and gets recorded here.
 
-### Step 2 — logged out (the control) — **largely covered by step 1**
+### Step 2 — logged out (the control) — **MEASURED**
 
 | | Status |
 |---|---|
-| `credentials: 'include'`, logged out | `<open>` |
+| `credentials: 'include'`, logged out | **401** |
 
-The `omit=401` result already establishes the endpoint is credential-gated rather than public,
-which is what this control exists to rule out. Running it logged out is still worth ten seconds —
-it distinguishes "the cookie authorises it" from "any cookie authorises it" — but it can no longer
-change the verdict on its own.
+The control holds. `omit=401` had already established the endpoint is credential-gated rather than
+public; this distinguishes the remaining case — "the cookie authorises it" from "any cookie
+authorises it". Logged out the browser still sends whatever cookies remain for that host, and the
+answer is 401, so what carries the session is the *authenticated* cookie and not merely the
+presence of one.
+
+The three measurements together are the PASS row of the README's table:
+
+| logged in `include` | logged in `omit` | logged out `include` | |
+|---|---|---|---|
+| 200 JSON | 401 | 401 | **A session the browser already holds is enough** |
 
 ### Step 3 — logged back in
 
-Status: `<open>`
+Status: `<open>` — the user logged back in to capture step 4, and the page rendered its portfolio,
+which is the same evidence by a slower route. Not recorded as a measurement because the snippet was
+not re-run.
 
 ### Step 3b — the service worker — **the half that is still open**
 
@@ -74,6 +83,30 @@ that works.
 
 Testing it needs a temporary host permission, and per AC5 that is now justified: the page-context
 baseline has passed.
+
+**The probe is built.** Three pieces, and they are one unit:
+
+| | |
+|---|---|
+| `tools/trading212-r1/probe.js` | one `GET`, `credentials: 'include'`, no retry, shape-only result |
+| `case 't212r1'` in `src/sw.js` | the only way to trigger it — a message, sent by a human |
+| `https://live.services.trading212.com/*` in `manifest.json` | the host permission that makes it possible |
+
+`test/trading212-probe.test.js` asserts the three agree with each other, so a half-deletion fails
+the suite. That is the failure worth guarding: the spike removed, the permission left behind, and
+every user from then on approving access to a host the extension never contacts.
+
+**It lives on `claude/degiro-portfolio-spike-7x5d4h` and not on `main`,** because builds go to
+testers from `main` and a host permission for a broker they do not use is not something to ship
+while a question is still open.
+
+To run it: load the branch unpacked, open the extension's own page, and from its console
+
+```js
+chrome.runtime.sendMessage({ type: 't212r1' }, console.log);
+```
+
+Result: `{outcome, status, contentType, shape}` — where `shape` has had every value replaced.
 
 ### Step 4 — request header names
 

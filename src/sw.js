@@ -14,6 +14,9 @@ import { localInfo, runDiagnostics } from './lib/diagnose.js';
 import { getStatus, recompute, runSync, wipeAndResync } from './lib/sync.js';
 import { exportEverything } from './lib/store.js';
 import { recordError } from './lib/errorstore.js';
+// US-37 R1, temporary. Delete this import, the 't212r1' case below, and the
+// live.services.trading212.com host permission in manifest.json together.
+import { probeFromWorker } from '../tools/trading212-r1/probe.js';
 
 /**
  * The worker's own failures, written down before the worker is torn down.
@@ -96,6 +99,11 @@ async function handle(msg) {
       // separate round-trips, or a sync can start between them and be wiped
       // halfway through.
       return wipeAndResync();
+
+    // US-37 R1, temporary. One request, only when a human sends this message.
+    // Goes with the import at the top and the manifest host permission.
+    case 't212r1':
+      return probeFromWorker();
 
     case 'openApp':
       await chrome.tabs.create({ url: chrome.runtime.getURL('src/ui/app.html') });
