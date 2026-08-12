@@ -2119,27 +2119,25 @@ example response from **February 2021** on a path that has since versioned.
 
 ### The three things between here and a story
 
-| # | Question | Kind | Costs |
-|---|---|---|---|
-| 1 | **How far back does `size` reach on the candle endpoint?** | The one real unknown. Decides the story | A logged-out browser. Trading 212 publishes instrument pages with charts to anyone |
-| 2 | Does an extension's fetch carry `CUSTOMER_SESSION` / `TRADING212_SESSION_LIVE`? | Empirical. The `SameSite` question that decided Trade Republic | **An account.** Only worth asking after 1 says yes |
-| 3 | **Bid, ask or mid?** | A domain decision, not an unknown. See below | Nothing. A decision |
+**All but one are answered — the spike ran on 2026-08-11.** See `MULTI-BROKER.md` §8.
+
+| # | Question | Answer |
+|---|---|---|
+| 1 | How far back does the candle endpoint reach? | **Answered.** Daily candles to 2017 for AAPL, weekly to 2013, paginating backwards with `&to=`. And it needs **no authentication at all** |
+| 2 | Can an extension reach the account data without storing a credential? | **Still open, and now the only gate.** The spike ran logged out and could not look. Prices are free; positions and transactions are behind an API key, which rule 9 forbids |
+| 3 | ~~Bid, ask or mid?~~ | **Moot.** One close per candle — there is nothing to choose |
 
 The schemas behind R2, R3 and R5 need none of that: **Trading 212 publishes them**, and only the
 API *key* requires an account. That was missed on the first pass and it is most of what the spike
 was for. `docs/T212-SPIKE-BRIEF.md` is split into three phases on exactly this ordering — read the
 docs, then the public chart, and only then decide whether R1 is worth anyone opening an account.
 
-### Decision 3, stated now so it is not made by accident
+### ~~Decision 3~~ — withdrawn
 
-DEGIRO returns one close per day. Trading 212 returns a bid and an ask, and **something has to
-choose**. The honest position is that there is no obviously right answer: bid is what the position
-could have been sold at, mid is how a holding is conventionally marked, and on an illiquid
-instrument the spread between them is the difference between two defensible charts.
-
-What must not happen is the parser settling it by reading whichever field comes first. **The
-decision gets written down before it is coded**, and whichever way it goes, the page says which —
-the same treatment `fake` candles and estimated contract sizes already get.
+This said Trading 212 returns a bid and an ask and something had to choose between them. It returns
+**one close per candle**. The decision does not exist, and the reason it looked like it did is worth
+keeping: it came from a library written against an API version that no longer exists. A decision
+carefully framed on top of a wrong fact is still wrong, and it took a measurement to notice.
 
 ### Acceptance criteria
 
@@ -2149,10 +2147,11 @@ The structural ones are already in §4A and are met by US-22 having landed. Brok
   returns empty for it. No second fetch path: one throttled queue, per rule 5.
 - **AC2** Reconciliation runs against Trading 212's own account total and is reported per broker,
   not merged into a single verdict — a cent out at one broker must not be hidden by the other.
-- **AC3** **A `fake` candle never reaches the engine, and the count of them is surfaced.** Trading
-  212 pads its series with synthetic values; a fabricated close entering a reconstruction silently
-  is exactly the failure this project exists to prevent. `includeFake:false` is not enough on its
-  own, because it is a request parameter and the response is the thing to trust.
+- ~~**AC3** A `fake` candle never reaches the engine~~ — **moot.** The real endpoint has no such
+  flag; the 2021 library that suggested one described a superseded API. Replaced by: **a candle is
+  a 6-element array and its shape is validated on arrival.** These are undocumented internal
+  endpoints with no changelog, so a changed array format must fail loudly rather than quietly
+  produce numbers.
 - **AC4** An instrument the mapping cannot resolve from `TSLA_US_EQ`-style ids to something the
   engine can key on is `UNKNOWN`, counted and shown — never silently dropped.
 - **AC5** Rule 7: the export and the bug report gain a second broker's fields, and each is
@@ -2163,9 +2162,8 @@ The structural ones are already in §4A and are met by US-22 having landed. Brok
 
 Written now, while it is cheap to agree to:
 
-- **The candle endpoint caps at a few hundred days.** → The history is too short to be the chart
-  this project is. Drop the story; do not source prices from a third party. That is a different
-  product and it breaks the property that makes this one defensible.
+- ~~**The candle endpoint caps at a few hundred days.**~~ → It does not. Daily to 2017, weekly to
+  2013. This stop condition is cleared.
 - **The session cookie is not carried by an extension fetch.** → Route B closes, route A cannot
   reach prices, and the story closes with them. Rule 9 makes this final rather than a trade-off.
 - **The charting endpoint is gone or unrecognisable.** → §8e said this was possible. Re-spike or
