@@ -2441,3 +2441,96 @@ Both keep the stamp over them, and both are drawn in the gain colour whatever th
   swapped by setting `textContent`, and they need `tr()` entries like everything else.
 - Tests: one that each function is monotonically non-decreasing on a losing account, one that the
   copy contains the subject's name, and the existing quarantine test already covers the rest.
+
+---
+
+## US-37 — Trading 212 R1: can the account data be read without storing a credential? *(refined)*
+
+The last question standing for Trading 212. `MULTI-BROKER.md` §8 has the rest, measured.
+
+> **Can Claudiclaude read Trading 212 account data while the user is already logged in to the
+> Trading 212 website, without storing a password, API key, secret, token or any other durable
+> broker credential?**
+
+R1 is a gate, not a difficulty. Rule 9 makes a "no" final — not "revisit with a key form".
+
+### The repository scan, done — 2026-08-11
+
+The spike proposal asks for this before any code. It is cheap, so here it is.
+
+| Found | Where | DEGIRO-specific? | Reusable? |
+|---|---|---|---|
+| `chrome.cookies.get({url, name:'JSESSIONID'})` | `session.js:19` | The **name and host** are; the mechanism is not | Yes, with both parameterised |
+| `credentials: 'include'` | `degiro.js:124`, the **only** occurrence in the codebase | No | **Yes — and this is the finding, see below** |
+| `host_permissions` | `manifest.json` — `trader.degiro.nl`, `charting.vwdservices.com` | Yes | Add hosts; no structural change |
+| `permissions: ["cookies"]` | `manifest.json` | No | Already granted |
+| `intAccount` / `userToken` | `session.js`, `diagnose.js`, `brokers/degiro.js:54`, and both allowlists in `store.js` | **Yes, entirely** | No. These are DEGIRO's identifiers |
+| `Authorization` header | **nowhere** | — | The codebase has never sent one, which is rule 9 visible in the absence |
+
+### What the scan settles, and it is most of H3
+
+**The extension never copies a cookie value in order to send it.** `degiro.js` issues
+`credentials: 'include'` and the browser attaches the cookie itself. `readSessionId()` reads the
+value separately, and only because DEGIRO puts `sessionId` in the *query string* — a DEGIRO quirk,
+not the auth mechanism.
+
+Two consequences:
+
+- **H3 is largely answered by precedent.** An MV3 service worker with a host permission already
+  performs authenticated read-only requests this way, in production, against a real broker. What is
+  unknown is not *whether MV3 can* — it is whether **Trading 212's cookies are attached** on such a
+  request, which is a `SameSite` question about their cookies and nothing about our architecture.
+- **Trading 212 could be *cleaner* than DEGIRO on rule 9.** If its endpoints authenticate purely by
+  cookie, the extension never reads a credential value at all. DEGIRO is the weaker case, and it is
+  the one already shipped.
+
+### The one experiment
+
+Needs a logged-in account and nothing else. `docs/T212-SPIKE-BRIEF.md` has the full prompt; the
+decisive part:
+
+> Take one request that fills the portfolio page, *Copy as fetch*, and re-run it in the Console with
+> `credentials: 'include'` and again with `credentials: 'omit'`. Report both status codes.
+
+`include` succeeding and `omit` failing is R1 answered yes. Both failing means the page authenticates
+with something it holds in memory, and that is rule 9 territory.
+
+### Acceptance criteria for the spike itself
+
+Not for an adapter — for the spike.
+
+- **AC1** No credential is stored, at any point, including during the experiment. Nothing is written
+  to `IndexedDB` or `chrome.storage`.
+- **AC2** No spike code merges to `main` behind a feature flag "for later". Rule 8: if R1 fails, the
+  code is deleted, not disabled.
+- **AC3** Findings land in `MULTI-BROKER.md` §8 marked **MEASURED**, in the same shape as the rest,
+  with any earlier claim that turns out wrong named at the top rather than quietly corrected.
+- **AC4** No value from a real account enters `test/` or any doc. Rule 7.
+- **AC5** `manifest.json` gains no host permission until R1 has come back yes. A permission granted
+  speculatively is a permission the user is asked to approve for nothing.
+
+### Stop conditions, agreed now
+
+- **`omit` and `include` behave the same** → the session is not cookie-borne. Likely a token the page
+  mints; rule 9 says stop.
+- **Only the documented API key works** → stop, and record Trading 212 as *a price source with no
+  portfolio*, which is not a product.
+- **The endpoints exist but need a header the page computes** → a rule 9 judgement, not a technical
+  one, and it goes to the user rather than being decided in code.
+
+### What is explicitly not in scope
+
+Not a release, not an adapter, not an API-key form, no browser automation, no `BrokerConnector`, no
+plugin loader, no capability flags. Everything in that list either exists already or is forbidden by
+rule 8.
+
+---
+
+## US-38 — Parameterise the session read *(small, and only if US-37 says yes)*
+
+`session.js:19` hardcodes `JSESSIONID` and DEGIRO's host. That is the single line standing between
+the current session layer and a second broker using it.
+
+**Deliberately deferred until R1 clears.** Rule 8: it is a generalisation with one implementation
+until there is a second, and if R1 fails there never is one. Recorded so the finding is not lost,
+not so it gets built.
