@@ -2628,3 +2628,259 @@ So US-44 is mostly *not regressing* something that already works, rather than bu
 If rendering Trading 212 through the existing pipeline requires a special case in the UI or the
 engine, **stop and report it** rather than adding the branch. That special case is the finding: it
 means the normalisation belongs in the adapter and has been pushed too far downstream.
+
+---
+
+# Refinement 0.43 — three requests from the owner
+
+Three stories, refined against the code on `main`. They are related in a way the request did not
+say out loud: **US-46 decides what US-47 is allowed to put in a picture, and US-48 puts something
+in that picture too.** Built in any other order they contradict each other.
+
+---
+
+## US-46 — Anonymize: hide the amounts, keep the percentages *(new, refined)*
+
+> *"een hide toggle die heet anonimize, die dus alle getallen blurt en enkel percentages laat zien
+> zodat iemand kan flexen met de gains"*
+
+### What this is, and what it is not
+
+**A screen-privacy feature.** It protects against a shoulder, a stream, a screen share and a
+screenshot. It is not a security control, and the difference decides the implementation.
+
+A CSS `filter: blur()` leaves the real string in the DOM. Select it, copy it, open devtools, or —
+and this is the one that matters — hand the DOM to the snapshot renderer in US-47, and the number
+is back. So a blur is the right *look* and the wrong *mechanism*.
+
+**The mechanism is replacement; the blur is cosmetics on top.** When anonymize is on, the formatter
+returns a mask. There is no number anywhere to recover.
+
+### Where the numbers are
+
+| Surface | Count | |
+|---|---:|---|
+| `app.js` | 54 | KPI tiles, holdings table, cash row, notices |
+| `charts.js` | 27 | y-axis ticks and tooltip callbacks across 14 charts |
+| `popup.js` | 5 | the small summary |
+
+Eighty-six call sites, and every one of them goes through three functions in `theme.js`:
+`fmtEur`, `fmtEurCents`, `fmtSigned`. **That is the choke point, and it is why this story is small.**
+
+### Allowlist, not denylist — rule 7's shape applied to a screen
+
+The tempting build is to tag the money elements and blur those. That is a denylist, and CLAUDE.md
+rule 7 says exactly what happens next: the field added in six months ships visible, and keeps
+shipping until somebody notices. The 0.10.0 export leaked three fields that way.
+
+So: **anonymize lives inside the formatters.** A new money field added next year is masked because
+it had to call `fmtEurCents` to be money at all. What stays visible is declared — percentages,
+dates, instrument names, quantities of *time*, colours — and everything that formats as currency is
+masked by default.
+
+This needs one guard, and it is testable: **no currency formatting outside `theme.js`.** A grep for
+`style: 'currency'` and for `toLocaleString` with a currency option, over `src/ui/`, must find
+nothing but `theme.js`. Without it the choke point leaks the first time someone formats a euro
+inline.
+
+### The leak nobody asks about: quantity is an amount
+
+`137 × AAPL` with a price anyone can look up is the position's value. Average-paid and unit-price
+columns are the same story more directly. **Quantities and per-unit prices mask too**, or the
+feature leaks through arithmetic and looks like it works.
+
+Percentages, by contrast, are the point of the feature and stay: percent of portfolio, percent
+grown, percent lost, the return figures. Someone can flex 340 % without saying on what.
+
+### What must not be softened
+
+**Rule 6 outranks this.** The reconciliation banner may mask the amount it is off by; it may not
+stop being red, and it may not stop saying it is off. A hidden number is a preference. A hidden
+disagreement with the broker is a false clean bill of health, and this project's whole claim is
+that it does not do that.
+
+The same for the `UNKNOWN` cash-row count and the price-gap warnings: the *count* is a number, and
+masking it would hide a data-quality problem behind a privacy setting. Counts of problems are not
+amounts. They stay.
+
+### One decision left
+
+Does the mask preserve digit count — `€ ••.•••,••` versus a fixed `€ •••`? Preserving it leaks the
+magnitude, and magnitude is most of the flex. Both are defensible; it is a decision rather than an
+accident. **Default: fixed width, leaking nothing.** Changing it is one constant.
+
+### Acceptance criteria
+
+- **AC1** A toggle labelled *Anonymize*, persisted in `localStorage` like the theme, default off.
+  A display preference, not account data.
+- **AC2** With it on, no euro amount and no share quantity appears anywhere on the page, in any
+  tooltip, on any axis tick, or in the popup.
+- **AC3** The masked value is **not in the DOM**. Asserted by reading `textContent`, not by looking.
+- **AC4** Every percentage still renders.
+- **AC5** The reconciliation verdict still renders, still in red when it disagrees, with the amount
+  masked. Warning *counts* still render.
+- **AC6** No currency formatting exists outside `theme.js`. Enforced by a test over the source.
+- **AC7** Turning it off restores every figure exactly. No recomputation, no refetch — it is a
+  formatting flag and nothing upstream of the formatter knows it exists.
+
+### Stop condition
+
+If masking requires touching `engine.js`, the design is wrong: a display preference has reached the
+computation path, which rule 1 forbids.
+
+---
+
+## US-47 — A shareable snapshot per position, on the clipboard *(new, refined)*
+
+> *"een share to discord button per positie waarbij we een certified snapshot maken in de vorm van
+> een shot oid die meteen op het klembord wordt gezet"*
+
+### Two corrections, and one of them is the whole story
+
+**1. Nothing goes to Discord.** The described mechanism — an image on the clipboard, pasted by the
+user — is already the right one, and it is right for a reason worth writing down: a webhook URL is a
+stored credential and an outbound egress path, which is rule 9 and rule 7 in one line. **The button
+says Discord and talks to the clipboard.** It must not later grow a network call; if that is ever
+wanted it is a different story with a different conversation.
+
+**2. "Certified" cannot mean what it sounds like, and shipping the word anyway would be the most
+dishonest thing in this codebase.** There is no authority. Any signature the extension can produce,
+anyone holding the extension can forge — the key would be sitting in the source. A certification
+badge that can be faked is worse than none, because it lends credibility to the fakes.
+
+What this project *can* honestly put on a card is **provenance**, and one piece of it is genuinely
+strong:
+
+| Claim | Can we make it? |
+|---|---|
+| This came from a real broker account | **No.** Unfalsifiable from inside the extension |
+| This is the poster's account | **No** |
+| These figures reconcile to the cent against the broker's own reported total, on this date | **Yes.** Rule 6 already computes exactly this |
+| Broker, date range, extension version | **Yes** |
+
+So the badge reads *reconciled against DEGIRO, 12 Aug 2026* — and, when it does not, **it says
+that instead**. A snapshot from an account that is € 40 000 out that carries a clean badge is the
+lie this project exists not to tell.
+
+### How the image gets made
+
+No `html2canvas`: it is a remote script and MV3's CSP forbids it, and vendoring a DOM rasteriser for
+one card is a lot of surface. **Draw the card on a `<canvas>` by hand**, which is better anyway:
+
+- A DOM capture ships whatever happens to be on screen — an open tooltip, the row above, a
+  reconciliation banner. A hand-drawn card ships **a declared field list**, which is rule 7.
+- The sparkline is a path from `p.pnl`; no chart library needed. Chart.js offscreen is available if
+  the shape gets ambitious, but it should not.
+- `canvas.toBlob()` → `navigator.clipboard.write([new ClipboardItem({'image/png': blob})])`.
+  Needs a user gesture and a focused document. `app.js:2943` already handles the not-focused
+  rejection for text and its message is reusable.
+
+### The field list
+
+Declared, and nothing else reaches the canvas:
+
+| On the card | Never on the card |
+|---|---|
+| Instrument name and symbol | Quantity, average paid, unit price |
+| The period | Account total, any other position |
+| Result **as a percentage** | Any account, session or user identifier |
+| Result **as an amount, only when US-46 is off** | The broker's own reported total |
+| The sparkline shape | The reconciliation *amount* |
+| Provenance: broker, date, reconciliation verdict, version | |
+
+**US-46 governs the amount.** Anonymize on means the card has no euros — which for a post meant to
+be public is the sensible default regardless.
+
+### Testable seam
+
+`snapshotModel(position, opts)` is **pure** and returns the object that will be drawn.
+`drawSnapshot(model, ctx)` touches the canvas and holds no decisions. The leak test asserts the
+*model's* key set against the allowlist, with a poisoned fixture, in the same shape as the export's
+guard — a PNG cannot be grepped, so the pixels are not where this is checked.
+
+### Acceptance criteria
+
+- **AC1** A small action on each holdings row. One click, one image, on the clipboard.
+- **AC2** No network request. Asserted structurally: no `fetch` in the snapshot module.
+- **AC3** The card's model contains only allowlisted keys. A poisoned fixture cannot get a value
+  through.
+- **AC4** The provenance line states the reconciliation verdict truthfully, including when it fails.
+- **AC5** With US-46 on, the card carries no amount.
+- **AC6** A clipboard refusal is reported to the user, not swallowed.
+- **AC7** The word "certified" does not appear on the card unless it is qualified by what was
+  actually checked.
+
+### Stop condition
+
+If the card needs a field that is not on the list, **the list is amended deliberately and the reason
+recorded** — never widened at the call site. That is how the 0.10.0 export leaked.
+
+---
+
+## US-48 — A watermark behind the tables and the charts *(new, refined — blocked on an asset)*
+
+> *"achter alle tabellen en grafieken een watermerk … een half transparent pngtje … links boven de
+> grafieken ofzo"*
+
+### Blocked on one thing
+
+The PNG. Until it exists this cannot be built, so the asset contract is settled now:
+
+- **Bundled**, under `assets/`, not fetched. CSP forbids remote images and the extension works
+  offline.
+- **Monochrome with an alpha channel**, not a coloured logo. One coloured asset is invisible on one
+  of the two themes, and this project ships light, dark and auto. A mono asset is tinted per theme
+  at draw time from an existing token. Two PNGs also works and is worse to maintain.
+- **At least 2× the drawn size**, for the same reason the icons are.
+
+### Tables and charts are two different problems
+
+| | Mechanism | Note |
+|---|---|---|
+| Tables | CSS `background-image` on the card | Trivial, and correct |
+| Charts | **A Chart.js plugin**, `beforeDraw`, `drawImage` at low alpha | `charts.js` already registers four plugins; this is a fifth of about fifteen lines |
+
+CSS behind a canvas *appears* to work — Chart.js canvases are transparent — but it does not
+composite into the canvas, so it is absent from any image US-47 produces and it does not move with
+the chart on zoom. The plugin route puts it in the pixels, which is what a watermark on a shared
+image has to mean.
+
+### The thing that will actually go wrong
+
+**Contrast.** CLAUDE.md's chart rules describe a palette that was validated against a specific
+surface, and notes that slots 3–5 are already below 3:1 on the light one, with the holdings table as
+the required relief. A watermark changes that surface. Every series gets harder to see, and the
+validation stops being a validation.
+
+Two ways out, and the second is what the request already asked for:
+
+1. Cap the alpha low enough that surface luminance barely shifts, and **measure it** rather than
+   picking by eye — the cap is a number derived from the existing threshold, not a taste.
+2. **Draw it in the padding, not under the plot area.** Top-left, outside the data box, is where the
+   request put it anyway. Nothing overlaps the series, the contrast question does not arise, and
+   the watermark is more legible for it.
+
+Recommendation: **(2), with (1) as the cap for the table backgrounds**, where there is no series to
+compete with and the watermark can sit behind the content.
+
+### Rule 8
+
+One image, one position, one opacity, three constants in `config.js`. **Not** a watermark system
+with positions, multiple assets, per-chart overrides or a settings panel. If a second position is
+ever wanted, that is when the second position gets built.
+
+### Acceptance criteria
+
+- **AC1** The mark appears behind every table card and on every chart, from one asset and one
+  opacity constant.
+- **AC2** It is legible in light, dark and auto, from a single monochrome asset.
+- **AC3** It does not overlap the plot area of any chart.
+- **AC4** No chart's series colours change, and no contrast check that passed before fails after.
+- **AC5** It composites into the canvas, so it survives into a US-47 snapshot.
+- **AC6** No remote request. The asset is bundled.
+
+### Stop condition
+
+If the mark cannot be placed without sitting under the series on some chart, **report it rather than
+lowering the opacity until it looks acceptable.** An opacity chosen by eye against one theme is how
+the palette work gets quietly undone.
