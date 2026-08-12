@@ -77,8 +77,12 @@
 <h1>Optimism Mode: how the chart should turn around</h1>
 <p class="lede">
   Same invented account in every mode — <b>€ 17.000 paid in</b>, worth <b>€ 3.300</b>, so
-  <b>€ 13.700</b> lost. Switch between them and watch what happens to the deposit steps, which is
-  where the current version falls apart.
+  <b>&euro; 13.700</b> lost.
+  <br><br>
+  The first three <b>deform the value chart</b>, and the deposit steps are where you can watch them
+  fail. The two marked <b>&#9733;</b> do something better: they leave the real chart alone and draw a
+  <b>different chart</b> &mdash; one that means something honest read straight, and happens to climb
+  when things go badly.
 </p>
 
 <div class="modes" id="modes"></div>
@@ -86,7 +90,7 @@
 <div class="card">
   <canvas id="c" width="1120" height="420"></canvas>
   <div class="legend">
-    <span><i class="swatch" style="background:var(--ink-3)"></i>Money paid in</span>
+    <span id="deplegend"><i class="swatch" style="background:var(--ink-3)"></i>Money paid in</span>
     <span><i class="swatch" id="sw" style="background:var(--neg)"></i><span id="swlabel">Portfolio value</span></span>
   </div>
 </div>
@@ -138,6 +142,42 @@ function upOnly(v) {
   return out;
 }
 
+/**
+ * A better idea than any of the above: do not deform the value chart at all.
+ * Draw a **different chart** — one that means something honest read straight,
+ * and happens to climb when things go badly.
+ */
+
+/**
+ * Upside remaining: what you stand to make getting back to break-even.
+ *
+ * `max(0, paid in − worth)`. Literally true, and it grows as things get worse.
+ * It ends at exactly the amount that was lost — the same number, with the sign
+ * turned around by the framing rather than by arithmetic.
+ */
+function upsideRemaining(v, d) {
+  return v.map((x, i) => Math.max(0, d[i] - x));
+}
+
+/**
+ * Conviction index: a point for every day held under water, scaled by how far
+ * under you were.
+ *
+ * A genuine behavioural measure — how much unrealised pain you sat through
+ * without selling — and a line that can only rise for anyone whose portfolio is
+ * down. The worse it goes, the more impressive you look, which is the joke and
+ * is also arguably true.
+ */
+function convictionIndex(v) {
+  let peak = 0;
+  let score = 0;
+  return v.map((x) => {
+    peak = Math.max(peak, x);
+    score += (peak > 0 ? Math.max(0, (peak - x) / peak) : 0) * 100;
+    return Math.round(score);
+  });
+}
+
 const TRANSFORMS = {
   actual: { fn: actual, label: 'What happened', colour: 'var(--neg)',
     why: '<p>The deposits step up three times. The value climbs after each one and then slides away underneath them. <b>€ 13.700 lost.</b></p>' },
@@ -145,6 +185,10 @@ const TRANSFORMS = {
     why: '<p><b>This is the one that was rejected.</b> Look at the deposit steps: every moment money went <em>in</em>, the line now drops. The start is invented and nothing matches what happened.</p><p>Worth knowing: “invert every daily change” is the same operation — it expands to a reflection about the first value. Rewording it does not fix the deposits.</p>' },
   pnl: { fn: invertPnl, label: 'Invert the P/L', colour: 'var(--pos)',
     why: '<p>Deposits stay deposits; only what the market did turns around. Every week that sank now climbs the same amount, a withdrawal is still a drop, and the line ends exactly as far <em>above</em> the paid-in line as it really sits below it.</p><p><b>€ 13.700 lost becomes € 13.700 gained.</b></p>' },
+  upside: { fn: upsideRemaining, label: '★ Upside remaining', colour: 'var(--pos)', newChart: true, unit: '€',
+    why: '<p><b>A different chart, not a deformed one.</b> How much you stand to make getting back to break-even: <code>paid in − worth</code>. Literally true, and it climbs as things get worse.</p><p>It ends at exactly the amount that was lost — the same number, with the sign turned around by the framing rather than by arithmetic. Read earnestly it is a real figure; read as intended it is a chart that rewards a crash.</p>' },
+  conviction: { fn: convictionIndex, label: '★ Conviction index', colour: 'var(--accent)', newChart: true, unit: 'pts',
+    why: '<p><b>A point for every day held under water</b>, scaled by how far under you were. A real behavioural measure — how much unrealised pain you sat through without selling — and a line that can only rise for anyone whose portfolio is down.</p><p>The worse it goes, the more impressive you look. Which is the joke, and is also arguably true.</p>' },
   up: { fn: upOnly, label: 'UP ONLY', colour: 'var(--pos)',
     why: '<p>Every movement — up or down — becomes an up movement. The line is incapable of falling.</p><p>The least defensible and the most obviously a joke, which by this feature’s own logic makes it the <em>safest</em>: nobody can mistake a monotonic staircase for a portfolio. It also throws away the shape entirely, so the account is no longer recognisably yours.</p>' },
 };
@@ -159,7 +203,7 @@ const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n
 function draw() {
   const t = TRANSFORMS[mode];
   const series = t.fn(VALUE, DEPOSITS);
-  const all = [...series, ...DEPOSITS, 0];
+  const all = t.newChart ? [...series, 0] : [...series, ...DEPOSITS, 0];
   const lo = Math.min(...all);
   const hi = Math.max(...all);
   const P = { l: 78, r: 18, t: 18, b: 30 };
@@ -175,13 +219,18 @@ function draw() {
   for (let k = 0; k <= 5; k++) {
     const v = lo + ((hi - lo) * k) / 5;
     ctx.beginPath(); ctx.moveTo(P.l, y(v)); ctx.lineTo(W - P.r, y(v)); ctx.stroke();
-    ctx.fillText('€ ' + Math.round(v).toLocaleString('nl-NL'), P.l - 8, y(v) + 4);
+    const label = t.unit === 'pts'
+      ? Math.round(v).toLocaleString('nl-NL') + ' pts'
+      : '€ ' + Math.round(v).toLocaleString('nl-NL');
+    ctx.fillText(label, P.l - 8, y(v) + 4);
   }
 
-  // deposits
-  ctx.strokeStyle = css('--ink-3'); ctx.setLineDash([6, 5]); ctx.lineWidth = 2;
-  ctx.beginPath(); DEPOSITS.forEach((v, i) => (i ? ctx.lineTo(x(i), y(v)) : ctx.moveTo(x(i), y(v))));
-  ctx.stroke(); ctx.setLineDash([]);
+  // deposits — meaningless on an invented chart, so it is left off there
+  if (!t.newChart) {
+    ctx.strokeStyle = css('--ink-3'); ctx.setLineDash([6, 5]); ctx.lineWidth = 2;
+    ctx.beginPath(); DEPOSITS.forEach((v, i) => (i ? ctx.lineTo(x(i), y(v)) : ctx.moveTo(x(i), y(v))));
+    ctx.stroke(); ctx.setLineDash([]);
+  }
 
   // the series
   ctx.strokeStyle = css(t.colour.replace('var(', '').replace(')', '')) || t.colour;
@@ -190,18 +239,26 @@ function draw() {
   ctx.stroke();
 
   // facts
-  const paid = DEPOSITS.at(-1), worth = Math.round(series.at(-1));
-  const result = worth - paid;
-  document.getElementById('facts').innerHTML = [
-    ['Paid in', '€ ' + paid.toLocaleString('nl-NL')],
-    ['Worth', '€ ' + worth.toLocaleString('nl-NL')],
-    ['Result', (result >= 0 ? '+' : '−') + ' € ' + Math.abs(result).toLocaleString('nl-NL')],
-    ['Lowest point', '€ ' + Math.round(Math.min(...series)).toLocaleString('nl-NL')],
-  ].map(([k, v]) => `<div class="fact"><span>${k}</span><b>${v}</b></div>`).join('');
+  const paid = DEPOSITS.at(-1), end = Math.round(series.at(-1));
+  const money = (n) => '€ ' + Math.round(n).toLocaleString('nl-NL');
+  const rows = t.newChart
+    ? [['Really paid in', money(paid)],
+       ['Really worth', money(VALUE.at(-1))],
+       ['This chart ends at', t.unit === 'pts' ? end.toLocaleString('nl-NL') + ' pts' : money(end)],
+       ['Direction', 'up only ↗']]
+    : [['Paid in', money(paid)],
+       ['Worth', money(end)],
+       ['Result', (end - paid >= 0 ? '+' : '−') + ' ' + money(Math.abs(end - paid))],
+       ['Lowest point', money(Math.min(...series))]];
+  document.getElementById('facts').innerHTML = rows
+    .map(([k, v]) => `<div class="fact"><span>${k}</span><b>${v}</b></div>`).join('');
 
   document.getElementById('why').innerHTML = t.why;
   document.getElementById('sw').style.background = t.colour;
   document.getElementById('swlabel').textContent = t.label;
+  // The deposits line is not drawn on an invented chart, so it is not in the
+  // legend either — a key for a line that is not there is just wrong.
+  document.getElementById('deplegend').style.display = t.newChart ? 'none' : '';
   document.getElementById('src').textContent = t.fn.toString();
 }
 

@@ -2344,3 +2344,61 @@ the picture wrong, which is the worst of both.
 - **A rising account.** 0.41.0 leaves one alone. Under this formula there is nothing to leave alone —
   a winning account flipped becomes a losing one, so the guard stays: only flip when the result is
   negative.
+
+
+---
+
+## US-35d — Do not deform the chart. Draw a different one. *(refined, replaces US-35c)*
+
+> *"ik hoef niet dat je de graph verwisseld ik wil idd gwn dat je een nieuwe graph verzint, die
+> natuurlijk wel ERGENS op slaat"*
+
+This supersedes the whole transform question, and it is a better idea than any of the three
+answers to it. Every option in US-35c deforms the real value chart, which is why each one had a
+tell: the mirror inverts the deposit steps, UP ONLY discards the shape, and even the honest P/L
+inversion is a chart claiming to be the value line while not being it.
+
+**Leave the value chart alone. Add a chart that is true when read straight and happens to climb
+when things go badly.** Both candidates are in the prototype, marked ★.
+
+### Candidate 1 — Upside remaining
+
+```
+upside[i] = max(0, cumulativeDeposited[i] − value[i])
+```
+
+What you stand to make getting back to break-even. It is **literally true**: on the example account
+it ends at € 13.700, which is exactly what was lost. The sign is turned around by the *framing*, not
+by arithmetic — which is the difference between a joke and a lie, and it is why this one can carry
+a straight face.
+
+### Candidate 2 — Conviction index
+
+```
+peak = running max of value
+score += max(0, (peak − value) / peak) × 100   // one point per day, scaled by depth
+```
+
+A point for every day held under water, weighted by how far under. A real behavioural measure —
+unrealised pain sat through without capitulating — and a line that **can only rise** for anyone
+whose portfolio is down. On the example account it accelerates into a near-vertical climb while the
+portfolio collapses, which is exactly the picture.
+
+Reads best of the two, because the *shape* is funny rather than only the framing: it goes parabolic
+precisely when things are worst.
+
+### Why this is also the safest version yet
+
+Every earlier option produced something shaped like a portfolio value chart while not being one.
+These are not pretending to be that chart at all — different axis, different units, its own title,
+and the deposits line correctly absent. There is nothing to mistake, which means the joke no longer
+leans entirely on the stamp.
+
+### To decide
+
+- **One or both?** They stack — *upside remaining* in euros, *conviction* in points — and two
+  charts is more of a bit than one.
+- **Do they replace the value chart while the mode is on, or sit beside it?** Beside it is more
+  honest and the contrast is funnier; replacing it is cleaner.
+- Titles. *"Upside remaining"* and *"Conviction index"* are the straight versions; there are
+  sillier ones available and the straight face may be funnier.
