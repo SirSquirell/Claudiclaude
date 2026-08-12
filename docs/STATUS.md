@@ -78,7 +78,7 @@ F1–F5 shipped in 0.37.0, F6–F9 in 0.38.0. U1–U5 need a decision rather tha
 | Story | State | Waiting on |
 |---|---|---|
 | US-34 | **Trading 212** — the most promising broker looked at. R2, R3 and probably R5 are yes and *better shaped* than DEGIRO's; R4 answered at shape level | **One browser capture.** `docs/T212-SPIKE-BRIEF.md` is the brief |
-| US-35d | **Optimism Mode: a new chart rather than a deformed one** — *Upside remaining* and *Conviction index*, both true read straight. Prototype at `docs/prototypes/optimism-flip.html` | One or both, beside or instead. Then build |
+| US-35d | **Optimism Mode: a new chart rather than a deformed one** — *Upside remaining* and *Conviction index*, both true read straight. Prototype at `docs/prototypes/optimism-flip.html` | **Decided — both, in place of the real charts, all copy naming PROP.** Ready to build |
 | US-23 | Sync and wipe, per broker | Deliberately deferred (rule 8) — a second broker existing |
 | US-24 | Combine, and filter | Same. The arithmetic is proven and tested; the UI is not built |
 | US-25 | Two accounts under one login | A spike, not a story. Cheap *after* US-22, which has landed |

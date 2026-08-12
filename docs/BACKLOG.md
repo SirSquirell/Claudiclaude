@@ -2394,11 +2394,52 @@ These are not pretending to be that chart at all — different axis, different u
 and the deposits line correctly absent. There is nothing to mistake, which means the joke no longer
 leans entirely on the stamp.
 
-### To decide
+### Decided
 
-- **One or both?** They stack — *upside remaining* in euros, *conviction* in points — and two
-  charts is more of a bit than one.
-- **Do they replace the value chart while the mode is on, or sit beside it?** Beside it is more
-  honest and the contrast is funnier; replacing it is cleaner.
-- Titles. *"Upside remaining"* and *"Conviction index"* are the straight versions; there are
-  sillier ones available and the straight face may be funnier.
+**Both, and they replace the real charts rather than sitting beside them.** One for one, in place,
+so the Overview keeps its shape and nothing new has to be laid out:
+
+| Slot | Normally | With the mode on |
+|---|---|---|
+| First chart | Portfolio value including cash | **Conviction index** |
+| Second chart | Money paid in vs what it is worth | **Upside remaining** |
+
+Replacing rather than adding also settles a smaller thing for free: the real charts are simply not
+rendered while the mode is on, so there is no window in which a flipped chart and a real one are on
+screen together to be confused with each other.
+
+### The copy — every string names PROP
+
+The gate already guarantees the reader holds it, so the name can be used without a fallback path
+being exercised in practice. `subjectOf(r)` supplies it; nothing is hardcoded below the constant.
+
+**Conviction index**
+- Title: `Belief in {PROP}, over time`
+- Subtitle: `One point for every day you held {PROP} while it was under water, weighted by how far
+  under. It has never gone down. Neither should you.`
+- Axis: `pts`
+- Empty state cannot occur — the gate saw to it.
+
+**Upside remaining**
+- Title: `What {PROP} still owes you`
+- Subtitle: `How much you make the moment {PROP} returns to what you paid. This is the number that
+  grows when things go badly, which is why it is the only chart worth looking at.`
+- Axis: euros.
+
+Both keep the stamp over them, and both are drawn in the gain colour whatever they contain.
+
+### Implementation notes, so tomorrow is typing
+
+- The two functions are in `docs/prototypes/optimism-flip.html`, pure and
+  `(value, deposits) => number[]`. Lift verbatim into `src/ui/frown.js` beside `flipSeries`.
+- `flipSeries` and its call site in `app.js` come **out**. US-35c is dead; nothing should keep a
+  transform nobody chose.
+- The swap belongs where `cheer()` currently sits in `render()` — same place, same guard
+  (`frown.isOn() && state.tab === 'overview'`), and the guard already includes the PROP gate via
+  `onOverview`.
+- The deposits series must not be drawn on either chart: it means nothing on both. The prototype
+  shows the legend handling for this.
+- Chart titles and subtitles are rendered from the DOM, not from the chart library — so they are
+  swapped by setting `textContent`, and they need `tr()` entries like everything else.
+- Tests: one that each function is monotonically non-decreasing on a losing account, one that the
+  copy contains the subject's name, and the existing quarantine test already covers the rest.
