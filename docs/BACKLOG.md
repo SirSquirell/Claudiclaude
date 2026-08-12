@@ -2526,10 +2526,11 @@ rule 8.
 
 ---
 
-## US-44 — Parameterise the session read *(small, and only if US-37 says yes)*
+## US-45 — Parameterise the session read *(small, and only if US-37 says yes)*
 
-> Renumbered from US-38 on 2026-08-11. An external delivery brief allocated US-38 to broker
-> onboarding contracts, and two stories with one number is worse than either name.
+> Renumbered twice on 2026-08-11: US-38 → US-44 → US-45. An external brief claimed US-38 for
+> onboarding contracts and then US-44 for the addendum below. Two stories under one number is worse
+> than either name, and this one is the least load-bearing of the three.
 
 `session.js:19` hardcodes `JSESSIONID` and DEGIRO's host. That is the single line standing between
 the current session layer and a second broker using it.
@@ -2567,3 +2568,63 @@ One judgement recorded rather than silently applied: the brief specifies a servi
 a temporary host permission. **Neither is built yet**, because its own ordering says the page-context
 baseline comes first, and a host permission granted before there is anything to use it for is one
 the user approves for nothing. That is US-37's AC5.
+
+
+---
+
+## US-44 — Trading 212 renders through the existing pipeline, not beside it *(from an addendum)*
+
+**Gate: US-37 passed, and the R2–R5 data gates cleared.** Nothing here starts earlier.
+
+> ⚠ **The addendum's own text did not arrive** — only the instructions around it: add as US-44, does
+> not change US-37's order or scope, refine against the current codebase and the existing visual
+> pipeline, and **build no separate Trading 212 dashboard**. What follows is that requirement
+> refined against the code. If the addendum contains anything beyond it, this needs revisiting.
+
+### The requirement
+
+One dashboard. A second broker's data enters at the adapter and comes out through the same engine,
+the same combining and the same charts. There is no Trading 212 view, no Trading 212 tile, and no
+Trading 212 branch in a chart builder.
+
+### What already enforces this — refined against the code
+
+The architecture is largely there, which is the useful finding:
+
+| Mechanism | Where | State |
+|---|---|---|
+| Every result already goes through the combiner | `datasource.js` — `asPortfolio()` wraps even the single DEGIRO result | **Live.** The multi-broker path is the only path, on every page load |
+| The combiner returns a single part untouched | `combine.js`, acceptance criterion A5, pinned by test T8 | **Live and tested** |
+| The engine is broker-agnostic | `engine.js` takes plain arrays; it has never named a broker | **Holds** |
+| Adapters normalise before the engine | `brokers/index.js` — `parseCashRows` returns rows already carrying a category | **Holds** |
+
+So US-44 is mostly *not regressing* something that already works, rather than building it.
+
+### What actually has to change, and it is short
+
+- **`app.js` names DEGIRO 24 times.** Some are labels in strings, some are code paths. The
+  `COPILOT-ARCHITECTURE-BRIEF.md` asks for exactly that distinction; this story consumes the answer.
+  A label is fine — the page may say which broker a row came from. A *branch* is not.
+- **Per-broker provenance without per-broker rendering.** A holding, a cash row and a dividend keep
+  which broker they came from, and the UI can filter on it. Filtering changes presentation; it does
+  not change truth. That is US-24, already refined and deferred.
+- **Reconciliation stays per broker** and is shown per broker. Rule 6 must not be softened by
+  combining: a cent out at one broker cannot be hidden by another. `combine.js` already carries
+  this; the UI has to display it.
+
+### Acceptance criteria
+
+- **AC1** No file under `src/ui/` gains a broker-specific branch. A broker *name* rendered as data
+  is allowed; `if (broker === 'trading212')` is not.
+- **AC2** No chart builder in `charts.js` takes a broker argument.
+- **AC3** `engine.js` and `combine.js` are unchanged, unless a demonstrable generic bug says
+  otherwise — and then it is called out as a change to the numbers, not a refactor.
+- **AC4** With one broker connected, every figure on the dashboard is **byte-identical** to before
+  the second adapter existed. This is the regression that matters and it is testable today.
+- **AC5** Per-broker reconciliation is visible. Combining does not average two verdicts into one.
+
+### Stop condition
+
+If rendering Trading 212 through the existing pipeline requires a special case in the UI or the
+engine, **stop and report it** rather than adding the branch. That special case is the finding: it
+means the normalisation belongs in the adapter and has been pushed too far downstream.

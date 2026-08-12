@@ -78,7 +78,8 @@ F1–F5 shipped in 0.37.0, F6–F9 in 0.38.0. U1–U5 need a decision rather tha
 | Story | State | Waiting on |
 |---|---|---|
 | US-37 | **Trading 212 R1** — harness built, 19 tests green. `tools/trading212-r1/` | **One person with a T212 login, ten minutes.** Steps in that folder's README |
-| US-44 | Parameterise the session read (`session.js:19`) — renumbered from US-38 | Deferred until R1 clears — rule 8 |
+| US-44 | **Trading 212 renders through the existing pipeline** — no separate dashboard | Gated on US-37 and the data gates. Addendum body not yet received |
+| US-45 | Parameterise the session read (`session.js:19`) — renumbered twice | Deferred until R1 clears — rule 8 |
 | US-39–43 | Multi-broker delivery sequence from an external brief | All gated on US-37 |
 | US-34 | **Trading 212 — the spike ran.** R2, R3, R4, R5 answered; the price history is **public and needs no account**, daily candles back to 2017 | **One question left**: can the account data be reached without storing a credential? Rule 9 decides the story on it |
 | US-35d | **Optimism Mode: a new chart rather than a deformed one** — *Upside remaining* and *Conviction index*, both true read straight. Prototype at `docs/prototypes/optimism-flip.html` | **Decided — both, in place of the real charts, all copy naming PROP.** Ready to build |
