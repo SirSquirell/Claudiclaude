@@ -72,6 +72,23 @@ this exercise.
 | `docs/STATUS.md` | What is built, what is refined, what is parked |
 | `docs/IBKR-SPIKE-BRIEF.md` | IBKR has **not** been investigated yet |
 
+### What exists today, concretely
+
+Counted on 2026-08-11 so the report starts from facts rather than an impression:
+
+| | |
+|---|---|
+| Version | 0.42.0, ~43 releases |
+| Tests | **350**, `node --test`, no install needed. Plus a leak guard and a palette check in the same `npm test` |
+| Engine | `engine.js`, ~2 700 lines. Pure: no `fetch`, no `chrome.*`, no `indexedDB`, no `Date.now()` |
+| Adapter boundary | `brokers/index.js` with **15 `REQUIRED` members** and `missingMembers()` |
+| Combining | `combine.js`, live on every page load, **22 tests** |
+| Brokers implemented | **one** — DEGIRO |
+| Brokers investigated | Trade Republic (parked, three claims retracted), Trading 212 (**measured**, one question left), IBKR (**not started**) |
+| Egress control | `EXPORTABLE_META` allowlist in `store.js`, a second allowlist in `report.js`, a leak guard in `tools/check-leaks.mjs` |
+| UI | 7 sections, EN/NL, light/dark/auto, ~350 dictionary entries |
+| Dependencies | **none.** Chart.js is vendored |
+
 Facts worth stating up front, because they change the shape of any proposal:
 
 - **The multi-broker path is already the only path.** Every page load runs the single DEGIRO result
@@ -187,3 +204,36 @@ the story rather than proposing a login form.
   `brokers/index.js` documents the one exception and why it earned it.
 - Silence about leaks. A report that says the boundary is clean without having checked
   `session.js`, `config.js` and the UI for broker names has not done the job.
+
+
+---
+
+## The output has to be executable by another agent
+
+This report does not end in a slide. It ends in **instructions handed to the Claude Code session
+that maintains this repository**, so write it to be acted on rather than admired.
+
+That means:
+
+- **Anchor every recommendation.** File path, and the function or section within it. "The adapter
+  boundary needs work" is not actionable; "`brokers/index.js:REQUIRED` has no member for X, and
+  `sync.js` calls it at the windowing step" is.
+- **Cite the rules by number.** `CLAUDE.md` rules 1, 2, 4, 5, 6, 7, 8 and 9 each rule some options
+  out. A recommendation that collides with one is fine *if it says so and argues it*; one that
+  collides silently gets rejected on sight and wastes the round trip.
+- **Say what to change, not what to build.** Most of this exists. The useful unit is a diff-shaped
+  instruction against a named file.
+- **Use the backlog's shape for anything that is not a one-liner**: a story, acceptance criteria,
+  and — this one matters most — **stop conditions agreed in advance.** `MULTI-BROKER.md` §6 is the
+  model. Every spike in this project that went well had its "what would make us stop" written down
+  while it was still cheap to agree to.
+- **Order the work by what unblocks what**, and say which items are wasted effort if an earlier one
+  fails. R1 is the standing example: no adapter work for a broker survives R1 coming back "no".
+- **Separate findings from proposals.** A leak found in `app.js` is a fact. What to do about it is
+  an opinion. Mixing them makes both harder to check.
+- **Flag anything you could not verify.** "Unknown" is a usable answer and a wrong confident one
+  costs a release. This project has shipped four defects this month that came from exactly that,
+  and they are written up in `docs/FINDINGS-TESTERS.md`.
+
+If a recommendation would change a number on somebody's screen, say so explicitly. Those are not
+refactors and they do not ship as one.
