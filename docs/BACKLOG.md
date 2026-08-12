@@ -2526,7 +2526,10 @@ rule 8.
 
 ---
 
-## US-38 — Parameterise the session read *(small, and only if US-37 says yes)*
+## US-44 — Parameterise the session read *(small, and only if US-37 says yes)*
+
+> Renumbered from US-38 on 2026-08-11. An external delivery brief allocated US-38 to broker
+> onboarding contracts, and two stories with one number is worse than either name.
 
 `session.js:19` hardcodes `JSESSIONID` and DEGIRO's host. That is the single line standing between
 the current session layer and a second broker using it.
@@ -2534,3 +2537,33 @@ the current session layer and a second broker using it.
 **Deliberately deferred until R1 clears.** Rule 8: it is a generalisation with one implementation
 until there is a second, and if R1 fails there never is one. Recorded so the finding is not lost,
 not so it gets built.
+
+
+---
+
+## US-39 … US-43 — the multi-broker delivery sequence *(external brief, gated on US-37)*
+
+An external delivery brief proposes onboarding contracts (US-38), a broker management UI (US-39),
+the Trading 212 adapter (US-40), storage namespacing (US-41), multi-broker sync and reconciliation
+(US-42) and release hardening (US-43). It is consistent with this backlog and with `CLAUDE.md`, and
+it is correctly gated: **none of it starts before US-37 passes.**
+
+Three deviations found when it was checked against the repository, recorded so they are not
+rediscovered:
+
+1. **`GET /rest/v1/accounts` is a hypothesis, not a measurement.** It appears nowhere in
+   `MULTI-BROKER.md` §8. The only Trading 212 host this project has measured anything on is
+   `live.services.trading212.com`, and only its charting paths. `READ_PATHS` in the spike marks each
+   path `measured` or `hypothesis` for exactly this reason, and a test pins that no third value can
+   appear.
+2. **US-38 collided with an existing story.** Resolved by renumbering the local one to US-44.
+3. **The brief says "build the full US-37 spike and tests" — the decisive part cannot be built.**
+   It is two lines in a browser console and it needs an account nobody on this project has. What
+   *has* been built is everything around it: the target gate, the classifier, the shape describer,
+   the verdict function and 19 tests. `docs/TRADING212-R1-RESULT.md` has the measurement fields
+   open.
+
+One judgement recorded rather than silently applied: the brief specifies a service-worker probe and
+a temporary host permission. **Neither is built yet**, because its own ordering says the page-context
+baseline comes first, and a host permission granted before there is anything to use it for is one
+the user approves for nothing. That is US-37's AC5.
