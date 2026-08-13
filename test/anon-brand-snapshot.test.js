@@ -153,8 +153,13 @@ test('the watermark is drawn above the plot area, never inside it', () => {
   const src = read('../src/ui/charts.js');
   const plugin = /const watermark = \{[\s\S]*?\n\};/.exec(src)[0];
   assert.ok(/beforeDraw/.test(plugin), 'behind the data, not over it');
-  assert.ok(/area\.top - height/.test(plugin), 'placed above chartArea.top');
-  assert.ok(!/area\.(left|bottom)\s*\+/.test(plugin), 'nothing is placed inside the plot');
+  // The claim is vertical: the mark's bottom edge is above the plot's top edge,
+  // so no part of it overlaps a series. Horizontally it aligns to the plot's
+  // left edge — inside the plot's *columns* but above its rows, and clear of
+  // the y-axis tick labels, which are the only thing in that padding row.
+  assert.ok(/y: Math\.max\(0, area\.top - height/.test(plugin), 'placed above chartArea.top');
+  assert.ok(!/y:\s*area\.(top|bottom)\s*[+]/.test(plugin), 'never drawn down into the plot');
+  assert.ok(/if \(area\.top < height/.test(plugin), 'and it withholds itself when there is no room');
   assert.ok(/padding: \{ top: WATERMARK\.height \+ /.test(src), 'and the space above is reserved');
 });
 
