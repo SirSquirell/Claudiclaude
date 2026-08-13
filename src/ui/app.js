@@ -39,7 +39,10 @@ import * as frown from './frown.js';
 let demoVersion = null;
 import { isSameRun } from '../lib/sync.js';
 import { LANGS, applyStatic, getLang, missing as missingTranslations, setLang, t as tr } from './i18n.js';
-import { THEMES, alpha, applyTheme, fmtEurCents, fmtPct, fmtSigned, getTheme, onThemeChange, setTheme, tokens } from './theme.js';
+import { THEMES, alpha, applyAnonymize, applyTheme, fmtEurCents, fmtPct, fmtQty, fmtSigned, getAnonymize, getTheme, onThemeChange, setAnonymize, setTheme, tokens } from './theme.js';
+import { snapshotModel } from '../lib/snapshot.js';
+import { markSvg } from './brand.js';
+import { copySnapshot } from './snapshot.js';
 import { inExtension, load, send, wantsDemo } from './datasource.js';
 
 const RANGES = ['1M', '3M', '6M', 'YTD', '1Y', 'ALL'];
@@ -155,6 +158,8 @@ async function init() {
   applyStatic();
   buildLangControl();
   buildThemeControl();
+  applyAnonymize();
+  buildAnonControl();
   wireTips();
   onThemeChange(() => render());
 
@@ -287,6 +292,119 @@ function buildThemeControl() {
       render();
     });
     group.append(b);
+  }
+}
+
+/**
+ * US-46. One button. Everything downstream of it is already handled by the
+ * formatters, so this re-renders and does nothing else — it deliberately does
+ * not touch the data, the store or the engine. A display preference that
+ * reaches the computation path is rule 1's failure, and there would be no way
+ * back off it without a resync.
+ */
+function buildAnonControl() {
+  const b = $('#btn-anon');
+  if (!b) return;
+  const paint = () => {
+    b.setAttribute('aria-pressed', String(getAnonymize()));
+    b.textContent = tr(getAnonymize() ? 'Show amounts' : 'Anonymize');
+  };
+  paint();
+  b.addEventListener('click', () => {
+    setAnonymize(!getAnonymize());
+    paint();
+    render();
+  });
+}
+
+/**
+ * The window the holdings table was last drawn for, and the result behind it.
+ *
+ * A click handler cannot re-derive this: `from` and `to` are *indices* into
+ * `r.days`, chosen by the range control, and the handler fires long after
+ * `render()` returned. Kept as one object so the two can never come from
+ * different renders.
+ */
+let lastWindow = null;
+
+/**
+ * The running total of a window's daily P/L — the sparkline's shape.
+ *
+ * Cumulative rather than per-day: a day-by-day series of a volatile holding is
+ * noise, and what a card claims is the journey, not the jitter.
+ */
+function cumulativeWindow(pnl, from, to) {
+  const out = [];
+  let acc = 0;
+  for (let i = Math.max(0, from); i <= to && i < (pnl?.length ?? 0); i++) {
+    acc += pnl[i] ?? 0;
+    out.push(acc);
+  }
+  return out;
+}
+
+/**
+ * US-47. One delegated listener for the whole table, wired once.
+ *
+ * Delegated because `renderHoldings` rebuilds its `<tbody>` on every render, and
+ * a listener bound to a row that no longer exists is the kind of leak that only
+ * shows up after an hour of clicking around.
+ */
+function wireSnapshots() {
+  const table = $('#holdings');
+  if (!table || table.dataset.snapWired) return;
+  table.dataset.snapWired = '1';
+  table.addEventListener('click', async (e) => {
+    const btn = e.target.closest?.('button[data-snap]');
+    if (!btn) return;
+    const w = lastWindow;
+    const r = w?.result;
+    const p = r?.byProduct?.find((x) => String(x.productId) === btn.dataset.snap);
+    if (!p) return;
+
+    btn.disabled = true;
+    try {
+      const model = snapshotModel({
+        name: p.name,
+        symbol: p.symbol,
+        from: r.days[w.from],
+        to: r.days[w.to],
+        result: sumWindow(p.pnl, w.from, w.to),
+        paidIn: p.paidIn?.at(-1) ?? 0,
+        series: cumulativeWindow(p.pnl, w.from, w.to),
+        anonymized: getAnonymize(),
+        // Tri-state, deliberately. An account with nothing to reconcile against
+        // reports `null`, which the card renders as "not checked" and never as
+        // a pass. A clean badge on an unverified figure is the failure this
+        // whole line exists to prevent.
+        reconciled: r.reconciliation ? r.reconciliation.ok === true : null,
+        asOf: r.days[w.to] ?? null,
+        version: inExtension ? chrome.runtime.getManifest().version : demoVersion,
+      });
+      const out = await copySnapshot(model);
+      if (out.ok) notice('ok', tr('Image copied. Paste it wherever you like.'));
+      else notice('error', `${tr('Could not reach the clipboard')}: ${out.error}`);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+}
+
+/**
+ * US-48. The mark behind each card.
+ *
+ * A DOM child rather than a CSS `background-image`, so it rides `currentColor`
+ * and `--brand-accent` like every other placement — one geometry, no data URI
+ * with a colour baked into it, and no second copy to keep in step. Charts get
+ * theirs from a Chart.js plugin instead, because a CSS layer behind a canvas is
+ * absent from any image the canvas produces.
+ */
+function placeWatermarks() {
+  for (const card of document.querySelectorAll('.card')) {
+    if (card.querySelector(':scope > .card-watermark')) continue;
+    const mark = markSvg({ height: 18 });
+    mark.classList.add('card-watermark');
+    card.prepend(mark);
   }
 }
 
@@ -908,7 +1026,10 @@ function render() {
   renderMonthMatrix(months, t);
   renderMonthCompare(months, t);
 
+  lastWindow = { result: r, from, to };
   renderHoldings(r, composition, compColours, t, from, to);
+  wireSnapshots();
+  placeWatermarks();
   renderYears(r);
   renderOutlook(r, t);
   renderAnnualised(r, from, to);
@@ -2586,7 +2707,7 @@ function renderTransactions(data, r, from, to) {
         <td>${esc(formatDay(t.date))}</td>
         <td><span class="chip ${buy ? 'info' : 'warn'}">${esc(tr(buy ? 'Buy' : 'Sell'))}</span></td>
         <td>${esc(names[t.productId] ?? t.productId)}</td>
-        <td class="num">${(t.quantity ?? 0).toLocaleString('nl-NL', { maximumFractionDigits: 4 })}</td>
+        <td class="num">${esc(fmtQty(t.quantity ?? 0))}</td>
         <td class="num">${esc(fmtEurCents(t.price ?? 0))}</td>
         <td class="num">${esc(fmtSigned(-(t.totalBase ?? 0)))}</td>
       </tr>`;
@@ -2741,7 +2862,7 @@ function renderHoldings(r, composition, compColours, t, from, to) {
       const estimated = p.hasSeries === false;
       return `<tr>
         <td><span class="swatch" style="background:${colour}"></span>${esc(p.name)}${p.symbol && p.symbol !== p.name ? ` <span class="muted">${esc(p.symbol)}</span>` : ''}${grouped ? ` <span class="muted">· in “${esc(otherLabel)}”</span>` : ''}</td>
-        <td>${qty.toLocaleString('nl-NL', { maximumFractionDigits: 4 })}</td>
+        <td>${esc(fmtQty(qty))}</td>
         <td>${esc(unitPrice(p, qty))}</td>
         <td>${esc(averagePaid(p))}</td>
         <td>${esc(fmtEurCents(p.current))}</td>
@@ -2749,6 +2870,7 @@ function renderHoldings(r, composition, compColours, t, from, to) {
         ${resultCell(sumWindow(p.pnl, from, to))}
         <td>${((p.current / total) * 100).toFixed(1)}%</td>
         <td>${esc(p.currency)}${estimated ? ' <span class="muted" title="No price history for this instrument, so it is held at the last price it traded at — its result is an estimate.">·&nbsp;est.</span>' : ''}</td>
+        <td><button type="button" class="snap" data-snap="${esc(p.productId)}" title="${esc(tr('Copy a shareable image of this position'))}" aria-label="${esc(tr('Copy a shareable image of this position'))}">⧉</button></td>
       </tr>`;
     })
     .join('');
