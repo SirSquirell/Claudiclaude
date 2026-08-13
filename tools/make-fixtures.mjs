@@ -92,6 +92,11 @@ const INSTRUMENTS = [
   { id: '2964828', vwd: '340001211', sym: 'SHELL',name: 'SHELL PLC',               isin: 'GB00BP6MXD84', p0: 17,  drift: 0.14, vol: 0.25, yield: 0.041, from: '2023-10-02' },
   { id: '5462588', vwd: '355001982', sym: 'WKL',  name: 'WOLTERS KLUWER',          isin: 'NL0000395903', p0: 78,  drift: 0.11, vol: 0.20, yield: 0.017, from: '2024-05-21' },
   { id: '8449524', vwd: '375004417', sym: 'ARGX', name: 'ARGENX SE',               isin: 'NL0010832176', p0: 240, drift: 0.28, vol: 0.42, yield: 0.0,   from: '2025-02-10' },
+  // US-35's gate. Optimism Mode only unlocks for an account holding PROP, so
+  // the demo needs one or the feature cannot be exercised without a real
+  // account that happens to hold it. Given a negative drift on purpose: a mode
+  // whose whole job is to reframe a loss has nothing to say about a winner.
+  { id: '9911001', vwd: '399001001', sym: 'PROP', name: 'PROP TRADING GROUP',     isin: 'NL0011999911', p0: 42,  drift: -0.34, vol: 0.55, yield: 0.0,   from: '2023-01-09' }, // leak-check: ok — a generated vwd id, like the ten above it
 ];
 
 /**
