@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 64" width="240" height="64" role="img" aria-label="Asteria">
+  <title>Asteria</title>
+  <g transform="translate(6,8)">
+    <path d="M5 37 L15 27 L24 31 L33 19" fill="none" stroke="#16213E" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="5" cy="37" r="2.8" fill="#16213E"/>
+    <circle cx="15" cy="27" r="2.8" fill="#16213E"/>
+    <circle cx="24" cy="31" r="2.8" fill="#16213E"/>
+    <path d="M35 4 C35.7 9.2 38.2 12.3 44 13 C38.2 13.7 35.7 16.8 35 22 C34.3 16.8 31.8 13.7 26 13 C31.8 12.3 34.3 9.2 35 4 Z" fill="#D9531E"/>
+  </g>
+  <text x="66" y="40" font-family="Inter Tight, Inter, system-ui, sans-serif" font-size="30" font-weight="500" letter-spacing="2.6" fill="#16213E">ASTERIA</text>
+</svg>
