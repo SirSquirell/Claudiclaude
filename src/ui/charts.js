@@ -13,6 +13,8 @@
  */
 
 import { alpha, fmtEur, fmtEurCents, fmtSigned } from './theme.js';
+import { drawMark } from './brand.js';
+import { WATERMARK } from '../lib/config.js';
 import { daysBetween, formatDay } from '../lib/dates.js';
 
 const { Chart } = globalThis;
@@ -40,8 +42,12 @@ function baseOptions(t) {
     maintainAspectRatio: false,
     animation: false,
     interaction: { mode: 'index', intersect: false },
-    layout: { padding: { top: 4, right: 4 } },
+    // The top padding carries the watermark. Reserved rather than borrowed:
+    // the mark is drawn above the plot precisely so it never sits on the data,
+    // and that only holds if the space is really there.
+    layout: { padding: { top: WATERMARK.height + 6, right: 4 } },
     plugins: {
+      asteriaWatermark: { ink: t.brandInk, accent: t.brandAccent },
       legend: {
         display: false,
         position: 'bottom',
@@ -269,7 +275,62 @@ const tradeMarkers = {
   },
 };
 
-Chart.register(crosshair, cashflowMarkers, dragSelection, tradeMarkers);
+/**
+ * US-48 — the Asteria mark, behind every chart.
+ *
+ * Registered globally rather than per chart, so a chart added later carries it
+ * without anyone remembering to opt in — the same reasoning as US-46's masking
+ * living in the formatters: the default has to be the safe one.
+ *
+ * ## Two decisions, both measured rather than chosen by eye
+ *
+ * **It is drawn in the padding, never under the plot area.** CLAUDE.md's chart
+ * rules describe a palette validated against a specific surface, and note that
+ * slots 3–5 are already below 3:1 on the light one. A tint laid under the series
+ * changes that surface and the validation stops being a validation. The brand
+ * accent makes it sharper still: `#d9531e` against `--series-4` `#b0461a`
+ * measures **1.39:1** on light and **1.05:1** on dark — on dark they are, to a
+ * reader, the same colour. A spark drawn inside the plot beside a series-4 line
+ * does not read as a watermark; it reads as a data point.
+ *
+ * Drawing it in the top-left padding is where the request put it anyway, and it
+ * removes the problem instead of managing it.
+ *
+ * **`beforeDraw`, into the canvas, not a CSS background.** A CSS layer behind a
+ * transparent canvas looks identical on screen and is absent from every image
+ * the canvas produces — which is the whole point of a watermark on something
+ * shared (US-47).
+ *
+ * The mark, not the lockup: the brand floor for the lockup is 24 px and the
+ * wordmark comes off below it, so no text is rasterised and nothing here needs
+ * a font.
+ */
+const watermark = {
+  id: 'asteriaWatermark',
+  beforeDraw(chart, _args, opts) {
+    if (opts?.enabled === false) return;
+    const { ink, accent } = opts ?? {};
+    if (!ink || !accent) return;
+
+    const area = chart.chartArea;
+    if (!area) return;
+    const height = opts.height ?? WATERMARK.height;
+    // A chart too small or with no padding gets none: half a mark is worse
+    // than no mark.
+    if (area.top < height || chart.width < height * 6) return;
+
+    drawMark(chart.ctx, {
+      x: WATERMARK.inset,
+      y: Math.max(0, area.top - height - 1),
+      height,
+      ink,
+      accent,
+      opacity: opts.opacity ?? WATERMARK.opacity,
+    });
+  },
+};
+
+Chart.register(crosshair, cashflowMarkers, dragSelection, tradeMarkers, watermark);
 
 /**
  * Stride-sample a set of parallel arrays down to at most `max` points, always
