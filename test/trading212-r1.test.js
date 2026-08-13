@@ -47,7 +47,9 @@ test('a path nobody registered is refused, and a registered one says how it is k
     validateTarget({ method: 'GET', url: `${ALLOWED_ORIGINS[0]}/rest/v1/orders` }).reason,
     'path-not-registered',
   );
-  assert.equal(validateTarget({ method: 'GET', url: GOOD }).evidence, 'hypothesis');
+  // Was a hypothesis from community code until 2026-08-13, when the worker
+  // probe reached it and got 200 JSON. Reaching it is what promotes it.
+  assert.equal(validateTarget({ method: 'GET', url: GOOD }).evidence, 'measured');
   assert.equal(
     validateTarget({ method: 'GET', url: `${ALLOWED_ORIGINS[0]}/charting/v1/eq/ohlc/ONE_DAY` }).evidence,
     'measured',

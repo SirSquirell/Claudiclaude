@@ -45,7 +45,7 @@ export const ALLOWED_ORIGINS = Object.freeze(['https://live.services.trading212.
  */
 export const READ_PATHS = Object.freeze({
   '/charting/v1/eq/ohlc/ONE_DAY': 'measured',
-  '/rest/v1/accounts': 'hypothesis',
+  '/rest/v1/accounts': 'measured',
   '/rest/reports/transactions': 'hypothesis',
   '/rest/reports/dividends/v2': 'hypothesis',
 });

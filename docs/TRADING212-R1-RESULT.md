@@ -1,7 +1,8 @@
 # Trading 212 R1 — result
 
-**Status: page context PASS, control PASS, measured 2026-08-12 — the cookie carries the session.**
-The service-worker half is the only thing still open. `tools/trading212-r1/README.md` has the steps.
+**Status: PASS. Measured 2026-08-12/13, all four steps.** The session is cookie-borne, the
+service worker gets the same treatment as the page, and no header beyond `Accept` is required.
+`tools/trading212-r1/README.md` has the steps that produced this.
 
 > **Can Claudiclaude read Trading 212 account data while the user is already logged in, without
 > storing a password, API key, secret, token or any other durable broker credential?**
@@ -69,7 +70,29 @@ Status: `<open>` — the user logged back in to capture step 4, and the page ren
 which is the same evidence by a slower route. Not recorded as a measurement because the snippet was
 not re-run.
 
-### Step 3b — the service worker — **the half that is still open**
+### Step 3b — the service worker — **MEASURED: PASS**
+
+```
+chrome.runtime.sendMessage({ type: 't212r1' })
+  -> { outcome: 'PASS_JSON', status: 200, contentType: 'application/json',
+       evidence: 'hypothesis', shape: {…} }
+```
+
+A `chrome-extension://` origin, holding a host permission, reading the same endpoint with the same
+cookie the browser already had. Trading 212's CORS allows it, exactly as DEGIRO's does for
+`degiro.js:124`.
+
+**And it answers step 4 for free, more strongly than the Network tab would have.** The probe sends
+one header — `Accept: application/json` — and nothing else: no `X-Trader-Client`, no `X-Trader-dUUID`,
+no device model, no account id. It still returned 200 with a JSON body. Reading the web app's own
+request headers would have told us what *that page* chooses to send; this tells us what the endpoint
+actually *requires*, which is the question rule 9 asks. Nothing beyond a cookie the browser already
+holds.
+
+`/rest/v1/accounts` also stops being a hypothesis at this point: it was reached, it answered, and
+`READ_PATHS` should be updated to `measured`.
+
+### Step 3b — the original open question
 
 This is now the only thing between R1 and a yes. A page-context fetch from `www.trading212.com` to
 `live.services.trading212.com` is already **cross-origin and it worked with credentials**, which

@@ -560,7 +560,8 @@ carries the session, not the mere presence of one.
 It is also a *cross-origin* credentialed read, from `www.trading212.com` to
 `live.services.trading212.com`, so their CORS policy allows one.
 
-One thing remains, and it is no longer the gate:
+**The service worker answered too, on 2026-08-13: `PASS_JSON`, 200, `application/json`.** R1 is
+closed. What follows is what remained before that measurement:
 
 - **The service worker.** Untested until the probe runs. The precedent is strong — `degiro.js:124`
   does exactly this in production and never copies a cookie value, because Chrome treats a request
@@ -568,8 +569,12 @@ One thing remains, and it is no longer the gate:
   justified, since the page-context baseline has passed. The probe is
   `tools/trading212-r1/probe.js`, one request behind one message, on a branch rather than on `main`.
 
-Recorded as **INCONCLUSIVE overall** rather than PASS, because `verdict()` refuses to call an
-untested worker a pass and that refusal is the point of having it.
+Recorded as **PASS**. `verdict()` had held it at INCONCLUSIVE while the worker was untested, which
+is the point of having it — and the thing it was waiting for arrived rather than being argued away.
+
+The probe carried one header, `Accept`, and nothing else. So the header question is answered by the
+measurement rather than by reading the web app's own requests: **no device identifier, no client
+token, no account id is required.** Rule 9 is satisfied on the same terms DEGIRO already meets.
 
 ### 8e. Reaching these hosts from a session
 
