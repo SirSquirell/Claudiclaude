@@ -172,3 +172,25 @@ export const ENDPOINTS = {
     );
   },
 };
+
+/**
+ * US-48 — the Asteria watermark.
+ *
+ * Three numbers, in one place, and deliberately no more than three. Rule 8: a
+ * watermark *system* with positions, variants and per-chart overrides is a
+ * configuration surface nobody asked for. If a second position is ever wanted,
+ * that is when the second position gets built.
+ *
+ * `opacity` is high for a watermark because the mark is drawn in the chart's
+ * padding rather than under the plot, so it competes with nothing: the alpha is
+ * chosen for legibility, not to keep the series readable. Under the data it
+ * would have to be a fraction of this, and `charts.js` explains why it is not
+ * drawn there.
+ */
+export const WATERMARK = {
+  /** Drawn height in CSS pixels. Width follows; the mark is never stretched. */
+  height: 13,
+  /** From the left edge of the canvas. */
+  inset: 4,
+  opacity: 0.35,
+};

@@ -69,6 +69,16 @@
   --critical: #9e1628;
 
   --accent: #b8532f;
+
+  /* Asteria — the brand's own two values, deliberately separate from --accent.
+     Not the same colour, and swapping them is not a rename: white on #d9531e
+     measures 4.03:1, under the 4.5:1 floor, where the app's accent measures
+     4.87:1 — and --accent is a filled button background. Making the brand
+     colour the app colour is a measured change to a validated palette, so it
+     stays a separate decision.
+     Ink is here for the canvas only; in the DOM the mark rides currentColor. */
+  --brand-ink: #16213e;
+  --brand-accent: #d9531e;
   --shadow: 0 1px 2px rgba(20, 29, 39, 0.05), 0 8px 22px rgba(20, 29, 39, 0.05);
 
   /* Shape and rhythm, from the mockup's "studio" skin.
@@ -136,6 +146,8 @@
     --critical: #ff9aa4;
 
     --accent: #e08355;
+  --brand-ink: #e8edf5;
+  --brand-accent: #f97038;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
   }
 }
@@ -173,6 +185,8 @@
   --critical: #ff9aa4;
 
   --accent: #e08355;
+  --brand-ink: #e8edf5;
+  --brand-accent: #f97038;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
@@ -1376,4 +1390,46 @@ td .chip {
   .frown main,
   .frown h1::after,
   .frown .tile { animation: none; }
+}
+
+
+/* --- US-48 -----------------------------------------------------------------
+   The mark behind a table card. Charts get theirs from a Chart.js plugin so it
+   composites into the pixels; a card is DOM, so it gets a DOM child and rides
+   currentColor exactly like every other placement of the mark. */
+.card {
+  position: relative;
+}
+
+.card > .card-watermark {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  opacity: 0.35;
+  pointer-events: none;
+  color: var(--brand-ink);
+  z-index: 0;
+}
+
+/* The share action on a holdings row. Quiet until the row is hovered: it is an
+   action on one line of a long table, not a call to action. */
+button.snap {
+  padding: 2px 8px;
+  font-size: 0.95em;
+  line-height: 1.4;
+  opacity: 0.45;
+}
+
+tr:hover button.snap,
+button.snap:focus-visible {
+  opacity: 1;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
