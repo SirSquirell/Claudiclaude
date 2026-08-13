@@ -1409,6 +1409,12 @@ td .chip {
   pointer-events: none;
   color: var(--brand-ink);
   z-index: 0;
+  /* Sized here rather than only by the SVG's width/height attributes: a
+     stylesheet rule beats an attribute, and one elsewhere was collapsing it to
+     zero. The ratio still comes from the mark's own box — width is derived,
+     never chosen, because the lockup may not be stretched. */
+  height: 18px;
+  width: calc(18px * 44 / 40);
 }
 
 /* The share action on a holdings row. Quiet until the row is hovered: it is an

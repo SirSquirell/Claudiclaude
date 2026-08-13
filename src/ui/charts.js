@@ -320,7 +320,10 @@ const watermark = {
     if (area.top < height || chart.width < height * 6) return;
 
     drawMark(chart.ctx, {
-      x: WATERMARK.inset,
+      // Left edge of the *plot*, not of the canvas. At the canvas edge the mark
+      // lands on top of the highest y-axis tick label, which is the one place
+      // in the padding that is not actually empty.
+      x: area.left + WATERMARK.inset,
       y: Math.max(0, area.top - height - 1),
       height,
       ink,
