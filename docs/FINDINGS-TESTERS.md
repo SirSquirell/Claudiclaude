@@ -193,3 +193,74 @@ The generator makes healthy accounts. The engine is tested against healthy accou
 useful thing the fixture generator could do is produce unhealthy ones** — which is `B11`'s lesson
 from earlier in this project, where making the fixtures "realistic" quietly stopped reproducing the
 hard case and the defect looked fixed.
+
+---
+
+## From a 0.38.0 report and its export — F10, F11, F12
+
+One account, three findings. The report alone was enough for none of them; the export settled all
+three, which is itself the second finding.
+
+### F10 — every incremental sync failed, and the advice made it come back *(fixed, 0.44.1)*
+
+> *"Storage changed during the sync: stored 3 transactions and 17 cash movements, but rebuilt from
+> 89 and 655. Press "Wipe & resync" and let it finish without interrupting it."*
+
+Nothing was wrong with the account. `fromDate` is the watermark, so an incremental sync fetches one
+window — three transactions — while `recompute` reads the whole history back — eighty-nine. The
+tripwire demanded those two be **equal**. That holds on a first sync and never again.
+
+The cruelty is in the remedy it offered. A wipe *does* make the error go away, because a full resync
+fetches everything and the two numbers match again. So the advice looked sound, the user
+re-downloaded five years of history, and the error returned on the next sync. Every day.
+
+**Fixed** by asserting what the guard actually wanted: the store must contain **at least** every row
+this run wrote. A wipe landing mid-sync still trips it; a normal Tuesday does not.
+
+**And it was hiding a second fault.** The old guard fired on the count mismatch that an all-empty
+fetch produces, so a sync where every window failed did fail — for the wrong reason, with the wrong
+message. Removing the accident made the real gap visible: `fetchWindowed` turns an unservable window
+into a reported gap rather than an exception, which is right, but when *every* window fails the run
+reached `derive` with an empty array and no error at all. Now a source emptied by gaps is a named
+failure, and it says the stored history is untouched.
+
+### F11 — the report said how many instruments disagreed, never how *(fixed, 0.44.1)*
+
+The reconciliation was out by **0.98 %**, with `instrumentsDisagreeing: 10`. That pair is a symptom
+with at least three causes and the report could not narrow it.
+
+The export carries `attribution`, and it settled it in one line: **nine instruments at about 1.005,
+and one at 1.105.** Two faults, not one — a stale exchange rate lifting every foreign position by
+half a percent, and a single instrument priced ten per cent wrong. One instrument accounts for
+**56 % of the entire gap**. Read as a single 0.98 % the obvious move is to go looking at the cash,
+which is where this began and where the answer was not.
+
+`reconciliation-failed` now carries `perInstrument`: the ratios, unnamed, sorted by distance from 1,
+capped at twelve. A ratio is not an amount and a rank is not a name, so this travels under rule 7
+where `attribution` — instrument names and euro values — never could.
+
+### F12 — the connection check fails on a step the real sync passes *(open)*
+
+Diagnostics reported **`Failed at step: chart — No price series came back for these ids`**, 0 of 5
+series. The same account's sync had all 21 series, and the report says `missingPriceSeries: 0` and
+`heldWithoutPrices: 0`.
+
+`products-info` on that account returns `identifierTypes: ['vwdkey', 'issueid']`, and `config.js`
+already documents this exact trap: a `vwdkey` instrument requested as `issueid:` silently returns no
+series. The sync passes the type; the diagnostics probe appears not to.
+
+So the whole connection check reports `ok: false` on an account whose connection is fine. A
+diagnostic that cries wolf is worse than no diagnostic — it is the one screen a user consults when
+they already suspect something is wrong.
+
+**Not fixed here** because it needs a logged-in browser to confirm the probe is what differs rather
+than an intermittent upstream.
+
+### Two smaller notes
+
+- **The single `UNKNOWN` cash row is not the reconciliation gap.** It is `1.7e-7` of all cash
+  movement by magnitude. It should still be classified, but it explains nothing, and the report
+  placing it next to a failed reconciliation invites exactly that inference.
+- **Diagnostics look at twelve months; the report counts all history.** The check said "every cash
+  movement was classified" while the report said one was not — both true, of different windows. Two
+  screens disagreeing about the same account is worth one sentence of wording.

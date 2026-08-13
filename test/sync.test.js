@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 import { extendBackwards, fetchWindowed, fieldNames, isSameRun } from '../src/lib/sync.js';
 import { DegiroHttpError } from '../src/lib/degiro.js';
@@ -229,4 +230,54 @@ test('fieldNames is capped and survives rubbish', () => {
   assert.equal(fieldNames(many).length, 60);
   assert.deepEqual(fieldNames(null), []);
   assert.deepEqual(fieldNames('nope'), []);
+});
+
+// ---------------------------------------------------------------------------
+// The storage tripwire — F10
+// ---------------------------------------------------------------------------
+
+/**
+ * A tester's 0.38.0 report failed every sync with "Storage changed during the
+ * sync: stored 3 transactions and 17 cash movements, but rebuilt from 89 and
+ * 655", on an account where nothing was wrong.
+ *
+ * The guard demanded that what a run *fetched* equal what the engine *read
+ * back*. `fromDate` is the watermark, so an incremental sync fetches one window
+ * and reads back the whole history: equality holds on the first sync and never
+ * again. It told the user to wipe and re-download five years, and the wipe
+ * appeared to work — a full sync makes the numbers match — so it came back the
+ * next day, every day.
+ *
+ * These pin the invariant that survives an incremental sync. They are written
+ * against the comparison rather than against `runSync`, which needs a browser:
+ * the defect was entirely in which two numbers were compared.
+ */
+const tripwireFires = (stored, readBack) =>
+  readBack.transactions < stored.transactions || readBack.cashRows < stored.cashRows;
+
+test('an incremental sync does not trip the storage guard', () => {
+  // The exact numbers from the report that found this.
+  assert.equal(tripwireFires({ transactions: 3, cashRows: 17 }, { transactions: 89, cashRows: 655 }), false);
+});
+
+test('a first sync, where the two are equal, still does not trip it', () => {
+  assert.equal(tripwireFires({ transactions: 89, cashRows: 655 }, { transactions: 89, cashRows: 655 }), false);
+});
+
+test('rows vanishing between the write and the read still trips it', () => {
+  // The fault the guard exists for: something wiped the database mid-sync, so
+  // rows we had just written were no longer there.
+  assert.equal(tripwireFires({ transactions: 89, cashRows: 655 }, { transactions: 0, cashRows: 0 }), true);
+  assert.equal(tripwireFires({ transactions: 3, cashRows: 17 }, { transactions: 3, cashRows: 16 }), true);
+});
+
+test('the guard in sync.js is the one these tests describe', () => {
+  // Asserted against the source, because the comparison is the whole defect and
+  // a test of a local copy of it would have passed before the fix too.
+  const src = readFileSync(new URL('../src/lib/sync.js', import.meta.url), 'utf8');
+  assert.match(src, /result\.stats\.transactions < uniqueTx \|\| result\.stats\.cashRows < uniqueCash/);
+  assert.ok(
+    !/result\.stats\.transactions !== uniqueTx/.test(src),
+    'the equality comparison is gone, not merely commented',
+  );
 });

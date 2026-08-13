@@ -180,6 +180,31 @@ const DETAIL_SUMMARY = {
      */
     cashShare: ratio(d.cash, d.reconstructed),
     residualOverCash: ratio(d.reconstructed - d.live, d.cash),
+    /**
+     * How each disagreeing instrument disagrees — as a ratio, unnamed, ranked.
+     *
+     * An account arrived reporting `ratio: 1.0098` and
+     * `instrumentsDisagreeing: 10`, and that pair is a symptom with at least
+     * three causes. The export settled it in one line, because it carries
+     * `attribution`: nine instruments at about **1.005** and one at **1.105**.
+     * Two faults, not one — a stale exchange rate applied to every foreign
+     * position, and a single instrument priced ten per cent wrong. The count
+     * alone reads as one diffuse problem and sends you looking in the wrong
+     * place.
+     *
+     * Needing the full export to see that is the failure this closes. A ratio
+     * is not an amount and a rank is not a name, so this travels under rule 7
+     * where `attribution` itself — which carries instrument names and euro
+     * values — never could.
+     *
+     * Sorted by distance from 1 and capped: the shape is in the first few, and
+     * an account with sixty holdings should not turn the report into a table.
+     */
+    perInstrument: [...(d.attribution ?? [])]
+      .map((a) => ratio(a.ours, a.theirs))
+      .filter((r) => Number.isFinite(r))
+      .sort((a, b) => Math.abs(b - 1) - Math.abs(a - 1))
+      .slice(0, 12),
   }),
 };
 

@@ -481,6 +481,34 @@ async function doSync({ force = false, onProgress = () => {} } = {}) {
       }
     }
 
+    /**
+     * A source that came back completely empty *because every window failed* is
+     * not a quiet Tuesday — it is a failed sync wearing one.
+     *
+     * `fetchWindowed` deliberately turns a window it cannot get into a reported
+     * gap rather than throwing, so one bad month does not cost the four years
+     * around it. That is right, and it leaves a hole at the other end: when
+     * *every* window fails the run still reaches this point with an empty array
+     * and no error, and the popup says it worked.
+     *
+     * This was hidden until F10 was fixed. The old storage tripwire happened to
+     * fire on the count mismatch that an all-empty fetch produced, so the sync
+     * failed — for the wrong reason, with the wrong message, telling the user to
+     * wipe. Removing that accident is what made the real gap visible.
+     */
+    const emptied = [
+      missingWindows.some((w) => w.source === 'transactions') && transactions.length === 0 ? 'transactions' : null,
+      missingWindows.some((w) => w.source === 'cashflows') && cashRows.length === 0 ? 'cash movements' : null,
+    ].filter(Boolean);
+
+    if (emptied.length) {
+      const message =
+        `DEGIRO refused every request for ${emptied.join(' and ')} in this range, so nothing could be ` +
+        `read. This is usually temporary — try again in a few minutes. Your stored history is untouched.`;
+      await fail('derive', message, { missingWindows: missingWindows.slice(0, 40) });
+      return { ok: false, reason: 'all-windows-failed', message };
+    }
+
     // --- derive -----------------------------------------------------------
     await report('derive', 'Rebuilding the history…', 92);
     const result = await recompute({ liveTotal: update.totalValue });
@@ -507,11 +535,27 @@ async function doSync({ force = false, onProgress = () => {} } = {}) {
       return { ok: false, reason: 'key-collision', message };
     }
 
-    if (result.stats.transactions !== uniqueTx || result.stats.cashRows !== uniqueCash) {
+    /**
+     * The store must contain **at least** every row this run just wrote.
+     *
+     * It used to demand equality, and that was wrong in a way that only shows
+     * up on a real account. `fromDate` is the watermark, so an incremental sync
+     * fetches one window — three transactions, say — while `recompute` reads the
+     * whole history back, eighty-nine. Equality holds on a first sync and never
+     * again. Every incremental sync after that failed, told the user to wipe and
+     * re-download five years of history, and the wipe "worked" precisely because
+     * a full sync makes the two numbers match again — so the advice looked sound
+     * and the error came straight back the next day.
+     *
+     * The invariant that survives an incremental sync is the one the guard
+     * actually wanted: rows we just stored cannot have vanished. A wipe landing
+     * mid-sync still trips it; a normal Tuesday does not.
+     */
+    if (result.stats.transactions < uniqueTx || result.stats.cashRows < uniqueCash) {
       const message =
-        `Storage changed during the sync: stored ${uniqueTx} transactions and ${uniqueCash} cash movements, ` +
-        `but rebuilt from ${result.stats.transactions} and ${result.stats.cashRows}. Press “Wipe & resync” ` +
-        `and let it finish without interrupting it.`;
+        `Storage changed during the sync: ${uniqueTx} transactions and ${uniqueCash} cash movements were ` +
+        `stored, but only ${result.stats.transactions} and ${result.stats.cashRows} came back. Press ` +
+        `“Wipe & resync” and let it finish without interrupting it.`;
       await fail('derive', message, {
         stored: { transactions: uniqueTx, cashRows: uniqueCash },
         readBack: { transactions: result.stats.transactions, cashRows: result.stats.cashRows },
