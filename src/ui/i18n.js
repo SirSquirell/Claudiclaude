@@ -115,6 +115,13 @@ const DICT = {
     'Copy bug report': 'Foutrapport kopiëren',
     'Export JSON': 'JSON exporteren',
     'Wipe & resync': 'Wissen & opnieuw ophalen',
+    // US-46 / US-47
+    Anonymize: 'Anonimiseer',
+    'Show amounts': 'Toon bedragen',
+    'Copy image': 'Kopieer afbeelding',
+    'Copy a shareable image of this position': 'Kopieer een deelbare afbeelding van deze positie',
+    'Image copied. Paste it wherever you like.': 'Afbeelding gekopieerd. Plak hem waar je wilt.',
+    'Could not reach the clipboard': 'Kon het klembord niet bereiken',
     Resyncing: 'Opnieuw ophalen',
     Theme: 'Thema',
     Auto: 'Auto',
