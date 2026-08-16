@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { MASK, hasDigits, maskEur, maskQty, maskSigned } from '../src/lib/anon.js';
 import { DOTS, DOT_R, LINE, MIN_LOCKUP_HEIGHT, STAR, STROKE_W, VIEWBOX, markWidth } from '../src/ui/brand.js';
 import {
-  PROVENANCE_FIELDS, SNAPSHOT_FIELDS, provenanceLine, returnOnMoneyIn, snapshotModel, sparkline,
+  PROVENANCE_FIELDS, SNAPSHOT_FIELDS, holdingWindow, provenanceLine, returnOnMoneyIn, snapshotModel, sparkline,
 } from '../src/lib/snapshot.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
@@ -236,6 +236,30 @@ test('a position with no money in reports words, not a percentage of nothing', (
   assert.deepEqual(returnOnMoneyIn(500, -20), { pct: null, basis: 'no-money-in' });
   assert.equal(returnOnMoneyIn(250, 1000).pct, 25);
   assert.equal(snapshotModel({ ...base, paidIn: 0 }).pct, null);
+});
+
+test('a holding bought partway through the account starts at its own first purchase', () => {
+  // Rocket Lab, bought long after the account's first transaction: qty is zero
+  // for the account's early days and only turns on where the buy happened.
+  const qty = [0, 0, 0, 0, 5, 5, 5, 5];
+  assert.deepEqual(holdingWindow(qty, 0, 7), { from: 4, to: 7 });
+});
+
+test('a holding bought before the selected range keeps the range, not its own inception', () => {
+  // Only ever narrows the window: a range the user picked is never widened
+  // backward past what they asked for.
+  const qty = [5, 5, 5, 5, 5, 5, 5, 5];
+  assert.deepEqual(holdingWindow(qty, 3, 7), { from: 3, to: 7 });
+});
+
+test('a holding whose first purchase falls outside the selected range clamps to it', () => {
+  const qty = [0, 0, 0, 0, 0, 0, 5, 5];
+  assert.deepEqual(holdingWindow(qty, 0, 3), { from: 3, to: 3 });
+});
+
+test('a holding held for the account’s whole history is unaffected', () => {
+  assert.deepEqual(holdingWindow([1, 1, 1], 0, 2), { from: 0, to: 2 });
+  assert.deepEqual(holdingWindow(null, 0, 2), { from: 0, to: 2 });
 });
 
 test('the sparkline keeps both ends and never more than the cap', () => {

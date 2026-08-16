@@ -40,7 +40,7 @@ let demoVersion = null;
 import { isSameRun } from '../lib/sync.js';
 import { LANGS, applyStatic, getLang, missing as missingTranslations, setLang, t as tr } from './i18n.js';
 import { THEMES, alpha, applyAnonymize, applyTheme, fmtEurCents, fmtPct, fmtQty, fmtSigned, getAnonymize, getTheme, onThemeChange, setAnonymize, setTheme, tokens } from './theme.js';
-import { snapshotModel } from '../lib/snapshot.js';
+import { holdingWindow, snapshotModel } from '../lib/snapshot.js';
 import { markSvg } from './brand.js';
 import { copySnapshot } from './snapshot.js';
 import { inExtension, load, send, wantsDemo } from './datasource.js';
@@ -364,14 +364,18 @@ function wireSnapshots() {
 
     btn.disabled = true;
     try {
+      // The account's selected range, clipped to when this holding actually
+      // existed — a holding bought years into the account's history should not
+      // report a flat run of zero-P/L days before its own first purchase.
+      const { from } = holdingWindow(p.qty, w.from, w.to);
       const model = snapshotModel({
         name: p.name,
         symbol: p.symbol,
-        from: r.days[w.from],
+        from: r.days[from],
         to: r.days[w.to],
-        result: sumWindow(p.pnl, w.from, w.to),
+        result: sumWindow(p.pnl, from, w.to),
         paidIn: p.paidIn?.at(-1) ?? 0,
-        series: cumulativeWindow(p.pnl, w.from, w.to),
+        series: cumulativeWindow(p.pnl, from, w.to),
         anonymized: getAnonymize(),
         // Tri-state, deliberately. An account with nothing to reconcile against
         // reports `null`, which the card renders as "not checked" and never as

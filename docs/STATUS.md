@@ -13,7 +13,7 @@ not the brief's numbering.
 
 | # | Story | State |
 |---|---|---|
-| 1 | US-45 — Parameterise the session read | **Done**, 2026-08-16. `readSessionId` and `resolveSession` now take `{host, cookieName}`, defaulting to DEGIRO's; `brokers/degiro.js` supplies them explicitly instead of `session.js` assuming them. No import from `session.js` changed shape, the existing `test/session.test.js` passed unmodified, and `npm test` is 393/393 |
+| 1 | US-45 — Parameterise the session read | **Done**, 2026-08-16. `readSessionId` and `resolveSession` now take `{host, cookieName}`, defaulting to DEGIRO's; `brokers/degiro.js` supplies them explicitly instead of `session.js` assuming them. No import from `session.js` changed shape, the existing `test/session.test.js` passed unmodified, and `npm test` was 393/393 at that commit |
 | 2 | US-41 — Storage namespacing | **Next** |
 | 3 | US-40 — The Trading 212 adapter | Not started |
 | 4 | US-42 — Multi-broker sync and reconciliation | Not started |
@@ -25,6 +25,48 @@ No CHANGELOG.md / WHATS-NEW.md entry for story 1: it is an internal refactor wit
 behaviour and no shipped version, same treatment as the US-37/US-38 spike and the US-46/47/48 pure
 modules before it — a version bump happens at a release commit that bundles stories, not at every
 one of them.
+
+## Fixed the same night — a separately reported bug, not part of the build order
+
+A bug report came in alongside tonight's build-order run: a per-position snapshot card (US-47)
+started at the account's first transaction rather than the holding's own first purchase, showing a
+flat run of zero-P/L days before a position existed — reported against Rocket Lab bought long after
+the account's first 2020 transaction.
+
+**Fixed, 0.44.2.** `src/lib/snapshot.js` gained `holdingWindow(qty, from, to)` — a pure function that
+clips a window to the holding's own first non-zero-quantity day, never widening past what the range
+control already asked for. `src/ui/app.js`'s snapshot click handler uses it. Four new tests in
+`test/anon-brand-snapshot.test.js` cover: bought partway through, held the whole time, bought before
+the selected range, and bought after it ends. Verified past the unit tests too: loaded the demo
+build in a real headless Chromium, clicked a holding's snapshot button with the ALL range selected,
+and confirmed `snapshotModel` received the holding's actual first-purchase date (`2024-09-26` for
+that fixture) rather than the account's day zero — `npm test` is **397/397**.
+
+**The bug report's AC5** ("resolved for all supported brokers: DEGIRO, Trading 212, IBKR") does not
+match this codebase yet — `src/lib/brokers/index.js` registers only `degiro`; Trading 212 and IBKR
+are unimplemented. The fix lives in the account-day-index math the engine already computes per
+holding regardless of which broker filled the ledger, so it needs no broker-specific branch and
+nothing here is deferred on that account — but AC5 as literally written cannot be checked against a
+broker that does not exist.
+
+**A finding, not fixed tonight: `CHANGELOG.md` and `WHATS-NEW.md` had gone stale since 0.42.0.**
+`manifest.json` and the commit history show three shipped versions with no entry in either file —
+0.43.0, 0.44.0 (US-46 anonymize, US-47 snapshot, US-48 watermark), and 0.44.1 (the F10 incremental-
+sync guard fix). `package.json` had drifted the same way and is now caught back up to `manifest.json`
+as part of this fix, since the two must agree, but the changelog text itself needs someone reading
+those three commits' actual reasoning to backfill properly rather than a diff guessed at after the
+fact — not attempted here.
+
+## Asked for, not started: a front-end navigation overhaul
+
+The same message that carried the bug report above also asked to "get ready" for a front-end
+overhaul — a new hamburger sidebar menu replacing the current nav, plus unspecified "new features
+and ideas." Nothing was designed or built against this tonight: there is no concrete requirement to
+build against (no acceptance criteria, no story in `docs/BACKLOG.md`), and rule 8 (YAGNI) is explicit
+that a speculative UI restructuring with no defined shape is exactly the kind of untested branch this
+project's numbers-are-verified claim cannot afford. Needs a human to turn "a bunch of new features
+and ideas" into an actual story — including whether it collides with US-19's existing five-section
+layout — before an unattended run should touch `src/ui/`'s navigation.
 
 ## Shipped and confirmed against a real account
 

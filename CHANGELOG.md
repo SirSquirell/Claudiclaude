@@ -15,6 +15,27 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.44.2] — 2026-08-16
+
+> This file and `WHATS-NEW.md` had gone stale since 0.42.0 — three shipped versions
+> (0.43.0, 0.44.0, 0.44.1, all in the extension's own `manifest.json` and its commit history)
+> never got an entry here. That gap is not backfilled in this release: doing it well needs
+> reading three commits' worth of reasoning, not guessing from a diff, and it is a separate
+> piece of work from the fix below. Flagged in `docs/STATUS.md` rather than left to be
+> rediscovered a fourth version stale.
+
+### Fixed
+
+- **A per-position snapshot card started at the account's first transaction, not the
+  holding's own.** A position bought years into an account's history — Rocket Lab bought long
+  after the account's first 2020 transaction was the reported case — showed a flat run of
+  zero-P/L days before it was ever held, which reads as "this position has been open the whole
+  time." The card's window is now clipped to the holding's own first purchase day whenever the
+  selected range starts earlier than that — never widened past what was asked for, only ever
+  narrowed to what the holding actually lived through. The percentage is unaffected: every day
+  before a position exists already contributed exactly zero to its result, so the number was
+  always right, only the flat line in front of it and the date printed on the card were not.
+
 ## [0.42.0] — 2026-08-11
 
 ### Changed

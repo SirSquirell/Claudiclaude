@@ -67,6 +67,28 @@ export function returnOnMoneyIn(result, paidIn) {
 }
 
 /**
+ * Clip a window to where the holding actually existed.
+ *
+ * `from`/`to` are indices into the account's day array, chosen by the range
+ * control — the account's lifespan, not the holding's. `qty` is the same
+ * holding's day-by-day position size the engine already computed, so its
+ * first non-zero day is the holding's first purchase. Without this, a
+ * position bought years into the account's history reports a flat run of
+ * zero-P/L days before it existed, which reads as "this position has been
+ * open the whole time" — a card that misrepresents a holding's own history
+ * rather than the account's.
+ *
+ * Only ever narrows the window, never widens it past what was asked for: a
+ * holding bought before the selected range still starts at the range's own
+ * `from`.
+ */
+export function holdingWindow(qty, from, to) {
+  const firstHeld = (qty ?? []).findIndex((q) => q !== 0);
+  if (firstHeld < 0) return { from, to };
+  return { from: Math.max(from, Math.min(firstHeld, to)), to };
+}
+
+/**
  * Reduce a series to at most `max` points, keeping the first and the last.
  *
  * The sparkline is a shape, not a reading: no axis, no scale, so it discloses
