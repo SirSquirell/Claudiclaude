@@ -77,6 +77,7 @@ F1–F5 shipped in 0.37.0, F6–F9 in 0.38.0. U1–U5 need a decision rather tha
 
 | Story | State | Waiting on |
 |---|---|---|
+| US-51 | **A dollar price rendered with a euro sign** — `app.js:2711` prints the native traded price through `fmtEurCents`. Label only: the euro amount beside it comes from DEGIRO's own base-currency figure and is right. Fix is a `fmtMoney(n, ccy)` in `theme.js`, because US-46's guard forbids formatting a currency anywhere else | Nothing. Defect, one call site, and it lands before the overhaul |
 | US-49 | **One table per position, not two.** Holdings and profit-and-loss-per-product merged, keeping the paid-in-vs-grown bar and the per-product dividend. Half the columns follow the range control and half do not, so every all-time column declares it | Nothing new to compute — every figure is on `r.byProduct` today. Lands with the UI overhaul |
 | US-50 | **The snapshot line starts at the buy**, and ends at the close. Clipping is one pure `positionSpan` in `lib/snapshot.js` used for the series, the period *and* the percentage's basis — the same defect also divides a windowed result by an all-time `paidIn` | Nothing. Defect, small, and it should land before the overhaul rather than inside it |
 | US-46 | **Anonymize** — mask every amount and quantity, keep every percentage. Masking lives inside the three formatters in `theme.js`, so a money field added later is masked by default | Nothing. Small, and it must land before US-47 |

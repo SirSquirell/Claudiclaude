@@ -3135,3 +3135,114 @@ shows today; for a windowed one it is a different, correct number.
 If clipping needs anything beyond `p.qty` and the arrays the card already receives, stop: the model
 has started reading state instead of being handed it, and that is the seam US-47's leak test depends
 on.
+
+---
+
+## US-51 — A dollar price is not a euro price *(new, defect, refined)*
+
+> *"zie je dat, DEGIRO heeft hier dollars staan en jij neemt het 1:1 over naar euro's"*
+
+### Yes, and it is one call site
+
+`app.js:2711` — the transactions table renders `fmtEurCents(t.price)`. `t.price` is the **traded
+price in the instrument's own currency** (`parse.js:124`); `fmtEurCents` is hardwired to
+`{ style: 'currency', currency: 'EUR' }` (`theme.js:44`). So a fill at **$ 3,105** is printed
+**€ 3,11**, and nothing anywhere says a conversion did not happen.
+
+Side by side, from the report:
+
+| | DEGIRO | Us |
+|---|---|---|
+| Price | `$ 3,105` | `€ 3,11` |
+| Rate | `1,1549` | not shown |
+| Amount | `$ -2.794,50` → `€ -2.419,71` | `+€ 2.421,71` |
+
+### The good news, and it is most of the story
+
+**Only the label is wrong. The arithmetic is not.** The engine never touches `t.price` for
+valuation: it prices positions off the product's currency and the observed rate
+(`engine.js:1212`), takes the transaction's euro figure from `totalPlusFeeInBaseCurrency`
+(`parse.js:127`), and derives FX as one settled amount divided by the other. The euro amount in the
+row above is right — the €2,00 it differs from DEGIRO's is the fee, which DEGIRO puts in its own
+column and we include.
+
+So this is not a wrong number. **It is a true number wearing the wrong sign**, which by this
+project's standards is the same size of defect: a reader who takes €3,11 as the price and multiplies
+by 900 gets €2.799 and cannot reconcile it with the €2.421,71 beside it, and the only way out is to
+guess that one of the two columns is lying.
+
+Nothing else on the page has this bug. `unitPrice` and `averagePaid` divide base-currency figures
+by quantities and are euros for real, and both already carry a comment saying so; `charts.js` prints
+no native price. Grep confirms it: `t.price` has exactly one reader.
+
+### Rule 7's choke point decides the fix
+
+US-46 put every money format inside `theme.js` and `test/anon.test.js` enforces that nothing under
+`src/ui/` formats a currency anywhere else. That guard is doing its job here — it forbids the
+obvious patch (a `Intl.NumberFormat` with `t.currency` inlined at the call site) and points at the
+right one: **a formatter that takes a currency, beside the three that assume one.**
+
+```
+fmtMoney(n, ccy)   // ccy defaults to the base currency; masks under US-46 like the rest
+```
+
+`fmtEurCents` becomes `fmtMoney(n, base)` and the 86 existing call sites do not move. This also
+retires a smaller lie the same line tells: the base currency is *assumed* to be EUR in the
+formatters while the engine carries `r.baseCurrency` as data.
+
+### Three decisions this needs, all small
+
+**1. Where does the currency come from?** `t.currency` exists, but `parse.js:125` defaults it to
+`'EUR'` when the field is missing — which is the same wrong guess one level down, and rule 4 says an
+unknown does not get a plausible default. Order: the product's currency (which the engine already
+prefers, `engine.js:583`), then `t.currency`, then **no symbol at all** — a bare number with the
+currency column empty, rather than a euro sign nobody checked.
+
+**2. Precision.** `$ 3,105` and `$ 3,12` are two prices that both render `3,11`-ish at two decimals,
+and a penny stock at `$ 0,0125` renders `€ 0,01`. Amounts are cents; **a price is not an amount** and
+gets up to 4 decimals with trailing zeros trimmed. This is why the two rows in the report look like
+the same fill and are not.
+
+**3. What to do about the rate.** DEGIRO shows `1,1549` per row; we show nothing, and the euro amount
+therefore appears unexplained beside a dollar price. The rate is free — it is `|totalBase|` over
+`|price × quantity|`, which is the same implied rate the engine derives. **Decided: the native price
+and its currency in the column, the euro amount as it is now, and the implied rate in the row's
+tooltip.** Not a fourth column: nobody asked to compare rates across rows, and rule 8.
+
+### The other thing in the same row, which is not a currency bug
+
+The Amount column shows a **purchase as `+€ 2.421,71`** (`fmtSigned(-(t.totalBase))`), where DEGIRO
+shows `-€ 2.419,71`. Money left the account and the column signs it positive, under a header that
+says only *Amount*. It is presumably "what went into the position", which is defensible — but it is
+the opposite of the cash flow and of the sign on every other figure on the page, and the header does
+not say which. **Decide it and label it**, in this story, since it is the second thing a reader
+compares against their broker in the same row. If the convention stays, the header says so.
+
+### Where this meets the other two
+
+US-49 folds Price and Average paid into the split bar's tooltip — both are base-currency figures, so
+the merged table must not inherit this ambiguity by putting a converted price next to a native one
+with no label. And US-46 masks prices like every other amount: `fmtMoney` masks, or the fix reopens
+the leak that story closed.
+
+### Acceptance criteria
+
+- **AC1** A transaction in a non-base currency renders its price in **that** currency, with that
+  currency's symbol or code, and no euro sign.
+- **AC2** The euro amount beside it is unchanged. No engine change, no resync, no recomputation —
+  a test asserts the reconstruction is identical before and after.
+- **AC3** A transaction whose currency cannot be determined renders the number with **no** currency
+  marking, and is not assumed to be the base currency.
+- **AC4** Prices render to 4 decimals with trailing zeros trimmed; amounts stay at 2. `3,105` and
+  `3,12` are visibly different rows.
+- **AC5** All currency formatting still lives in `theme.js` — `test/anon.test.js` unchanged and
+  passing.
+- **AC6** With US-46 on, the price is masked like any other amount, and the *currency* may stay
+  visible: a ticker's currency is public and discloses nothing.
+- **AC7** The Amount column's sign convention is stated in the header or the hint.
+
+### Stop condition
+
+If fixing the label requires converting anything, stop. The conversion is already done and lives in
+the engine; a second conversion in the UI is two answers to one question, and the rate this one
+would use is not the rate that settled the trade.
