@@ -6,6 +6,26 @@ a bad place to find out *where things stand*. This is the index.
 **Last updated at 0.39.0.** It had been stale since 0.21.0, which is fifteen releases — if it looks
 stale again, trust the CHANGELOG and fix this.
 
+## Unattended build — US-39 … US-45, on `claude/multi-broker-build`
+
+`docs/US-39-45-BUILD-ORDER.md` is the contract: one story per run, in the order that table gives,
+not the brief's numbering.
+
+| # | Story | State |
+|---|---|---|
+| 1 | US-45 — Parameterise the session read | **Done**, 2026-08-16. `readSessionId` and `resolveSession` now take `{host, cookieName}`, defaulting to DEGIRO's; `brokers/degiro.js` supplies them explicitly instead of `session.js` assuming them. No import from `session.js` changed shape, the existing `test/session.test.js` passed unmodified, and `npm test` is 393/393 |
+| 2 | US-41 — Storage namespacing | **Next** |
+| 3 | US-40 — The Trading 212 adapter | Not started |
+| 4 | US-42 — Multi-broker sync and reconciliation | Not started |
+| 5 | US-44 — Renders through the existing pipeline | Not started |
+| 6 | US-39 — Broker management UI | Not started |
+| 7 | US-43 — Release hardening | Not started |
+
+No CHANGELOG.md / WHATS-NEW.md entry for story 1: it is an internal refactor with no observable
+behaviour and no shipped version, same treatment as the US-37/US-38 spike and the US-46/47/48 pure
+modules before it — a version bump happens at a release commit that bundles stories, not at every
+one of them.
+
 ## Shipped and confirmed against a real account
 
 | Story | What it did | Release |

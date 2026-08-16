@@ -9,14 +9,21 @@
  * 'log in to DEGIRO' in the popup and stop. Never attempt a login."
  */
 
-import { DEFAULT_URLS, TRADER } from './config.js';
+import { SESSION_COOKIE_NAME, TRADER_HOST } from './config.js';
 import { SessionExpiredError, fetchClient, fetchUpdate, fetchUrls } from './degiro.js';
 import { getMeta, setMeta } from './store.js';
 
-/** Read JSESSIONID from the browser's own cookie jar. */
-export async function readSessionId() {
+/**
+ * Read a broker's session cookie from the browser's own jar.
+ *
+ * `host` and `cookieName` default to DEGIRO's — the only broker this project
+ * has today — so every existing caller is unaffected. A second broker's
+ * adapter passes its own; the mechanism (read a cookie the browser already
+ * holds, write nothing) does not change per broker, only these two values do.
+ */
+export async function readSessionId({ host = TRADER_HOST, cookieName = SESSION_COOKIE_NAME } = {}) {
   if (typeof chrome === 'undefined' || !chrome.cookies) return null;
-  const cookie = await chrome.cookies.get({ url: `${TRADER}/`, name: 'JSESSIONID' });
+  const cookie = await chrome.cookies.get({ url: `https://${host}/`, name: cookieName });
   return cookie?.value ?? null;
 }
 
@@ -29,8 +36,8 @@ export async function readSessionId() {
  *
  * @returns {Promise<{ok: true, sessionId, intAccount, userToken} | {ok: false, reason: string}>}
  */
-export async function resolveSession({ refresh = false } = {}) {
-  const sessionId = await readSessionId();
+export async function resolveSession({ refresh = false, host = TRADER_HOST, cookieName = SESSION_COOKIE_NAME } = {}) {
+  const sessionId = await readSessionId({ host, cookieName });
   if (!sessionId) {
     return { ok: false, reason: 'no-cookie' };
   }

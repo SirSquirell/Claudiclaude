@@ -15,7 +15,7 @@
  * message table lives with the session code that produces the reasons.
  */
 
-import { TRADER_HOST } from '../config.js';
+import { SESSION_COOKIE_NAME, TRADER_HOST } from '../config.js';
 import {
   fetchAccountOverview,
   fetchPriceChunk,
@@ -37,7 +37,7 @@ export const host = TRADER_HOST;
 
 // --- session ---------------------------------------------------------------
 
-export const resolveSession = (opts) => resolve(opts);
+export const resolveSession = (opts) => resolve({ host: TRADER_HOST, cookieName: SESSION_COOKIE_NAME, ...opts });
 export const checkSession = (session) => check(session);
 
 // --- fetch -----------------------------------------------------------------
