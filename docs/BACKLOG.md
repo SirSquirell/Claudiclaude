@@ -2884,3 +2884,254 @@ ever wanted, that is when the second position gets built.
 If the mark cannot be placed without sitting under the series on some chart, **report it rather than
 lowering the opacity until it looks acceptable.** An opacity chosen by eye against one theme is how
 the palette work gets quietly undone.
+
+---
+
+# Refinement 0.45 — two requests from the owner, both landing in the UI overhaul
+
+Two stories, refined against the code on `main`. Neither is a new number: everything both of
+them need is already computed and already on screen. **US-49 is a layout decision and US-50 is a
+defect**, and it is worth keeping that distinction, because a defect that ships inside a redesign
+gets remembered as "the redesign broke it".
+
+They meet in one place. US-49 is the table US-47's snapshot button lives in, and US-50 fixes the
+line that button draws — so the redesign that moves the button must not lose it, and the card that
+comes out of it must be the fixed one.
+
+---
+
+## US-49 — One table for a position, not two *(new, refined)*
+
+> *"can this overview be combined must include the paid in vs grown charts from the holdings, and
+> the total dividends recieved from the profit and loss per product"*
+
+### The request is right, and the reason is stronger than "fewer cards"
+
+Both tables read the same array. `renderHoldings` (`app.js:2765`) and `renderProducts`
+(`app.js:2609`) each map `r.byProduct`, and three columns are *literally the same expression* in
+both — the name, `p.current`, and `sumWindow(p.pnl, from, to)`. So today a reader answering "how is
+EQQQ doing" scrolls between two cards, matches a row by name, and holds four figures in their head
+to do it. That is the actual complaint, and combining is the fix.
+
+| | `#holdings` | `#products` |
+|---|---|---|
+| Rows | open positions only (`Math.abs(p.current) > 0.005`) — 4 in the screenshot | everything ever traded — 138 |
+| Instrument, value, result | ✅ | ✅ *(same expression)* |
+| Quantity, price, average paid, share % | ✅ | — |
+| Paid in vs grown | ✅ | — |
+| Type, status, bought, sold, **dividend**, % of bought | — | ✅ |
+| Cash | a row, and it is load-bearing | — |
+| Snapshot button (US-47) | ✅ | — |
+
+### The one thing that will silently go wrong
+
+**Half of these columns follow the range control and half do not, and nothing on screen says which.**
+
+`result` is `sumWindow(p.pnl, from, to)` — windowed. `bought`, `sold`, `dividend` and `current` are
+all-time scalars off the engine (`engine.js:1266-1270`); `paidIn` is read as `.at(-1)`, also
+all-time. Today that inconsistency is *survivable* because the two tables sit in separate cards with
+separate hints. Put them in one row and you get 1Y selected, a result of +€ 1 200 beside a dividend
+of € 7 915 covering six years, and a reader who divides one by the other. Nobody typed a wrong
+number; the layout invented the comparison.
+
+Two honest resolutions, and picking neither is what ships the bug:
+
+1. **Window everything.** Needs per-day `bought`/`sold`/`dividend` series per product, which the
+   engine does not currently keep. Real work, and it makes the dividend column disagree with the
+   Dividend received tile unless that is windowed too.
+2. **Declare the span per column.** All-time columns carry it in the header — *Dividend (all time)* —
+   and the range control visibly governs only what it governs.
+
+**Decided: 2.** Rule 8 — nobody has asked to see dividend-in-window, and option 1 adds three
+series per product to serve a column that would then need its own explanation. If someone does ask,
+that is a story and it starts by windowing the tile too.
+
+### The second thing: two percentages that disagree, honestly
+
+`% of bought` is `result / bought` — the money that ever went in, gross, including the part already
+sold. The split bar is `paidIn` versus `current` — the money *still* in it. For a position bought
+and mostly sold, these are far apart, and both are correct. On one row they read as a contradiction.
+
+So they do not both ship as bare percentages. **The bar keeps its sentence** — it already carries
+`72% paid in · 28% grown` as text, which is what makes it readable and is also what keeps it from
+being colour-alone — and the numeric column keeps a header that names its denominator. Two columns
+may not share a name and differ; that rule is already written into `renderProducts`' comment about
+Dividend, and it applies here to the return figures.
+
+### Rows: the table is 4 rows today and 138 combined
+
+A merge that replaces four open positions with 138 mostly-closed ones has not combined anything, it
+has buried the thing the user opens the page for. **The combined table defaults to open positions**
+and takes a segmented control — *Open · Closed · All* — beside the existing *Table · Share* toggle
+and the type chips, which merge into one filter row above the table (`interaction.md`: filters in a
+single row above, not scattered per card).
+
+`Status` therefore stops being a column and becomes the filter, which is a column back. Under *Open*,
+the closed-only columns (`Sold`) still mean something and stay; under *Closed*, `Quantity`, `Price`
+and `Share %` are all `—` for every row and are dropped from that view rather than rendered as a
+column of dashes.
+
+### The column list, because "combine" without one means fifteen columns
+
+Fifteen columns is not a table, it is a spreadsheet, and at this width every one of them is
+unreadable. What survives, and why:
+
+| Column | Span | Why it stays |
+|---|---|---|
+| Instrument + swatch + symbol | — | The swatch ties the row to the stacked chart. Non-negotiable |
+| Quantity | latest | Open view only |
+| Value | latest | |
+| **Paid in vs grown** (bar + sentence) | latest | The request, and the only cost-basis-free split this project can honestly draw |
+| Result | **window** | |
+| **Dividend** | **all time** | The request. Beside Result, never inside it |
+| % of bought | all time | Named by its denominator |
+| Share % | latest | Open view only |
+| Snapshot | — | US-47's button. It must survive the move |
+
+Dropped: `Price` and `Average paid` fold into the bar's tooltip — they are the two numbers the bar is
+computed from, and US-46 masks them anyway; `Type` becomes a chip on the instrument cell, since it is
+already the filter; `Bought` and `Sold` move behind the row's disclosure with the transactions, or
+drop. **`Currency` and the `est.` marker stay**, wherever they land: `est.` says this row's result is
+an estimate, and a redesign that tidies away the caveat is exactly the failure mode CLAUDE.md warns
+about.
+
+### The cash row is not a row, it is an invariant
+
+`renderHoldings` puts `accountResult − positionResult` on the cash row so the Result column adds up
+to the account's result — dividends, interest, fees and FX with no position behind them. It is a
+true statement rather than a plug, and it is the only reason the column sums. Under *Closed* and
+*All* it still has to be reachable, because the sum it completes is the account's. Same for
+`#products-note`'s unattributed-dividend count: dividends carrying no product are in the account
+total and in no row, and that sentence survives the merge or the Dividend column quietly under-reports.
+
+### Design notes for the overhaul
+
+- **The bar is a chart mark and gets treated like one.** 2px surface gap between the two segments,
+  rounded data-end anchored to the baseline, and its sentence beside it — never the colour alone.
+  Green/red is a status pair and stays reserved for gain/loss; it is not a categorical slot.
+- **The swatch keeps the composition's colour, which is ranked over the whole history.** Filtering to
+  *Closed* must not repaint anything: colour follows the instrument, not its rank in the current
+  filter. That rule already exists in `charts.js` and the merge is where it is easiest to break.
+- **Sorting and filtering are not animated.** A 138-row table re-sorting is seen many times a
+  session; a stagger there reads as lag. Instant, with the existing name tiebreak so equal results
+  cannot jitter.
+- **The header sticks and the table scrolls in its own container.** Nine columns of numbers with the
+  header off screen is where reading errors come from, and horizontal overflow belongs to the table,
+  never to the page.
+- **One row height for both states.** The bar cell is two lines tall and the dash is one; if the
+  closed rows are shorter the table visibly reflows on every filter change.
+
+### Acceptance criteria
+
+- **AC1** One card, one table, one row per instrument. `#holdings` and `#products` do not both exist.
+- **AC2** Every column that does not follow the range control says so in its header, and a test
+  asserts the windowed set is exactly `{Result}`.
+- **AC3** The paid-in-vs-grown bar renders for every open position, with its sentence, including the
+  under-water and the `paidIn < 0` states — the three cases `splitCell` already distinguishes.
+- **AC4** Dividend per product renders, all-time, beside Result and not folded into it. The
+  unattributed-dividend sentence still renders when the count is non-zero.
+- **AC5** Default view is open positions. *Closed* and *All* are reachable in one click, and switching
+  repaints no swatch.
+- **AC6** The cash row and its `accountResult − positionResult` value survive, and the Result column
+  under *Open* still sums to the account's result for the window.
+- **AC7** The snapshot button is on every position row, still wired through one delegated listener.
+- **AC8** With US-46 on, no amount and no quantity appears in the new table, tooltips included.
+- **AC9** `npm run demo` renders it on generated fixtures at 1280px and at a narrow window with no
+  horizontal page scroll.
+
+### Stop condition
+
+If combining needs a number the engine does not already return, stop and say which. Every figure
+above is on `r.byProduct` today; a merge that requires new computation has quietly become a
+different story.
+
+---
+
+## US-50 — The snapshot line starts when the position does *(new, defect, refined)*
+
+> *"the popouts that we can use as sharable objects show a line thats way too long, the line should
+> start at buy not at the opening of an account or something"*
+
+### It is exactly that, and the line in the code is short
+
+`app.js:374` — `series: cumulativeWindow(p.pnl, w.from, w.to)`. `w` is the **page's** range, so with
+ALL selected the series starts the day the account opened. A position bought in 2024 gets four years
+of cumulative-P/L-of-zero drawn as a flat line, and then the actual position in the last third of the
+card. The screenshot shows it: a card about TDIV, dated `2020-06-22 → 2026-08-13`, whose line is
+about two thirds nothing.
+
+Three consequences, and the cosmetic one is the least of them:
+
+1. **The shape is squashed.** The spark normalises to its own extent (`ui/snapshot.js:46`), so the
+   dead segment costs no vertical range — but it costs two thirds of the width, which is the whole
+   point of the card.
+2. **The dates are wrong for what the card is about.** `period` is the account's range printed on a
+   card about one instrument. A reader takes `2020-06-22` as "I have held this since 2020".
+3. **The percentage is computed over two different spans.** `result` is `sumWindow(p.pnl, w.from,
+   w.to)` — windowed — over `paidIn: p.paidIn?.at(-1)` — all-time. Select 1Y on a position bought in
+   2019 and the card divides one year of result by six years of money in. **This is the same defect
+   at the other end and it is the one that produces a wrong number rather than an ugly one.**
+
+### What "at buy" means precisely
+
+The position's life, from `p.qty`: the first index where quantity is non-zero, to the last. Clipped
+to the selected window, because a card must never disclose more period than the page is showing.
+
+- **Still open** → runs to the window's end. That is today.
+- **Closed** → **ends at the close.** The flat tail after a sale is the same bug pointing the other
+  way, and it is the more misleading half: a line that runs flat at its final profit for two years
+  reads as a position that held its gain, when in fact it did not exist.
+- **Sold and re-bought** → one contiguous span, first-open to last-active, flat middle included. That
+  gap is true — the money genuinely was not in it — and drawing two segments needs a discontinuity
+  the sparkline has no vocabulary for.
+- **Opened before the window** → the intersection, and the card's dates say the intersection, not
+  the position's whole life.
+- **Fewer than two points in the intersection** → no line. `drawSpark` already returns on
+  `spark.length < 2`; what must change is that the card then does not claim a period it did not draw.
+
+### Where the fix goes, and where it must not
+
+**In `src/lib/snapshot.js`, pure, and tested there.** A new `positionSpan(qty, from, to)` returning
+`{from, to}` or `null`, which `snapshotModel` uses to clip the series, the period *and* the basis of
+the percentage — one span, used three times, so the three cannot drift apart again. `app.js` hands
+over `p.qty` and stops deciding anything.
+
+Not in `ui/snapshot.js`: the drawing code holds no decisions, which is the split US-47 was built
+around and the reason a PNG's contents are testable at all.
+
+`paidIn` then comes from the same span — `p.paidIn[spanTo] − p.paidIn[spanFrom−1]` — so numerator and
+denominator cover the same days. For an all-time card on an open position that is the number the card
+shows today; for a windowed one it is a different, correct number.
+
+### Design notes
+
+- **The card gets wider room, not a wider line.** With the dead segment gone the same 2.5px path
+  fills the plot; nothing about the geometry needs to change, which is the sign the fix is in the
+  right place.
+- **The first point of a clipped series is zero by construction** (cumulative from the first day of
+  the position), so the dashed zero line now sits at the left edge for every card. It should still
+  be drawn only when zero falls inside the range — for a position that has only ever gained, the
+  zero *is* the start, and drawing a dashed line along the top of nothing is noise.
+- **The period is provenance, not decoration.** It sits with the broker, the date and the
+  reconciliation verdict, and it is the field a reader uses to judge the percentage. Whatever the
+  overhaul does to that line, those four stay together and stay legible at the size a Discord embed
+  renders.
+
+### Acceptance criteria
+
+- **AC1** For a position first bought at day *k*, the card's spark starts at *k*, not at day 0.
+  Asserted on the model, against a synthetic fixture, not by looking at pixels.
+- **AC2** For a closed position, the spark ends at the close.
+- **AC3** The card's period states the position's own span, clipped to the selected window.
+- **AC4** The percentage's result and `paidIn` are measured over that same span. A 1Y window on a
+  six-year position does not divide one by the other.
+- **AC5** A position with fewer than two days inside the window draws no line and claims no period.
+- **AC6** `positionSpan` is pure, exported, and tested for: open, closed, re-bought, opened-before-
+  window, entirely-outside-window, and a `qty` array of all zeros.
+- **AC7** The snapshot field list is unchanged. This story moves no new value onto the card.
+
+### Stop condition
+
+If clipping needs anything beyond `p.qty` and the arrays the card already receives, stop: the model
+has started reading state instead of being handed it, and that is the seam US-47's leak test depends
+on.
