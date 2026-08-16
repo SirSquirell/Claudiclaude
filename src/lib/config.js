@@ -18,6 +18,9 @@ const CHARTING = 'https://charting.vwdservices.com';
  */
 export const TRADER_HOST = 'trader.degiro.nl';
 
+/** The cookie DEGIRO's own login sets. Read, never written — rule 9. */
+export const SESSION_COOKIE_NAME = 'JSESSIONID';
+
 /** Reporting API versions. Bump these when DEGIRO drifts. */
 const API_VERSIONS = {
   update: 'v5',
