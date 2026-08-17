@@ -16,6 +16,24 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [Unreleased]
+
+### Added
+
+- **US-61 — the Positions table fits the width it is given.** The merged holdings table (US-49)
+  carries eleven columns, and below a wide desktop it overflowed into a horizontal scrollbar. It now
+  drops its lowest-priority columns as the table narrows and folds them into a per-row expand,
+  keeping the four that answer *"how is this position doing"* — Instrument, Value, Paid in vs grown,
+  Result — visible at every width. A **Columns** control beside the view filters hides the ones you
+  do not want, remembered like the theme. The page never scrolls sideways again; the scoped scroll
+  remains only as the last resort for the four load-bearing columns on the narrowest screens.
+
+  **No resync is needed.** This is display only: every figure is the same number computed the same
+  way, hiding a column changes nothing the engine produced, and the cash row still makes the Result
+  column sum to the account's result. Verified in a browser from a desktop width down to a phone —
+  ten of twelve columns on a wide desktop, the load-bearing four on a phone, no sideways page scroll
+  at any width.
+
 ## [0.46.0] — 2026-08-17
 
 The interface, rebuilt. Eight phases, each with its own commit and its own gate; `docs/redesign/`

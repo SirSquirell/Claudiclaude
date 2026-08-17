@@ -3934,7 +3934,13 @@ would be defeating the check.
 
 # Refinement 0.49 — the Positions table fits the width it is given
 
-## US-61 — Responsive columns, before a column chooser *(new, refined)*
+## US-61 — Responsive columns, before a column chooser *(built — awaiting confirmation)*
+
+> **Built.** Columns are data now (`src/ui/columns.js`), the table drops lowest-priority columns to
+> fit its own container and folds them into a per-row expand, the four load-bearing columns never
+> drop, and a **Columns** chooser (persisted like the theme) is the escape hatch. Browser-verified
+> from desktop to phone with no sideways page scroll; `test/columns.test.js` guards the pure floor.
+> The refinement below is what it was built to.
 
 > *"we need a solution for the width of the columns where we fix this unresponsive table. Maybe give
 > a toggle where we can show or hide certain columns, basically make it responsive like that? Or what

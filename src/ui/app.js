@@ -44,6 +44,7 @@ import { ADAPTERS, connected as connectedBrokers } from '../lib/brokers/index.js
 import { LANGS, applyStatic, getLang, missing as missingTranslations, setLang, t as tr } from './i18n.js';
 import { THEMES, alpha, applyAnonymize, applyTheme, fmtEurCents, fmtPct, fmtPrice, fmtQty, fmtSigned, getAnonymize, getTheme, onThemeChange, setAnonymize, setTheme, tokens } from './theme.js';
 import { FORMATS, ownerLine, positionSpan, snapshotModel } from '../lib/snapshot.js';
+import { HOLDINGS_COLUMNS, baseHidden, droppableByPriority, optionalColumns } from './columns.js';
 import { brokerMarkSvg, lockupSvg, markSvg } from './brand.js';
 import { copySnapshot, downloadSnapshot, drawSnapshot, tokensForTheme } from './snapshot.js';
 import { inExtension, load, send, wantsDemo } from './datasource.js';
@@ -3474,26 +3475,9 @@ function renderHoldings(r, composition, compColours, t, from, to) {
    *  - free: more has come out than went in, `paidIn` is negative, and every
    *    euro on screen is the market's. Said in words rather than clamped to 0 %.
    */
-  const splitCell = (p) => {
-    if (Math.abs(p.current) < 0.005) return '<td class="muted">—</td>';
+  const splitInner = (p) => {
     const paid = p.paidIn?.at(-1) ?? 0;
     const grown = p.current - paid;
-
-    /**
-     * A losing position said **"100 % paid in · 0 % lost"** beside a result of
-     * −€766. The comment above already described the right behaviour and the
-     * code did the opposite: both shares were scaled by whichever of the two
-     * was larger and then clamped to 100, so under water the paid share pinned
-     * at 100 and the loss share was whatever was left, which is nothing.
-     *
-     * Two numbers on one row contradicting each other is the defect this
-     * project is least willing to ship.
-     *
-     * The fix follows the reader's own instinct: when you are down, the money
-     * you put in is *more* than what it is worth, so the bar is scaled to what
-     * you paid in and the missing slice is the loss. Scaling it to the current
-     * value instead would need a bar longer than itself.
-     */
     let words;
     let keptPct;
     let lostPct;
@@ -3513,69 +3497,77 @@ function renderHoldings(r, composition, compColours, t, from, to) {
       keptPct = Math.max(0, 100 - lost);
       lostPct = lost;
     }
-
-    return `<td class="split">
-      <span class="bar" title="${esc(words)}"><i style="width:${keptPct}%"></i><em class="${grown >= 0 ? 'up' : 'down'}" style="width:${lostPct}%"></em></span>
-      <span class="muted">${esc(words)}</span>
-    </td>`;
+    return `<span class="bar" title="${esc(words)}"><i style="width:${keptPct}%"></i><em class="${grown >= 0 ? 'up' : 'down'}" style="width:${lostPct}%"></em></span>`
+      + ` <span class="muted">${esc(words)}</span>`;
   };
+  const resultInner = (v) => `<span class="${v > 0.005 ? 'pos' : v < -0.005 ? 'neg' : 'muted'}">${esc(fmtSigned(v))}</span>`;
 
-  const resultCell = (v) =>
-    `<td class="${v > 0.005 ? 'pos' : v < -0.005 ? 'neg' : 'muted'}">${esc(fmtSigned(v))}</td>`;
-
-  const body = rows
-    .map((p) => {
+  /**
+   * US-61. One renderer per column key, closing over the window and the colours.
+   * The pure list (order, priority, the load-bearing floor) is `columns.js`; this
+   * is only *what goes in the cell*. Every cell carries `data-col`, so the width
+   * pass and the chooser can hide it by key without knowing what it holds — the
+   * same choke-point discipline US-46 uses for masking.
+   */
+  const dash = '<span class="muted">—</span>';
+  const estMark = (p) => (p.hasSeries === false
+    ? ' <span class="muted" title="No price history for this instrument, so it is held at the last price it traded at — its result is an estimate.">·&nbsp;est.</span>'
+    : '');
+  const cellFor = {
+    instrument: (p) => {
       const colour = colours.get(p.productId) ?? t.muted;
       const grouped = otherLabel && !composition.layers.some((l) => l.productId === p.productId);
-      const qty = p.qty.at(-1);
-      // A result is only as good as the prices behind it. An instrument with no
-      // series sits flat at its last traded price, so its movement between
-      // trades is invented — diluted in a total, but the whole of this number.
-      //
-      // Read off the product, not out of a warning. The first version of this
-      // searched `w.products` on the warnings array, a field that does not
-      // exist, so the marker could never appear at all; and the warning that
-      // does carry instruments truncates them at 40.
-      const estimated = p.hasSeries === false;
-      const isOpen = open(p);
-      const dash = '<span class="muted">—</span>';
+      return `<button type="button" class="expander" aria-expanded="false" title="${esc(tr('Details'))}" aria-label="${esc(tr('Details'))}"></button>`
+        + `<span class="swatch" style="background:${colour}"></span>${esc(p.name)}`
+        + `${p.symbol && p.symbol !== p.name ? ` <span class="muted">${esc(p.symbol)}</span>` : ''}`
+        + `${grouped ? ` <span class="muted">· in “${esc(otherLabel)}”</span>` : ''}`;
+    },
+    quantity: (p) => (open(p) ? esc(fmtQty(p.qty.at(-1))) : dash),
+    price: (p) => (open(p) ? esc(unitPrice(p, p.qty.at(-1))) : dash),
+    avgPaid: (p) => esc(averagePaid(p)),
+    value: (p) => (open(p) ? esc(fmtEurCents(p.current)) : dash),
+    split: (p) => (open(p) ? splitInner(p) : dash),
+    result: (p) => resultInner(sumWindow(p.pnl, from, to)),
+    dividend: (p) => (Math.abs(p.dividend ?? 0) > 0.005 ? esc(fmtEurCents(p.dividend)) : dash),
+    pctBought: (p) => {
       // Result over money ever put in, gross. Honest and needing no cost-basis
       // convention — which is why the header names its denominator.
-      const pct = (p.bought ?? 0) > 0 ? (sumWindow(p.pnl, from, to) / p.bought) * 100 : null;
-      return `<tr>
-        <td><span class="swatch" style="background:${colour}"></span>${esc(p.name)}${p.symbol && p.symbol !== p.name ? ` <span class="muted">${esc(p.symbol)}</span>` : ''}${grouped ? ` <span class="muted">· in “${esc(otherLabel)}”</span>` : ''}</td>
-        <td>${isOpen ? esc(fmtQty(qty)) : dash}</td>
-        <td>${isOpen ? esc(unitPrice(p, qty)) : dash}</td>
-        <td>${esc(averagePaid(p))}</td>
-        <td>${isOpen ? esc(fmtEurCents(p.current)) : dash}</td>
-        ${isOpen ? splitCell(p) : `<td>${dash}</td>`}
-        ${resultCell(sumWindow(p.pnl, from, to))}
-        <td>${Math.abs(p.dividend ?? 0) > 0.005 ? esc(fmtEurCents(p.dividend)) : dash}</td>
-        <td class="${signClass(pct ?? 0)}">${pct == null ? dash : esc(fmtPct(pct))}</td>
-        <td>${isOpen ? `${((p.current / total) * 100).toFixed(1)}%` : dash}</td>
-        <td>${esc(p.currency)}${estimated ? ' <span class="muted" title="No price history for this instrument, so it is held at the last price it traded at — its result is an estimate.">·&nbsp;est.</span>' : ''}</td>
-        <td><button type="button" class="snap" data-snap="${esc(p.productId)}" title="${esc(tr('Share this position'))}" aria-label="${esc(tr('Share this position'))}">⧉</button></td>
-      </tr>`;
-    })
-    .join('');
+      const v = (p.bought ?? 0) > 0 ? (sumWindow(p.pnl, from, to) / p.bought) * 100 : null;
+      return v == null ? dash : `<span class="${signClass(v)}">${esc(fmtPct(v))}</span>`;
+    },
+    share: (p) => (open(p) ? `${((p.current / total) * 100).toFixed(1)}%` : dash),
+    currency: (p) => `${esc(p.currency)}${estMark(p)}`,
+    snap: (p) => `<button type="button" class="snap" data-snap="${esc(p.productId)}" title="${esc(tr('Share this position'))}" aria-label="${esc(tr('Share this position'))}">⧉</button>`,
+  };
+  const tdClass = (c) => `${c.num ? 'num' : ''}${c.action ? ' act' : ''}${c.key === 'split' ? ' split' : ''}`.trim();
+  const colTd = (c, p) => `<td data-col="${c.key}" class="${tdClass(c)}"${c.key === 'instrument' ? ` title="${esc(p.name)}"` : ''}>${cellFor[c.key](p)}</td>`;
+  // The expand carries exactly the columns a row is *not* showing, so no data
+  // becomes unreachable at any width (US-61 AC2). Each `.kv` starts hidden and
+  // `applyHoldingsHidden` reveals the ones whose column is dropped.
+  const detailRow = (p) => `<tr class="pos-detail" hidden><td class="detail-cell" colspan="${HOLDINGS_COLUMNS.length}">`
+    + optionalColumns().map((c) => `<span class="kv" data-col="${c.key}" hidden><b>${esc(tr(c.label))}</b> <span>${cellFor[c.key](p)}</span></span>`).join('')
+    + '</td></tr>';
+  const body = rows.map((p) => `<tr class="pos-row">${HOLDINGS_COLUMNS.map((c) => colTd(c, p)).join('')}</tr>${detailRow(p)}`).join('');
 
-  const cashRow = `<tr>
-      <td><span class="swatch" style="background:${t.cash}"></span>Cash <span class="muted">· dividend, interest, fees and currency</span></td>
-      <td class="muted">—</td>
-      <td class="muted">—</td>
-      <td class="muted">—</td>
-      <td>${esc(fmtEurCents(r.totals.cash))}</td>
-      <td class="muted">—</td>
-      ${resultCell(accountResult - positionResult)}
-      <td class="muted">—</td>
-      <td class="muted">—</td>
-      <td>${((r.totals.cash / total) * 100).toFixed(1)}%</td>
-      <td>${esc(r.baseCurrency)}</td>
-    </tr>`;
+  // The cash row carries `accountResult − positionResult` so the Result column
+  // sums to the account's result (US-49). Hiding a column must not change that,
+  // so it is built from the same column list as every other row.
+  const cashCell = {
+    instrument: () => `<span class="swatch" style="background:${t.cash}"></span>Cash <span class="muted">· ${esc(tr('dividend, interest, fees and currency'))}</span>`,
+    value: () => esc(fmtEurCents(r.totals.cash)),
+    result: () => resultInner(accountResult - positionResult),
+    share: () => `${((r.totals.cash / total) * 100).toFixed(1)}%`,
+    currency: () => esc(r.baseCurrency),
+  };
+  const cashRow = `<tr class="cash-row">${HOLDINGS_COLUMNS.map((c) =>
+    `<td data-col="${c.key}" class="${tdClass(c)}">${cashCell[c.key] ? cashCell[c.key]() : dash}</td>`).join('')}</tr>`;
+
+  $('#holdings thead').innerHTML = `<tr>${HOLDINGS_COLUMNS.map((c) =>
+    `<th data-col="${c.key}" class="${tdClass(c)}">${c.action ? `<span class="sr-only">${esc(tr('Copy image'))}</span>` : esc(tr(c.label))}</th>`).join('')}</tr>`;
 
   // An empty filter says so rather than showing a headed table with nothing in
   // it, which reads as a load that failed.
-  const empty = `<tr><td colspan="12" class="muted">${esc(tr('No positions match this filter.'))}</td></tr>`;
+  const empty = `<tr><td colspan="${HOLDINGS_COLUMNS.length}" class="muted">${esc(tr('No positions match this filter.'))}</td></tr>`;
   $('#holdings tbody').innerHTML =
     (rows.length ? body : empty) + (status === 'open' || status === 'all' ? cashRow : '');
   const unattributed = r.unattributedDividends ?? 0;
@@ -3585,7 +3577,153 @@ function renderHoldings(r, composition, compColours, t, from, to) {
       ? ` ${unattributed} dividend row(s) carry no product, so they are in the account total but not in any row above.`
       : '');
 
+  // US-61. Rebuild the chooser against the persisted set, make sure the width
+  // observer is running, and fit to the current container width.
+  buildColumnChooser();
+  ensureHoldingsObserver();
+  fitHoldingsColumns();
+
   renderHoldingsShare(composition, rows, compColours, t, r);
+}
+
+// --- US-61: responsive Positions columns --------------------------------------
+
+const HOLDINGS_COLS_KEY = 'degiro-portfolio.holdings-cols';
+
+/** The columns the reader has chosen to hide. A display preference, stored like
+ *  the theme; a blocked or empty store just means "hide nothing". */
+function userHiddenCols() {
+  try {
+    return new Set((localStorage.getItem(HOLDINGS_COLS_KEY) || '').split(',').filter(Boolean));
+  } catch {
+    return new Set();
+  }
+}
+function setUserHiddenCols(set) {
+  try {
+    localStorage.setItem(HOLDINGS_COLS_KEY, [...set].join(','));
+  } catch {
+    /* memory only for this page's lifetime */
+  }
+}
+
+/**
+ * Hide a set of column keys across the header, the rows, the cash row and the
+ * per-row expand — and mirror them into the expand, which shows exactly what the
+ * row is not. Lock columns are never in the set, so the load-bearing four and the
+ * share action always show. Display only: no number is read or written here.
+ */
+function applyHoldingsHidden(hidden) {
+  const table = $('#holdings');
+  if (!table) return;
+  let visible = 0;
+  table.querySelectorAll('thead [data-col]').forEach((el) => {
+    const on = !hidden.has(el.dataset.col);
+    el.hidden = !on;
+    if (on) visible += 1;
+  });
+  table.querySelectorAll('tbody .pos-row > [data-col], tbody .cash-row > [data-col]').forEach((el) => {
+    el.hidden = hidden.has(el.dataset.col);
+  });
+  table.querySelectorAll('.pos-detail .kv[data-col]').forEach((el) => {
+    el.hidden = !hidden.has(el.dataset.col);
+  });
+  table.querySelectorAll('.detail-cell').forEach((el) => { el.colSpan = visible; });
+  table.toggleAttribute('data-has-hidden', hidden.size > 0);
+}
+
+/**
+ * Start from the user's chosen-hidden set (plus the open-only columns under
+ * Closed), then drop the lowest-priority columns one at a time until the table
+ * stops overflowing its own container. The scoped scroll (US-49) is the last
+ * resort — for the load-bearing four, not for eleven columns.
+ */
+function fitHoldingsColumns() {
+  const table = $('#holdings');
+  const wrap = $('#holdings-table-wrap');
+  if (!table || !wrap || wrap.hidden) return;
+  const status = state.posStatus ?? 'open';
+  const hidden = baseHidden(status, userHiddenCols());
+  applyHoldingsHidden(hidden);
+  for (const c of droppableByPriority()) {
+    if (table.scrollWidth <= wrap.clientWidth + 1) break;
+    if (hidden.has(c.key)) continue;
+    hidden.add(c.key);
+    applyHoldingsHidden(hidden);
+  }
+}
+
+let holdingsObserver = null;
+/** One ResizeObserver on the table's own container — not the window, which is
+ *  wider than the panel the table sits in — plus the delegated expand toggle. */
+function ensureHoldingsObserver() {
+  const wrap = $('#holdings-table-wrap');
+  const table = $('#holdings');
+  if (!wrap || !table) return;
+  if (!holdingsObserver && typeof ResizeObserver !== 'undefined') {
+    let queued = false;
+    holdingsObserver = new ResizeObserver(() => {
+      if (queued) return;
+      queued = true;
+      requestAnimationFrame(() => { queued = false; fitHoldingsColumns(); });
+    });
+    holdingsObserver.observe(wrap);
+  }
+  if (!table.dataset.expanderWired) {
+    table.dataset.expanderWired = '1';
+    table.addEventListener('click', (e) => {
+      const btn = e.target.closest('.expander');
+      if (!btn) return;
+      const detail = btn.closest('.pos-row')?.nextElementSibling;
+      if (!detail || !detail.classList.contains('pos-detail')) return;
+      const opening = detail.hidden;
+      detail.hidden = !opening;
+      btn.setAttribute('aria-expanded', String(opening));
+    });
+  }
+}
+
+/**
+ * The chooser — the escape hatch (US-61). Load-bearing columns are not offered;
+ * everything else can be turned off, persisted like the theme. Toggling re-fits
+ * rather than re-rendering, so the panel stays open while you tick through it.
+ */
+function buildColumnChooser() {
+  const host = $('#holdings-columns');
+  if (!host) return;
+  const hidden = userHiddenCols();
+  const items = optionalColumns()
+    .map((c) => `<label><input type="checkbox" data-col="${c.key}"${hidden.has(c.key) ? '' : ' checked'}> ${esc(tr(c.label))}</label>`)
+    .join('');
+  host.innerHTML = `<button type="button" class="cols-btn" id="cols-btn" aria-expanded="false" aria-haspopup="true">${esc(tr('Columns'))}</button>`
+    + `<div class="cols-pop" id="cols-pop" hidden role="group" aria-label="${esc(tr('Columns'))}">${items}</div>`;
+  const btn = $('#cols-btn');
+  const pop = $('#cols-pop');
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const show = pop.hidden;
+    pop.hidden = !show;
+    btn.setAttribute('aria-expanded', String(show));
+  });
+  pop.addEventListener('click', (e) => e.stopPropagation());
+  pop.addEventListener('change', (e) => {
+    const cb = e.target.closest('input[data-col]');
+    if (!cb) return;
+    const set = userHiddenCols();
+    if (cb.checked) set.delete(cb.dataset.col); else set.add(cb.dataset.col);
+    setUserHiddenCols(set);
+    fitHoldingsColumns();
+  });
+  if (!document.body.dataset.colsPopWired) {
+    document.body.dataset.colsPopWired = '1';
+    document.addEventListener('click', () => {
+      const p = $('#cols-pop');
+      if (p && !p.hidden) {
+        p.hidden = true;
+        $('#cols-btn')?.setAttribute('aria-expanded', 'false');
+      }
+    });
+  }
 }
 
 /**

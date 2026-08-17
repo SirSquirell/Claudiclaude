@@ -65,6 +65,7 @@ person.** This is the gate that is open.
 | US-47+ | **The share sheet** — four shapes, light or dark, amounts off by default, and a name the sharer chooses from four sources. Download beside the clipboard | 0.46.0 |
 | US-35d | **Optimism Mode draws two different charts** rather than deforming the real one — *Belief in PROP* (conviction index, in points) and *What PROP still owes you* (upside remaining, in euros). `flipSeries` is gone | 0.46.0 |
 | US-17 | **A renamed DEGIRO field is now loud.** `pick()` tallies which candidate name carried each value; a load-bearing field absent on ≥95 % of rows raises a red banner naming it, and the bug report carries the per-field shares — which is also the measurement that lets `parse.js` stop guessing | 0.46.0 |
+| US-61 | **The Positions table fits its width.** Columns-as-data: the lowest-priority ones drop as the table narrows and fold into a per-row expand, the load-bearing four (Instrument, Value, Paid in vs grown, Result) never drop, and a **Columns** chooser hides the rest, remembered like the theme. Browser-verified desktop→phone, no sideways page scroll; display only, no resync | unreleased · on `main` |
 
 **What to look at first**, if you only look at one thing: the Notices tab after a sync. 0.36.0 made
 background failures visible for the first time, so if something has been quietly failing for weeks
@@ -107,7 +108,6 @@ F1–F5 shipped in 0.37.0, F6–F9 in 0.38.0. U1–U5 need a decision rather tha
 | US-56 | **Response and graceful degradation** — feedback on pointer-down everywhere, plus reduced-motion / reduced-transparency / prefers-contrast fallbacks, in one layer | Nothing. Guardrail: `npm run palette` stays green |
 | US-57 | **The share sheet as a material** — the card materializes (blur+scale spring), the four formats become a momentum strip. Motion only, no field changes | Nothing. Rides on US-47+/US-52/US-54 |
 | US-58 | **Type that changes shape with size** — size-bucketed tracking and leading, optical sizing, with a measured `npm run type` check. **POC validated, ready to build** | Nothing. Confirm the bundled font has an optical axis |
-| US-61 | **The Positions table fits its width** — priority-based responsive column drop + per-row expand as the default, a Columns chooser as the escape hatch; the load-bearing four never drop | Nothing. Extends US-49's conditional-column path |
 | US-03 (2nd half) | Expiry, strike, call/put from data rather than a name string | A real HAR |
 | US-07 | Options & margin dashboard — the margin half drops if it is not in the response | A real HAR |
 

@@ -363,26 +363,15 @@
             <div class="group" id="holdings-status"></div>
             <div class="group" id="products-filter"></div>
             <div class="group" id="products-sort"></div>
+            <!-- US-61. The column chooser — the escape hatch beside the view filters.
+                 The header is built in app.js from the column model, so it stays in
+                 lockstep with the rows, the cash row and the responsive drop. -->
+            <div class="group cols-group" id="holdings-columns"></div>
           </div>
           <div class="chart-box" id="holdings-pie-box" hidden><canvas id="c-holdings-pie"></canvas></div>
           <div class="table-scroll" id="holdings-table-wrap">
             <table id="holdings">
-              <thead>
-                <tr>
-                  <th data-i18n>Instrument</th>
-                  <th data-i18n>Quantity</th>
-                  <th data-i18n>Price</th>
-                  <th data-i18n>Average paid</th>
-                  <th data-i18n>Value</th>
-                  <th data-i18n>Paid in vs grown</th>
-                  <th data-i18n>Result</th>
-                  <th data-i18n>Dividend (all time)</th>
-                  <th>% of bought</th>
-                  <th data-i18n>Share</th>
-                  <th data-i18n>Currency</th>
-                  <th><span class="sr-only" data-i18n>Copy image</span></th>
-                </tr>
-              </thead>
+              <thead></thead>
               <tbody></tbody>
             </table>
           </div>

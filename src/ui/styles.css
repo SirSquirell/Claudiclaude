@@ -1640,6 +1640,138 @@ td.split .muted {
   font-size: 0.6875rem;
 }
 
+/* --- US-61: responsive Positions columns --------------------------------- */
+
+/* The share action is a narrow, centred column. */
+th.act,
+td.act {
+  text-align: center;
+  width: 1px;
+}
+
+/* The instrument name is the width hog: long names, `nowrap`, so without a cap
+   the table's natural width forces the responsive pass to drop columns even on a
+   wide desktop. Capped and ellipsised, most columns fit before anything drops;
+   the full name is still in the row's title and the swatch never truncates. */
+#holdings td[data-col='instrument'] {
+  max-width: 15rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#holdings td[data-col='instrument'] .swatch,
+#holdings td[data-col='instrument'] .expander {
+  flex: none;
+}
+
+/* Let the headers wrap and tighten the padding, so a column's width is set by
+   its numbers (narrow) rather than its uppercase header phrase (wide). This is
+   what lets a desktop keep most columns before the responsive pass drops any. */
+#holdings thead th {
+  white-space: normal;
+  vertical-align: bottom;
+  min-width: 3.2rem;
+}
+#holdings th,
+#holdings td {
+  padding: 9px 9px;
+}
+#holdings td.split {
+  min-width: 7.5rem;
+}
+
+/* The disclosure that opens a row's dropped columns. It exists only when the
+   table is actually hiding something — at full width there is nothing to open,
+   so it is absent rather than inert. */
+.expander {
+  display: none;
+  width: 1.1rem;
+  height: 1.1rem;
+  margin-right: 6px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  vertical-align: baseline;
+}
+#holdings[data-has-hidden] .pos-row .expander {
+  display: inline-grid;
+  place-items: center;
+}
+.expander::before {
+  content: '\203A'; /* › */
+  font-size: 0.95rem;
+  line-height: 1;
+  transition: transform 0.15s ease;
+}
+.expander[aria-expanded='true']::before {
+  transform: rotate(90deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .expander::before {
+    transition: none;
+  }
+}
+
+/* The expand: a row's dropped columns as label/value chips beneath it. No data
+   becomes unreachable at any width (US-61 AC2). */
+tr.pos-detail > .detail-cell {
+  text-align: left;
+  padding: 2px 12px 12px 40px;
+  white-space: normal;
+  background: var(--surface-2);
+}
+.pos-detail .kv {
+  display: inline-flex;
+  gap: 6px;
+  align-items: baseline;
+  margin: 6px 16px 0 0;
+  font-size: 0.75rem;
+}
+.pos-detail .kv b {
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.625rem;
+  letter-spacing: var(--track);
+}
+
+/* The column chooser — the escape hatch, a popover off its button in the
+   filter row. */
+.cols-group {
+  position: relative;
+}
+.cols-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  display: grid;
+  gap: 2px;
+  min-width: 12rem;
+  padding: 8px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-float);
+}
+.cols-pop label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 5px 7px;
+  border-radius: var(--radius-sm);
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.cols-pop label:hover {
+  background: var(--surface-3);
+}
+.cols-pop input {
+  accent-color: var(--accent);
+}
+
 /* --- product and transaction tables -------------------------------------- */
 
 /* Amounts right-aligned so their digits line up; text left as it reads. */
