@@ -97,6 +97,8 @@ F1–F5 shipped in 0.37.0, F6–F9 in 0.38.0. U1–U5 need a decision rather tha
 | US-23 | Sync and wipe, per broker | Deliberately deferred (rule 8) — a second broker existing |
 | US-24 | Combine, and filter | Same. The arithmetic is proven and tested; the UI is not built |
 | US-25 | Two accounts under one login | A spike, not a story. Cheap *after* US-22, which has landed |
+| US-52 | **Paid vs grown on the shareable card** — the composition bar beneath the hero pct, via a `splitModel` shared with the holdings row; amount-free, so it survives anonymize | Nothing. Small, and the split maths already exists in `splitCell` |
+| US-53 | **Paid vs grown on sell transactions** — refined to a decision, not a build. Per-sale profit is cost basis, which the project refused; recommendation is to decline or reframe as a labelled position figure | An owner decision between (a) position-to-date bar, (b) drop, (c) open cost basis as its own story |
 | US-03 (2nd half) | Expiry, strike, call/put from data rather than a name string | A real HAR |
 | US-07 | Options & margin dashboard — the margin half drops if it is not in the response | A real HAR |
 

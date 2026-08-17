@@ -3265,3 +3265,196 @@ the leak that story closed.
 If fixing the label requires converting anything, stop. The conversion is already done and lives in
 the engine; a second conversion in the UI is two answers to one question, and the rate this one
 would use is not the rate that settled the trade.
+
+---
+
+# Refinement 0.47 — paid vs grown, in the two places it is not yet
+
+Three requests from the owner, and the first is already shipped: *"here I miss the paid vs grown
+%"* points at the overview table, where US-49 already draws the bar for every open position
+(`app.js:3520`). So this refinement is the other two — **US-52 puts the split on the shareable
+card**, and **US-53 asks for it on sell transactions**, which is the more interesting one because
+it walks straight into the cost-basis wall this project has spent five releases staying behind.
+
+They share a spine worth stating once. **Paid vs grown is a split of a *stock*, not a *flow*.**
+`value = paidIn + result` is an identity that holds at every instant for what a position *is*
+(SPEC §1.4 applied to one holding), and an identity over a stock needs no cost-basis convention —
+which is the whole reason this project can draw the split honestly when nothing else about
+per-holding P/L can be. A single sale is a flow, and a flow cannot be split into "capital returned"
+and "profit" without FIFO or average cost. US-52 is easy because it splits the stock the card is
+already about; US-53 is hard because it asks to split a flow.
+
+---
+
+## US-52 — Paid vs grown on the shareable card *(new, refined — extends US-47)*
+
+> *"I also want paid vs grown in the shareable things."*
+
+### What the card shows today, and what is missing
+
+The card (US-47, `src/lib/snapshot.js` + `src/ui/snapshot.js`) already carries the paid-vs-grown
+*relationship* — as the hero percentage. `returnOnMoneyIn(result, moneyIn)` is `result ÷ moneyIn`,
+drawn as *"+310,48 % · on the money put in"* (`ui/snapshot.js:137`). That is grown-over-paid as a
+single ratio.
+
+What it does **not** carry is the **composition bar and its sentence** — *"72 % paid in · 28 %
+grown"* — the exact mark the holdings table draws in `splitCell` (`app.js:3446`). The pct answers
+*"for every euro in, how much came back"*; the bar answers *"of what this is worth, how much is
+mine and how much did it make"*. Two readings of the one identity, and the request is for the
+second one to travel with the card, beneath the number that is already there.
+
+### The reason this is the *right* thing to put on a public card
+
+It is the cost-basis-free, **amount-free** figure. The bar is two percentages and a sentence;
+under US-46 (anonymize) it survives untouched because there is no euro in it to mask. A split that
+says *72 % · 28 %* discloses the shape of the position without disclosing what anyone holds — which
+is precisely what a card *"zodat iemand kan flexen met de gains"* wants and the export must never
+leak. So this is not a euro sneaking onto the card; it is the one part of the holdings row that was
+always safe to post.
+
+### One truth, two renderers — the reuse that keeps them from drifting
+
+`splitCell` holds the split arithmetic inline in `app.js` — the three states, the percentages, the
+words. Do **not** copy it into the drawing code. Lift the maths into a pure
+**`splitModel(paid, grown)`** in `src/lib/snapshot.js`, returning `{ keptPct, lostPct, state, key }`
+where `state` is one of `grown | underwater | free` and `key` is the i18n string key with its
+substitutions — no euros in the return value at all. `splitCell` becomes a caller of it, and
+`snapshotModel` calls it too. The card and the table then cannot disagree about a losing position,
+because there is one function that decides and it is the one with the test.
+
+This is the same split-of-concerns US-47 was built around: `snapshot.js` decides *what* the split
+is, `ui/snapshot.js` decides what it *looks like* and holds no arithmetic.
+
+### The span, so the bar cannot drift from the pct beside it
+
+US-50's whole point was that the card's numerator, denominator, dates and line are all measured
+over **one** span — `positionSpan` clipped to the window. The split obeys the same rule for free:
+it is computed from the `result` and `moneyIn` that `snapshotModel` already derives over that span
+(`snapshot.js:227-239`). So `paid = moneyIn`, `grown = result`, and the bar covers exactly the days
+the pct covers. An **all-time card reproduces the holdings row's bar to the digit** (span end is the
+last day, so `moneyIn = paidIn.at(-1)` and `grown = result` — the same two numbers `splitCell`
+reads); a windowed card's split is windowed like everything else on it. A test asserts the pct, the
+amount and the split share one span.
+
+### The three states are already solved — do not re-solve them
+
+`splitCell` distinguishes grown, under water, and `paid < 0` (*"all gain — more came out than went
+in"*), and it fixed a real defect getting the under-water scaling right (`app.js:3451`). The card
+inherits all three by calling the shared function. The one worth calling out: a **closed** profitable
+position on an all-time card has `moneyIn < 0` — you sold out, so more came out than went in — and
+it lands in the `free` state and reads *"all gain"*. That is correct, not a degenerate bar to
+special-case.
+
+### The field list gains exactly one key, on purpose
+
+`SNAPSHOT_FIELDS` is frozen and the leak test asserts the model's key set (`snapshot.js:37`). This
+story adds **one** key — `split` — and the addition is deliberate and recorded here, which is the
+stop condition US-47 wrote: *"the list is amended deliberately and the reason recorded — never
+widened at the call site."* The key carries only `{ keptPct, lostPct, state, key, subs }` —
+percentages, an enum, and an i18n key — so the poisoned-fixture leak test still cannot push an
+amount, a name or an identifier through it.
+
+### Acceptance criteria
+
+- **AC1** The card carries the paid-in-vs-grown bar and its sentence, beneath the hero percentage.
+- **AC2** The split comes from a pure `splitModel` shared with `splitCell`; an all-time card
+  reproduces the holdings row's bar to the digit, asserted on the model against a fixture.
+- **AC3** The split is measured over US-50's `positionSpan`. A test asserts the pct, the amount and
+  the split are computed over the same span — a 1Y card on a six-year holding does not window one
+  and not the others.
+- **AC4** All three states render — grown, under water, and `paid < 0` (*all gain*) — the same cases
+  `splitCell` distinguishes, and a closed profitable position lands in *all gain*.
+- **AC5** With US-46 on, the split still renders. It is percentages and words; no amount appears.
+- **AC6** `SNAPSHOT_FIELDS` gains exactly one key, carrying only percentages, an enum and an i18n
+  key. The leak test's poisoned fixture cannot get an amount or an identity through it.
+- **AC7** `splitCell` is reduced to a caller of `splitModel` with the table's rendering unchanged —
+  `npm run demo` renders the holdings bar identically before and after.
+
+### Stop condition
+
+If the split needs a number `snapshotModel` does not already receive, stop: the model has started
+reading state instead of being handed it, which is the seam US-47's leak test and US-50's clip both
+depend on. And if anyone reaches for proceeds-minus-cost to draw it, that is US-53's trap on the
+wrong card — the card's split is a composition of the position's value, never a per-trade profit.
+
+---
+
+## US-53 — Paid vs grown on sell transactions *(new, refined — a decision, not a build)*
+
+> *"and I want the paid vs grown also in all sell transactions."*
+
+### This one asks to split a flow, and that is the cost-basis wall
+
+`renderTransactions` (`app.js:3279`) is the ledger: date, buy/sell, instrument, quantity, price in
+the instrument's own currency, and the amount that moved in euros. Every column is a fact about the
+transaction. The request is to add paid-vs-grown to each **sell** row.
+
+The reading a seller wants is *"of this sale, how much was my money coming back and how much was
+profit"* — and that is **realized gain on the sale = proceeds − cost basis of the shares sold.**
+Cost basis is FIFO or average cost, and **this project has refused to pick one, deliberately and
+repeatedly**: US-27 trap 1, the `averagePaid` comment (*"not the running average cost of what
+remains after partial sales… this project picks neither"*, `app.js:3371`), the `splitCell` comment
+(*"splitting today's value into cost and gain the usual way needs FIFO or average cost, and those
+are an argument with no right answer"*, `app.js:3432`), and `returnOnMoneyIn`'s note all say the
+same thing. The per-holding numbers on this page are trustworthy **because** no cost-basis
+convention exists anywhere in the codebase.
+
+So per-sale paid-vs-grown is not a missing column. It is **the one number the project's whole claim
+depends on not inventing.** The position bar is honest because `value = paidIn + result` splits a
+*stock* — what is held right now — and an identity over a stock needs no convention. A sale is a
+*flow*, and there is no convention-free way to split one flow into capital and profit. That is not a
+gap in the code; it is the difference between a stock and a flow.
+
+### Two honest options, and neither is the literal request
+
+1. **Position-to-date paid vs grown, as of the sell date.** Computable cost-basis-free: at the sell
+   day *d*, the instrument's `paidIn[d]` and its cumulative `result[d]`, with `value[d] = paidIn[d]
+   + result[d]`. The same bar the holdings row draws, snapshotted at the row's date. **But it is a
+   fact about the position on that day, not about the sale.** Two sells of the same instrument a
+   week apart show almost the same bar, because the bar is the position's state, not the trade's.
+   Putting a position figure on a per-sale row is exactly the *"the layout invented the comparison"*
+   failure US-49 warned about — a reader divides this sale's amount by a split that is not about
+   this sale. Honest arithmetic answering the wrong question.
+2. **Decline the column; the honest per-row figure is the amount, which is already there.** A
+   transaction is a flow, the amount is the flow, and paid-vs-grown belongs to the position — where
+   it already lives, on the holdings row (US-49) and now the card (US-52). The ledger's job is to
+   show what moved, not to attribute profit to a moment.
+
+### Recommendation
+
+**Option 2, and if per-sale *profit* is genuinely wanted, that is a separate, larger story that must
+open the cost-basis question by name.** Option 1 ships a number that reads as per-sale profit and is
+not; the literal request requires breaking the invariant every other figure on the page rests on.
+Adopting FIFO or average cost is a SPEC-level decision — it changes what this project promises about
+its numbers — and it should be taken deliberately, with the convention named and its consequences
+written down, never smuggled in as a transactions column.
+
+*Needed from the owner:* a decision between (a) the position-to-date bar on sell rows, clearly
+labelled as a position figure and never as the sale's; (b) drop it, amount stays the per-row truth;
+or (c) open cost basis as its own story, which is the only thing that answers the literal request
+and is the biggest change in this backlog if taken.
+
+### Acceptance criteria
+
+- **AC0 — the guardrail, whichever option is chosen.** This story introduces **no** cost-basis
+  convention: no FIFO, no average cost, no per-sale realized-gain field on `engine.js`. A test
+  asserts the engine gains no such field. If the answer is (c), this story closes and a new one
+  opens with cost basis in its title.
+- **AC1 — if option (a).** The figure against a sell row is the **position's** paid-vs-grown as of
+  the row's date, drawn with the shared `splitModel` (US-52), and it is labelled as a position
+  figure in the column header — never presented as the sale's own split.
+- **AC2 — if option (a).** It is computed from `p.paidIn` and `p.pnl` at the row's date, and a test
+  proves two sells of one instrument on adjacent dates show the position figure moving with the
+  position, not a per-sale split.
+- **AC3 — if option (a).** A sell of an instrument that is now closed still resolves against its
+  state on the sell date, not the degenerate end-of-life value.
+- **AC4** Under US-46, any figure shown is percentages and words only, no amount — the same as the
+  card and the holdings bar.
+
+### Stop condition
+
+If the column reaches for proceeds-minus-cost, stop and escalate to option (c): that is cost basis,
+it contradicts `app.js:3371`, `app.js:3432` and US-27 trap 1, and it cannot ship as a column
+without a story that changes what SPEC promises. A flow cannot be split into capital and profit
+without the convention this project refused — and the refusal is the reason the rest of the page can
+be trusted.
