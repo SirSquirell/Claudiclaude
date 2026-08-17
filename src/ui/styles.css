@@ -584,8 +584,12 @@ button.primary:hover {
   }
 
   .rail-foot {
+    /* No auto margin here: stacked, there is no column height to push against,
+       and it left ~90px of empty rail between the nav and the sync row. */
+    margin-top: 0;
     flex-direction: row;
     align-items: center;
+    flex-wrap: wrap;
   }
 
   .rail-state {
