@@ -129,6 +129,12 @@
             Triangles on the baseline mark days money went in (up) or out (down).
           </p>
           <div class="chart-box tall"><canvas id="c-value"></canvas></div>
+          <!--
+            Filled only when the axis does not start at zero — brief §4: "a chart
+            that does not start at zero and does not admit it is the oldest trick
+            in the book". Empty at load, so foldHints leaves it alone.
+          -->
+          <p class="hint" id="value-baseline" hidden></p>
         </div>
       </div>
 

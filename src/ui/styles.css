@@ -132,8 +132,13 @@
   --title: 0.9375rem;
   --hint: 0.75rem;
   --track: 0.07em;
-  --chart-h: clamp(9rem, 6rem + 9vw, 11.875rem);
-  --hero-h: clamp(11rem, 8rem + 9vw, 15.625rem);
+  /* Brief §8: charts are 230–320px tall. They were 144–190, and a 1400×190 line
+     chart flattens the movement it exists to show — the aspect ratio was doing
+     the opposite of the chart's job. The hero sits at the top of the same band
+     rather than above it, because one chart being twice its neighbours is a
+     hierarchy claim, and the hero already makes that claim by being first. */
+  --chart-h: clamp(14.375rem, 10rem + 8vw, 20rem);
+  --hero-h: clamp(15.625rem, 11rem + 8vw, 20rem);
   --kpi-w: 750;
   /* Deliberately a pixel: a hairline that scales stops being a hairline. */
   --rule: 1px;
@@ -2093,4 +2098,38 @@ button.primary:active {
 
 #months td.cell.out button {
   color: var(--text-muted);
+}
+
+/* --- the two toggles in the top bar, on one line ------------------------- */
+
+/*
+ * The eye and the 🙃 were two different shapes at two different heights: one a
+ * 2rem icon button, the other a padded pill inside a flex row that still carried
+ * the bottom margin from when it sat above the tiles on its own. Side by side
+ * that reads as a mistake, and it is one — same role, same rank, so same box.
+ *
+ * Apple's *spatial consistency*, in the small: two controls that do the same
+ * kind of thing must look the same and sit in the same place.
+ */
+.topbar-right .frown-bar {
+  margin: 0;
+  display: flex;
+  align-items: center;
+}
+
+.topbar-right .frown-btn {
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  font-size: 1rem;
+  border-radius: var(--radius-sm);
+}
+
+.topbar-right .icon-btn {
+  border-radius: var(--radius-sm);
+}
+
+/* The rotate belongs to the joke; it must not resize the row it lives in. */
+.topbar-right .frown-btn:hover {
+  transform: rotate(-15deg);
 }

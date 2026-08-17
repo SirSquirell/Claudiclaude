@@ -599,6 +599,33 @@ function buildControls() {
 }
 
 /**
+ * A chart that does not start at zero admits it.
+ *
+ * Brief §4 calls this the oldest trick in the book, and the fix is not to force
+ * every axis to zero — over a three-month window on a €116k account, a zero
+ * baseline compresses the whole movement into the top two per cent of the panel
+ * and shows nothing. So the axis is allowed to zoom, and the panel says it did.
+ *
+ * The threshold is Chart.js's own resolved scale rather than a guess about the
+ * data: measured over the demo fixtures, ALL resolves to 0 → 120 000 and 3M to
+ * 102 000 → 118 000, so the note appears on exactly the windows where the
+ * baseline is not zero.
+ */
+function noteBaseline(sel, chart, r, from) {
+  const el = $(sel);
+  if (!el) return;
+  const min = chart?.scales?.y?.min ?? 0;
+  const zoomed = min > 0.5;
+  el.hidden = !zoomed;
+  if (zoomed) {
+    el.textContent = tr(
+      'The vertical axis starts at {min}, not at zero — this window does not contain the start of the account, so the line is a close-up rather than the whole level.',
+      { min: fmtEurCents(min) },
+    );
+  }
+}
+
+/**
  * Which window the figures belong to, in words and in dates.
  *
  * "There is no such thing as an unlabelled number here" is brief §4's rule, and
@@ -1311,6 +1338,7 @@ function render() {
     },
     t,
   );
+  noteBaseline('#value-baseline', state.charts.value, r, from);
 
   const agg = aggregatePnl(r.days, r.pnl, gran, from, to);
   if (onScreen('#c-pnl')) state.charts.pnl = pnlChart($('#c-pnl'), agg, t);
