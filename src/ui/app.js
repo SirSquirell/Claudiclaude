@@ -1645,7 +1645,14 @@ function renderTiles(r, from = 0, to = r.days.length - 1) {
     {
       tabs: ['overview'],
       label: 'Today',
-      value: fmtSigned(dayPnl),
+      /**
+       * The day in euros and in per cent, because neither answers the question
+       * alone: +€ 2.535 says nothing about the size of the account it moved, and
+       * +4.89% says nothing about how much money that is. The percentage is the
+       * engine's own windowed return over the last two points — chained the same
+       * way every other return on the page is, so it cannot disagree with them.
+       */
+      value: `${fmtSigned(dayPnl)}  ${fmtPct(windowReturnPct(r, Math.max(0, last - 1), last))}`,
       note: `This week ${fmtSigned(weekPnl)}`,
       cls: signClass(dayPnl),
     },
