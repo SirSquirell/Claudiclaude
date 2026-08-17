@@ -1487,7 +1487,7 @@ function render() {
     $('#frown-toggle').classList.remove('on');
   }
 
-  renderTiles(r, from, to);
+  renderTiles(r, from, to, data.live);
   const slice = (arr) => arr.slice(from, to + 1);
 
   const gran = state.granularity === 'auto' ? autoGranularity(to - from + 1) : state.granularity;
@@ -1957,10 +1957,45 @@ function destroyCharts() {
  * inside the window would otherwise inflate the denominator and flatter the
  * return. No new notion of return enters the codebase.
  */
-function renderTiles(r, from = 0, to = r.days.length - 1) {
+function renderTiles(r, from = 0, to = r.days.length - 1, live = null) {
   const last = Math.min(to, r.days.length - 1);
   const dayPnl = r.pnl[last];
   const weekPnl = r.pnl.slice(Math.max(0, last - 6), last + 1).reduce((a, b) => a + b, 0);
+
+  /**
+   * DEGIRO's own result-so-far-today, preferred over the reconstructed
+   * day-over-day change whenever we have it and the window ends on the latest day.
+   *
+   * The reconstruction runs on vwd daily closes, and those arrive at different
+   * times per instrument: one feed carries today's close while another is still
+   * on yesterday's. On such a day `pnl[last]` counts a move for the holdings that
+   * updated and nothing for the rest — a partial figure that is neither today's
+   * change nor the zero a real non-trading day would give. It is the exact number
+   * a tester saw as "−0,58 %" while DEGIRO showed −2,5 %. DEGIRO computes its day
+   * figure against every position's live price, so it has no such hole; when it is
+   * present it is both more live and more honest than the reconstructed edge.
+   *
+   * Only at the tail (`last` is the newest day). A window dragged to end in the
+   * past wants that past day's reconstructed change, not today's live one.
+   */
+  const atTail = last >= r.days.length - 1;
+  const liveToday = atTail && typeof live?.todayPl === 'number' ? live.todayPl : null;
+  // The percentage is the day result over the total it grew from — the previous
+  // close, which is now-total minus today's result. Omitted, never faked, when
+  // that base is not a usable positive number.
+  const priorTotal =
+    liveToday != null && typeof live?.totalValue === 'number' ? live.totalValue - liveToday : null;
+  const usingLive = liveToday != null;
+  const todayEur = usingLive ? liveToday : dayPnl;
+  const todayPct = usingLive
+    ? priorTotal > 1 ? (liveToday / priorTotal) * 100 : null
+    : windowReturnPct(r, Math.max(0, last - 1), last);
+  const updatedAt = live?.at ? new Date(live.at) : null;
+  const todayNote = usingLive
+    ? `DEGIRO live${
+        updatedAt ? ` · ${updatedAt.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}` : ''
+      } · this week ${fmtSigned(weekPnl)}`
+    : `This week ${fmtSigned(weekPnl)}`;
 
   const whole = from <= 0 && last >= r.days.length - 1;
   const period = whole ? 'all time' : `${formatDay(r.days[from])} — ${formatDay(r.days[last])}`;
@@ -2053,13 +2088,17 @@ function renderTiles(r, from = 0, to = r.days.length - 1) {
       /**
        * The day in euros and in per cent, because neither answers the question
        * alone: +€ 2.535 says nothing about the size of the account it moved, and
-       * +4.89% says nothing about how much money that is. The percentage is the
-       * engine's own windowed return over the last two points — chained the same
-       * way every other return on the page is, so it cannot disagree with them.
+       * +4.89% says nothing about how much money that is.
+       *
+       * When DEGIRO's own live day figure is available it is used for both — so
+       * the number matches what the user sees in DEGIRO, and the ragged-edge
+       * partial move never reaches the tile. Otherwise it falls back to the
+       * engine's windowed return over the last two points, chained the same way
+       * every other return on the page is, so it cannot disagree with them.
        */
-      value: `${fmtSigned(dayPnl)}  ${fmtPct(windowReturnPct(r, Math.max(0, last - 1), last))}`,
-      note: `This week ${fmtSigned(weekPnl)}`,
-      cls: signClass(dayPnl),
+      value: `${fmtSigned(todayEur)}${todayPct == null ? '' : `  ${fmtPct(todayPct)}`}`,
+      note: todayNote,
+      cls: signClass(todayEur),
     },
     {
       tabs: ['overview', 'income'],
@@ -2297,7 +2336,7 @@ const TILE_TIPS = {
   'Total value': 'Your positions at their closing prices plus cash, on the last day of the range. It is what the account was worth, not what you would receive: no selling costs and no tax are taken off.',
   'Money paid in': 'Deposits minus withdrawals — only money that crossed the boundary between you and the broker. Dividends, fees and interest are internal to the account and are not in here; they are part of the result instead.',
   Result: 'What the account made, with deposits and withdrawals taken out, so paying money in never looks like a gain. The percentage chains the daily returns rather than dividing by the opening value, so a deposit landing mid-range does not flatter it.',
-  Today: 'The last day’s change, again with any deposit or withdrawal that day removed. On a weekend or a holiday there is no new closing price, so this is zero rather than missing.',
+  Today: 'DEGIRO’s own result so far today on the positions you hold, taken from the last sync — so it matches the figure in DEGIRO itself. If the market is still open it can still move before the close. When that live figure is not available it falls back to the last day’s reconstructed change, which is zero on a day with no trading.',
   'Dividend received': 'Cash that actually landed, net of the tax withheld at source. The withheld amount is stated separately because you may be able to reclaim part of it.',
   'Fees paid': 'Transaction and service costs only: courtage, connectivity, custody and third-party charges. It does not include what a margin balance costs you — that is Interest, and on a leveraged account it is usually the larger of the two.',
   Interest: 'Credit and debit interest, including the financing cost of a margin (debit) balance. Negative means you paid it. Kept apart from Fees because a financing cost is not a fee.',

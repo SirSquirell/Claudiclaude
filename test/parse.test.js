@@ -146,6 +146,33 @@ test('parseUpdate flattens the name/value-pair encoding', () => {
   assert.equal(parsed.totalValue, 1234.56);
   assert.equal(parsed.totalCash, 34.56);
   assert.deepEqual(parsed.cash, { EUR: 34.56 });
+  assert.equal(parsed.todayPl, null, 'no todayPlBase in the response means null, not a fabricated 0');
+});
+
+test('parseUpdate sums DEGIRO’s own per-position day P/L into todayPl', () => {
+  const parsed = parseUpdate({
+    portfolio: {
+      value: [
+        { value: [{ name: 'id', value: '1' }, { name: 'size', value: 10 }, { name: 'value', value: 500 }, { name: 'todayPlBase', value: { EUR: 12.5 } }] },
+        { value: [{ name: 'id', value: '2' }, { name: 'size', value: 4 }, { name: 'value', value: 200 }, { name: 'todayPlBase', value: { EUR: -30 } }] },
+        // A closed position (size 0) is dropped and does not contribute.
+        { value: [{ name: 'id', value: '3' }, { name: 'size', value: 0 }, { name: 'value', value: 0 }, { name: 'todayPlBase', value: { EUR: 999 } }] },
+      ],
+    },
+  });
+  assert.equal(parsed.todayPl, -17.5, 'sum of the open positions’ todayPlBase.EUR, rounded to cents');
+});
+
+test('parseUpdate reads a foreign base currency out of the todayPlBase map', () => {
+  const parsed = parseUpdate(
+    {
+      portfolio: {
+        value: [{ value: [{ name: 'id', value: '1' }, { name: 'size', value: 1 }, { name: 'todayPlBase', value: { USD: 3.33 } }] }],
+      },
+    },
+    'USD',
+  );
+  assert.equal(parsed.todayPl, 3.33);
 });
 
 test('parseClient extracts intAccount and the chart userToken', () => {

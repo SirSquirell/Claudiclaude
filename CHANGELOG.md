@@ -16,6 +16,36 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.46.1] — 2026-08-17
+
+The **Today** figure now uses DEGIRO's own live day result instead of a reconstructed
+day-over-day change, so it matches what you see in DEGIRO.
+
+**A resync is needed** — one press of **Sync now** is enough. The number DEGIRO states
+(`todayPlBase` on `/update`) was never captured before, so it only appears on the first
+sync after updating. Nothing in the stored history changed and no other figure moves; if
+you do not resync, Today falls back to its old value until you do.
+
+### Fixed
+
+- **"Today" was a partial figure at the ragged edge of the price data.** The tile showed the
+  reconstructed change on the last calendar day — `value[today] − value[yesterday]`, with any
+  deposit removed. That reconstruction runs on vwd daily closes, and those closes arrive at
+  different times *per instrument*: one feed already carries today's close while another is still
+  on Friday's. On such a day the last-day change counts a move for the holdings that updated and
+  **zero for the rest** — a number that is neither today's change nor the zero a real non-trading
+  day gives. On a tester's account, with 4 of 12 US holdings freshly quoted and 8 still on the
+  previous close, Today read **−0.58 %** while DEGIRO showed **−2.5 %**. (The reconciliation banner
+  already flagged the €845 gap this same lag produces in the total; the tile did not.)
+
+  Today now prefers **DEGIRO's own day result** — the sum of the per-position `todayPlBase` values
+  `/update` states, which DEGIRO computes against every position's live price and therefore has no
+  such hole. The percentage is that result over the previous close (now-total minus the day
+  result). When the live figure is not available it falls back to the old reconstructed change, so
+  a day with no trading still reads zero. The tooltip says which it is and notes the figure can
+  still move while the market is open. `parseUpdate` gained `todayPl`; `test/parse.test.js` covers
+  the sum, the absent-field (`null`, never a fabricated `0`) and the currency-map cases.
+
 ## [0.46.0] — 2026-08-17
 
 The interface, rebuilt. Eight phases, each with its own commit and its own gate; `docs/redesign/`
