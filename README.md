@@ -54,10 +54,10 @@ The first sync takes a few minutes — one request per 1,1 seconds, deliberately
 an earlier version? Press **Wipe & resync**: every number is recomputed from the raw
 responses, and stored ones may predate a fix.
 
-**[→ What it does and what changed, in Dutch (WHATS-NEW.md)](WHATS-NEW.md)** — written for
-whoever is *using* this rather than building it, and grouped by what you get rather than by
-version. Its middle section is the one that matters: the corrections that changed what the
-numbers say, and therefore which versions you must resync from.
+**[→ What changed in the latest release, in Dutch (WHATS-NEW.md)](WHATS-NEW.md)** — written for
+whoever is *using* this rather than building it, and covering only the version that just shipped,
+starting with the question it exists to answer: do you need to resync? Everything before that
+release is in [CHANGELOG.md](CHANGELOG.md).
 
 Full release notes are in [CHANGELOG.md](CHANGELOG.md). What it cannot do, and where it is
 known to be wrong, is in [docs/LIMITATIONS.md](docs/LIMITATIONS.md) — worth reading before

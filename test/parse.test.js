@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  fieldAlarms,
+  getFieldStats,
   num,
   parseCashMovements,
   parseChartResponse,
@@ -11,8 +13,10 @@ import {
   parseTimesAnchor,
   parseTransactions,
   parseUpdate,
+  resetFieldStats,
   unwrapJsonp,
 } from '../src/lib/parse.js';
+import { FIELD_ALARM } from '../src/lib/config.js';
 import { fixture } from './helpers.js';
 
 test('num coerces both decimal conventions', () => {
@@ -427,4 +431,121 @@ test('the drop report does not change what the parser returns', () => {
   assert.ok(Array.isArray(out));
   assert.deepEqual(Object.keys(out), ['0']);
   assert.equal(JSON.parse(JSON.stringify(out)).length, 1);
+});
+
+
+// ===========================================================================
+// US-17 — notice when a field DEGIRO renamed stops arriving
+// ===========================================================================
+
+/** A run of transaction rows, with one field's name swapped on all of them. */
+const txRows = (n, rename = null) => ({
+  data: Array.from({ length: n }, (_, i) => {
+    const row = { date: '2024-01-02', productId: 'P', quantity: 3, price: 2, total: 6 };
+    if (rename) {
+      row[rename[1]] = row[rename[0]];
+      delete row[rename[0]];
+    }
+    return row;
+  }),
+});
+
+test('the tally records which candidate name actually carried each value', () => {
+  /**
+   * The half of US-17 that pays for itself outside of any failure: the parsers
+   * accept several candidate names per value and nobody knows which one DEGIRO
+   * really sends. This measures it, so rule 8's "delete the fallbacks once a real
+   * capture confirms the shape" becomes a thing somebody can act on rather than a
+   * promise in a comment.
+   */
+  resetFieldStats();
+  parseTransactions(txRows(30));
+  const stats = getFieldStats();
+
+  assert.equal(stats.quantity.rows, 30);
+  assert.equal(stats.quantity.missed, 0);
+  assert.deepEqual(stats.quantity.matched, { quantity: 30 });
+
+  // `totalBase` resolves through the fourth candidate on this fixture, and that
+  // is exactly the finding the story is about — the first three are unproven.
+  assert.equal(stats.totalPlusFeeInBaseCurrency.matched.total, 30);
+  assert.equal(stats.totalPlusFeeInBaseCurrency.matched.totalPlusFeeInBaseCurrency, undefined);
+});
+
+test('a load-bearing field renamed on every row raises, and names itself', () => {
+  // Written as a rename rather than as a hand-built tally, because that is the
+  // only way to know the alarm can actually fire through the real parser.
+  resetFieldStats();
+  parseTransactions(txRows(40, ['quantity', 'aantal']));
+  const alarms = fieldAlarms(getFieldStats());
+
+  assert.equal(alarms.length, 1, 'exactly the renamed field');
+  assert.equal(alarms[0].field, 'quantity');
+  assert.equal(alarms[0].missed, 40);
+  assert.equal(alarms[0].rows, 40);
+  // The names that used to work travel with it: that is the search term for
+  // whoever goes looking at DEGIRO's response.
+  assert.deepEqual(alarms[0].everMatched, []);
+});
+
+test('a field absent on a handful of rows raises nothing', () => {
+  /**
+   * The reason the signal is a rate and not a count. A renamed field does not go
+   * missing on three rows out of 1 457 — it goes missing on all of them. A raw
+   * count cannot tell those apart and would cry wolf on ordinary sparse data,
+   * which is worse than silence: an alarm that fires on healthy accounts is one
+   * nobody reads on the day it matters.
+   */
+  resetFieldStats();
+  const rows = txRows(100).data;
+  for (let i = 0; i < 3; i++) delete rows[i].quantity;
+  parseTransactions({ data: rows });
+  assert.deepEqual(fieldAlarms(getFieldStats()), []);
+
+  // And too few rows for a rate to mean anything raises nothing either — a
+  // three-row account genuinely cannot tell the two cases apart.
+  resetFieldStats();
+  parseTransactions(txRows(3, ['quantity', 'aantal']));
+  assert.deepEqual(fieldAlarms(getFieldStats()), []);
+});
+
+test('the threshold is a reviewed constant, not derived from the rows it polices', () => {
+  // SPEC §3. A rate computed from the same rows it is judging moves with them and
+  // never fires.
+  assert.equal(typeof FIELD_ALARM.missingShare, 'number');
+  assert.ok(FIELD_ALARM.missingShare > 0.5 && FIELD_ALARM.missingShare <= 1);
+  assert.equal(FIELD_ALARM.loadBearing.length, 6);
+
+  // Every load-bearing name must be a key `pick()` can actually produce — it
+  // tallies under the *first* candidate, so a name taken from the middle of a
+  // list would police a field that never reports.
+  resetFieldStats();
+  parseTransactions(txRows(30));
+  parseProducts({ data: { P: { id: 'P', name: 'X', closePrice: 1 } } });
+  // With an `id`, or the row is skipped before `size` is ever picked — which is
+  // correct, and was the first version of this line getting it wrong.
+  parseUpdate({ portfolio: { value: [{ value: [{ name: 'id', value: 'P' }, { name: 'size', value: 1 }] }] } });
+  parseCashMovements({ cashMovements: [{ date: '2024-01-01', change: 5 }] });
+  const seen = Object.keys(getFieldStats());
+  for (const f of FIELD_ALARM.loadBearing) {
+    assert.ok(seen.includes(f), `${f} is not a key any pick() reports under`);
+  }
+});
+
+test('the tally is beside the computation, never inside it', () => {
+  /**
+   * The guarantee that makes a module-global counter safe in a file the layout
+   * calls pure: **no parse output depends on it.** Parsed once with the tally
+   * empty and once with it already full of a different run, byte for byte the
+   * same.
+   */
+  resetFieldStats();
+  const clean = JSON.stringify(parseTransactions(txRows(12)));
+
+  resetFieldStats();
+  parseTransactions(txRows(500, ['quantity', 'aantal']));
+  parseCashMovements({ cashMovements: [{ date: '2024-01-01', change: 5 }] });
+  const dirty = JSON.stringify(parseTransactions(txRows(12)));
+
+  assert.equal(dirty, clean);
 });

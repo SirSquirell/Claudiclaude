@@ -5,7 +5,8 @@ import { readFileSync } from 'node:fs';
 import { MASK, hasDigits, maskEur, maskQty, maskSigned } from '../src/lib/anon.js';
 import { DOTS, DOT_R, LINE, MIN_LOCKUP_HEIGHT, STAR, STROKE_W, VIEWBOX, markWidth } from '../src/ui/brand.js';
 import {
-  PROVENANCE_FIELDS, SNAPSHOT_FIELDS, provenanceLine, returnOnMoneyIn, snapshotModel, sparkline,
+  FORMATS, PROVENANCE_FIELDS, SNAPSHOT_FIELDS, formatById, ownerLine, positionSpan,
+  provenanceLine, returnOnMoneyIn, snapshotModel, sparkline,
 } from '../src/lib/snapshot.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
@@ -167,9 +168,22 @@ test('the watermark is drawn above the plot area, never inside it', () => {
 // US-47 — the snapshot
 // ===========================================================================
 
+/**
+ * A synthetic position, in the shape the model now takes.
+ *
+ * US-50 changed the signature from three pre-computed numbers to the arrays plus
+ * a window, because the caller was computing the result over one span and the
+ * money in over another. Four days, bought on the second, so the fixture also
+ * exercises the clipping: a card built from this must not mention day 0.
+ */
 const base = {
-  name: 'Some Instrument', symbol: 'SMI', from: '2026-01-01', to: '2026-08-12',
-  result: 1234.56, paidIn: 1000, series: [0, 500, 1234.56], version: '0.44.0',
+  name: 'Some Instrument',
+  symbol: 'SMI',
+  days: ['2025-12-31', '2026-01-01', '2026-04-01', '2026-06-01', '2026-08-12'],
+  qty: [0, 10, 10, 10, 10],
+  pnl: [0, 0, 500, 234.56, 500],
+  paidIn: [0, 1000, 1000, 1000, 1000],
+  version: '0.44.0',
 };
 
 test('only allowlisted fields reach the model', () => {
@@ -235,7 +249,150 @@ test('a position with no money in reports words, not a percentage of nothing', (
   assert.deepEqual(returnOnMoneyIn(500, 0), { pct: null, basis: 'no-money-in' });
   assert.deepEqual(returnOnMoneyIn(500, -20), { pct: null, basis: 'no-money-in' });
   assert.equal(returnOnMoneyIn(250, 1000).pct, 25);
-  assert.equal(snapshotModel({ ...base, paidIn: 0 }).pct, null);
+  assert.equal(snapshotModel({ ...base, paidIn: [0, 0, 0, 0, 0] }).pct, null);
+});
+
+// ===========================================================================
+// Phase 7 — the share sheet
+// ===========================================================================
+
+test('the card field set is exactly SNAPSHOT_FIELDS, and it now carries a name', () => {
+  // The phase 7 gate, in one line. `name` is the instrument; `owner` is the
+  // person, and it is the field the sheet added — a card that could not say who
+  // posted it was the reason nobody could tell two accounts' cards apart.
+  assert.ok(SNAPSHOT_FIELDS.includes('name'));
+  assert.ok(SNAPSHOT_FIELDS.includes('owner'));
+  const m = snapshotModel({ ...base, owner: { text: 'Sam', derived: true } });
+  assert.deepEqual(Object.keys(m).sort(), [...SNAPSHOT_FIELDS].sort());
+});
+
+test('a typed name is never presented as the account’s', () => {
+  /**
+   * The distinction the whole `derived` flag exists for. `first` and `username`
+   * are read out of the account, so the card may say the position is that
+   * person's; a handle somebody typed may only say who is posting it. Rendering
+   * the second as the first would be the card asserting something no code here
+   * checked — the same failure as a forgeable badge.
+   */
+  assert.deepEqual(ownerLine({ source: 'first', fullName: 'Jasper de Vries' }), { text: 'Jasper', derived: true });
+  assert.deepEqual(ownerLine({ source: 'username', username: 'jasper_v' }), { text: 'jasper_v', derived: true });
+  assert.deepEqual(ownerLine({ source: 'handle', handle: 'jazzer#1' }), { text: 'jazzer#1', derived: false });
+  assert.equal(ownerLine({ source: 'none', fullName: 'Jasper de Vries' }), null);
+
+  // Only the first name, and only ever the first name. A full name on something
+  // posted publicly is more than the reader needed and less than you can retract.
+  assert.equal(ownerLine({ source: 'first', fullName: 'Jasper de Vries' }).text, 'Jasper');
+
+  // Empty at any source collapses to no line: "shared by" followed by nothing
+  // is worse than no name at all.
+  for (const src of ['first', 'username', 'handle']) {
+    assert.equal(ownerLine({ source: src, fullName: '  ', username: '', handle: '   ' }), null);
+  }
+
+  // And the model normalises, so a caller cannot smuggle a bare string past the
+  // question the card has to answer.
+  assert.equal(snapshotModel({ ...base, owner: 'Sam' }).owner, null);
+  assert.deepEqual(snapshotModel({ ...base, owner: { text: 'Sam' } }).owner, { text: 'Sam', derived: false });
+});
+
+test('US-50 — the spark starts at the buy and ends at the sale', () => {
+  /**
+   * The defect Jasper reported: a card for something bought last month drew a
+   * line from the account's opening, so eleven twelfths of it was flat at zero
+   * and the shape was squeezed into the last inch.
+   */
+  const qty = [0, 0, 0, 5, 5, 5, 0, 0];
+  assert.deepEqual(positionSpan(qty), { from: 3, to: 5 }, 'the flat run before the buy is not part of the position');
+
+  // Clipped to the reader's window, both ends. A 3-month card for a five-year
+  // holding shows three months.
+  assert.deepEqual(positionSpan(qty, 4, 6), { from: 4, to: 5 });
+  assert.deepEqual(positionSpan([1, 1, 1], 0, 2), { from: 0, to: 2 }, 'still held today runs to the window end');
+
+  // A short is a position too.
+  assert.deepEqual(positionSpan([0, -3, -3, 0]), { from: 1, to: 2 });
+
+  // Never open in the window: no span, and the caller draws nothing rather than
+  // inventing one.
+  assert.equal(positionSpan([0, 0, 0]), null);
+  assert.equal(positionSpan(qty, 6, 7), null);
+  assert.equal(positionSpan(null), null);
+
+  // One day held is a span. Whether one point can be drawn is the renderer's
+  // problem, and deciding it here would make this function about drawing.
+  assert.deepEqual(positionSpan([0, 4, 0]), { from: 1, to: 1 });
+});
+
+test('the account name reaches the card and nothing else', () => {
+  /**
+   * The rule 7 half of the name feature, and the reason it is worth a test: the
+   * 0.10.0 export leaked `displayName` exactly once, by being in the bag of meta
+   * that got serialised. `datasource.js` therefore reads it *outside*
+   * `DIAGNOSTIC_META`, because everything in that object is folded into the
+   * context the bug report and the export are built from.
+   *
+   * Asserted at the source rather than by calling `buildBugReport`, because the
+   * failure this guards is a future edit adding one line to a list — and that
+   * line would be invisible to a test that only checks today's output.
+   */
+  const src = read('../src/ui/datasource.js');
+  const block = /const DIAGNOSTIC_META = \{[\s\S]*?\n\};/.exec(src)[0];
+  assert.ok(!/displayName/.test(block), 'displayName is in the bag the bug report serialises');
+  assert.match(src, /store\.getMeta\('displayName'/, 'and it is still read for the card');
+  // It also must not travel inside `meta`, which is what `diagnosticContext`
+  // spreads. One field of its own, named at each return.
+  assert.ok(!/meta\.displayName|meta\[.displayName/.test(src));
+});
+
+test('US-50 — the card measures its number over the days it draws', () => {
+  /**
+   * AC3 and AC4, and AC4 is the one that produced a wrong figure rather than an
+   * ugly one. `base` is bought on day 1 of four, so:
+   *
+   *  - the period states the position's span, not the account's;
+   *  - the result is the position's own cumulative total;
+   *  - and the money in is measured over the same days.
+   */
+  const all = snapshotModel({ ...base, anonymized: false });
+  assert.deepEqual(all.period, { from: '2026-01-01', to: '2026-08-12' }, 'day 0 is not part of this position');
+  assert.ok(Math.abs(all.amount - 1234.56) < 0.005);
+  assert.ok(Math.abs(all.pct - 123.456) < 0.005);
+
+  /**
+   * The window, and the defect in one assertion. Over days 2–3 the position made
+   * 734.56 — and the old code divided that by 1 000 of all-time money in, giving
+   * 73 %. Nothing was put in during those days, so there is no denominator and
+   * the card says so in words instead of printing a percentage of the wrong span.
+   */
+  const windowed = snapshotModel({ ...base, window: { from: 3, to: 4 }, anonymized: false });
+  assert.deepEqual(windowed.period, { from: '2026-06-01', to: '2026-08-12' });
+  assert.ok(Math.abs(windowed.amount - 734.56) < 0.005);
+  assert.equal(windowed.pct, null);
+  assert.equal(windowed.pctBasis, 'no-money-in');
+
+  // AC5: one day inside the window draws no line and claims no period.
+  const oneDay = snapshotModel({ ...base, window: { from: 4, to: 4 } });
+  assert.deepEqual(oneDay.spark, []);
+  assert.deepEqual(oneDay.period, { from: null, to: null });
+
+  // AC7: no new value moved onto the card by any of this.
+  assert.deepEqual(Object.keys(all).sort(), [...SNAPSHOT_FIELDS].sort());
+});
+
+test('the four formats are four distinct shapes, and an unknown one falls back', () => {
+  assert.equal(FORMATS.length, 4);
+  assert.deepEqual(FORMATS.map((f) => f.id), ['1:1', '4:5', '9:16', '16:9']);
+  // Ratios, checked rather than trusted: a typo in a height is invisible on
+  // screen and wrong in every posted card.
+  const ratio = (id, want) => {
+    const f = formatById(id);
+    assert.ok(Math.abs(f.w / f.h - want) < 0.01, `${id} is ${f.w}×${f.h}`);
+  };
+  ratio('1:1', 1);
+  ratio('4:5', 0.8);
+  ratio('9:16', 9 / 16);
+  ratio('16:9', 16 / 9);
+  assert.equal(formatById('3:2'), FORMATS[0], 'an unknown id draws something rather than throwing');
 });
 
 test('the sparkline keeps both ends and never more than the cap', () => {

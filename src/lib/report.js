@@ -355,6 +355,42 @@ export function buildBugReport({ result, meta = {}, counts = {}, version = null,
             },
           }
         : null,
+      /**
+       * US-17. Which candidate field name carried each value, on what share of
+       * rows — and whether the cluster URLs were discovered or defaulted.
+       *
+       * This is the half of the story that pays for itself twice. As a safety
+       * net it says "a load-bearing field is absent on every row", which is what
+       * a rename looks like. As an instrument it says which name DEGIRO *really*
+       * sends, measured rather than guessed — and per CLAUDE.md rule 8, the
+       * candidates that never matched are then deleted rather than kept in case.
+       *
+       * Shares rather than raw counts, rounded, because the count is a number
+       * about the account's size and the share is a number about DEGIRO's API.
+       * `discovered` is one boolean that `diagnose.js` already reads and this
+       * file did not: an account silently running on default cluster URLs is
+       * worth a line, and it is a line rather than a subsystem.
+       */
+      fields: meta.fieldStats && typeof meta.fieldStats === 'object'
+        ? {
+            discovered: meta.urls?.discovered !== false,
+            perField: Object.fromEntries(
+              Object.entries(meta.fieldStats)
+                .filter(([name]) => /^[A-Za-z][A-Za-z0-9_]{0,40}$/.test(name))
+                .map(([name, s]) => [name, {
+                  rows: Number(s?.rows) || 0,
+                  missingShare: Number(s?.rows) > 0 ? Math.round(((Number(s.missed) || 0) / s.rows) * 100) / 100 : null,
+                  // The names that matched, each with the share of rows it
+                  // carried. A name at 0 is the one to delete.
+                  matched: Object.fromEntries(
+                    Object.entries(s?.matched ?? {})
+                      .filter(([k]) => /^[A-Za-z][A-Za-z0-9_]{0,40}$/.test(k))
+                      .map(([k, n]) => [k, Number(s.rows) > 0 ? Math.round(((Number(n) || 0) / s.rows) * 100) / 100 : null]),
+                  ),
+                }]),
+            ),
+          }
+        : null,
     },
 
     /**

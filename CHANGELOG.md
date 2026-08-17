@@ -4,8 +4,9 @@ Notable changes per release. Entries are written for someone deciding whether to
 they say what was wrong and what it did to the numbers, not which functions moved.
 
 There is a second changelog beside this one: **[WHATS-NEW.md](WHATS-NEW.md)**, in Dutch, written
-for whoever is using the extension rather than building it. Anything a reader would notice goes in
-both — see [CLAUDE.md](CLAUDE.md) for which entries those are.
+for whoever is using the extension rather than building it. It covers **only the latest release** and
+is rewritten each time, so this file is the history and that one is the announcement. Anything a
+reader would notice goes in both — see [CLAUDE.md](CLAUDE.md) for which entries those are.
 
 This file is updated in the same commit as the change it describes. Every story lands as one
 commit carrying its identifier, so a single change can be undone with
@@ -14,6 +15,132 @@ buy you.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
+
+## [0.46.0] — 2026-08-17
+
+The interface, rebuilt. Eight phases, each with its own commit and its own gate; `docs/redesign/`
+holds the brief and `docs/redesign/MIGRATION.md` §3 is the parity table this release answers to.
+Nothing was dropped without a line in [docs/RETIRED.md](docs/RETIRED.md), and `test/parity.test.js`
+fails the build if anything is.
+
+**No resync is needed.** Not one stored response, parser or engine path changed — `src/lib/**` was
+touched in exactly one place, `snapshot.js`, and only to fix the two defects below. Every figure on
+the page is recomputed from the same raw responses as before.
+
+### Fixed
+
+- **A window's figures are now measured over that window.** The range control used to be a floating
+  bar that re-sliced all-time numbers, so every preset reported the same result. Each range now
+  recomputes from the engine's windowed helpers, anchored on the value the day *before* the window
+  opens — measuring from inside it makes the first day's move zero. Time-weighted return chains
+  daily factors rather than dividing endpoints, so a deposit landing mid-window cannot flatter it.
+  `test/window.test.js` asserts both.
+
+- **A chart whose y-axis does not start at zero now says so.** A 3-month value chart resolves to a
+  102.000–118.000 axis, which draws an ordinary quarter as a doubling. The axis is still allowed to
+  zoom — forcing zero throws away the detail the window was selected for — but a line under the plot
+  states the opening level.
+
+- **US-50: the shareable card's line started at the account's opening rather than at the buy.** Two
+  thirds of a card about a position bought last year was a flat run at zero. Underneath it was a
+  worse one: the result was measured over the selected window while the money paid in was all-time,
+  so a 1Y card on a six-year position divided one span by another and reported a percentage that
+  belonged to neither. One pure `positionSpan` now clips the series, the dates and the denominator
+  together. A position with fewer than two days in the window draws no line and claims no period.
+
+- **Amounts hidden meant hidden text and a shouting axis.** With the eye closed every chart drew
+  `€ •••` down its left edge — a masked figure repeated seven times, costing 65px of plot. The money
+  axis now drops its labels entirely; percentage axes keep theirs. `test/mask.test.js` asserts no
+  amount reaches the page while masked, and it was verified in a browser across all seven sections.
+
+### Added
+
+- **US-17: a field DEGIRO renames is now loud instead of silent.** Every `pick()` in `parse.js`
+  records which candidate name actually carried the value, and a load-bearing field absent on 95 %
+  or more of rows raises a red banner naming it. The signal is a *rate* on purpose: a renamed field
+  does not go missing on three transactions out of 1 457, it goes missing on all 1 457 — and a raw
+  count would cry wolf on ordinary sparse data, which is worse than silence.
+
+  The same tally answers a question this project has been carrying since the fixtures were written.
+  The parsers accept several candidate names per value because nobody knew which one DEGIRO sends;
+  the bug report now states, per field, which name matched and on what share of rows. A candidate at
+  0 % is dead code, and per CLAUDE.md rule 8 it gets deleted rather than kept in case. The report
+  also carries `discovered`, so an account silently running on default cluster URLs says so.
+
+- **US-35d: Optimism Mode draws two different charts** instead of deforming the real one.
+  *Belief in {PROP}* is a conviction index — one point per day held under water, weighted by depth —
+  and *What {PROP} still owes you* is `max(0, paid in − worth)`, which ends at exactly the amount
+  that was lost. Both are true read straight and both happen to climb when things go badly, so the
+  sign is turned around by the framing rather than by arithmetic.
+
+  `flipSeries` is **gone**. It reflected the value series about its own midpoint, which produced
+  something shaped like a portfolio value chart while not being one — and it inverted the deposit
+  steps, so every moment money went in the line dropped. Both new charts keep the
+  NOT THE REAL NUMBERS stamp, and the deposits line is correctly absent from both.
+
+### Changed
+
+- **A left rail replaces the tab row**, and the sections became routes: the section you are in is
+  visible rather than inferred, and last sync, reconciliation and data coverage moved to the rail's
+  foot. They used to sit among the KPI tiles, where "Data coverage 100,0 %" was rendered at the same
+  size as the total value.
+- **One Sync button and one "Meer" menu** instead of six top-level actions. Wipe & resync sits below
+  a rule, in red. The connection check opens in a modal.
+- **Each section has one hero figure, three supporting facts and an "Alle cijfers" disclosure** that
+  contains the rest. Nineteen figures in one grid is a wall; the same nineteen across five sections
+  is four per screen. Hint paragraphs became `?` disclosures with their wording unchanged.
+- **Charts have real heights** — viewport-scaled rather than a fixed 190px — and no chart forces a
+  symmetric axis on single-signed data.
+- **The share sheet.** The card button on a position now opens a sheet with a live preview: four
+  shapes (1:1, 4:5, 9:16, 16:9), light or dark independently of the page, amounts on or off, and a
+  name from four sources — none, first name, the account name, or one typed in. Download sits beside
+  Copy. Amounts default to hidden there whichever way the page is set, because a card leaves the
+  machine. A name read out of the account renders as "X's position"; a typed one renders as "shared
+  by X" and is never presented as the account's, for the same reason the card carries no badge.
+- **Uppercase above 11px is gone**, card-in-card nesting is flattened to one panel depth, and the
+  dark palette was re-measured: `npm run palette` reports zero collisions in both themes.
+
+### Not changed, deliberately
+
+- **A share count is still masked** while amounts are hidden, against the migration brief's "shares
+  survive". 137 shares of something with a public price *is* the position's value. The disagreement
+  is written down in `test/mask.test.js` rather than settled quietly.
+
+## [0.45.0] — 2026-08-17
+
+### Fixed
+
+- **A price quoted in dollars was printed with a euro sign.** The transactions table rendered the
+  traded price through the euro formatter, so a fill at `$ 3,105` read `€ 3,11` — and nothing said
+  no conversion had happened. Reported from a real account, beside DEGIRO's own row.
+
+  **No number was wrong and nothing needs resyncing.** The engine never reads that field for
+  valuation: positions are priced through the product's own currency and the observed rate, and each
+  row's euro figure comes from DEGIRO's base-currency total. What was wrong was the label, which is
+  its own defect — multiply the printed € 3,11 by 900 shares and you get € 2.799, which cannot be
+  reconciled with the € 2.421,71 beside it, and the only way out is to assume one of the two columns
+  is lying.
+
+  The price now renders in the currency it was actually traded in, resolved from the product first
+  and the transaction second. When neither states one it renders **without a currency at all** — a
+  bare number rather than a euro sign nobody checked.
+
+- **Two different fills looked like the same one.** Prices were rounded to cents, so `$ 3,105` and
+  `$ 3,12` both printed as `3,11`-ish and a penny stock at `$ 0,0125` printed as `0,01`. A price is
+  not an amount: prices now carry up to four decimals, amounts still two.
+
+- **A purchase was signed positive.** The Amount column showed money leaving the account as
+  `+€ 2.421,71` where the broker's own statement shows `−€ 2.419,71`, under a header that said only
+  *Amount*. It is now the cash flow — negative when money left — and the hint says so, including
+  that fees are inside it, which is where the remaining difference from DEGIRO's row comes from.
+
+### Changed
+
+- **A transaction that does not state a currency no longer becomes a euro one.** The parser
+  defaulted the field to `EUR`; it is now `null`. Every reader already fell through to the product's
+  currency and then to the account's base, so nothing downstream changes — but an unrecognised value
+  acquiring a plausible meaning is the failure mode rule 4 exists for, and it was one layer under
+  the defect above.
 
 ## [0.42.0] — 2026-08-11
 

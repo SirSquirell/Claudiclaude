@@ -12,7 +12,7 @@
  *    already carries the sign, so colour is never the only channel.
  */
 
-import { alpha, fmtEur, fmtEurCents, fmtSigned } from './theme.js';
+import { alpha, fmtEur, fmtEurCents, fmtSigned, getAnonymize } from './theme.js';
 import { drawMark } from './brand.js';
 import { WATERMARK } from '../lib/config.js';
 import { daysBetween, formatDay } from '../lib/dates.js';
@@ -96,6 +96,18 @@ function baseOptions(t) {
           padding: 8,
           font: { size: 11 },
           callback: (v) => fmtEur(v),
+          /**
+           * The money axis goes away entirely while amounts are hidden.
+           *
+           * `fmtEur` already masks, so leaving it on would draw `€ •••` five
+           * times down the side of every chart — a column of identical
+           * placeholders that costs width and says nothing. The shape of the
+           * series is what the reader is looking at in that mode, and the shape
+           * does not need the scale. Axes measured in percent or in months keep
+           * their labels; they are not amounts (`monthCompareChart` restores
+           * this flag for its `returnPct` metric).
+           */
+          display: !getAnonymize(),
         },
       },
     },
@@ -695,6 +707,8 @@ export function monthCompareChart(ctx, data, metric, t) {
   opts.plugins.legend.display = true;
   opts.scales.y.grid.color = (c) => (c.tick.value === 0 ? t.axis : t.grid);
   opts.scales.y.ticks.callback = (v) => (money ? fmtEur(v) : `${v}%`);
+  // A percentage is not an amount: it survives the mask, so its axis does too.
+  opts.scales.y.ticks.display = money ? !getAnonymize() : true;
   opts.plugins.tooltip.callbacks = {
     title: (items) => `${items[0].dataset.label} ${items[0].label}`,
     label: (item) =>
@@ -909,6 +923,43 @@ export function moversChart(ctx, { labels, values }, t) {
           backgroundColor: values.map((v) => (v >= 0 ? alpha(t.pos, 0.85) : alpha(t.neg, 0.85))),
           borderRadius: 4,
           maxBarThickness: 18,
+        },
+      ],
+    },
+    options: opts,
+  });
+}
+
+/**
+ * One series, one unit, no second line. US-35d's two charts.
+ *
+ * Deliberately not `cashChart` with different arguments: these are not amounts
+ * in every case — the conviction index is measured in points — so the y-axis and
+ * the tooltip take their formatter from the caller rather than assuming euros.
+ * Everything else is the base chrome, which is the point: they should look like
+ * the rest of the page and be wrong about nothing except their premise.
+ *
+ * No deposits line on either, because it means nothing on either.
+ */
+export function singleSeriesChart(ctx, { days, values }, t, { colour, format }) {
+  const opts = baseOptions(t);
+  opts.scales.x.ticks.callback = dayTickFormatter(days);
+  opts.scales.y.ticks.callback = (v) => format(v);
+  opts.plugins.tooltip.callbacks = { label: (item) => format(item.parsed.y) };
+
+  return new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: days,
+      datasets: [
+        {
+          data: values,
+          borderColor: colour,
+          backgroundColor: alpha(colour, 0.18),
+          borderWidth: 2,
+          fill: true,
+          pointRadius: 0,
+          tension: 0,
         },
       ],
     },

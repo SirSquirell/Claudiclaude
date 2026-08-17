@@ -19,7 +19,7 @@
 import { computePortfolio } from '../lib/engine.js';
 import { combineResults } from '../lib/combine.js';
 import * as degiro from '../lib/brokers/degiro.js';
-import { parseCashMovements, parseChartResponse, parseProducts, parseTransactions, parseUpdate } from '../lib/parse.js';
+import { getFieldStats, parseCashMovements, parseChartResponse, parseProducts, parseTransactions, parseUpdate, resetFieldStats } from '../lib/parse.js';
 import { todayISO } from '../lib/dates.js';
 
 export const inExtension = typeof chrome !== 'undefined' && !!chrome.runtime?.id;
@@ -99,6 +99,10 @@ async function loadJson(name) {
 }
 
 export async function loadDemo() {
+  // US-17. The demo is the only mode that parses in the page, so it can produce
+  // its own tally — which is what makes the renamed-field banner something a UI
+  // change can be checked against rather than only a unit test.
+  resetFieldStats();
   const meta = await loadJson('meta.json');
   const [txRaw, cashRaw, productsRaw, updateRaw] = await Promise.all([
     loadJson('transactions.json'),
@@ -142,7 +146,13 @@ export async function loadDemo() {
     prices: Object.keys(prices).length,
   };
 
-  return { result, meta, counts, mode: 'demo', live: update, transactions, products };
+  /**
+   * A synthetic account name, so the share sheet's name sources are exercisable
+   * in `npm run demo`. Invented here rather than taken from a real account, per
+   * CLAUDE.md rule 7: no value copied out of a real account enters the fixtures,
+   * because the value on screen is the one that gets pasted.
+   */
+  return { result, meta: { ...meta, fieldStats: getFieldStats() }, counts, mode: 'demo', live: update, transactions, products, accountName: 'Demo Belegger' };
 }
 
 // --- extension -------------------------------------------------------------
@@ -172,19 +182,34 @@ const DIAGNOSTIC_META = {
   liveTotalFields: null,
   unreadableRows: null,
   missingWindows: null,
+  // US-17. Written by sync.js, because the page reads rows that were already
+  // parsed and so never runs parse.js itself.
+  fieldStats: null,
   persistedErrors: [],
 };
 
 export async function loadFromExtension() {
   const store = await import('../lib/store.js');
   const metaKeys = Object.keys(DIAGNOSTIC_META);
-  const [rawTx, rawCash, rawProducts, prices, liveTotal, live, ...metaValues] = await Promise.all([
+  const [rawTx, rawCash, rawProducts, prices, liveTotal, live, accountName, ...metaValues] = await Promise.all([
     store.getAll('transactions'),
     store.getAll('cashflows'),
     store.getAll('products'),
     store.getPriceMap(),
     store.getMeta('liveTotal', null),
     store.getMeta('liveSnapshot', null),
+    /**
+     * The name the broker has for this account, for US-47's card and nothing
+     * else.
+     *
+     * Read *outside* `DIAGNOSTIC_META` on purpose, and this is the load-bearing
+     * part: everything in that object is folded into `diagnosticContext`, which
+     * is what the bug report and the export are built from. `displayName` is in
+     * `IDENTIFYING_META` precisely because the 0.10.0 export shipped it. Putting
+     * it in that bag to save a line would re-introduce the leak, so it travels
+     * as its own field that only the share sheet reads.
+     */
+    store.getMeta('displayName', ''),
     ...metaKeys.map((k) => store.getMeta(k, DIAGNOSTIC_META[k])),
   ]);
   const meta = Object.fromEntries(metaKeys.map((k, i) => [k, metaValues[i]]));
@@ -204,7 +229,7 @@ export async function loadFromExtension() {
   };
 
   if (!rawTx.length && !rawCash.length) {
-    return { result: null, mode: 'extension', empty: true, lastSyncAt, lastError, urls, ...diagnosticContext };
+    return { result: null, mode: 'extension', empty: true, accountName, lastSyncAt, lastError, urls, ...diagnosticContext };
   }
 
   const products = Object.fromEntries(rawProducts.map((p) => [p.id, p]));
@@ -233,7 +258,7 @@ export async function loadFromExtension() {
   // engine result: `sync.js` caches that result, and a few thousand rows of
   // something no chart reads would be carried through every recompute for the
   // sake of one table.
-  return { result, mode: 'extension', live, lastSyncAt, lastError, urls, transactions: rawTx, products, ...diagnosticContext };
+  return { result, mode: 'extension', live, accountName, lastSyncAt, lastError, urls, transactions: rawTx, products, ...diagnosticContext };
 }
 
 export async function load() {

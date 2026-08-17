@@ -3,7 +3,7 @@
 `docs/BACKLOG.md` is 2 000 lines of reasoning and evidence, which is the right place for *why* and
 a bad place to find out *where things stand*. This is the index.
 
-**Last updated at 0.39.0.** It had been stale since 0.21.0, which is fifteen releases — if it looks
+**Last updated at 0.45.0.** It had been stale since 0.21.0, which is fifteen releases — if it looks
 stale again, trust the CHANGELOG and fix this.
 
 ## Shipped and confirmed against a real account
@@ -55,6 +55,11 @@ person.** This is the gate that is open.
 | — | F6–F9: the projection, and a losing holding that reported no loss | 0.38.0 |
 | US-35 | **Put that frown upside down** — Optimism Mode on the Overview | 0.39.0 |
 | — | U1, U2, U4, U5 resolved; the Result percentage; the version in the header | 0.39.0 |
+| US-51 | **A dollar price is no longer printed with a euro sign** — the traded price renders in the currency it was traded in, at four decimals, and Amount is the cash flow | 0.45.0 |
+| US-50 | **The snapshot line starts at the buy and ends at the close.** One pure `positionSpan` clips the series, the period *and* the percentage's basis, so a windowed result is no longer divided by an all-time `paidIn` | next |
+| US-47+ | **The share sheet** — four shapes, light or dark, amounts off by default, and a name the sharer chooses from four sources. Download beside the clipboard | next |
+| US-35d | **Optimism Mode draws two different charts** rather than deforming the real one — *Belief in PROP* (conviction index, in points) and *What PROP still owes you* (upside remaining, in euros). `flipSeries` is gone | next |
+| US-17 | **A renamed DEGIRO field is now loud.** `pick()` tallies which candidate name carried each value; a load-bearing field absent on ≥95 % of rows raises a red banner naming it, and the bug report carries the per-field shares — which is also the measurement that lets `parse.js` stop guessing | next |
 
 **What to look at first**, if you only look at one thing: the Notices tab after a sync. 0.36.0 made
 background failures visible for the first time, so if something has been quietly failing for weeks
@@ -77,6 +82,7 @@ F1–F5 shipped in 0.37.0, F6–F9 in 0.38.0. U1–U5 need a decision rather tha
 
 | Story | State | Waiting on |
 |---|---|---|
+| US-49 | **One table per position, not two.** Holdings and profit-and-loss-per-product merged, keeping the paid-in-vs-grown bar and the per-product dividend. Half the columns follow the range control and half do not, so every all-time column declares it | Nothing new to compute — every figure is on `r.byProduct` today. Lands with the UI overhaul |
 | US-46 | **Anonymize** — mask every amount and quantity, keep every percentage. Masking lives inside the three formatters in `theme.js`, so a money field added later is masked by default | Nothing. Small, and it must land before US-47 |
 | US-47 | **A shareable snapshot per position, on the clipboard.** No network, no Discord API. "Certified" downgraded to provenance: the one claim we can honestly make is the reconciliation verdict | US-46, which decides whether the card may carry amounts |
 | US-48 | **A watermark behind the tables and charts.** Chart.js plugin for the canvases, CSS for the tables, drawn in the padding rather than under the series | **The PNG.** Monochrome with alpha, bundled, 2× — the contract is in the story |
@@ -85,7 +91,6 @@ F1–F5 shipped in 0.37.0, F6–F9 in 0.38.0. U1–U5 need a decision rather tha
 | US-45 | Parameterise the session read (`session.js:19`) — renumbered twice | Deferred until R1 clears — rule 8 |
 | US-39–43 | Multi-broker delivery sequence from an external brief | All gated on US-37 |
 | US-34 | **Trading 212 — the spike ran.** R2, R3, R4, R5 answered; the price history is **public and needs no account**, daily candles back to 2017 | **One question left**: can the account data be reached without storing a credential? Rule 9 decides the story on it |
-| US-35d | **Optimism Mode: a new chart rather than a deformed one** — *Upside remaining* and *Conviction index*, both true read straight. Prototype at `docs/prototypes/optimism-flip.html` | **Decided — both, in place of the real charts, all copy naming PROP.** Ready to build |
 | US-36 | **Interactive Brokers** — spike not yet run. Brief at `docs/IBKR-SPIKE-BRIEF.md` | Phase 0 is public documentation and needs no account |
 | — | An architecture report + multi-broker proposal, for an external agent. Brief at `docs/COPILOT-ARCHITECTURE-BRIEF.md` | Nothing. Hand it over with the repo |
 | US-23 | Sync and wipe, per broker | Deliberately deferred (rule 8) — a second broker existing |
@@ -93,7 +98,6 @@ F1–F5 shipped in 0.37.0, F6–F9 in 0.38.0. U1–U5 need a decision rather tha
 | US-25 | Two accounts under one login | A spike, not a story. Cheap *after* US-22, which has landed |
 | US-03 (2nd half) | Expiry, strike, call/put from data rather than a name string | A real HAR |
 | US-07 | Options & margin dashboard — the margin half drops if it is not in the response | A real HAR |
-| US-17 | Notice when a field DEGIRO renamed stops arriving | Nothing. Partly overtaken by 0.36.0's unreadable-row counting |
 
 ## Parked
 

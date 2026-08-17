@@ -125,6 +125,9 @@ globalThis.document ??= { documentElement: { classList: { toggle() {} } } };
 globalThis.window ??= { matchMedia: () => ({ matches: true }) };
 
 const frown = await import('../src/ui/frown.js');
+// The dictionary itself, for the one assertion that is about a translation
+// existing rather than about a rendered string.
+const { __dictForTest } = await import('../src/ui/i18n.js');
 
 test('only the sign changes, never the magnitude', () => {
   // The number stays recognisably the reader's own, which is funnier than a
@@ -171,24 +174,67 @@ test('nothing downstream can read it', () => {
   assert.ok(!/frown/.test(engine), 'nor the engine');
 });
 
-test('a falling line climbs, inside the same range the axis is labelled for', () => {
+test('US-35d — both charts can only rise on a losing account', () => {
   /**
-   * Not `scaleY(-1)` on the canvas — the axis labels are drawn inside it and
-   * mirror into unreadable glyphs. Not `-y` either, which drops the line into
-   * negative territory and reads as a bug. Reflected about its own midpoint:
-   * the shape inverts, the range does not.
+   * The gate for replacing the mirror. `flipSeries` reflected the value series
+   * about its own midpoint, which produced something *shaped like* a portfolio
+   * value chart while not being one — and it inverted the deposit steps, so every
+   * moment money went in the line dropped. These two are true read straight.
+   *
+   * Monotonically non-decreasing is the property that makes the joke work without
+   * anything being deformed, so it is the property asserted.
    */
-  const fell = [22, 18, 10, 0];
-  const climbed = frown.flipSeries(fell);
-  assert.deepEqual(climbed, [0, 4, 12, 22]);
-  assert.equal(Math.min(...climbed), Math.min(...fell), 'same floor');
-  assert.equal(Math.max(...climbed), Math.max(...fell), 'same ceiling');
-  assert.deepEqual(frown.flipSeries([]), []);
+  const value = [1000, 900, 700, 400, 500, 300];
+  const deposited = [1000, 1000, 1000, 1000, 1000, 1000];
 
-  // And only ever in the flattering direction. Reflecting unconditionally made
-  // a *winning* account fall, which is the one thing this must never do.
-  const rose = [0, 10, 18, 22];
-  assert.deepEqual(frown.flipSeries(rose), rose, 'a line already going up is left alone');
+  const upside = frown.upsideRemaining(value, deposited);
+  // Literally true: it ends at exactly what was lost.
+  assert.equal(upside.at(-1), 700);
+  assert.deepEqual(upside, [0, 100, 300, 600, 500, 700]);
+
+  const conviction = frown.convictionIndex(value);
+  for (let i = 1; i < conviction.length; i++) {
+    assert.ok(conviction[i] >= conviction[i - 1], `the conviction index fell at ${i}`);
+  }
+  // And it accelerates as the drawdown deepens — the shape is the joke, not just
+  // the label, which is why this one was picked over the framing-only candidate.
+  assert.ok(conviction.at(-1) > conviction[1] * 3);
+
+  // A winning account has nothing to be brave about, and neither chart invents
+  // any: upside is flat at zero and conviction never leaves it.
+  const rose = [1000, 1200, 1500];
+  assert.deepEqual(frown.upsideRemaining(rose, [1000, 1000, 1000]), [0, 0, 0]);
+  assert.deepEqual(frown.convictionIndex(rose), [0, 0, 0]);
+
+  // Empty in, empty out. Both are called on whatever the engine produced.
+  assert.deepEqual(frown.upsideRemaining([], []), []);
+  assert.deepEqual(frown.convictionIndex([]), []);
+});
+
+test('US-35d — the copy names the instrument, in both languages', () => {
+  /**
+   * The punchline is the name: *"Belief in ASML"* lands and *"belief in your
+   * worst position"* does not. `frown.qualifies` guarantees the reader holds it
+   * before the mode can be switched on, so there is no fallback path to keep
+   * alive — which means a `{prop}` that never gets substituted would ship as a
+   * literal brace on screen.
+   */
+  const KEYS = [
+    'Belief in {prop}, over time',
+    'What {prop} still owes you',
+  ];
+  const dict = __dictForTest().nl;
+  for (const k of KEYS) {
+    assert.ok(Object.hasOwn(dict, k), `${k} has no Dutch translation`);
+    assert.ok(dict[k].includes('{prop}'), `the Dutch for "${k}" dropped the placeholder`);
+  }
+
+  // And the page actually passes one. A title interpolating nothing is the
+  // failure this catches.
+  const app = readFileSync(new URL('../src/ui/app.js', import.meta.url), 'utf8');
+  for (const k of KEYS) {
+    assert.ok(app.includes(`tr('${k}', { prop })`), `${k} is rendered without a subject`);
+  }
 });
 
 test('the tiles are computed from the real result, and change with it', () => {
@@ -243,8 +289,9 @@ test('Optimism Mode is a no-op when it is off', () => {
   assert.equal(frown.isOn(), false);
 
   // 1. Nothing is transformed unless the caller asks.
-  const series = [10, 20, 5];
-  assert.deepEqual(frown.flipSeries.length >= 1 ? series : series, series, 'flipSeries is opt-in, never automatic');
+  // Both series functions are plain transforms: they do nothing until called,
+  // and nothing in the render path calls them without the guard checked below.
+  assert.deepEqual(frown.upsideRemaining([10, 20, 5], [0, 0, 0]), [0, 0, 0]);
 
   // 2. The engine, the store and the report cannot import it at all.
   for (const f of ['../src/lib/engine.js', '../src/lib/store.js', '../src/lib/report.js', '../src/lib/sync.js']) {
@@ -254,7 +301,7 @@ test('Optimism Mode is a no-op when it is off', () => {
 
   // 3. The page only consults it behind an explicit check, never as a default.
   const app = readFileSync(new URL('../src/ui/app.js', import.meta.url), 'utf8');
-  for (const call of app.match(/frown\.(flipSeries|optimismTiles|cheerUp|spin)\(/g) ?? []) {
+  for (const call of app.match(/frown\.(upsideRemaining|convictionIndex|optimismTiles|cheerUp|spin)\(/g) ?? []) {
     assert.ok(app.includes('frown.isOn()'), `${call} is reachable without an isOn() guard`);
   }
 });

@@ -37,18 +37,25 @@
 :root {
   color-scheme: light;
 
-  /* surfaces — a warm paper rather than a grey, from the mockup */
-  --page: #f5f1ea;
-  --surface-1: #fffdfa;
-  --surface-2: #f7f2ea;
-  --surface-3: #ece5d9;
-  --text-primary: #141d27;
-  --text-secondary: #5a6774;
-  --text-muted: #8b97a3;
-  --grid: #eae2d5;
-  --axis: #cfc4b1;
-  --border: #e3dbcd;
-  --border-strong: #cfc4b1;
+  /* Surfaces, from the 0.46 redesign package: a near-white paper with a warm
+     cast, one step of card, one step of fill, and the rail its own value. The
+     previous ramp was a warmer cream; these were re-measured rather than
+     eyeballed — every categorical slot's contrast is against --surface-1, so
+     moving the surface moves ten contrast pairs, and `npm run palette` is the
+     only thing that can say whether they still clear 3:1. They do, by more than
+     before: a whiter card lifts every slot. */
+  --page: #fbfaf8;
+  --surface-1: #ffffff;
+  --surface-2: #f4f2ee;
+  --surface-3: #eae6e0;
+  --rail: #f6f4f0;
+  --text-primary: #14181d;
+  --text-secondary: #5c6672;
+  --text-muted: #939ca7;
+  --grid: #e9e6e0;
+  --axis: #d6d2ca;
+  --border: #e9e6e0;
+  --border-strong: #d6d2ca;
 
   /* categorical slots, repaired to zero collisions — see tools/check-palette.mjs */
   --series-1: #557cd4;
@@ -62,6 +69,10 @@
 
   --pos: #0b5fc4;
   --neg: #c02434;
+  /* Tints of the two signs, for a bar or a chip behind a figure. Derived from
+     --pos / --neg rather than picked, so they cannot drift apart from them. */
+  --pos-soft: #e4edf9;
+  --neg-soft: #fae7e8;
 
 
   --good: #0b5fc4;
@@ -79,7 +90,16 @@
      Ink is here for the canvas only; in the DOM the mark rides currentColor. */
   --brand-ink: #16213e;
   --brand-accent: #d9531e;
-  --shadow: 0 1px 2px rgba(20, 29, 39, 0.05), 0 8px 22px rgba(20, 29, 39, 0.05);
+  /* Two roles, because the redesign has two layers and only one of them lifts.
+   *
+   * A panel sits *on* the page: a hairline and a 1px seat, nothing more. The
+   * 22px drop it used to carry is what made card-in-card read as depth, and
+   * depth is the thing brief §8 removes — hierarchy comes from weight and size.
+   * Only genuinely floating things — the tooltip, later the menu and the share
+   * sheet — lift off the page, and those keep a real shadow because they have to
+   * read as detached from what is under them. */
+  --shadow: 0 1px 2px rgba(20, 25, 30, 0.05);
+  --shadow-float: 0 12px 32px rgba(20, 25, 30, 0.13), 0 2px 6px rgba(20, 25, 30, 0.06);
 
   /* Shape and rhythm, from the mockup's "studio" skin.
    *
@@ -93,19 +113,32 @@
    * `clamp()` also removes most of the breakpoints: the figures shrink
    * continuously with the window instead of stepping down at four fixed widths.
    */
-  --radius: 0.875rem;
-  --radius-lg: 1.25rem;
+  --radius: 0.625rem;
+  --radius-sm: 0.375rem;
   --radius-pill: 999px;
   --pad: clamp(0.875rem, 0.55rem + 1.4vw, 1.375rem);
   --gap: clamp(0.75rem, 0.6rem + 0.6vw, 1rem);
   --outer: clamp(0.75rem, 0.35rem + 1.7vw, 1.625rem);
-  --base: 0.84375rem;
+  /* The scale from brief §8: eyebrow 11 / body 15 / panel title 15 semibold /
+     hint 12. Weight and size carry the hierarchy, which is why the borders got
+     thinner in the same pass.
+
+     Two sizes from that list are deliberately absent: the fact at 17px and the
+     hero at 38–56px. Both belong to elements phase 3 introduces, and a token
+     with no caller is a token nobody maintains — the hero size set today would
+     only make the seven equal tiles equally huge. */
+  --base: 0.9375rem;
   --kpi: clamp(1.25rem, 0.95rem + 1.3vw, 1.8125rem);
-  --title: 0.97rem;
-  --hint: 0.78rem;
-  --track: 0.13em;
-  --chart-h: clamp(9rem, 6rem + 9vw, 11.875rem);
-  --hero-h: clamp(11rem, 8rem + 9vw, 15.625rem);
+  --title: 0.9375rem;
+  --hint: 0.75rem;
+  --track: 0.07em;
+  /* Brief §8: charts are 230–320px tall. They were 144–190, and a 1400×190 line
+     chart flattens the movement it exists to show — the aspect ratio was doing
+     the opposite of the chart's job. The hero sits at the top of the same band
+     rather than above it, because one chart being twice its neighbours is a
+     hierarchy claim, and the hero already makes that claim by being first. */
+  --chart-h: clamp(14.375rem, 10rem + 8vw, 20rem);
+  --hero-h: clamp(15.625rem, 11rem + 8vw, 20rem);
   --kpi-w: 750;
   /* Deliberately a pixel: a hairline that scales stops being a hairline. */
   --rule: 1px;
@@ -116,17 +149,18 @@
   :root:not([data-theme='light']) {
     color-scheme: dark;
 
-    --page: #0d151d;
-    --surface-1: #141e28;
-    --surface-2: #1a2531;
-    --surface-3: #212e3c;
-    --text-primary: #e8eef4;
-    --text-secondary: #9aa8b8;
-    --text-muted: #6d7b8a;
-    --grid: #212e3c;
-    --axis: #3a4c5e;
-    --border: #273544;
-    --border-strong: #3a4c5e;
+    --page: #0d1116;
+    --surface-1: #141920;
+    --surface-2: #1b222b;
+    --surface-3: #232b35;
+    --rail: #10151b;
+    --text-primary: #e8edf3;
+    --text-secondary: #98a3b0;
+    --text-muted: #6b7683;
+    --grid: #232b35;
+    --axis: #333d49;
+    --border: #232b35;
+    --border-strong: #333d49;
 
     --series-1: #4a86de;
     --series-2: #a383d0;
@@ -139,6 +173,8 @@
 
     --pos: #63a6f6;
     --neg: #f4737f;
+    --pos-soft: #16283d;
+    --neg-soft: #341c21;
 
 
     --good: #63a6f6;
@@ -148,24 +184,26 @@
     --accent: #e08355;
   --brand-ink: #e8edf5;
   --brand-accent: #f97038;
-    --shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-float: 0 16px 40px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.4);
   }
 }
 
 :root[data-theme='dark'] {
   color-scheme: dark;
 
-  --page: #0d151d;
-  --surface-1: #141e28;
-  --surface-2: #1a2531;
-  --surface-3: #212e3c;
-  --text-primary: #e8eef4;
-  --text-secondary: #9aa8b8;
-  --text-muted: #6d7b8a;
-  --grid: #212e3c;
-  --axis: #3a4c5e;
-  --border: #273544;
-  --border-strong: #3a4c5e;
+  --page: #0d1116;
+  --surface-1: #141920;
+  --surface-2: #1b222b;
+  --surface-3: #232b35;
+  --rail: #10151b;
+  --text-primary: #e8edf3;
+  --text-secondary: #98a3b0;
+  --text-muted: #6b7683;
+  --grid: #232b35;
+  --axis: #333d49;
+  --border: #232b35;
+  --border-strong: #333d49;
 
   --series-1: #4a86de;
   --series-2: #a383d0;
@@ -178,6 +216,8 @@
 
   --pos: #63a6f6;
   --neg: #f4737f;
+  --pos-soft: #16283d;
+  --neg-soft: #341c21;
 
 
   --good: #63a6f6;
@@ -187,7 +227,8 @@
   --accent: #e08355;
   --brand-ink: #e8edf5;
   --brand-accent: #f97038;
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-float: 0 16px 40px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.4);
 }
 
 * {
@@ -204,11 +245,464 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-.wrap {
+.main {
   max-width: 1420px;
+  width: 100%;
   margin: 0 auto;
   padding: var(--outer);
+  min-width: 0;
 }
+/* --- the shell: rail + main ---------------------------------------------- */
+
+/*
+ * A two-column grid rather than a stack, because the rail is persistent: the
+ * section you are in stays visible instead of being inferred from which tab
+ * still looks pressed. Below 60em it becomes a stack again — a 200px rail on a
+ * 380px screen is half the width for six words.
+ */
+.app {
+  display: grid;
+  grid-template-columns: 13.5rem 1fr;
+  min-height: 100vh;
+}
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  padding: var(--gap) 0.75rem;
+  background: var(--rail);
+  border-right: var(--rule) solid var(--border);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  /* The rail is its own stacking context, above the panels.
+     Without this its menu loses to the chart cards: those are positioned (they
+     carry the watermark layer) and come later in the document, so at equal
+     z-index they paint over anything the rail puts on top — the menu was drawn
+     complete and then covered from the second card onward. */
+  z-index: 30;
+}
+
+.rail-head {
+  padding: 0.375rem 0.5rem 0.25rem;
+  color: var(--text-primary);
+}
+
+.rail-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/*
+ * A rail item is a button, not a tab: it carries `aria-current` when it is the
+ * one you are on, so a screen reader hears "current page" rather than a pressed
+ * state on a control that navigates. The count badges are gone — they were card
+ * counts and read as unread badges.
+ */
+.rail-nav button {
+  text-align: left;
+  border: 0;
+  background: none;
+  border-radius: var(--radius-sm);
+  padding: 0.4375rem 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text-secondary);
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.rail-nav button:hover {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.rail-nav button[aria-current='page'] {
+  background: var(--surface-1);
+  color: var(--text-primary);
+  font-weight: 600;
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.rail-foot {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/*
+ * Data-quality facts, not figures. Deliberately small and quiet: the reader
+ * should be able to find "does this reconcile" without it competing with the
+ * total value, and it must still be able to shout when it disagrees — hence the
+ * .bad row keeping the critical colour.
+ */
+.rail-state {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.6875rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+  padding: 0 0.5rem 2px;
+}
+
+.rail-state .row {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+}
+
+.rail-state .row.bad {
+  color: var(--critical);
+  font-weight: 600;
+}
+
+.rail-state .row.ok .dot {
+  background: var(--pos);
+}
+
+.rail-state .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  flex: none;
+  transform: translateY(-1px);
+}
+
+button.primary {
+  background: var(--text-primary);
+  color: var(--surface-1);
+  border-color: var(--text-primary);
+  width: 100%;
+  justify-content: center;
+}
+
+button.primary:hover {
+  filter: brightness(1.15);
+}
+
+/* --- the overflow menu --------------------------------------------------- */
+
+.menu-wrap {
+  position: relative;
+}
+
+.menu-wrap > button {
+  width: 100%;
+  justify-content: center;
+}
+
+/*
+ * The one place in the redesign that is allowed to lift off the page, together
+ * with the tooltip and the share sheet: it has to read as detached from what it
+ * covers. Opens upward because it hangs off the foot of the rail.
+ */
+.menu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  /* Sized by its widest row rather than by the rail it hangs off: the rail is
+     13.5rem and the theme row is wider than that, so a shrink-to-fit box would
+     clip its last segment. It is the floating layer — overhanging is the point. */
+  width: max-content;
+  max-width: min(22rem, calc(100vw - 1.5rem));
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  background: var(--surface-1);
+  border: var(--rule) solid var(--border-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-float);
+}
+
+.menu button[role='menuitem'] {
+  text-align: left;
+  border: 0;
+  background: none;
+  border-radius: var(--radius-sm);
+  padding: 0.4375rem 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text-primary);
+}
+
+.menu button[role='menuitem']:hover {
+  background: var(--surface-2);
+}
+
+/* Destructive, below a rule, and it opens a confirm rather than firing. */
+.menu button.danger {
+  color: var(--critical);
+}
+
+.menu button.danger:hover {
+  background: var(--neg-soft);
+}
+
+.menu-sep {
+  height: var(--rule);
+  background: var(--border);
+  margin: 4px 2px;
+}
+
+.menu-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 0.5rem;
+  flex-wrap: wrap;
+}
+
+.menu-label {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+}
+
+/* --- top bar ------------------------------------------------------------- */
+
+.topbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: var(--gap);
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  width: 2rem;
+  height: 2rem;
+  color: var(--text-secondary);
+}
+
+.icon-btn[aria-pressed='true'] {
+  background: var(--surface-3);
+  color: var(--text-primary);
+}
+
+/* The slash is only there when amounts are hidden — the icon states the state
+   rather than needing a label beside it. */
+.icon-btn .eye-slash {
+  opacity: 0;
+}
+
+.icon-btn[aria-pressed='true'] .eye-slash {
+  opacity: 1;
+}
+
+/* --- granularity: a label that opens ------------------------------------- */
+
+.gran {
+  position: relative;
+}
+
+.gran > button {
+  border-color: transparent;
+  background: none;
+  color: var(--text-secondary);
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.gran > button:hover {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.gran > button .caret {
+  opacity: 0.6;
+  margin-left: 2px;
+}
+
+.gran .menu {
+  bottom: auto;
+  top: calc(100% + 6px);
+  min-width: 13rem;
+}
+
+/* A granularity the window cannot carry says why instead of looking broken. */
+.gran .menu button[disabled] {
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.gran .menu .why {
+  display: block;
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+/* --- the connection check, as a modal ------------------------------------ */
+
+.modal {
+  max-width: min(46rem, calc(100vw - 2rem));
+  width: 100%;
+  border: var(--rule) solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface-1);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-float);
+  padding: var(--pad);
+  font: inherit;
+}
+
+.modal::backdrop {
+  background: rgba(10, 14, 18, 0.45);
+}
+
+/* --- the share sheet ------------------------------------------------------ */
+
+/*
+ * Wider than the diagnostics dialog because it holds a picture, and the picture
+ * is the point: the controls are worth nothing without seeing what they did.
+ */
+.share-sheet {
+  max-width: min(56rem, calc(100vw - 2rem));
+}
+
+.share-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 15rem;
+  gap: var(--pad);
+  align-items: start;
+  margin-top: 0.75rem;
+}
+
+/*
+ * The preview holds the real canvas, at its real pixel size, scaled down by
+ * `max-width`/`max-height`. So a 9:16 story and a 16:9 card both fit the same
+ * box and neither is redrawn at a preview-only size — what is on screen is the
+ * bytes that reach the clipboard.
+ *
+ * The checkerboard-free flat backdrop is deliberate: the card draws its own
+ * opaque surface, and a transparency pattern behind an opaque image only
+ * suggests the PNG has an alpha channel to worry about.
+ */
+.share-preview {
+  display: grid;
+  place-items: center;
+  min-height: 18rem;
+  max-height: min(60vh, 30rem);
+  padding: 0.75rem;
+  border: var(--rule) solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.share-preview canvas {
+  max-width: 100%;
+  max-height: min(56vh, 28rem);
+  height: auto;
+  width: auto;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+}
+
+.share-controls {
+  display: grid;
+  gap: 0.875rem;
+}
+
+.field {
+  display: grid;
+  gap: 0.375rem;
+}
+
+.field-label {
+  font-size: var(--hint);
+  color: var(--text-muted);
+}
+
+.share-controls select,
+.share-controls input[type='text'] {
+  width: 100%;
+  padding: 0.375rem 0.5rem;
+  font: inherit;
+  font-size: var(--base);
+  color: var(--text-primary);
+  background: var(--surface-2);
+  border: var(--rule) solid var(--border-strong);
+  border-radius: var(--radius-sm);
+}
+
+/* One column on a narrow screen: the picture stays first, because it is what
+   the sheet is for. */
+@media (max-width: 48em) {
+  .share-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 60em) {
+  .app {
+    grid-template-columns: 1fr;
+  }
+
+  .rail {
+    position: static;
+    height: auto;
+    border-right: 0;
+    border-bottom: var(--rule) solid var(--border);
+  }
+
+  .rail-nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  /*
+   * The accent moves to the bottom edge once the list is horizontal.
+   *
+   * An `inset 2px 0 0` bar reads as "this row is selected" down a column and as
+   * a stray tick beside a word in a row — it is the vertical idiom, borrowed. An
+   * underline is the horizontal one, and it is the same two pixels of the same
+   * token, so nothing about the palette or the weight changes with the viewport.
+   */
+  .rail-nav button[aria-current='page'] {
+    box-shadow: inset 0 -2px 0 var(--accent);
+  }
+
+  .rail-foot {
+    /* No auto margin here: stacked, there is no column height to push against,
+       and it left ~90px of empty rail between the nav and the sync row. */
+    margin-top: 0;
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .rail-state {
+    flex: 1;
+  }
+
+  button.primary,
+  .menu-wrap > button {
+    width: auto;
+  }
+}
+
 
 /* --- header ------------------------------------------------------------- */
 
@@ -222,7 +716,7 @@ header.top {
   padding: 18px var(--pad);
   background: var(--surface-1);
   border: var(--rule) solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius);
   box-shadow: var(--shadow);
 }
 
@@ -230,8 +724,7 @@ h1 {
   font-size: 1.25rem;
   font-weight: 700;
   margin: 0;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
+  letter-spacing: -0.01em;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -259,12 +752,20 @@ h1::before {
   flex-wrap: wrap;
 }
 
+/**
+ * Sentence case, at 11.5px.
+ *
+ * Uppercase survives in this file only on eyebrow labels at 11px and under —
+ * `.tile .label`, `.chip`, `th` — where it reads as a label rather than as
+ * emphasis. On a button it costs word-shape legibility for nothing: when every
+ * control shouts, none of them is emphasised, and it is the most recognisable
+ * machine-written tic in the stylesheet.
+ */
 button {
   font: inherit;
   font-size: 0.7188rem;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: var(--track);
+  letter-spacing: 0;
   color: var(--text-primary);
   background: var(--surface-1);
   border: 1px solid var(--border-strong);
@@ -431,15 +932,7 @@ button:disabled {
   padding: 12px 16px;
   background: var(--surface-1);
   border: var(--rule) solid var(--border);
-  border-radius: var(--radius-pill);
-  box-shadow: var(--shadow);
-}
-
-@media (max-width: 45em) {
-  /* A pill that has wrapped onto four lines is not a pill. */
-  .controls {
-    border-radius: var(--radius);
-  }
+  border-radius: var(--radius);
 }
 
 .group {
@@ -464,11 +957,13 @@ button:disabled {
   border-color: transparent;
 }
 
+/* The selected segment is told apart by its surface and its ink, not by being
+   lifted: it sits inside a control that sits inside a panel, and a shadow at
+   that depth is the third rounded container brief §1.5 counts. */
 .group button[aria-pressed='true'] {
   background: var(--surface-1);
   color: var(--text-primary);
   border-color: var(--border);
-  box-shadow: var(--shadow);
 }
 
 .group > .glabel {
@@ -614,7 +1109,7 @@ label.check {
   color: var(--text-secondary);
   border: var(--rule) solid var(--border-strong);
   border-radius: var(--radius);
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-float);
   font-size: var(--hint);
   line-height: 1.5;
   /* It follows the pointer's target, so it must never become the target. */
@@ -1286,9 +1781,10 @@ td .chip {
   color: var(--pos);
 }
 
-/* The charts are inverted in the *data*, not here — see `flipSeries`. Flipping
-   the canvas mirrors the axis labels, which are drawn inside it, and an
-   unreadable axis is noise rather than a joke. */
+/* Nothing about the charts is done here. Optimism Mode draws two *different*
+   charts (US-35d), which is a data decision — and the transform it replaced was
+   a data decision too, for the same reason a CSS flip is not available: the axis
+   labels are drawn inside the canvas and mirror into unreadable glyphs. */
 
 .frown-stamp {
   position: absolute;
@@ -1319,6 +1815,22 @@ td .chip {
 @keyframes frown-stamp-in {
   0%   { transform: rotate(-11deg) scale(3); opacity: 0; }
   100% { transform: rotate(-11deg) scale(1); opacity: 0.85; }
+}
+
+/*
+ * The stamp over a chart, rather than over the tile grid.
+ *
+ * Smaller and quieter: the tile version is meant to be the first thing you see,
+ * and this one has to leave the chart readable — the chart is the joke here, so
+ * hiding it behind the disclaimer would throw away the punchline to make the
+ * disclaimer louder. Still large enough that a cropped screenshot carries it.
+ */
+.frown-stamp-sm span {
+  font-size: clamp(0.7rem, 0.45rem + 1.1vw, 1.25rem);
+  border-width: 0.2rem;
+  border-radius: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  opacity: 0.75;
 }
 
 .frown-confetti {
@@ -1438,4 +1950,299 @@ button.snap:focus-visible {
   overflow: hidden;
   clip: rect(0 0 0 0);
   white-space: nowrap;
+}
+
+/* A broker's mark beside its name: in ink, never in its own blue, because blue
+   means gain here — see BROKER_MARKS in brand.js. */
+.menu button[role='menuitem'] {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.broker-mark {
+  flex: none;
+  color: var(--text-secondary);
+}
+
+#diag-title .broker-mark {
+  vertical-align: -2px;
+  margin-right: 6px;
+}
+
+/* --- hierarchy: one hero, three facts, the rest behind a disclosure -------- */
+
+/*
+ * The tile row used to be seven equal boxes, so the number the page exists for
+ * rendered at the same size as its data coverage. Weight and size carry the
+ * hierarchy now; the boxes are gone.
+ */
+.tiles {
+  display: block;
+  border: 0;
+  background: none;
+}
+
+.hero-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--pad) clamp(1.5rem, 4vw, 3.5rem);
+  padding: 0.5rem 0 var(--gap);
+}
+
+.tile {
+  border: 0;
+  background: none;
+  box-shadow: none;
+  padding: 0;
+}
+
+/*
+ * Sizes come from an explicit basis, never from max-content.
+ *
+ * `.tile` is a container-query container (`container-type: inline-size`, above),
+ * which is what lets a long amount shrink to fit its cell instead of being
+ * clipped — and it also makes the tile's own max-content width exactly 0. Two
+ * attempts at `min-width: max-content` here collapsed the hero to nothing and
+ * spilled a 56px figure across the facts beside it. So each kind gets a width,
+ * and the existing `--len` rule sizes the type inside it.
+ */
+.tile.is-hero {
+  flex: 0 0 auto;
+  width: min(100%, 23rem);
+  /* Raising --kpi rather than setting font-size: the value's own rule is
+     `min(--kpi, --fits)`, so the fit guard still wins on a seven-figure total
+     and nothing can be silently sliced. */
+  --kpi: clamp(2.375rem, 1.4rem + 3.2vw, 3.5rem);
+}
+
+.tile.is-hero .label {
+  white-space: nowrap;
+}
+
+.facts > .tile {
+  flex: 0 0 auto;
+  width: 9.5rem;
+  --kpi: 1.0625rem;
+}
+
+.figures-grid > .tile {
+  --kpi: 1.0625rem;
+}
+
+.tile .label {
+  font-size: 0.6875rem;
+}
+
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pad) clamp(1.25rem, 3vw, 2.5rem);
+}
+
+.allfigures {
+  border-top: var(--rule) solid var(--border);
+  padding-top: 0.5rem;
+  margin-bottom: var(--gap);
+}
+
+.allfigures > summary {
+  cursor: pointer;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: var(--track);
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 4px 0;
+}
+
+.figures-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: 0.75rem var(--pad);
+  padding: 0.5rem 0 0.25rem;
+}
+
+
+/* --- hints behind a ? ----------------------------------------------------- */
+
+/*
+ * Every card carried a permanent paragraph, an (i) per figure and a footnote.
+ * The copy is good — that is the problem: it was compensating for a layout that
+ * had not made the meaning obvious. The words are kept verbatim and moved one
+ * click away rather than shortened.
+ */
+.hint-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.125rem;
+  height: 1.125rem;
+  padding: 0;
+  margin-left: 6px;
+  border-radius: 50%;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  border-color: transparent;
+  vertical-align: 2px;
+}
+
+.hint-toggle:hover,
+.hint-toggle[aria-expanded='true'] {
+  color: var(--text-primary);
+  background: var(--surface-3);
+}
+
+.card p.hint[hidden] {
+  display: none !important;
+}
+
+/*
+ * A wide table scrolls inside its own panel, never sideways with the page.
+ *
+ * `.table-scroll` already had `overflow-x: auto`, but a grid item's default
+ * minimum width is its content, so the holdings table pushed its card, its grid
+ * and then the document — 101px of horizontal page scroll at 1440 and 923 at
+ * 380. It only surfaced with the rail in place, because the main column got
+ * narrower than the table had ever had to fit in.
+ */
+.grid,
+.card {
+  min-width: 0;
+}
+
+/* The page itself never scrolls sideways. The holdings table is wider than the
+   main column and scrolls inside its own wrapper, but the overflow still reached
+   the document — measured at 101px on a 1440 viewport and 923 on a 380 one, and
+   only visible once the rail narrowed the column. Clipping the column is the
+   rule from brief section 8 rather than a patch: wide content scrolls in its own
+   container, the body does not. */
+.main {
+  overflow-x: clip;
+}
+
+.card .table-scroll,
+#holdings-table-wrap,
+#compare-summary-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+/* --- press feedback, and the motion nobody asked for -------------------- */
+
+/*
+ * Feedback on pointer-down, not on release.
+ *
+ * The moment a control answers only after you let go, directness "falls off a
+ * cliff" — Apple's *Designing Fluid Interfaces*. Every pressable thing here now
+ * answers on the press. 100ms and 0.97 are the standard values: enough to feel,
+ * too small to read as an animation.
+ */
+button:active,
+.rail-nav button:active,
+.menu button:active {
+  transform: scale(0.97);
+  transition: transform 100ms ease-out;
+}
+
+/* A full-width rail item scaling reads as a wobble; it takes the surface
+   instead, which is the same "it heard me" without the movement. */
+.rail-nav button:active,
+button.primary:active {
+  transform: none;
+  background: var(--surface-3);
+}
+
+/*
+ * Reduced motion means gentler, not none.
+ *
+ * The colour and surface changes stay — they are what tells you a control
+ * responded. What goes is movement: the press scale and every transform
+ * transition. There is no parallax or slide here to remove, which is why this
+ * block is short rather than thorough.
+ */
+@media (prefers-reduced-motion: reduce) {
+  button:active,
+  .rail-nav button:active,
+  .menu button:active {
+    transform: none;
+  }
+
+  * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
+/* The three filters of the merged positions table, on one row above it. */
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-bottom: 12px;
+}
+
+/* The window every figure below belongs to. Quiet by design — it is a label,
+   not a heading — and loud only when it is refusing to draw. */
+.window-crumb {
+  font-size: 0.6875rem;
+  letter-spacing: var(--track);
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.window-crumb.thin {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: var(--hint);
+  color: var(--critical);
+}
+
+/* A month the period excludes: still legible, visibly not part of the figures
+   above it. Dimmed rather than removed, because the grid exists to compare
+   across years and a filtered grid has nothing to compare against. */
+#months td.cell.out {
+  opacity: 0.38;
+}
+
+#months td.cell.out button {
+  color: var(--text-muted);
+}
+
+/* --- the two toggles in the top bar, on one line ------------------------- */
+
+/*
+ * The eye and the 🙃 were two different shapes at two different heights: one a
+ * 2rem icon button, the other a padded pill inside a flex row that still carried
+ * the bottom margin from when it sat above the tiles on its own. Side by side
+ * that reads as a mistake, and it is one — same role, same rank, so same box.
+ *
+ * Apple's *spatial consistency*, in the small: two controls that do the same
+ * kind of thing must look the same and sit in the same place.
+ */
+.topbar-right .frown-bar {
+  margin: 0;
+  display: flex;
+  align-items: center;
+}
+
+.topbar-right .frown-btn {
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  font-size: 1rem;
+  border-radius: var(--radius-sm);
+}
+
+.topbar-right .icon-btn {
+  border-radius: var(--radius-sm);
+}
+
+/* The rotate belongs to the joke; it must not resize the row it lives in. */
+.topbar-right .frown-btn:hover {
+  transform: rotate(-15deg);
 }

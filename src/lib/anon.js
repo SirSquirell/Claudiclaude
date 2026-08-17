@@ -16,8 +16,21 @@
 /** The mask itself. Three dots read as "hidden" rather than as "broken". */
 export const MASK = '•••';
 
-/** A masked amount. No figure, no width, no magnitude. */
-export const maskEur = () => `€ ${MASK}`;
+/**
+ * A masked amount, in whatever currency it was going to be shown in.
+ *
+ * The symbol stays visible on purpose (US-51 AC6): a ticker's trading currency
+ * is public and discloses nothing about the account. What it prevents is a
+ * dollar price masked as `€ •••`, which would hide the figure and keep the wrong
+ * label — the exact defect US-51 is about, surviving inside the privacy feature.
+ *
+ * No symbol at all when the currency is unknown, for the same reason the visible
+ * path shows none: a guessed sign is worse than a missing one.
+ */
+export const maskMoney = (symbol) => (symbol ? `${symbol} ${MASK}` : MASK);
+
+/** A masked amount in the base currency. No figure, no width, no magnitude. */
+export const maskEur = () => maskMoney('€');
 
 /**
  * A masked amount that keeps its sign.

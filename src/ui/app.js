@@ -21,9 +21,11 @@ import {
   monthCompareChart,
   pnlChart,
   projectionChart,
+  singleSeriesChart,
   valueChart,
 } from './charts.js';
 import { buildBugReport } from '../lib/report.js';
+import { fieldAlarms } from '../lib/parse.js';
 import { captured, installErrorCapture } from './errors.js';
 import * as frown from './frown.js';
 
@@ -38,14 +40,23 @@ import * as frown from './frown.js';
  */
 let demoVersion = null;
 import { isSameRun } from '../lib/sync.js';
+import { ADAPTERS, connected as connectedBrokers } from '../lib/brokers/index.js';
 import { LANGS, applyStatic, getLang, missing as missingTranslations, setLang, t as tr } from './i18n.js';
-import { THEMES, alpha, applyAnonymize, applyTheme, fmtEurCents, fmtPct, fmtQty, fmtSigned, getAnonymize, getTheme, onThemeChange, setAnonymize, setTheme, tokens } from './theme.js';
-import { snapshotModel } from '../lib/snapshot.js';
-import { markSvg } from './brand.js';
-import { copySnapshot } from './snapshot.js';
+import { THEMES, alpha, applyAnonymize, applyTheme, fmtEurCents, fmtPct, fmtPrice, fmtQty, fmtSigned, getAnonymize, getTheme, onThemeChange, setAnonymize, setTheme, tokens } from './theme.js';
+import { FORMATS, ownerLine, positionSpan, snapshotModel } from '../lib/snapshot.js';
+import { brokerMarkSvg, lockupSvg, markSvg } from './brand.js';
+import { copySnapshot, downloadSnapshot, drawSnapshot, tokensForTheme } from './snapshot.js';
 import { inExtension, load, send, wantsDemo } from './datasource.js';
 
 const RANGES = ['1M', '3M', '6M', 'YTD', '1Y', 'ALL'];
+/** What each preset is called in the crumb — a range button is not a sentence. */
+const RANGE_WORDS = {
+  '1M': 'last month',
+  '3M': 'last 3 months',
+  '6M': 'last 6 months',
+  YTD: 'this year so far',
+  '1Y': 'last year',
+};
 const GRANS = [
   { key: 'day', label: 'Day' },
   { key: 'week', label: 'Week' },
@@ -83,6 +94,16 @@ const state = {
   cumulativeView: 'line',
   /** Which section is on screen. The page was 3 788 pixels of one scroll. */
   tab: 'overview',
+  /**
+   * The share sheet's settings, and they persist across openings on purpose:
+   * whoever posts these posts several, and re-picking 9:16 and a handle for
+   * every one is the friction that makes a feature go unused. `productId` is the
+   * only part that changes per card.
+   *
+   * `amounts` starts at `false` — a card leaves the machine, so the private
+   * default is the right one even when the page is showing figures.
+   */
+  share: { productId: null, format: '16:9', theme: null, amounts: false, nameSource: 'first', handle: '' },
 };
 
 /**
@@ -147,6 +168,14 @@ const $ = (sel) => document.querySelector(sel);
 
 init().catch(showFatal);
 
+/**
+ * One entry point for the section, so a click, a reload and a pasted link all
+ * arrive the same way. Set before `init()` finishes so the first render already
+ * knows which section it is drawing.
+ */
+state.tab = routeFromHash();
+window.addEventListener('hashchange', applyRoute);
+
 async function init() {
   buildControls();
   wireActions();
@@ -156,6 +185,10 @@ async function init() {
   // browser's own translation prompt read.
   document.documentElement.lang = getLang();
   applyStatic();
+  // After applyStatic, never before: it rewrites the text of every element
+  // carrying data-i18n, and the panel titles do — an earlier call appended the
+  // ? toggles and had them deleted a line later. Same trap as the broker mark.
+  foldHints();
   buildLangControl();
   buildThemeControl();
   applyAnonymize();
@@ -259,6 +292,10 @@ function buildLangControl() {
  */
 function retranslate() {
   applyStatic();
+  // After applyStatic, never before: it rewrites the text of every element
+  // carrying data-i18n, and the panel titles do — an earlier call appended the
+  // ? toggles and had them deleted a line later. Same trap as the broker mark.
+  foldHints();
   for (const b of $('#tabs').querySelectorAll('button')) {
     const tab = TABS.find((x) => x.key === b.dataset.tab);
     const count = b.querySelector('.count');
@@ -268,6 +305,7 @@ function retranslate() {
   for (const b of $('#theme-group').querySelectorAll('button')) {
     b.textContent = tr(b.dataset.key === 'auto' ? 'Auto' : b.dataset.key === 'light' ? 'Light' : 'Dark');
   }
+  paintDiagLabel();
   // Segmented controls cache a signature to avoid rebuilding on every render;
   // the label text just changed underneath them.
   for (const host of document.querySelectorAll('[data-sig]')) delete host.dataset.sig;
@@ -306,8 +344,17 @@ function buildAnonControl() {
   const b = $('#btn-anon');
   if (!b) return;
   const paint = () => {
-    b.setAttribute('aria-pressed', String(getAnonymize()));
-    b.textContent = tr(getAnonymize() ? 'Show amounts' : 'Anonymize');
+    const on = getAnonymize();
+    b.setAttribute('aria-pressed', String(on));
+    /**
+     * The words go on the label rather than into the button, because the button
+     * is an icon now: the slashed eye states the state, and writing text into it
+     * would replace the SVG. The accessible name still says which way the
+     * control will go, which is the thing `aria-pressed` alone does not.
+     */
+    const label = tr(on ? 'Show amounts' : 'Hide amounts');
+    b.setAttribute('aria-label', label);
+    b.title = label;
   };
   paint();
   b.addEventListener('click', () => {
@@ -354,40 +401,199 @@ function wireSnapshots() {
   const table = $('#holdings');
   if (!table || table.dataset.snapWired) return;
   table.dataset.snapWired = '1';
-  table.addEventListener('click', async (e) => {
+  table.addEventListener('click', (e) => {
     const btn = e.target.closest?.('button[data-snap]');
-    if (!btn) return;
-    const w = lastWindow;
-    const r = w?.result;
-    const p = r?.byProduct?.find((x) => String(x.productId) === btn.dataset.snap);
-    if (!p) return;
-
-    btn.disabled = true;
-    try {
-      const model = snapshotModel({
-        name: p.name,
-        symbol: p.symbol,
-        from: r.days[w.from],
-        to: r.days[w.to],
-        result: sumWindow(p.pnl, w.from, w.to),
-        paidIn: p.paidIn?.at(-1) ?? 0,
-        series: cumulativeWindow(p.pnl, w.from, w.to),
-        anonymized: getAnonymize(),
-        // Tri-state, deliberately. An account with nothing to reconcile against
-        // reports `null`, which the card renders as "not checked" and never as
-        // a pass. A clean badge on an unverified figure is the failure this
-        // whole line exists to prevent.
-        reconciled: r.reconciliation ? r.reconciliation.ok === true : null,
-        asOf: r.days[w.to] ?? null,
-        version: inExtension ? chrome.runtime.getManifest().version : demoVersion,
-      });
-      const out = await copySnapshot(model);
-      if (out.ok) notice('ok', tr('Image copied. Paste it wherever you like.'));
-      else notice('error', `${tr('Could not reach the clipboard')}: ${out.error}`);
-    } finally {
-      btn.disabled = false;
-    }
+    if (btn) openShareSheet(btn.dataset.snap);
   });
+}
+
+/**
+ * The card's model for whatever the sheet is currently set to.
+ *
+ * One function so the preview, the clipboard and the file can never disagree
+ * about what they are showing — the bug this shape prevents is a preview drawn
+ * from the sheet's settings and a download drawn from the page's.
+ *
+ * Returns `null` when the position is not in the last render's window, which is
+ * possible: the sheet holds a `productId` across renders and the range control
+ * can move underneath it.
+ */
+function shareModel() {
+  const w = lastWindow;
+  const r = w?.result;
+  const p = r?.byProduct?.find((x) => String(x.productId) === String(state.share.productId));
+  if (!p) return null;
+
+  /**
+   * US-50. The arrays and the window, and nothing worked out here.
+   *
+   * The old version of this call computed the result over the selected window
+   * and the money-in over all time, then divided one by the other — so a 1Y card
+   * on a six-year position reported a percentage measured over two different
+   * spans. Handing the arrays to `snapshotModel` moves the clipping into the pure
+   * module where it is tested, and leaves this function with no arithmetic left
+   * to get wrong.
+   */
+  if (!positionSpan(p.qty, w.from, w.to)) return null;
+
+  return snapshotModel({
+    name: p.name,
+    symbol: p.symbol,
+    days: r.days,
+    qty: p.qty,
+    pnl: p.pnl,
+    paidIn: p.paidIn,
+    window: { from: w.from, to: w.to },
+    /**
+     * The sheet's own switch, not the page's. `getAnonymize()` decides what is on
+     * screen; a card is a different audience, and the sheet defaults to hiding
+     * the amount whichever way the page is set.
+     */
+    anonymized: !state.share.amounts,
+    owner: ownerLine({
+      source: state.share.nameSource,
+      fullName: state.data?.accountName ?? '',
+      username: state.data?.accountName ?? '',
+      handle: state.share.handle,
+    }),
+    // Tri-state, deliberately. An account with nothing to reconcile against
+    // reports `null`, which the card renders as "not checked" and never as
+    // a pass. A clean badge on an unverified figure is the failure this
+    // whole line exists to prevent.
+    reconciled: r.reconciliation ? r.reconciliation.ok === true : null,
+    // The freshness of the data, which is the last day the page has — not the
+    // last day this position existed. Those differ for a closed position, and
+    // "as of" is a claim about the sync, not about the holding.
+    asOf: r.days[w.to] ?? null,
+    version: inExtension ? chrome.runtime.getManifest().version : demoVersion,
+  });
+}
+
+/** What the sheet's four name options are, and what each one promises. */
+const NAME_SOURCES = [
+  { key: 'first', label: 'First name' },
+  { key: 'username', label: 'Account name' },
+  { key: 'handle', label: 'A name I type' },
+  { key: 'none', label: 'No name' },
+];
+
+/** Redraw the preview from the current settings. Cheap enough to do per click. */
+function paintSharePreview() {
+  const host = $('#share-preview');
+  if (!host) return;
+  const model = shareModel();
+  if (!model) {
+    const p = document.createElement('p');
+    p.className = 'hint';
+    p.textContent = tr('This position is not inside the selected period.');
+    host.replaceChildren(p);
+    return;
+  }
+  host.replaceChildren(drawSnapshot(model, tokensForTheme(state.share.theme), { format: state.share.format }));
+}
+
+/** The name row: which sources are offered, and what each one warns about. */
+function paintShareName() {
+  const sel = $('#share-name');
+  const input = $('#share-handle');
+  const note = $('#share-name-note');
+  if (!sel) return;
+
+  if (sel.dataset.built !== String(getLang())) {
+    sel.dataset.built = String(getLang());
+    sel.replaceChildren(...NAME_SOURCES.map((s) => {
+      const o = document.createElement('option');
+      o.value = s.key;
+      o.textContent = tr(s.label);
+      return o;
+    }));
+  }
+  sel.value = state.share.nameSource;
+
+  input.hidden = state.share.nameSource !== 'handle';
+  input.placeholder = tr('Discord name');
+  input.value = state.share.handle;
+
+  /**
+   * One warning, on one option, and it is the honest one.
+   *
+   * "Account name" is whatever DEGIRO has on the account, which for a good many
+   * people is a real full name rather than a handle — so the option says what it
+   * will put on something they are about to post publicly. `first` gets no
+   * warning because a first name is what the default already is; `handle` gets
+   * none because they typed it themselves.
+   */
+  const text = state.share.nameSource === 'username'
+    ? tr('This is the name DEGIRO has for the account, which may be your full name.')
+    : '';
+  note.textContent = text;
+  note.hidden = !text;
+}
+
+/**
+ * Open the sheet for one position.
+ *
+ * Everything about *what* is on the card lives in `shareModel`; this wires the
+ * controls once and repaints. `showModal` rather than a fixed overlay: the
+ * dialog element already gives a focus trap, Escape and a backdrop, and
+ * reimplementing those three badly is how a share sheet ends up unclosable on a
+ * phone.
+ */
+function openShareSheet(productId) {
+  const dlg = $('#share-sheet');
+  if (!dlg) return;
+  state.share.productId = productId;
+  // Follow the page the first time, then remember what was picked.
+  state.share.theme ??= getTheme() === 'auto'
+    ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+    : getTheme();
+
+  if (!dlg.dataset.wired) {
+    dlg.dataset.wired = '1';
+    $('#share-handle').addEventListener('input', (e) => {
+      state.share.handle = e.target.value;
+      paintSharePreview();
+    });
+    $('#share-name').addEventListener('change', (e) => {
+      state.share.nameSource = e.target.value;
+      paintShareName();
+      paintSharePreview();
+    });
+    $('#btn-share-close').addEventListener('click', () => dlg.close());
+    $('#btn-share-copy').addEventListener('click', () => runShare(copySnapshot, tr('Image copied. Paste it wherever you like.')));
+    $('#btn-share-download').addEventListener('click', () => runShare(downloadSnapshot, tr('Image saved.')));
+  }
+
+  paintShareControls();
+  paintShareName();
+  paintSharePreview();
+  if (!dlg.open) dlg.showModal();
+}
+
+/** The three segmented controls, rebuilt whenever one of them changes. */
+function paintShareControls() {
+  buildChoice('#share-format', FORMATS.map((f) => ({ key: f.id, label: f.id })),
+    () => state.share.format, (k) => { state.share.format = k; paintShareControls(); paintSharePreview(); });
+  buildChoice('#share-theme', [{ key: 'light', label: tr('Light') }, { key: 'dark', label: tr('Dark') }],
+    () => state.share.theme, (k) => { state.share.theme = k; paintShareControls(); paintSharePreview(); });
+  buildChoice('#share-amounts', [{ key: 'off', label: tr('Hidden') }, { key: 'on', label: tr('Shown') }],
+    () => (state.share.amounts ? 'on' : 'off'),
+    (k) => { state.share.amounts = k === 'on'; paintShareControls(); paintSharePreview(); });
+}
+
+/**
+ * Run one of the two exports and report what happened.
+ *
+ * Both can fail for reasons the reader can act on — a clipboard needs a focused
+ * document, a download can be blocked — so neither is allowed to fail silently,
+ * and the sheet stays open either way so a second attempt costs one click.
+ */
+async function runShare(fn, okText) {
+  const model = shareModel();
+  if (!model) return;
+  const out = await fn(model, { format: state.share.format, theme: state.share.theme });
+  if (out.ok) notice('ok', okText);
+  else notice('error', `${tr('Could not export the image')}: ${out.error}`);
 }
 
 /**
@@ -519,27 +725,345 @@ function buildControls() {
     holdingsGroup.append(b);
   }
 
-  const tabBar = $('#tabs');
+  /**
+   * The rail.
+   *
+   * Three changes from the tab row it replaces, each from the brief:
+   *
+   *  - **No count badges.** They counted cards — `OVERVIEW 2 · PERFORMANCE 7` —
+   *    and every reader read them as unread counts.
+   *  - **`aria-current` rather than `aria-pressed`.** These navigate, so a
+   *    screen reader should hear "current page", not a toggle that is down.
+   *  - **The section is in the URL.** A reload, a bookmark or a pasted link
+   *    lands where you were instead of on Overview; it also means the browser's
+   *    back button does what it looks like it does.
+   */
+  const railNav = $('#tabs');
   for (const t of TABS) {
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = 'tab';
     b.dataset.tab = t.key;
-    b.setAttribute('role', 'tab');
-    const count = document.querySelectorAll(`[data-tab="${t.key}"] > .card`).length;
-    b.innerHTML = `${esc(tr(t.label))}<span class="count">${count}</span>`;
+    b.textContent = tr(t.label);
     b.addEventListener('click', () => {
-      state.tab = t.key;
-      render();
+      // Writing the hash is the whole of it — `hashchange` does the render, so
+      // a click and a pasted URL take exactly one path.
+      location.hash = `#/${t.key}`;
     });
-    tabBar.append(b);
+    railNav.append(b);
   }
+  $('#lockup').replaceChildren(lockupSvg({ height: 26 }));
+  /**
+   * The connection check names the broker it would check, read off the adapter's
+   * own `label`. With one adapter that is one line and no submenu — a submenu of
+   * one is depth for nothing — and with two it is two lines without a change
+   * here, because nothing about the broker is written in this file.
+   */
+  paintDiagLabel();
+  wireMore();
+  wireGran();
 
   $('#btn-clear-months').addEventListener('click', () => {
     state.selectedMonths = [];
     state.selectedCells = [];
     render();
   });
+}
+
+/**
+ * A chart that does not start at zero admits it.
+ *
+ * Brief §4 calls this the oldest trick in the book, and the fix is not to force
+ * every axis to zero — over a three-month window on a €116k account, a zero
+ * baseline compresses the whole movement into the top two per cent of the panel
+ * and shows nothing. So the axis is allowed to zoom, and the panel says it did.
+ *
+ * The threshold is Chart.js's own resolved scale rather than a guess about the
+ * data: measured over the demo fixtures, ALL resolves to 0 → 120 000 and 3M to
+ * 102 000 → 118 000, so the note appears on exactly the windows where the
+ * baseline is not zero.
+ */
+function noteBaseline(sel, chart, r, from) {
+  const el = $(sel);
+  if (!el) return;
+  const min = chart?.scales?.y?.min ?? 0;
+  const zoomed = min > 0.5;
+  el.hidden = !zoomed;
+  if (!zoomed) return;
+  /**
+   * While amounts are hidden the warning stays and the level goes.
+   *
+   * `fmtEurCents(min)` would render "the axis starts at € •••", which reads as a
+   * bug rather than as privacy, and hiding the note altogether would drop the
+   * one honest thing on the chart: that the line is a close-up. So the masked
+   * variant is the same sentence with the number taken out — its own string
+   * rather than a substitution, because a sentence with a hole in it does not
+   * translate.
+   */
+  el.textContent = getAnonymize()
+    ? tr('The vertical axis does not start at zero — this window does not contain the start of the account, so the line is a close-up rather than the whole level.')
+    : tr(
+      'The vertical axis starts at {min}, not at zero — this window does not contain the start of the account, so the line is a close-up rather than the whole level.',
+      { min: fmtEurCents(min) },
+    );
+}
+
+/**
+ * Which window the figures belong to, in words and in dates.
+ *
+ * "There is no such thing as an unlabelled number here" is brief §4's rule, and
+ * this is the cheapest honest way to keep it: one line, above everything the
+ * control governs, naming the range and the two dates it resolved to. A reader
+ * who takes a screenshot of a 3-month result now ships the period with it.
+ *
+ * It also carries the refusal. Fewer than three points cannot make a line, and
+ * the honest response is to say the source's resolution rather than to draw
+ * something suggestive through two dots.
+ */
+function renderWindowCrumb(r, from, to) {
+  const el = $('#window-crumb');
+  if (!el) return;
+  const label = state.range === 'ALL' ? tr('whole history') : tr(RANGE_WORDS[state.range] ?? state.range);
+  const points = to - from + 1;
+  if (points < 3) {
+    el.className = 'window-crumb thin';
+    el.textContent = tr(
+      'Too short to draw: {n} data point(s) in this window. The source is one value per day, so pick a longer period.',
+      { n: points },
+    );
+    return;
+  }
+  el.className = 'window-crumb';
+  el.textContent = `${label} · ${r.days[from]} → ${r.days[to]}`;
+}
+
+/**
+ * Every permanent hint paragraph, one click away.
+ *
+ * The copy is good — that was the problem. Each card carried an explanatory
+ * paragraph *and* an (i) per figure *and* a footnote, which is prose doing the
+ * job hierarchy should do. So the words are not shortened and not deleted: the
+ * paragraph keeps its text verbatim and its id, and a `?` beside the panel title
+ * shows it.
+ *
+ * Runs once, over whatever is in the document — the hints are static markup, so
+ * there is nothing to re-run on render.
+ */
+function foldHints() {
+  for (const hint of document.querySelectorAll('.card > p.hint, .card-head p.hint')) {
+    const head = hint.closest('.card')?.querySelector('h2');
+    /**
+     * Empty at load means the code fills it — `products-note` counts rows,
+     * `tx-hint` counts transactions. Those are live status lines, not
+     * explanations, and folding one gave the positions panel a second `?` that
+     * hid its own row count.
+     */
+    if (!head || hint.dataset.folded || !hint.textContent.trim()) continue;
+    hint.dataset.folded = '1';
+    hint.hidden = true;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'hint-toggle';
+    btn.textContent = '?';
+    btn.setAttribute('aria-expanded', 'false');
+    btn.setAttribute('aria-label', tr('What this means'));
+    btn.addEventListener('click', () => {
+      const open = hint.hidden;
+      hint.hidden = !open;
+      btn.setAttribute('aria-expanded', String(open));
+    });
+    head.append(btn);
+  }
+}
+
+/**
+ * The connection check's label, which names the broker.
+ *
+ * A function rather than a line at wire time because it has to be rebuilt when
+ * the language changes: `applyStatic()` rewrites the text of everything carrying
+ * `data-i18n`, which is why this button does not carry it — the first version
+ * did, and the broker mark was replaced by plain text the moment anyone pressed
+ * NL.
+ */
+function paintDiagLabel() {
+  const diag = $('#btn-diagnose');
+  if (!diag) return;
+  diag.textContent = '';
+  for (const a of ADAPTERS) {
+    const mark = brokerMarkSvg(a.id, { size: 15 });
+    if (mark) diag.append(mark);
+  }
+  diag.append(
+    document.createTextNode(
+      ADAPTERS.length === 1
+        ? tr('Check connection · {broker}', { broker: ADAPTERS[0].label })
+        : tr('Check connection'),
+    ),
+  );
+}
+
+/**
+ * The section in the URL.
+ *
+ * A hash rather than a path because this page is opened from a file:// or
+ * chrome-extension:// origin with no server to route for us — a real path would
+ * 404 on reload. An unknown or absent hash falls back to the first section
+ * rather than showing nothing.
+ */
+function routeFromHash() {
+  const key = (location.hash || '').replace(/^#\/?/, '');
+  return TABS.some((t) => t.key === key) ? key : TABS[0].key;
+}
+
+function applyRoute() {
+  state.tab = routeFromHash();
+  if (state.data) render();
+}
+
+/**
+ * The overflow menu, and the two ways out of it.
+ *
+ * Escape and a click outside both close it, because a menu that can only be
+ * dismissed by hitting its own trigger again is a trap on a touchscreen.
+ */
+function wireMore() {
+  const btn = $('#btn-more');
+  const menu = $('#more-menu');
+  const close = () => {
+    menu.hidden = true;
+    btn.setAttribute('aria-expanded', 'false');
+  };
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const open = menu.hidden;
+    menu.hidden = !open;
+    btn.setAttribute('aria-expanded', String(open));
+  });
+  menu.addEventListener('click', (e) => {
+    // The language and theme groups live in here and are meant to be used
+    // without the menu vanishing under the pointer.
+    if (e.target.closest('[role="menuitem"]')) close();
+  });
+  document.addEventListener('click', (e) => {
+    if (!menu.hidden && !e.target.closest('.menu-wrap')) close();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !menu.hidden) close();
+  });
+}
+
+/**
+ * Granularity as a label that opens, not a second segmented bar.
+ *
+ * It is read far more often than it is changed — it states the resolution every
+ * figure on screen belongs to — and four equal segments for that is the same
+ * mistake as seven equal tiles. The buttons inside still carry `data-key`, so
+ * the candle path that forces a week keeps working unchanged.
+ */
+function wireGran() {
+  const host = $('#gran-group');
+  host.innerHTML = '';
+  const trigger = document.createElement('button');
+  trigger.type = 'button';
+  trigger.id = 'gran-trigger';
+  trigger.setAttribute('aria-haspopup', 'menu');
+  trigger.setAttribute('aria-expanded', 'false');
+  const menu = document.createElement('div');
+  menu.className = 'menu';
+  menu.role = 'menu';
+  menu.hidden = true;
+
+  for (const g of [{ key: 'auto', label: 'Auto' }, ...GRANS]) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.role = 'menuitem';
+    b.dataset.key = g.key;
+    b.textContent = tr(g.label);
+    b.setAttribute('aria-pressed', String(g.key === state.granularity));
+    b.addEventListener('click', () => {
+      state.granularity = g.key;
+      // Choosing a granularity by hand retires the note explaining that the
+      // candle toggle chose one for you.
+      state.granularityForcedByCandles = false;
+      for (const other of menu.querySelectorAll('button')) {
+        other.setAttribute('aria-pressed', String(other === b));
+      }
+      menu.hidden = true;
+      trigger.setAttribute('aria-expanded', 'false');
+      render();
+    });
+    menu.append(b);
+  }
+
+  trigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const open = menu.hidden;
+    menu.hidden = !open;
+    trigger.setAttribute('aria-expanded', String(open));
+  });
+  document.addEventListener('click', (e) => {
+    if (!menu.hidden && !e.target.closest('.gran')) {
+      menu.hidden = true;
+      trigger.setAttribute('aria-expanded', 'false');
+    }
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !menu.hidden) {
+      menu.hidden = true;
+      trigger.setAttribute('aria-expanded', 'false');
+    }
+  });
+  host.append(trigger, menu);
+}
+
+/**
+ * What the granularity trigger says.
+ *
+ * The resolution that is actually in use, and — when it was chosen for you —
+ * that it was automatic. A control that can say "Auto" without saying what Auto
+ * came out as leaves the reader to guess which resolution their figures are at.
+ */
+function updateGranLabel(resolved) {
+  const b = $('#gran-trigger');
+  if (!b) return;
+  const label = GRANS.find((g) => g.key === resolved)?.label ?? resolved;
+  const auto = state.granularity === 'auto' ? ` · ${tr('Auto')}` : '';
+  b.innerHTML = `${esc(tr('per {unit}', { unit: tr(label).toLowerCase() }))}${esc(auto)}<span class="caret" aria-hidden="true">⌄</span>`;
+}
+
+/**
+ * The rail foot: the facts about the data, not about the performance.
+ *
+ * Reconciliation keeps its verdict here as well as in the banner, and keeps its
+ * colour when it disagrees — rule 6 outranks tidiness, and a quiet rail with a
+ * red banner above it is still honest. Coverage moves out of the tile row,
+ * where it rendered at the same size as the total value.
+ */
+function renderRailState(data, r) {
+  const rows = [];
+  const synced =
+    data.mode === 'demo'
+      ? tr('Demo data')
+      : data.lastSyncAt
+        ? new Date(data.lastSyncAt).toLocaleString('nl-NL')
+        : tr('Not synced yet');
+  rows.push(`<div class="row"><span class="dot"></span><span>${esc(synced)}</span></div>`);
+
+  if (r.reconciliation) {
+    const ok = r.reconciliation.ok === true;
+    rows.push(
+      `<div class="row ${ok ? 'ok' : 'bad'}"><span class="dot"></span><span>${
+        esc(ok ? tr('Reconciles to the cent') : tr('DOES NOT reconcile'))
+      }</span></div>`,
+    );
+  }
+  const est = r.coverage?.estimated ?? 0;
+  const days = Math.max(1, r.coverage?.days ?? 1);
+  rows.push(
+    `<div class="row"><span class="dot"></span><span>${
+      esc(tr('{pct}% measured', { pct: (100 - (est / days) * 100).toFixed(1) }))
+    }</span></div>`,
+  );
+  $('#rail-state').innerHTML = rows.join('');
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -794,7 +1318,7 @@ function wireActions() {
   });
 
   $('#btn-hide-diag').addEventListener('click', () => {
-    $('#diagnostics').hidden = true;
+    $('#diagnostics').close();
   });
 
   $('#btn-export').addEventListener('click', async (e) => {
@@ -854,11 +1378,24 @@ function applyTab() {
   }
   for (const b of $('#tabs').querySelectorAll('button')) {
     const on = b.dataset.tab === state.tab;
+    if (on) b.setAttribute('aria-current', 'page');
+    else b.removeAttribute('aria-current');
     b.setAttribute('aria-selected', String(on));
     b.classList.toggle('is-on', on);
   }
-  // The toolbar drives the charts, and Holdings has none of them.
-  $('.controls').hidden = state.tab === 'holdings' || state.tab === 'notices';
+  /**
+   * Brief §4. Range applies on Overzicht, Rendement, Posities and Inkomsten;
+   * it is hidden on Vooruitblik — a window in the past changes nothing about a
+   * line running forward — and on Meldingen.
+   *
+   * Posities used to hide it too, which was right while that panel showed only
+   * today's holdings and wrong the moment US-49 gave it a windowed Result
+   * column: a control that governs a figure has to be reachable from the screen
+   * that figure is on.
+   */
+  const windowed = !['outlook', 'notices'].includes(state.tab);
+  $('.controls').hidden = !windowed;
+  $('#window-crumb').hidden = !windowed;
 }
 
 /** Is this canvas in the section currently on screen? */
@@ -908,11 +1445,13 @@ function render() {
   $('#subtitle').textContent =
     `${build ? `v${build} · ` : ''}${r.start} → ${r.end} · ${r.days.length} days · ${modeNote}`;
 
+  renderRailState(data, r);
   renderBanners(data, r);
 
   // --- range window -----------------------------------------------------
   const from = rangeStartIndex(r.days, state.range);
   const to = rangeEndIndex(r.days, state.range);
+  renderWindowCrumb(r, from, to);
 
   // Below the window, not above it. B8's whole defect was that the tiles were
   // rendered before the range existed, so they could only ever be all-time.
@@ -936,6 +1475,7 @@ function render() {
   const slice = (arr) => arr.slice(from, to + 1);
 
   const gran = state.granularity === 'auto' ? autoGranularity(to - from + 1) : state.granularity;
+  updateGranLabel(gran);
   markAutoGranularity(gran);
 
   // "Results per" used to reach only the two result charts, so pressing Month
@@ -953,19 +1493,27 @@ function render() {
   destroyCharts();
 
   /**
-   * Optimism Mode reflects the chart's own series, so a falling line climbs.
+   * US-35d. Optimism Mode draws two *different* charts, in place of the real two.
    *
-   * Applied here, at the last step before drawing, for the same reason the
-   * tiles are: everything upstream stays the real number, so nothing the export
-   * or the bug report can reach ever sees the cheerful version.
+   * The previous version reflected the value series about its own midpoint, which
+   * produced something shaped like a portfolio value chart while not being one —
+   * and on the deposit steps it inverted them, so every moment money went in the
+   * line dropped. `frown.js` explains why no rewording of that transform fixes
+   * it. These two are true read straight and only happen to climb when things go
+   * badly.
+   *
+   * Replacing rather than adding settles a smaller thing for free: the real
+   * charts are simply not rendered while the mode is on, so there is no moment
+   * when a joke chart and a real one are on screen together.
    */
-  const cheer = (arr) => (frown.isOn() && state.tab === 'overview' ? frown.flipSeries(arr) : arr);
+  const cheerful = frown.isOn() && state.tab === 'overview';
+  renderOptimismCharts(r, ends, atEnds, cheerful, t);
 
-  if (onScreen('#c-value')) state.charts.value = valueChart(
+  if (!cheerful && onScreen('#c-value')) state.charts.value = valueChart(
     $('#c-value'),
     {
       days: atEnds(r.days),
-      value: cheer(atEnds(r.value)),
+      value: atEnds(r.value),
       positionsValue: atEnds(r.positionsValue),
       // A flow is summed over the bucket, or a deposit inside a month would
       // vanish unless it happened to land on the last day of it.
@@ -980,6 +1528,7 @@ function render() {
     },
     t,
   );
+  if (!cheerful) noteBaseline('#value-baseline', state.charts.value, r, from);
 
   const agg = aggregatePnl(r.days, r.pnl, gran, from, to);
   if (onScreen('#c-pnl')) state.charts.pnl = pnlChart($('#c-pnl'), agg, t);
@@ -992,7 +1541,7 @@ function render() {
   const compColours = compositionColours(composition, t);
   if (onScreen('#c-comp')) state.charts.comp = compositionChart($('#c-comp'), downsampleComposition(composition, ends, from), t, compColours);
 
-  if (onScreen('#c-invested')) state.charts.invested = investedVsValueChart(
+  if (!cheerful && onScreen('#c-invested')) state.charts.invested = investedVsValueChart(
     $('#c-invested'),
     { days: atEnds(r.days), value: atEnds(r.value), cumulativeDeposited: atEnds(r.cumulativeDeposited) },
     t,
@@ -1023,7 +1572,7 @@ function render() {
   }
 
   const months = monthlyTable(r);
-  renderMonthMatrix(months, t);
+  renderMonthMatrix(months, t, r.days[from], r.days[to]);
   renderMonthCompare(months, t);
 
   lastWindow = { result: r, from, to };
@@ -1033,7 +1582,6 @@ function render() {
   renderYears(r);
   renderOutlook(r, t);
   renderAnnualised(r, from, to);
-  renderProducts(r, from, to);
   renderTransactions(data, r, from, to);
   renderFooter(r, data);
 }
@@ -1215,6 +1763,67 @@ function zoomTo(range) {
   state.range = range;
   for (const b of $('#range-group').querySelectorAll('button')) b.setAttribute('aria-pressed', 'false');
   render();
+}
+
+/**
+ * US-35d. The two joke charts, and the copy that goes with them.
+ *
+ * They take over the Overview's two chart slots one for one, so the section keeps
+ * its shape and nothing new has to be laid out. Both titles and both subtitles are
+ * swapped here rather than in the markup, because both name the instrument the
+ * joke is about — and `frown.qualifies` has already guaranteed the reader holds
+ * it, so `{prop}` is never empty and there is no fallback path to keep alive.
+ *
+ * When the mode is off this restores the real copy and returns. That restore is
+ * the load-bearing half: without it, turning the mode off would leave *Belief in
+ * ASML* above the portfolio value chart, which is the one outcome worse than not
+ * having the feature.
+ */
+function renderOptimismCharts(r, ends, atEnds, cheerful, t) {
+  const prop = frown.subjectOf(r) ?? '';
+  const text = (sel, s) => { const el = $(sel); if (el) el.textContent = s; };
+
+  if (!cheerful) {
+    text('#value-title', tr('Portfolio value including cash'));
+    text('#value-hint', tr('Daily total, reconstructed from your trades, cash movements and daily closing prices. Triangles on the baseline mark days money went in (up) or out (down).'));
+    text('#invested-title', tr('Money paid in vs what it is worth'));
+    text('#invested-hint', tr('The gap between the two lines is growth — everything that is not your own deposits.'));
+    return;
+  }
+
+  text('#value-title', tr('Belief in {prop}, over time', { prop }));
+  text('#value-hint', tr('One point for every day you held {prop} while it was under water, weighted by how far under. It has never gone down. Neither should you.', { prop }));
+  text('#invested-title', tr('What {prop} still owes you', { prop }));
+  text('#invested-hint', tr('How much you make the moment {prop} returns to what you paid. This is the number that grows when things go badly, which is why it is the only chart worth looking at.', { prop }));
+
+  const days = atEnds(r.days);
+  // Both are cumulative over the whole series, then sampled onto the buckets the
+  // chart draws — computing them from the sampled values instead would count a
+  // month as one day and flatten the climb.
+  if (onScreen('#c-value')) {
+    const conviction = frown.convictionIndex(r.value);
+    state.charts.value = singleSeriesChart(
+      $('#c-value'),
+      { days, values: ends.map((i) => conviction[i]) },
+      t,
+      // The gain colour whatever it contains, which is the joke keeping a
+      // straight face: nothing about the drawing admits what it is measuring.
+      { colour: t.pos, format: (v) => `${Math.round(v).toLocaleString('nl-NL')} pts` },
+    );
+    // The baseline note is about a euro axis and this one is in points.
+    const note = $('#value-baseline');
+    if (note) note.hidden = true;
+  }
+
+  if (onScreen('#c-invested')) {
+    const upside = frown.upsideRemaining(r.value, r.cumulativeDeposited);
+    state.charts.invested = singleSeriesChart(
+      $('#c-invested'),
+      { days, values: ends.map((i) => upside[i]) },
+      t,
+      { colour: t.pos, format: (v) => fmtEurCents(v) },
+    );
+  }
 }
 
 /** Say what is selected, and offer the way back. A zoom you cannot leave is a trap. */
@@ -1410,7 +2019,14 @@ function renderTiles(r, from = 0, to = r.days.length - 1) {
     {
       tabs: ['overview'],
       label: 'Today',
-      value: fmtSigned(dayPnl),
+      /**
+       * The day in euros and in per cent, because neither answers the question
+       * alone: +€ 2.535 says nothing about the size of the account it moved, and
+       * +4.89% says nothing about how much money that is. The percentage is the
+       * engine's own windowed return over the last two points — chained the same
+       * way every other return on the page is, so it cannot disagree with them.
+       */
+      value: `${fmtSigned(dayPnl)}  ${fmtPct(windowReturnPct(r, Math.max(0, last - 1), last))}`,
       note: `This week ${fmtSigned(weekPnl)}`,
       cls: signClass(dayPnl),
     },
@@ -1515,9 +2131,21 @@ function renderTiles(r, from = 0, to = r.days.length - 1) {
     ? frown.optimismTiles(r, fmtSigned, frown.subjectOf(r)).map((t) => ({ ...t, tabs: ['overview'], cls: 'up' }))
     : tiles;
 
-  $('#tiles').innerHTML = shown
-    .filter((t) => t.tabs.includes(state.tab))
-    .map((t) => {
+  /**
+   * One hero, three facts, and everything else behind a disclosure.
+   *
+   * The seven tiles were equal in size, box and dot, so "Data coverage 100.0%"
+   * competed with the total value — and the reader opened the page for one
+   * number. Nothing is dropped: the rest moves into *All figures*, open by
+   * default, which loses the equality rather than the content.
+   *
+   * Which figure is the hero is the order of the `tiles` array above, per
+   * section, because that order already carries the author's intent — Total
+   * value leads Overzicht, Result leads Rendement, Dividend leads Inkomsten.
+   * A separate hero list would be a second place to keep in sync.
+   */
+  const mine = shown.filter((t) => t.tabs.includes(state.tab));
+  const cell = (t, kind) => {
       // `signClass` returns 'up' / 'down', not 'pos' / 'neg'. Guessing that
       // wrong made the whole feature a no-op that still looked wired up.
       const down = !cheerful && t.cls === 'down';
@@ -1525,7 +2153,7 @@ function renderTiles(r, from = 0, to = r.days.length - 1) {
       const note = cheerful && down ? frown.spin(t.label) : t.note;
       const cls = cheerful && down ? 'up flipped' : (t.cls ?? '');
       return `
-      <div class="tile${cheerful && down ? ' tile-flipped' : ''}">
+      <div class="tile ${kind}${cheerful && down ? ' tile-flipped' : ''}">
         <div class="label">${esc(tr(t.label))}${
           TILE_TIPS[t.label]
             ? `<button type="button" class="info" aria-label="${esc(tr(t.label))}"
@@ -1535,8 +2163,23 @@ function renderTiles(r, from = 0, to = r.days.length - 1) {
         <div class="value ${cls}" style="--len:${[...value].length}">${esc(value)}</div>
         <div class="note">${esc(note)}</div>
       </div>`;
-    })
-    .join('');
+  };
+
+  const [hero, ...others] = mine;
+  const facts = others.slice(0, 3);
+  const rest = others.slice(3);
+  $('#tiles').innerHTML = mine.length
+    ? `<div class="hero-row">
+        ${hero ? cell(hero, 'is-hero') : ''}
+        <div class="facts">${facts.map((t) => cell(t, 'is-fact')).join('')}</div>
+      </div>` +
+      (rest.length
+        ? `<details class="allfigures" open>
+             <summary>${esc(tr('All figures'))}</summary>
+             <div class="figures-grid">${rest.map((t) => cell(t, 'is-fig')).join('')}</div>
+           </details>`
+        : '')
+    : '';
 }
 
 /**
@@ -1801,6 +2444,30 @@ function renderBanners(data, r) {
   }
 
   /**
+   * US-17. A load-bearing field that stopped arriving.
+   *
+   * Louder than the unreadable-row notice above, and deliberately: that one
+   * counts rows the parser rejected outright, which is visible in the total. This
+   * is the *silent* case — `pick` fell through to `0`, every row parsed cleanly,
+   * and the page draws a plausible chart out of nothing. CLAUDE.md already says
+   * loose parsing that silently returns `0` is worse than a loud failure, so a
+   * load-bearing field absent on effectively every row is an error banner naming
+   * the field, in the same class as the reconciliation check.
+   *
+   * A rate, never a count: absent on 3 of 1 457 rows is ordinary sparse data and
+   * raises nothing. `config.js` holds the threshold, reviewed by a human rather
+   * than derived from the rows it polices.
+   */
+  for (const a of fieldAlarms(data.meta?.fieldStats)) {
+    add(
+      'error',
+      tr('DEGIRO has stopped sending “{field}”', { field: a.field }),
+      tr('Absent on {missed} of {rows} rows, and this extension reads it as zero — so every figure measured from it is wrong rather than missing. This is what a renamed field looks like. Send the bug report: it carries the names that used to work ({names}), which is what somebody needs to find the new one.',
+        { field: a.field, missed: a.missed, rows: a.rows, names: a.everMatched.join(', ') || '—' }),
+    );
+  }
+
+  /**
    * Failures from the contexts nobody was looking at.
    *
    * A background sync that has been failing every hour for a week is the single
@@ -1911,8 +2578,18 @@ function divergingTint(value, maxAbs, t) {
   return alpha(value > 0 ? t.pos : t.neg, 0.08 + strength * 0.42);
 }
 
-function renderMonthMatrix(months, t) {
+function renderMonthMatrix(months, t, windowFrom = null, windowTo = null) {
   const table = $('#months');
+  /**
+   * Brief §4: the matrix keeps every year and greys the months outside the
+   * window rather than dropping them.
+   *
+   * Its whole point is comparison across years — filter it to the window and
+   * March 2024 has nothing to sit next to. So the rows stay and the cells the
+   * period excludes are dimmed: still readable, visibly not part of the figures
+   * above them.
+   */
+  const inWindow = (key) => !windowFrom || (key >= windowFrom.slice(0, 7) && key <= windowTo.slice(0, 7));
   const maxAbs = isPct() ? months.maxAbsPct : months.maxAbsPnl;
   const extremes = isPct() ? months.byPct : months.byPnl;
   const extremeKeys = new Set([extremes?.best?.month, extremes?.worst?.month].filter(Boolean));
@@ -1942,7 +2619,7 @@ function renderMonthMatrix(months, t) {
           // below, so the grid and the comparison read as one thing — and so
           // the ring cannot be confused with the best/worst outline.
           const pick = state.selectedCells.indexOf(c.month);
-          const cls = `cell${extremeKeys.has(c.month) ? ' extreme' : ''}${pick >= 0 ? ' picked' : ''}`;
+          const cls = `cell${extremeKeys.has(c.month) ? ' extreme' : ''}${pick >= 0 ? ' picked' : ''}${inWindow(c.month) ? '' : ' out'}`;
           const ring = pick >= 0 ? `;outline-color:${t.series[pick % t.series.length]}` : '';
           return `<td class="${cls}" style="background:${divergingTint(v, maxAbs, t)}${ring}" title="${esc(c.month)}: ${esc(fmtEurCents(c.pnl))} · ${c.returnPct.toFixed(2)}%"><button type="button" class="cell-pick" data-cell="${esc(c.month)}" aria-pressed="${pick >= 0}">${esc(fmtMetric(v))}</button></td>`;
         })
@@ -2588,87 +3265,6 @@ function renderAnnualised(r, from, to) {
   });
 }
 
-/**
- * Everything ever traded, one row per product — closed positions included.
- *
- * The holdings table answers "what do I hold"; this answers "was that a good
- * idea", and for an account that has sold everything the first table is empty
- * while all of the answer sits here.
- *
- * Two column decisions carry the story, both from the refinement:
- *
- *  - **Dividend is beside Result, never inside it.** The per-product result is
- *    value moved less money put in; a dividend is cash and lands in the cash
- *    ledger, not in the instrument's value. Folding it in would make this column
- *    disagree with the identically named column on the holdings table, and two
- *    columns may not share a name and differ.
- *  - **The percentage says what it is divided by.** Result ÷ bought is honest
- *    and needs no cost-basis convention; anything divided by a cost basis would
- *    inherit the argument this project refuses to have.
- */
-function renderProducts(r, from, to) {
-  const rows = r.byProduct
-    .map((p) => {
-      const result = sumWindow(p.pnl, from, to);
-      const qty = p.qty.at(-1) ?? 0;
-      return {
-        name: p.name,
-        symbol: p.symbol && p.symbol !== p.name ? p.symbol : '',
-        type: p.productType && p.productType !== 'UNKNOWN' ? p.productType : 'OTHER',
-        open: Math.abs(qty) >= 1e-9,
-        bought: p.bought ?? 0,
-        sold: p.sold ?? 0,
-        dividend: p.dividend ?? 0,
-        current: p.current ?? 0,
-        result,
-        pct: p.bought > 0 ? (result / p.bought) * 100 : null,
-      };
-    })
-    .filter((x) => x.bought > 0.005 || x.sold > 0.005 || Math.abs(x.current) > 0.005);
-
-  // Chips are built from the types actually present. A hardcoded list would
-  // show an empty "Warrants" filter to someone who has never held one.
-  const types = [...new Set(rows.map((x) => x.type))].sort();
-  buildChoice('#products-filter', [{ key: 'ALL', label: tr('All') }, ...types.map((k) => ({ key: k, label: titleCase(k) }))],
-    () => state.productType, (k) => { state.productType = k; render(); });
-  buildChoice('#products-sort', [{ key: 'best', label: tr('Best first') }, { key: 'worst', label: tr('Worst first') }],
-    () => state.productSort, (k) => { state.productSort = k; render(); });
-
-  const shown = rows
-    .filter((x) => state.productType === 'ALL' || x.type === state.productType)
-    // Sorted by name as the tiebreak, so equal results do not reorder between
-    // renders — a table that jitters is a table nobody trusts.
-    .sort((a, b) => (state.productSort === 'best' ? b.result - a.result : a.result - b.result) || a.name.localeCompare(b.name));
-
-  const widest = Math.max(1, ...shown.map((x) => Math.abs(x.result)));
-
-  $('#products tbody').innerHTML = shown.length
-    ? shown
-        .map(
-          (x) => `<tr>
-        <td>${esc(x.name)}${x.symbol ? ` <span class="muted">${esc(x.symbol)}</span>` : ''}</td>
-        <td><span class="chip">${esc(titleCase(x.type))}</span></td>
-        <td><span class="chip ${x.open ? 'info' : ''}">${esc(tr(x.open ? 'Open' : 'Closed'))}</span></td>
-        <td class="num">${x.bought > 0.005 ? esc(fmtEurCents(x.bought)) : '<span class="muted">—</span>'}</td>
-        <td class="num">${x.sold > 0.005 ? esc(fmtEurCents(x.sold)) : '<span class="muted">—</span>'}</td>
-        <td class="num">${Math.abs(x.dividend) > 0.005 ? esc(fmtEurCents(x.dividend)) : '<span class="muted">—</span>'}</td>
-        <td class="num">${x.open ? esc(fmtEurCents(x.current)) : '<span class="muted">—</span>'}</td>
-        <td class="num ${signClass(x.result)}">${esc(fmtSigned(x.result))}</td>
-        <td class="num ${signClass(x.result)}">${x.pct == null ? '<span class="muted">—</span>' : esc(fmtPct(x.pct))}
-          <span class="minibar" style="--w:${Math.round((Math.abs(x.result) / widest) * 100)}%;--c:${x.result >= 0 ? 'var(--pos)' : 'var(--neg)'}"></span>
-        </td>
-      </tr>`,
-        )
-        .join('')
-    : '<tr><td colspan="9" class="muted">Nothing traded in this range.</td></tr>';
-
-  const unattributed = r.unattributedDividends ?? 0;
-  $('#products-note').textContent =
-    `${shown.length} of ${rows.length} product(s).` +
-    (unattributed
-      ? ` ${unattributed} dividend row(s) carry no product, so they are in the account total but not in any row above.`
-      : '');
-}
 
 /** DEGIRO's own type strings, in sentence case. Its vocabulary, not ours. */
 const titleCase = (s) => String(s).charAt(0) + String(s).slice(1).toLowerCase().replace(/_/g, ' ');
@@ -2684,6 +3280,15 @@ function renderTransactions(data, r, from, to) {
   const all = [...(data.transactions ?? [])].sort((a, b) => String(b.date).localeCompare(String(a.date)));
   const inRange = state.txScope === 'all' ? all : all.filter((t) => t.date >= r.days[from] && t.date <= r.days[to]);
   const names = Object.fromEntries((r.byProduct ?? []).map((p) => [p.productId, p.symbol || p.name]));
+  /**
+   * US-51. The currency each price is quoted in, and where it comes from.
+   *
+   * The product's currency first, because that is what the engine values through
+   * (`engine.js:583`) and the two must not disagree about the same instrument;
+   * then the transaction's own; then nothing, which renders a bare number rather
+   * than a euro sign nobody checked.
+   */
+  const ccys = Object.fromEntries((r.byProduct ?? []).map((p) => [p.productId, p.currency || null]));
 
   buildChoice('#tx-scope', [{ key: 'range', label: tr('This range') }, { key: 'all', label: tr('Everything') }],
     () => state.txScope, (k) => { state.txScope = k; render(); });
@@ -2697,19 +3302,26 @@ function renderTransactions(data, r, from, to) {
   $('#tx-hint').textContent =
     `Newest first. ${shown.length.toLocaleString('nl-NL')} shown` +
     (inRange.length > shown.length ? ` of ${inRange.length.toLocaleString('nl-NL')} in range` : '') +
-    ` · ${all.length.toLocaleString('nl-NL')} in the whole history.`;
+    ` · ${all.length.toLocaleString('nl-NL')} in the whole history.` +
+    // US-51. Both columns say what they are, because both were read as something
+    // else: the price is the price that was actually paid, in the currency it was
+    // paid in, so for a foreign trade it is not the euro column divided by the
+    // quantity. And Amount is the cash flow, fee included — negative when money
+    // left the account, which is the direction DEGIRO's own statement uses.
+    ` Price is in the instrument's own currency; Amount is what moved in ${r.baseCurrency}, fees included.`;
 
   $('#transactions tbody').innerHTML = shown.length
     ? shown
         .map((t) => {
           const buy = (t.quantity ?? 0) > 0;
+          const ccy = ccys[t.productId] ?? t.currency ?? null;
           return `<tr>
         <td>${esc(formatDay(t.date))}</td>
         <td><span class="chip ${buy ? 'info' : 'warn'}">${esc(tr(buy ? 'Buy' : 'Sell'))}</span></td>
         <td>${esc(names[t.productId] ?? t.productId)}</td>
         <td class="num">${esc(fmtQty(t.quantity ?? 0))}</td>
-        <td class="num">${esc(fmtEurCents(t.price ?? 0))}</td>
-        <td class="num">${esc(fmtSigned(-(t.totalBase ?? 0)))}</td>
+        <td class="num">${esc(fmtPrice(t.price ?? 0, ccy))}</td>
+        <td class="num">${esc(fmtSigned(t.totalBase ?? 0))}</td>
       </tr>`;
         })
         .join('')
@@ -2766,9 +3378,43 @@ function renderHoldings(r, composition, compColours, t, from, to) {
   const total = r.totals.value || 1;
   const colours = colourByProduct(composition, compColours, t);
   const otherLabel = composition.layers.find((l) => l.key === '__other__')?.label;
+  /**
+   * US-49. One table for a position instead of two.
+   *
+   * Holdings and Profit-and-loss-per-product read the same array and shared
+   * three columns, so answering "how is EQQQ doing" meant matching a row by name
+   * across two cards. Everything ever traded is here now, closed included.
+   *
+   * **Half of these columns follow the range control and half cannot**: result is
+   * `sumWindow(p.pnl, from, to)`, while bought, sold, dividend and current are
+   * all-time scalars off the engine. Two cards hid that; one row would invent a
+   * comparison, so every all-time column says so in its own header.
+   */
+  const open = (p) => Math.abs(p.current) > 0.005;
+  const traded = (p) => (p.bought ?? 0) > 0.005 || (p.sold ?? 0) > 0.005 || open(p);
+  const types = [...new Set(r.byProduct.filter(traded).map((p) => p.productType || 'OTHER'))].sort();
+  buildChoice('#holdings-status',
+    [{ key: 'open', label: tr('Open') }, { key: 'closed', label: tr('Closed') }, { key: 'all', label: tr('All') }],
+    () => state.posStatus ?? 'open', (k) => { state.posStatus = k; render(); });
+  buildChoice('#products-filter', [{ key: 'ALL', label: tr('All') }, ...types.map((k) => ({ key: k, label: titleCase(k) }))],
+    () => state.productType, (k) => { state.productType = k; render(); });
+  buildChoice('#products-sort', [{ key: 'value', label: tr('Largest first') }, { key: 'best', label: tr('Best first') }, { key: 'worst', label: tr('Worst first') }],
+    () => state.productSort ?? 'value', (k) => { state.productSort = k; render(); });
+
+  const status = state.posStatus ?? 'open';
+  const sort = state.productSort ?? 'value';
   const rows = [...r.byProduct]
-    .filter((p) => Math.abs(p.current) > 0.005)
-    .sort((a, b) => b.current - a.current);
+    .filter(traded)
+    .filter((p) => (status === 'open' ? open(p) : status === 'closed' ? !open(p) : true))
+    .filter((p) => state.productType === 'ALL' || (p.productType || 'OTHER') === state.productType)
+    .sort((a, b) => {
+      const ra = sumWindow(a.pnl, from, to);
+      const rb = sumWindow(b.pnl, from, to);
+      // Name as the tiebreak, so equal results cannot reorder between renders —
+      // a table that jitters is a table nobody trusts.
+      return (sort === 'best' ? rb - ra : sort === 'worst' ? ra - rb : b.current - a.current)
+        || a.name.localeCompare(b.name);
+    });
 
   // Everything the account made in this window, and the part of it that came
   // from a position moving. The difference is not an error: cash earns
@@ -2860,17 +3506,24 @@ function renderHoldings(r, composition, compColours, t, from, to) {
       // exist, so the marker could never appear at all; and the warning that
       // does carry instruments truncates them at 40.
       const estimated = p.hasSeries === false;
+      const isOpen = open(p);
+      const dash = '<span class="muted">—</span>';
+      // Result over money ever put in, gross. Honest and needing no cost-basis
+      // convention — which is why the header names its denominator.
+      const pct = (p.bought ?? 0) > 0 ? (sumWindow(p.pnl, from, to) / p.bought) * 100 : null;
       return `<tr>
         <td><span class="swatch" style="background:${colour}"></span>${esc(p.name)}${p.symbol && p.symbol !== p.name ? ` <span class="muted">${esc(p.symbol)}</span>` : ''}${grouped ? ` <span class="muted">· in “${esc(otherLabel)}”</span>` : ''}</td>
-        <td>${esc(fmtQty(qty))}</td>
-        <td>${esc(unitPrice(p, qty))}</td>
+        <td>${isOpen ? esc(fmtQty(qty)) : dash}</td>
+        <td>${isOpen ? esc(unitPrice(p, qty)) : dash}</td>
         <td>${esc(averagePaid(p))}</td>
-        <td>${esc(fmtEurCents(p.current))}</td>
-        ${splitCell(p)}
+        <td>${isOpen ? esc(fmtEurCents(p.current)) : dash}</td>
+        ${isOpen ? splitCell(p) : `<td>${dash}</td>`}
         ${resultCell(sumWindow(p.pnl, from, to))}
-        <td>${((p.current / total) * 100).toFixed(1)}%</td>
+        <td>${Math.abs(p.dividend ?? 0) > 0.005 ? esc(fmtEurCents(p.dividend)) : dash}</td>
+        <td class="${signClass(pct ?? 0)}">${pct == null ? dash : esc(fmtPct(pct))}</td>
+        <td>${isOpen ? `${((p.current / total) * 100).toFixed(1)}%` : dash}</td>
         <td>${esc(p.currency)}${estimated ? ' <span class="muted" title="No price history for this instrument, so it is held at the last price it traded at — its result is an estimate.">·&nbsp;est.</span>' : ''}</td>
-        <td><button type="button" class="snap" data-snap="${esc(p.productId)}" title="${esc(tr('Copy a shareable image of this position'))}" aria-label="${esc(tr('Copy a shareable image of this position'))}">⧉</button></td>
+        <td><button type="button" class="snap" data-snap="${esc(p.productId)}" title="${esc(tr('Share this position'))}" aria-label="${esc(tr('Share this position'))}">⧉</button></td>
       </tr>`;
     })
     .join('');
@@ -2883,11 +3536,23 @@ function renderHoldings(r, composition, compColours, t, from, to) {
       <td>${esc(fmtEurCents(r.totals.cash))}</td>
       <td class="muted">—</td>
       ${resultCell(accountResult - positionResult)}
+      <td class="muted">—</td>
+      <td class="muted">—</td>
       <td>${((r.totals.cash / total) * 100).toFixed(1)}%</td>
       <td>${esc(r.baseCurrency)}</td>
     </tr>`;
 
-  $('#holdings tbody').innerHTML = body + cashRow;
+  // An empty filter says so rather than showing a headed table with nothing in
+  // it, which reads as a load that failed.
+  const empty = `<tr><td colspan="12" class="muted">${esc(tr('No positions match this filter.'))}</td></tr>`;
+  $('#holdings tbody').innerHTML =
+    (rows.length ? body : empty) + (status === 'open' || status === 'all' ? cashRow : '');
+  const unattributed = r.unattributedDividends ?? 0;
+  $('#products-note').textContent =
+    `${rows.length} of ${r.byProduct.filter(traded).length} product(s).` +
+    (unattributed
+      ? ` ${unattributed} dividend row(s) carry no product, so they are in the account total but not in any row above.`
+      : '');
 
   renderHoldingsShare(composition, rows, compColours, t, r);
 }
@@ -3008,7 +3673,24 @@ function clearNotices() {
 
 function renderDiagnostics(report) {
   const box = $('#diagnostics');
-  box.hidden = false;
+  /**
+   * A modal rather than a card in the page flow.
+   *
+   * It is a once-a-month action whose output is a step table nobody needs beside
+   * their charts, and `<dialog>` brings Escape, the focus trap and the backdrop
+   * without a line of JavaScript. `showModal()` throws if it is already open, so
+   * the guard is not decoration.
+   */
+  if (!box.open) box.showModal();
+  /**
+   * The title names the broker, read off the adapter's own `label` rather than
+   * written here. That is what makes a second broker a data change instead of a
+   * UI change: `brokers/index.js` documents `label` as "what the UI shows", and
+   * every adapter carries its own `checkSession`.
+   */
+  const brokers = connectedBrokers(report?.rowCounts ?? null);
+  const who = (brokers.length ? brokers : ADAPTERS).map((a) => a.label).join(', ');
+  $('#diag-title').textContent = tr('Connection check · {broker}', { broker: who });
   $('#diag-summary').textContent = report.summary ?? '';
 
   const cell = (s) => {

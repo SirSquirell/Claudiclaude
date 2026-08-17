@@ -27,6 +27,17 @@ const poisonedInput = () => ({
     lastError: { reason: 'transactions', message: `Could not reach ${POISON.url}`, at: '2026-08-10T08:00:00.000Z' },
     syncLog: [{ phase: 'products', message: `GET ${POISON.url} failed`, at: '2026-08-10T08:00:00.000Z', error: true }],
     missingPriceSeries: ['a', 'b'],
+    /**
+     * US-17's tally, poisoned the way a field name never can be but the guard
+     * should not have to assume that. Two of the three keys here are not
+     * identifier-shaped, so `report.js` drops them — the field names in this
+     * tally are ours, and anything that is not is not a field name.
+     */
+    fieldStats: {
+      quantity: { rows: 1457, missed: 0, matched: { quantity: 1457 } },
+      [POISON.name]: { rows: 5, missed: 5, matched: { [POISON.url]: 5 } },
+      'not an identifier': { rows: 1, missed: 1, matched: {} },
+    },
   },
   result: {
     days: ['2021-01-01', '2026-08-09'],

@@ -135,33 +135,52 @@ export function cheerUp(text) {
 export const spin = (label) => euphemismFor(String(label));
 
 /**
- * Reflect a series about its own midpoint, so a falling line climbs.
+ * The two charts the mode draws instead of the real ones.
  *
- * Not `scaleY(-1)` on the canvas: the axis labels are drawn *inside* it, so
- * they mirror into unreadable glyphs and the picture becomes noise. A joke has
- * to be legible to land.
+ * US-35d, and it replaces `flipSeries` — a midpoint reflection of the value
+ * chart, which is gone rather than kept beside these. That transform had a tell
+ * nothing could remove: it produced something *shaped like* a portfolio value
+ * chart while not being one, and on the deposit steps it inverted them, so every
+ * moment money went in the line dropped. Rewording it as "invert every daily
+ * change" is the same operation, since that expands to a reflection about the
+ * first value.
  *
- * And not `-y` either, which would drop the line into negative territory and
- * read as a bug rather than a bit. Reflecting about the midpoint keeps the line
- * inside the same range the axis is already labelled for: real gridlines, real
- * euros, and a shape that is exactly upside down.
+ * These two are not pretending to be that chart at all. Different units, their
+ * own titles, and no deposits line — there is nothing to mistake, which means the
+ * joke no longer leans entirely on the stamp. Both are true read straight and
+ * both happen to climb when things go badly.
+ *
+ * Pure, `(value, deposits) => number[]`, and lifted verbatim from
+ * `docs/prototypes/optimism-flip.html` where they were designed.
  */
-export function flipSeries(values) {
-  const nums = values.filter((v) => Number.isFinite(v));
-  if (nums.length < 2) return values;
+/**
+ * What you stand to make getting back to break-even.
+ *
+ * `max(0, paid in − worth)`, and it is **literally true**: it ends at exactly the
+ * amount that was lost. The sign is turned around by the framing rather than by
+ * arithmetic, which is the whole difference between a joke and a lie — and the
+ * reason this one can be read straight with a straight face.
+ */
+export function upsideRemaining(value, deposited) {
+  return value.map((x, i) => Math.max(0, (deposited[i] ?? 0) - x));
+}
 
-  /**
-   * Only ever in the flattering direction.
-   *
-   * The first version reflected unconditionally, so a *winning* account came
-   * out falling — the switch made the picture worse, which is the one thing
-   * this feature must never do. A line that already ends above where it started
-   * is left exactly as it is: there is nothing to cheer up.
-   */
-  if (nums.at(-1) >= nums[0]) return values;
-
-  const mid = Math.min(...nums) + Math.max(...nums);
-  return values.map((v) => (Number.isFinite(v) ? mid - v : v));
+/**
+ * A point for every day held under water, weighted by how far under.
+ *
+ * A real behavioural measure — unrealised pain sat through without capitulating
+ * — and a line that **can only rise** for anyone whose portfolio is down. It
+ * goes parabolic precisely when things are worst, which is why this one is
+ * funnier than the other: the *shape* is the joke, not only the label.
+ */
+export function convictionIndex(value) {
+  let peak = 0;
+  let score = 0;
+  return value.map((x) => {
+    peak = Math.max(peak, x);
+    score += (peak > 0 ? Math.max(0, (peak - x) / peak) : 0) * 100;
+    return Math.round(score);
+  });
 }
 
 /**

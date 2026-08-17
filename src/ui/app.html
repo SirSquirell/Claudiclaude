@@ -8,90 +8,145 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <div class="wrap">
-      <header class="top">
-        <div>
-          <h1 data-i18n>Portfolio history</h1>
-          <div class="sub" id="subtitle">Loading…</div>
-        </div>
-        <div class="actions">
-          <div class="group" id="lang-group" role="group" aria-label="Language"></div>
-          <div class="group" id="theme-group" role="group" aria-label="Appearance"></div>
-          <button id="btn-anon" type="button" aria-pressed="false" data-i18n>Anonymize</button>
-          <button id="btn-sync" type="button" data-i18n>Sync now</button>
-          <button id="btn-diagnose" type="button" data-i18n>Check connection</button>
-          <button id="btn-bugreport" type="button" data-act="bugreport" data-i18n>Copy bug report</button>
-          <button id="btn-export" type="button" data-i18n>Export JSON</button>
-          <button id="btn-wipe" type="button" data-i18n>Wipe &amp; resync</button>
-        </div>
-      </header>
-
-      <div id="notices"></div>
-      <div id="banners"></div>
-
-      <div class="card" id="diagnostics" hidden>
-        <h2 data-i18n>Connection check</h2>
-        <p class="hint" id="diag-summary"></p>
-        <div class="table-scroll">
-          <table id="diag-table">
-            <thead>
-              <tr>
-                <th data-i18n>Step</th>
-                <th data-i18n>Result</th>
-                <th data-i18n>Detail</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-        </div>
-        <div class="actions" style="margin-top: 12px">
-          <button id="btn-copy-diag" type="button" data-i18n>Copy report</button>
-          <button id="btn-hide-diag" type="button" data-i18n>Hide</button>
-        </div>
-        <p class="hint" style="margin-top: 8px">
-          Safe to share: statuses, counts and field names only — no session id, account number or amounts.
-        </p>
-      </div>
-
-      <nav class="tabs" id="tabs" role="tablist" aria-label="Sections"></nav>
-
+    <div class="app">
       <!--
-        Optimism Mode. Hidden on every tab but Overview, and stamped so a still
-        frame gives it away — see src/ui/frown.js for why that stamp is the most
-        important element in the feature rather than the silliest.
+        The rail. Persistent, so the section you are in is always visible rather
+        than inferred from which tab looks pressed, and the data-quality facts —
+        last sync, reconciliation, coverage — live at its foot because they are
+        facts about the data rather than performance figures. They used to sit in
+        the row of KPI tiles, where "Data coverage 100.0%" rendered at the same
+        size as the total value.
       -->
-      <div class="frown-bar" id="frown-bar" hidden>
-        <button type="button" class="btn frown-btn" id="frown-toggle" aria-pressed="false"
-                title="Put that frown upside down" aria-label="Put that frown upside down">🙃</button>
-      </div>
-
-      <div class="frown-wrap">
-        <section class="tiles" id="tiles"></section>
-        <div class="frown-stamp" aria-hidden="true"><span>NOT THE REAL NUMBERS</span></div>
-      </div>
-
-      <div class="controls">
-        <div class="group" id="range-group">
-          <span class="glabel" data-i18n>Range</span>
+      <aside class="rail">
+        <div class="rail-head" id="lockup"></div>
+        <nav class="rail-nav" id="tabs" aria-label="Sections"></nav>
+        <div class="rail-foot">
+          <div class="rail-state" id="rail-state"></div>
+          <button id="btn-sync" type="button" class="primary" data-i18n>Sync now</button>
+          <div class="menu-wrap">
+            <button id="btn-more" type="button" aria-haspopup="menu" aria-expanded="false" data-i18n>More</button>
+            <!--
+              One overflow menu instead of six top-level actions. Every item here
+              is maintenance a reader touches once a month at most; the only thing
+              that stays visible is Sync, because it is the one action with a
+              reason to be pressed today.
+            -->
+            <div class="menu" id="more-menu" role="menu" hidden>
+              <!-- No data-i18n: the label is built in JS because it names the broker, and
+                   applyStatic() would replace the mark with plain text. -->
+              <button id="btn-diagnose" type="button" role="menuitem">Check connection</button>
+              <button id="btn-bugreport" type="button" role="menuitem" data-act="bugreport" data-i18n>Copy bug report</button>
+              <button id="btn-export" type="button" role="menuitem" data-i18n>Export JSON</button>
+              <div class="menu-sep"></div>
+              <!-- Both groups print their own label, so the row adds none. -->
+              <div class="menu-row">
+                <div class="group" id="lang-group" role="group" aria-label="Language"></div>
+              </div>
+              <div class="menu-row">
+                <div class="group" id="theme-group" role="group" aria-label="Appearance"></div>
+              </div>
+              <div class="menu-sep"></div>
+              <button id="btn-wipe" type="button" role="menuitem" class="danger" data-i18n>Wipe &amp; resync…</button>
+            </div>
+          </div>
         </div>
-        <div class="group" id="gran-group">
-          <span class="glabel" data-i18n>Results per</span>
+      </aside>
+
+      <main class="main">
+        <div class="topbar">
+          <div>
+            <h1 data-i18n>Portfolio history</h1>
+            <div class="sub" id="subtitle">Loading…</div>
+          </div>
+          <div class="topbar-right">
+            <!--
+              The eye is the same control #btn-anon always was — a display
+              preference that masks by replacement — with an affordance that fits
+              a thing you toggle before a screenshot rather than a word in a row
+              of six.
+            -->
+            <button id="btn-anon" type="button" class="icon-btn" aria-pressed="false"
+                    title="Hide amounts" aria-label="Hide amounts">
+              <svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true" fill="none"
+                   stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+                <path d="M1.8 10S4.9 4.8 10 4.8 18.2 10 18.2 10 15.1 15.2 10 15.2 1.8 10 1.8 10Z" />
+                <circle cx="10" cy="10" r="2.6" />
+                <path class="eye-slash" d="M3.5 16.5 16.5 3.5" />
+              </svg>
+            </button>
+            <!--
+              Optimism Mode. Still conditional on holding the instrument the joke
+              is about and on that holding being inside the range — which is the
+              best property the feature has, not a limitation.
+            -->
+            <div class="frown-bar" id="frown-bar" hidden>
+              <button type="button" class="btn frown-btn" id="frown-toggle" aria-pressed="false"
+                      title="Put that frown upside down" aria-label="Put that frown upside down">🙃</button>
+            </div>
+          </div>
         </div>
-        <label class="check">
-          <input type="checkbox" id="toggle-cash" checked />
-          Include cash in the value chart
-        </label>
-      </div>
+
+        <div id="notices"></div>
+        <div id="banners"></div>
+
+        <!--
+          Brief §4: a section either honours the period control or does not show
+          it. No third state — the old bar floated above every tab, including
+          sections whose own copy said "whole history, not the selected range".
+          This line says which window the figures below belong to, in words and
+          in exact dates, so there is no such thing as an unlabelled number.
+        -->
+        <div class="window-crumb" id="window-crumb"></div>
+
+        <div class="controls">
+          <div class="group" id="range-group">
+            <span class="glabel" data-i18n>Range</span>
+          </div>
+          <!--
+            Granularity is read far more often than it is changed, so it states
+            the resolution and only becomes a control when you open it. A second
+            segmented bar beside the range would put two equal-weight groups in
+            one row, which is the competition this redesign removes.
+          -->
+          <div class="gran" id="gran-group"></div>
+          <label class="check">
+            <input type="checkbox" id="toggle-cash" checked />
+            Include cash in the value chart
+          </label>
+        </div>
+
+        <div class="frown-wrap">
+          <section class="tiles" id="tiles"></section>
+          <div class="frown-stamp" aria-hidden="true"><span>NOT THE REAL NUMBERS</span></div>
+        </div>
 
       <div data-tab="overview" class="grid">
         <div class="card">
           <div class="zoom-state" id="zoom-state" hidden></div>
-          <h2 data-i18n>Portfolio value including cash</h2>
-          <p class="hint">
-            Daily total, reconstructed from your trades, cash movements and daily closing prices.
-            Triangles on the baseline mark days money went in (up) or out (down).
-          </p>
-          <div class="chart-box tall"><canvas id="c-value"></canvas></div>
+          <!--
+            The title and the hint sit in spans because Optimism Mode swaps both
+            (US-35d) and `foldHints` appends the `?` button *into* the h2 — setting
+            textContent on the heading itself would delete it. `data-i18n` moves to
+            the span for the same reason.
+          -->
+          <h2><span id="value-title" data-i18n>Portfolio value including cash</span></h2>
+          <p class="hint"><span id="value-hint" data-i18n>Daily total, reconstructed from your trades, cash movements and daily closing prices. Triangles on the baseline mark days money went in (up) or out (down).</span></p>
+          <div class="chart-box tall">
+            <canvas id="c-value"></canvas>
+            <!--
+              US-35d: both joke charts keep the stamp, so a still frame gives them
+              away without the reader having to know what "pts" means. Smaller than
+              the one over the tiles — a stamp that hides the chart underneath it
+              defeats the point of having drawn one.
+            -->
+            <div class="frown-stamp frown-stamp-sm" aria-hidden="true"><span>NOT THE REAL NUMBERS</span></div>
+          </div>
+          <!--
+            Filled only when the axis does not start at zero — brief §4: "a chart
+            that does not start at zero and does not admit it is the oldest trick
+            in the book". Empty at load, so foldHints leaves it alone.
+          -->
+          <p class="hint" id="value-baseline" hidden></p>
         </div>
       </div>
 
@@ -126,9 +181,12 @@
 
       <div data-tab="overview" class="grid" style="margin-top: 16px">
         <div class="card">
-          <h2 data-i18n>Money paid in vs what it is worth</h2>
-          <p class="hint">The gap between the two lines is growth — everything that is not your own deposits.</p>
-          <div class="chart-box"><canvas id="c-invested"></canvas></div>
+          <h2><span id="invested-title" data-i18n>Money paid in vs what it is worth</span></h2>
+          <p class="hint"><span id="invested-hint" data-i18n>The gap between the two lines is growth — everything that is not your own deposits.</span></p>
+          <div class="chart-box">
+            <canvas id="c-invested"></canvas>
+            <div class="frown-stamp frown-stamp-sm" aria-hidden="true"><span>NOT THE REAL NUMBERS</span></div>
+          </div>
         </div>
       </div>
 
@@ -276,12 +334,35 @@
         <div class="card">
           <div class="card-head">
             <div>
-              <h2 data-i18n>Holdings</h2>
+              <h2 data-i18n>Positions</h2>
+              <!--
+                US-49. One table where there were two. The same series as the
+                stacked chart, as numbers, and everything ever traded in the same
+                place — closed positions included, which is where most of the
+                answer to "was that a good idea" lives. Result is what the
+                position made; dividend is beside it rather than inside it,
+                because they are different things.
+              -->
+              <!--
+                One paragraph, both hints. The merged panel took over the words of
+                the card it replaced verbatim — the gate for this phase is that no
+                hint text is lost, and rewriting it into a summary would lose it
+                just as surely as deleting it.
+              -->
               <p class="hint" id="holdings-hint">
                 The same series as the stacked chart, as numbers — so nothing depends on telling two colours apart.
+                Everything ever traded, closed positions included — which is where most of the answer to
+                “was that a good idea” lives. Result is what the position made; dividend is beside it rather
+                than inside it, because they are different things. Result follows the period you picked;
+                Dividend and % of bought are all-time and say so in their headers.
               </p>
             </div>
             <div class="group" id="holdings-view"></div>
+          </div>
+          <div class="filter-row">
+            <div class="group" id="holdings-status"></div>
+            <div class="group" id="products-filter"></div>
+            <div class="group" id="products-sort"></div>
           </div>
           <div class="chart-box" id="holdings-pie-box" hidden><canvas id="c-holdings-pie"></canvas></div>
           <div class="table-scroll" id="holdings-table-wrap">
@@ -295,44 +376,11 @@
                   <th data-i18n>Value</th>
                   <th data-i18n>Paid in vs grown</th>
                   <th data-i18n>Result</th>
+                  <th data-i18n>Dividend (all time)</th>
+                  <th>% of bought</th>
                   <th data-i18n>Share</th>
                   <th data-i18n>Currency</th>
                   <th><span class="sr-only" data-i18n>Copy image</span></th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <div data-tab="holdings" class="grid" style="margin-top: 16px">
-        <div class="card">
-          <div class="card-head">
-            <div>
-              <h2 data-i18n>Profit and loss per product</h2>
-              <p class="hint" id="products-hint">
-                Everything ever traded, closed positions included — which is where most of the answer to
-                “was that a good idea” lives. Result is what the position made; dividend is beside it rather
-                than inside it, because they are different things.
-              </p>
-            </div>
-            <div class="group" id="products-sort"></div>
-          </div>
-          <div class="group" id="products-filter" style="margin-bottom: 12px"></div>
-          <div class="table-scroll tall-scroll">
-            <table id="products">
-              <thead>
-                <tr>
-                  <th data-i18n>Product</th>
-                  <th data-i18n>Type</th>
-                  <th data-i18n>Status</th>
-                  <th class="num" data-i18n>Bought</th>
-                  <th class="num" data-i18n>Sold</th>
-                  <th class="num" data-i18n>Dividend</th>
-                  <th class="num" data-i18n>Value now</th>
-                  <th class="num" data-i18n>Result</th>
-                  <th class="num">% of bought</th>
                 </tr>
               </thead>
               <tbody></tbody>
@@ -418,8 +466,78 @@
         </div>
       </div>
 
-      <p class="footer-note" id="footer-note"></p>
+        <p class="footer-note" id="footer-note"></p>
+      </main>
     </div>
+
+      <dialog class="modal" id="diagnostics">
+        <h2 id="diag-title" data-i18n>Connection check</h2>
+        <p class="hint" id="diag-summary"></p>
+        <div class="table-scroll">
+          <table id="diag-table">
+            <thead>
+              <tr>
+                <th data-i18n>Step</th>
+                <th data-i18n>Result</th>
+                <th data-i18n>Detail</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="actions" style="margin-top: 12px">
+          <button id="btn-copy-diag" type="button" data-i18n>Copy report</button>
+          <button id="btn-hide-diag" type="button" data-i18n>Hide</button>
+        </div>
+        <p class="hint" style="margin-top: 8px">
+          Safe to share: statuses, counts and field names only — no session id, account number or amounts.
+        </p>
+      </dialog>
+
+      <!--
+        The share sheet. One dialog for every figure that can be shared: the
+        controls change the card, the card is redrawn, and nothing here knows
+        which position it is looking at — `openShareSheet` supplies that.
+
+        The preview is the artefact itself, drawn at the selected format and
+        scaled down by CSS, so what is on screen is what lands on the clipboard.
+        A separate "preview style" would be a second renderer to keep in step.
+      -->
+      <dialog class="modal share-sheet" id="share-sheet">
+        <h2 id="share-title" data-i18n>Share this position</h2>
+
+        <div class="share-body">
+          <div class="share-preview" id="share-preview"></div>
+
+          <div class="share-controls">
+            <div class="field">
+              <span class="field-label" data-i18n>Shape</span>
+              <div class="group" id="share-format" role="group"></div>
+            </div>
+            <div class="field">
+              <span class="field-label" data-i18n>Theme</span>
+              <div class="group" id="share-theme" role="group"></div>
+            </div>
+            <div class="field">
+              <span class="field-label" data-i18n>Amounts</span>
+              <div class="group" id="share-amounts" role="group"></div>
+            </div>
+            <div class="field">
+              <label class="field-label" for="share-name" data-i18n>Name on the card</label>
+              <select id="share-name"></select>
+              <input id="share-handle" type="text" maxlength="32" autocomplete="off" hidden />
+              <p class="hint" id="share-name-note" hidden></p>
+            </div>
+          </div>
+        </div>
+
+        <div class="actions" style="margin-top: 12px">
+          <button id="btn-share-copy" type="button" data-i18n>Copy image</button>
+          <button id="btn-share-download" type="button" data-i18n>Download</button>
+          <button id="btn-share-close" type="button" data-i18n>Close</button>
+        </div>
+      </dialog>
+
 
     <script src="../../vendor/chart.umd.js"></script>
     <script type="module" src="app.js"></script>
