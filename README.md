@@ -7,15 +7,40 @@ already holds.
 
 ![The charts](docs/screenshot.png)
 
-**English or Dutch**, with a flag in the header, and a light/dark/auto switch beside it. The build
-number is in the header line too, because a bug report against a version nobody noticed had gone
-stale is a bug report about the wrong code.
-
 The page is seven sections — Overview, Performance, Composition, Income & cost, Holdings, Outlook
-and Notices — each with the figures that belong to it above its charts. Every figure carries an
-**i** explaining what it means and, more usefully, what it does *not*: that "fees paid" excludes
-what a margin balance costs, that a deposit is never a gain, that the biggest winner is a position
-rather than a trade.
+and Notices — picked from the rail on the left, which also keeps the three facts about the *data*
+rather than the money at its foot: when it last synced, whether it reconciles to the cent, and how
+much of the history is measured rather than estimated. Those used to sit among the figures, where
+"Data coverage 100,0 %" rendered at the same size as the total value.
+
+Each section leads with **one** figure, three supporting ones beside it, and an **Alle cijfers**
+disclosure holding the rest — nineteen numbers in one grid is a wall nobody reads. Every figure
+carries an **i** explaining what it means and, more usefully, what it does *not*: that "fees paid"
+excludes what a margin balance costs, that a deposit is never a gain, that the biggest winner is a
+position rather than a trade.
+
+**The period control recomputes rather than re-slices.** Pick 3M and every figure below it is
+measured over those three months — anchored on the value the day *before* the window opens, so the
+first day's move is real instead of zero, and chained day by day so a deposit landing inside the
+window cannot flatter the return. One line above the figures names the period in words and in exact
+dates, because there is no such thing here as a number without a period attached. Where a chart's
+axis then does not start at zero, it says so under the plot: a close-up of a quarter that looks like
+a doubling is the oldest trick there is.
+
+**The eye in the top bar hides every amount** — by replacement, not by blur, so the figure never
+reaches the page at all and cannot be recovered from the DOM or a copy-paste. Percentages survive,
+which is the point: you can say +340 % without saying on what. The money axis on each chart goes
+away with them rather than repeating the mask down the side.
+
+**Any position can be shared as a card**, drawn rather than screenshotted — four shapes, light or
+dark, amounts off by default, and a name you choose from four sources or leave off entirely. It
+carries the reconciliation verdict and says *"not checked"* when there is nothing to check against.
+There is no badge and no signature: any mark this extension could produce, anyone holding it could
+produce too, and a forgeable one is worse than none.
+
+**English or Dutch**, and a light/dark/auto switch, both under **Meer** in the rail. The build number
+is in the line under the title, because a bug report against a version nobody noticed had gone stale
+is a bug report about the wrong code.
 
 **Notices** is where anything the reconstruction is unsure about is written down; anything that
 would make a number untrustworthy also stays pinned to the top, where it cannot be navigated away
@@ -91,6 +116,14 @@ worker** → the **Network** tab, then run a sync.
 **The API is undocumented, so it will break.** DEGIRO can change it without telling anyone.
 Every endpoint and version number lives in one file (`src/lib/config.js`) so a break is a
 one-line fix, and the parsers are written defensively for the same reason.
+
+Defensively used to mean *silently*, which is worse: a renamed field read as `0` leaves every chart
+standing with the wrong numbers in it. Six fields are load-bearing enough that this matters, and each
+one absent on effectively every row now raises a red banner naming the field. The threshold is a rate
+and not a count on purpose — a rename does not go missing on three rows out of 1 457, it goes missing
+on all of them, and an alarm that fires on ordinary sparse data is one nobody reads on the day it
+counts. The bug report also states which candidate name actually carried each value, which is how the
+guessing in `parse.js` gets deleted rather than kept forever.
 
 **Automated access to your own account may conflict with DEGIRO's terms.** Read-only, your own
 data, from your own logged-in browser is the mildest form of it, but slow is not the same as
