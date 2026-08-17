@@ -617,12 +617,23 @@ function noteBaseline(sel, chart, r, from) {
   const min = chart?.scales?.y?.min ?? 0;
   const zoomed = min > 0.5;
   el.hidden = !zoomed;
-  if (zoomed) {
-    el.textContent = tr(
+  if (!zoomed) return;
+  /**
+   * While amounts are hidden the warning stays and the level goes.
+   *
+   * `fmtEurCents(min)` would render "the axis starts at € •••", which reads as a
+   * bug rather than as privacy, and hiding the note altogether would drop the
+   * one honest thing on the chart: that the line is a close-up. So the masked
+   * variant is the same sentence with the number taken out — its own string
+   * rather than a substitution, because a sentence with a hole in it does not
+   * translate.
+   */
+  el.textContent = getAnonymize()
+    ? tr('The vertical axis does not start at zero — this window does not contain the start of the account, so the line is a close-up rather than the whole level.')
+    : tr(
       'The vertical axis starts at {min}, not at zero — this window does not contain the start of the account, so the line is a close-up rather than the whole level.',
       { min: fmtEurCents(min) },
     );
-  }
 }
 
 /**

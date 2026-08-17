@@ -12,7 +12,7 @@
  *    already carries the sign, so colour is never the only channel.
  */
 
-import { alpha, fmtEur, fmtEurCents, fmtSigned } from './theme.js';
+import { alpha, fmtEur, fmtEurCents, fmtSigned, getAnonymize } from './theme.js';
 import { drawMark } from './brand.js';
 import { WATERMARK } from '../lib/config.js';
 import { daysBetween, formatDay } from '../lib/dates.js';
@@ -96,6 +96,18 @@ function baseOptions(t) {
           padding: 8,
           font: { size: 11 },
           callback: (v) => fmtEur(v),
+          /**
+           * The money axis goes away entirely while amounts are hidden.
+           *
+           * `fmtEur` already masks, so leaving it on would draw `€ •••` five
+           * times down the side of every chart — a column of identical
+           * placeholders that costs width and says nothing. The shape of the
+           * series is what the reader is looking at in that mode, and the shape
+           * does not need the scale. Axes measured in percent or in months keep
+           * their labels; they are not amounts (`monthCompareChart` restores
+           * this flag for its `returnPct` metric).
+           */
+          display: !getAnonymize(),
         },
       },
     },
@@ -695,6 +707,8 @@ export function monthCompareChart(ctx, data, metric, t) {
   opts.plugins.legend.display = true;
   opts.scales.y.grid.color = (c) => (c.tick.value === 0 ? t.axis : t.grid);
   opts.scales.y.ticks.callback = (v) => (money ? fmtEur(v) : `${v}%`);
+  // A percentage is not an amount: it survives the mask, so its axis does too.
+  opts.scales.y.ticks.display = money ? !getAnonymize() : true;
   opts.plugins.tooltip.callbacks = {
     title: (items) => `${items[0].dataset.label} ${items[0].label}`,
     label: (item) =>

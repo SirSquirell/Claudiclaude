@@ -130,6 +130,8 @@ const DICT = {
     'whole history': 'hele looptijd',
     'The vertical axis starts at {min}, not at zero — this window does not contain the start of the account, so the line is a close-up rather than the whole level.':
       'De verticale as begint op {min}, niet op nul — dit venster bevat het begin van de rekening niet, dus de lijn is een uitsnede en niet het hele niveau.',
+    'The vertical axis does not start at zero — this window does not contain the start of the account, so the line is a close-up rather than the whole level.':
+      'De verticale as begint niet op nul — dit venster bevat het begin van de rekening niet, dus de lijn is een uitsnede en niet het hele niveau.',
     'last month': 'laatste maand',
     'last 3 months': 'laatste 3 maanden',
     'last 6 months': 'laatste 6 maanden',
