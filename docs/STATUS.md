@@ -108,6 +108,10 @@ F1–F5 shipped in 0.37.0, F6–F9 in 0.38.0. U1–U5 need a decision rather tha
 | US-56 | **Response and graceful degradation** — feedback on pointer-down everywhere, plus reduced-motion / reduced-transparency / prefers-contrast fallbacks, in one layer | Nothing. Guardrail: `npm run palette` stays green |
 | US-57 | **The share sheet as a material** — the card materializes (blur+scale spring), the four formats become a momentum strip. Motion only, no field changes | Nothing. Rides on US-47+/US-52/US-54 |
 | US-58 | **Type that changes shape with size** — size-bucketed tracking and leading, optical sizing, with a measured `npm run type` check. **POC validated, ready to build** | Nothing. Confirm the bundled font has an optical axis |
+| US-62 | **Scrub the value chart** — a crosshair + value/date readout that tracks 1:1, the nearest day's real figure never an interpolation. Recommended | Nothing. Reads the arrays the chart already has |
+| US-63 | **Momentum + rubber-band on the zoom** — release a US-12 zoom and it glides; drag past the ends and it resists. Recommended, build with US-55 | Nothing. Shares US-55's spring |
+| US-64 | **Sections arrive, they don't cut** — a spring cross-fade/slide between rail routes, transform/opacity only, reduced-motion aware. Polish | Nothing |
+| US-65 | **The honest number change** — a changed hero figure swaps (fade/slide), never a count-up: no interpolated value is ever rendered. Polish | Nothing |
 | US-03 (2nd half) | Expiry, strike, call/put from data rather than a name string | A real HAR |
 | US-07 | Options & margin dashboard — the margin half drops if it is not in the response | A real HAR |
 

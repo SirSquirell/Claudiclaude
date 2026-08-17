@@ -4050,3 +4050,164 @@ If making it responsive needs a number the engine does not already return, stop 
 over `r.byProduct`, which already holds every figure. And if the narrow layout grows into a second
 full card-rendering path with its own code, stop and make *that* its own story: the priority-drop and
 the row expand are the smaller thing that answers the complaint, and rule 8 says build that first.
+
+---
+
+# Refinement 0.50 — a second Apple-fluid tier, on the chart
+
+Four more from the Apple-design pass, and the discipline holds: **motion on the controls and the
+chrome, never on the data.** Two extend the value chart — the app's most physical surface — and are
+the ones worth building (US-62, US-63); two are polish (US-64, US-65). The count-up tween stays
+rejected for the reason it always was, and US-65 is its one honest form. All four reuse the inline
+`rAF` spring US-55 introduces; none is allowed a vendored animation library (CSP, rule 9's
+neighbourhood).
+
+---
+
+## US-62 — Scrub the value chart *(new, refined)*
+
+The value chart draws the line but never says the number under your finger. US-12 already reads a
+drag on it (to zoom); this reads a **point** — a crosshair that tracks the pointer 1:1 with a readout
+of the value and the date at that x, on the value chart and the cumulative-result chart. It is the
+single most-requested-shaped thing a chart can do and the app does not.
+
+**Apple principles:** direct manipulation (§2), response (§1). **Distinct from US-55:** US-55 *sets
+the range* (a gesture that changes state); this *reads a value* and changes nothing. The POC
+(`docs/prototypes/apple-fluid.html`) has the crosshair + glass tooltip working over a canvas, so the
+feel is already demonstrated; `charts.js` is Chart.js, whose interaction layer may give most of it
+as configuration plus a vertical guide rather than new plumbing.
+
+**The traps:**
+
+1. **The readout is an observation, not an interpolation.** The series is one value per day (SPEC,
+   `dates.js`); snap the readout to the nearest day's *actual* value, never a number between two
+   days. A crosshair that invents an intermediate figure is the fabricated-number failure in a new
+   place.
+2. **US-46 governs it.** The value in the readout is an amount, so it masks when anonymize is on,
+   like every other euro; the date does not.
+3. **Estimated days say so.** If the day sits on a no-series (estimated) stretch, the readout carries
+   the same `est.` honesty the holdings row does.
+4. **Reduced motion keeps it.** A crosshair is direct tracking, not vestibular motion — it stays
+   under `prefers-reduced-motion`; there is nothing to ease.
+5. **It must not fight US-55 or US-12 on touch.** Hover-to-read is free on a pointer; on touch,
+   scrubbing has to hand off cleanly from the range gesture and the zoom, or all three fire at once.
+   Decide the touch affordance (a scrub mode, or long-press) rather than layering three drags.
+
+**Acceptance criteria:**
+
+- **AC1** A crosshair tracks the pointer 1:1 across the value chart and the cumulative-result chart,
+  with a readout of the value and the date at that x.
+- **AC2** The value is the nearest day's actual figure — a test asserts no interpolated value is ever
+  shown.
+- **AC3** With US-46 on, the readout's amount is masked; the date stays.
+- **AC4** A day on an estimated stretch is marked as estimated in the readout.
+- **AC5** `prefers-reduced-motion` changes nothing — tracking is not motion to reduce.
+- **AC6** `engine.js` is unchanged; this reads the arrays the chart already has.
+
+**Stop condition:** if the readout needs a value the series does not hold — anything between two
+days — stop. That is an invented number, and this project's whole claim is that it shows none.
+
+---
+
+## US-63 — Momentum and rubber-band on the zoom *(new, refined — extends US-12)*
+
+US-12 zooms by dragging across the value chart, and it stops dead at the release point and at the
+edges. Two Apple touches: release a zoom/pan and it **glides to rest** with a critically-damped
+spring; drag the selection past the first or last day and it **rubber-bands** instead of hitting a
+wall.
+
+**Apple principles:** velocity handoff (§5), momentum projection (§6), rubber-banding (§9),
+interruptibility (§3). Same surface and same spring vocabulary as US-55 — **build them together**,
+since the inline spring, the velocity history and the day-snap are shared and doing them twice is how
+the two drift apart.
+
+**The traps:**
+
+1. **The window still snaps to real days.** Momentum projects where the edge lands, then snaps to a
+   day — no fractional-day window (US-55's rule, here too).
+2. **Reduced motion is instant.** No glide, no overshoot; the zoom just applies.
+3. **Per-frame recompute is honest (rule 2)** — the same licence US-55 has, and the same budget.
+4. **No series repaints on zoom.** The composition ranks on the whole history (charts rule).
+
+**Acceptance criteria:**
+
+- **AC1** Releasing a zoom glides to rest with a spring carrying the release velocity.
+- **AC2** Dragging past the first or last day rubber-bands rather than stopping hard.
+- **AC3** The resulting window is snapped to real days.
+- **AC4** Under `prefers-reduced-motion` the zoom applies instantly, no overshoot.
+- **AC5** `engine.js` is unchanged and no series changes colour.
+
+**Stop condition:** as US-55 — this is UI over the arrays the page already holds; the moment it needs
+the engine it has stopped being a rendering concern.
+
+---
+
+## US-64 — Sections arrive, they do not cut *(new, refined — polish)*
+
+The left-rail routes (US-16) swap sections instantly. Apple §7 (spatial consistency) and §3: a
+section change **cross-fades and slides a short distance** with a critically-damped spring — anchored,
+interruptible, reduced-motion aware. Polish (rule 8) — flagged as nice-to-have, not load-bearing.
+
+**Grounded:** hash routing (`routeFromHash` / `applyRoute`), sections toggled by `hidden`. The
+transition wraps the show/hide; it does not touch the router.
+
+**The traps:**
+
+1. **It must not delay the content.** The new section is interactive the instant it is shown; the
+   motion is decoration over an already-usable page (response §1). No input lock during the
+   transition.
+2. **Transform and opacity only (§11).** No animating height or layout — that reflows and janks. A
+   short translate plus a fade, on the container.
+3. **Charts do not re-animate on a route change.** They already drew; the transition is on the
+   container, not the chart's own data draw, or every route change replays every chart.
+4. **Reduced motion is an instant swap** (a short cross-fade at most), no slide.
+
+**Acceptance criteria:**
+
+- **AC1** A route change transitions the section with a spring on transform/opacity only.
+- **AC2** Fast successive route changes stay smooth — interruptible, not queued.
+- **AC3** The page is interactive immediately; nothing is locked out during the motion.
+- **AC4** Charts inside a section do not replay their draw animation on a route change.
+- **AC5** `prefers-reduced-motion` is an instant or short-fade swap with no slide.
+
+**Stop condition:** if it needs to animate a layout height to work, stop — that is the janky path §11
+warns against, and a route transition is not worth a reflow every time.
+
+---
+
+## US-65 — The honest number change *(new, refined — the count-up, done right)*
+
+When the range changes, the hero figures jump. The obvious Apple move is a **count-up tween**, and it
+stays **rejected**: an interpolated frame shows a value that was never true, which is the one thing
+this project refuses. The honest form is a **swap, not a tween** — the old figure fades/slides out
+and the new one in, with **no interpolated in-between value**. It signals *"this changed"* without
+ever rendering a fabricated number. Polish, and its whole worth is the discipline in the trap below.
+
+**Apple principles:** feedback (§1, §16), craft. **Grounded:** the tiles are already-formatted
+strings from `theme.js` (`renderTiles`); the transition swaps the whole string and never touches a
+digit.
+
+**The traps:**
+
+1. **Never interpolate the value — this is the entire story.** The only two frames shown are the old
+   string and the new string; the motion is opacity/translate on the element, not a numeric tween. A
+   test asserts no display code path produces a value between the old and the new.
+2. **US-46 governs it.** Both strings come through the formatter, so a masked figure transitions as a
+   mask.
+3. **Optimism Mode stays quarantined (US-35).** The swap shows real→real or cheerful→cheerful, never
+   a mix — it is a display swap downstream of the quarantine, not a new place the cheerful number can
+   leak into the real one.
+4. **Only when the value actually changed.** Transitioning on every render flickers; compare and
+   animate only a real change.
+5. **Reduced motion is an instant swap.**
+
+**Acceptance criteria:**
+
+- **AC1** A hero figure that changed value swaps with a fade/slide, old out and new in.
+- **AC2** No interpolated numeric value is ever rendered — asserted, not asserted-by-comment.
+- **AC3** With US-46 on, the figure transitions as a mask.
+- **AC4** The swap fires only when the value changed, not on every render.
+- **AC5** `prefers-reduced-motion` is an instant swap with no motion.
+
+**Stop condition:** if any frame shows a number between the old value and the new, stop — that is the
+rejected count-up wearing a different name, and it fabricates a value the account never had.
