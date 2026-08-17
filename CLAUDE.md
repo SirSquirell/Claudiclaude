@@ -83,14 +83,23 @@ architecture that §1 and §3 of the spec already settled.
 ## Two changelogs, both updated in the release commit
 
 `CHANGELOG.md` is written for whoever is deciding whether to resync: what was wrong and what it
-did to the numbers. `WHATS-NEW.md` is written for whoever is *using* this — Dutch, grouped by
-what you get rather than by version, and with the corrections that changed the numbers as its
-middle section rather than scattered through twenty-eight releases.
+did to the numbers, every release, kept forever. It is the history.
+
+`WHATS-NEW.md` is written for whoever is *using* this — Dutch, and **only the release that just
+shipped**. It is rewritten rather than appended to: the previous release's text goes out when the
+new one goes in, because a reader opening it wants to know what changed since the version they were
+running, not to scroll a feature tour of a product they already use. The history is not lost — it
+is in `CHANGELOG.md` and in the git log, and this file links there.
+
+This replaced an accumulating, grouped-by-what-you-get document at 0.45.0, at the owner's
+instruction. Do not grow it back: if it starts collecting sections from four releases, it has
+turned into a second `CHANGELOG.md` with worse ordering.
 
 **Both are updated in the same commit as the change they describe.** Not every entry goes in both:
 a refactor is a `CHANGELOG.md` line and nothing else. But anything a reader would notice —
-a feature, a correction to a figure, a new failure they might see — belongs in both, and the
-user-facing one gets the version tag so it stays possible to answer "do I need to resync?".
+a feature, a correction to a figure, a new failure they might see — belongs in both, and
+`WHATS-NEW.md` states up front whether this release needs a resync, because that is the one
+question it exists to answer.
 
 The test for whether something belongs in `WHATS-NEW.md`: **would it change what someone does?**
 A correction they must resync from, a screen they did not know existed, a number that does not
