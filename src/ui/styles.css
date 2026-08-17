@@ -2012,3 +2012,49 @@ button.snap:focus-visible {
   max-width: 100%;
   overflow-x: auto;
 }
+
+/* --- press feedback, and the motion nobody asked for -------------------- */
+
+/*
+ * Feedback on pointer-down, not on release.
+ *
+ * The moment a control answers only after you let go, directness "falls off a
+ * cliff" — Apple's *Designing Fluid Interfaces*. Every pressable thing here now
+ * answers on the press. 100ms and 0.97 are the standard values: enough to feel,
+ * too small to read as an animation.
+ */
+button:active,
+.rail-nav button:active,
+.menu button:active {
+  transform: scale(0.97);
+  transition: transform 100ms ease-out;
+}
+
+/* A full-width rail item scaling reads as a wobble; it takes the surface
+   instead, which is the same "it heard me" without the movement. */
+.rail-nav button:active,
+button.primary:active {
+  transform: none;
+  background: var(--surface-3);
+}
+
+/*
+ * Reduced motion means gentler, not none.
+ *
+ * The colour and surface changes stay — they are what tells you a control
+ * responded. What goes is movement: the press scale and every transform
+ * transition. There is no parallax or slide here to remove, which is why this
+ * block is short rather than thorough.
+ */
+@media (prefers-reduced-motion: reduce) {
+  button:active,
+  .rail-nav button:active,
+  .menu button:active {
+    transform: none;
+  }
+
+  * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
