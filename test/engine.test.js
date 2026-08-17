@@ -2229,3 +2229,129 @@ test('every warning branch actually runs — a ReferenceError in one takes the p
   }
   assert.ok(Number.isFinite(r.value.at(-1)), 'and the result is a number');
 });
+
+
+// ---------------------------------------------------------------------------
+// Rounding: exact for summing, rounded for reading
+// ---------------------------------------------------------------------------
+
+test('a window of daily results sums to the exact figure, not to a drift', () => {
+  /**
+   * From a real account, and it was visible on screen: the Result tile read
+   * **+€ 16,71** where the engine's own `totals.totalPnl` said **16,56**.
+   *
+   * `pnl` was rounded to cents per day and the tile sums a window of it. Two
+   * thousand values each rounded by up to half a cent drifted fifteen cents —
+   * and because `value = paid in + result` is stated on the same screen, the page
+   * openly failed to add up: −16,61 + 16,71 = +0,10 against a value of −0,05.
+   *
+   * The drift grows with the **length of the history**, not the size of the
+   * account, so it is worst on exactly the accounts this project exists for. Rule
+   * 2 in miniature: a derived number written down, read back as an input, and two
+   * thousand small roundings became one wrong figure.
+   *
+   * Asserted on the fixture because it is long enough to drift: rounding `pnl`
+   * again would fail this immediately.
+   */
+  const meta = fixture('meta.json');
+  const r = computePortfolio({
+    transactions: parseTransactions(fixture('transactions.json')),
+    cashRows: parseCashMovements(fixture('accountoverview.json')),
+    products: parseProducts(fixture('products-info.json')),
+    prices: loadPrices(parseChartResponse, meta),
+    today: meta.today,
+  });
+
+  const sum = (a) => a.reduce((x, y) => x + y, 0);
+  const last = r.days.length - 1;
+  assert.ok(r.days.length > 500, 'the fixture has to be long enough for a drift to show');
+
+  // The identity the page states, to the cent.
+  assert.ok(
+    Math.abs(r.cumulativeDeposited[last] + sum([...r.pnl]) - r.value[last]) < 0.005,
+    `value ${r.value[last]} != paid in ${r.cumulativeDeposited[last]} + result ${sum([...r.pnl])}`,
+  );
+
+  // And the same figure the engine computes exactly, so the two cannot disagree
+  // on screen.
+  assert.ok(
+    Math.abs(sum([...r.pnl]) - r.totals.totalPnl) < 0.005,
+    `the summed series (${sum([...r.pnl])}) differs from totals.totalPnl (${r.totals.totalPnl})`,
+  );
+
+  // Per product too: the positions table and the share card both sum these.
+  for (const p of r.byProduct) {
+    const exact = p.values[last] - p.paidIn[last];
+    assert.ok(
+      Math.abs(sum([...p.pnl]) - exact) < 0.02,
+      `${p.symbol}: summed ${sum([...p.pnl])} against value-minus-paid-in ${exact}`,
+    );
+  }
+});
+
+test('the series a reader looks at are still rounded', () => {
+  // The other half of the decision: only what gets *summed* keeps full
+  // precision. A value series nobody adds up stays at cents, which is what keeps
+  // the payload and the tooltips clean.
+  const r = scenario({
+    transactions: [{ id: 't', date: '2024-01-01', productId: '1', quantity: 1, price: 100, fee: 0, totalBase: -100 }],
+    cashRows: [{ id: 'c', date: '2024-01-01', change: 1000, category: 'DEPOSIT', currency: 'EUR', description: 'x' }],
+  });
+  const cents = (v) => Math.abs(v * 100 - Math.round(v * 100)) < 1e-9;
+  assert.ok(r.value.every(cents), 'value is not at cents');
+  assert.ok(r.cash.every(cents), 'cash is not at cents');
+  assert.ok(r.cumulativeDeposited.every(cents), 'cumulativeDeposited is not at cents');
+});
+
+
+test('an emptied account still reconciles — that is the easiest case, not an exempt one', () => {
+  /**
+   * From a real account: every position closed, so the derived-anchor guard's
+   * `counted > 0` was false, so there was no anchor, so `reconciliation` came back
+   * **null** — rule 6's acceptance test simply absent on the account where it was
+   * least ambiguous. DEGIRO stated the cash and we had reconstructed the cash;
+   * the only thing missing was permission to compare them.
+   *
+   * The condition is *our* ledger holding nothing. If we think we hold something
+   * and DEGIRO lists none of it, that is `position-mismatch` and a total would
+   * paper over it — which the second half of this test pins.
+   */
+  const closed = scenario({
+    transactions: [
+      { id: 'b', date: '2024-01-01', productId: '1', quantity: 1, price: 100, fee: 0, totalBase: -100 },
+      { id: 's', date: '2024-01-03', productId: '1', quantity: -1, price: 110, fee: 0, totalBase: 110 },
+    ],
+    // The trades' own cash rows, because that is where cash comes from — a
+    // transaction's `totalBase` does not move the balance, DEGIRO's TRADE row
+    // does. The first version of this fixture left them out and the test failed
+    // on its own omission.
+    cashRows: [
+      { id: 'c', date: '2024-01-01', change: 100, category: 'DEPOSIT', currency: 'EUR', description: 'x' },
+      { id: 'tb', date: '2024-01-01', change: -100, category: 'TRADE', currency: 'EUR', description: 'buy' },
+      { id: 'ts', date: '2024-01-03', change: 110, category: 'TRADE', currency: 'EUR', description: 'sell' },
+    ],
+    liveCash: 110,
+    livePositions: [],
+  });
+  assert.ok(closed.reconciliation, 'no verdict at all on an emptied account');
+  assert.equal(closed.reconciliation.source, 'derived');
+  assert.equal(closed.reconciliation.ok, true);
+
+  // And it can fail, which is the whole point of having it: DEGIRO saying
+  // something else about the cash is now a finding rather than a silence.
+  const off = scenario({
+    transactions: [
+      { id: 'b', date: '2024-01-01', productId: '1', quantity: 1, price: 100, fee: 0, totalBase: -100 },
+      { id: 's', date: '2024-01-03', productId: '1', quantity: -1, price: 110, fee: 0, totalBase: 110 },
+    ],
+    cashRows: [
+      { id: 'c', date: '2024-01-01', change: 100, category: 'DEPOSIT', currency: 'EUR', description: 'x' },
+      { id: 'tb', date: '2024-01-01', change: -100, category: 'TRADE', currency: 'EUR', description: 'buy' },
+      { id: 'ts', date: '2024-01-03', change: 110, category: 'TRADE', currency: 'EUR', description: 'sell' },
+    ],
+    liveCash: 109.5,
+    livePositions: [],
+  });
+  assert.equal(off.reconciliation.ok, false);
+  assert.ok(off.warnings.some((w) => w.code === 'reconciliation-failed'), 'and it says so');
+});

@@ -1243,8 +1243,24 @@ function wireActions() {
       notice('info', 'The connection check only works inside the extension.');
       return;
     }
-    e.target.disabled = true;
-    e.target.textContent = tr('Checking…');
+    /**
+     * `currentTarget`, not `target`, and the label is rebuilt rather than
+     * assigned.
+     *
+     * Both halves are the same reported bug. This button is not plain text — it
+     * carries a broker mark, so clicking the mark makes `e.target` the `<svg>`:
+     * `disabled` on an SVG does nothing, and writing `textContent` into it put
+     * the busy label *inside the icon*, where it stayed after the check
+     * finished. The reader saw "Checking connection" every time they reopened
+     * the menu.
+     *
+     * And even on a hit that did land on the button, assigning plain text
+     * replaced the mark with a word — which is the failure `paintDiagLabel`
+     * exists to prevent, so the reset goes through it.
+     */
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    btn.textContent = tr('Checking…');
     clearNotices();
     try {
       // Longer than the default: the check makes several real requests, and
@@ -1254,8 +1270,8 @@ function wireActions() {
     } catch (err) {
       notice('error', `Could not run the check: ${err.message ?? err}`);
     } finally {
-      e.target.disabled = false;
-      e.target.textContent = tr('Check connection');
+      btn.disabled = false;
+      paintDiagLabel();
     }
   });
 
@@ -1975,8 +1991,23 @@ function renderTiles(r, from = 0, to = r.days.length - 1) {
     const base = fromIdx <= 0
       ? paidTotal
       : (res.value[fromIdx - 1] ?? 0) + Math.max(0, paidTotal - (res.cumulativeDeposited[fromIdx - 1] ?? 0));
-    if (!(Math.abs(base) > 1)) return tr('no base to compare against');
-    return `${fmtPct((pnl / Math.abs(base)) * 100)} ${tr('of what you paid in')}`;
+    /**
+     * `base > 1`, not `Math.abs(base) > 1`, and the absolute value was a real
+     * defect rather than a cautious guard.
+     *
+     * On an account that has been emptied, net paid in is **negative** — more has
+     * come out than went in, which on a profitable account is simply the profit
+     * withdrawn. Taking the absolute value then divided a result by money that had
+     * come *out* and printed **+100,60 % of what you paid in**, which reads as
+     * "you doubled your money" and means nothing at all: there is no money in to
+     * be a share of.
+     *
+     * `returnOnMoneyIn` in `lib/snapshot.js` has always said this in words for the
+     * share card — "more has come out than went in" — and this is the same
+     * judgement, applied where the tile makes it.
+     */
+    if (!(base > 1)) return tr('no money in to compare against');
+    return `${fmtPct((pnl / base) * 100)} ${tr('of what you paid in')}`;
   };
 
   const tiles = [
