@@ -4211,3 +4211,46 @@ digit.
 
 **Stop condition:** if any frame shows a number between the old value and the new, stop — that is the
 rejected count-up wearing a different name, and it fabricates a value the account never had.
+
+---
+
+## US-66 — The suite waits in real time for retries it could fake *(new, refined — optimisation)*
+
+`npm test` takes about 55 seconds for 434 tests, and one test — "the config endpoint failing
+degrades to the documented defaults" in `test/degiro.test.js` — accounts for roughly 31 of those
+seconds by itself. It is not doing 31 seconds of work: `throttledFetch`'s exponential backoff
+(`src/lib/degiro.js:60,105-107`) calls the real `setTimeout`, and this test drives it through its
+full retry budget, so the wall clock is spent asleep, not computing. A dozen more tests in the same
+file and in `test/session.test.js` cost one to seven real seconds each the same way.
+
+Node's own test runner ships `mock.timers` — a per-test fake clock that intercepts `setTimeout`
+without touching `src/lib/degiro.js` at all: the test advances the clock instead of the process
+sleeping through it. This is a test-only change; rule 5's queue and backoff logic does not move.
+
+**Grounded:** `sleep()` at `src/lib/degiro.js:60` is a plain `setTimeout` wrapper, the standard shape
+`mock.timers` is built to intercept. No dependency injection needed in the source.
+
+**The traps:**
+
+1. **Enable and disable the fake clock per test**, not once for the file — a global fake clock that
+   leaks into an unrelated test changes what that test measures without saying so.
+2. **`throttledFetch`'s own inter-request spacing test** ("requests are spaced out, and parallel
+   callers cannot defeat it") is asserting real elapsed time between calls; check whether it stays
+   meaningful under a fake clock or needs to stay real-time on purpose.
+3. **Advance the clock in the same steps the backoff actually takes** (`RATE.backoffBaseMs * 2 **
+   attempt`, capped at `RATE.backoffMaxMs`) rather than jumping straight to the end, so a test still
+   fails if a future change alters the schedule instead of just the number of retries.
+4. **Don't touch `src/lib/degiro.js`.** This is entirely inside `test/`.
+
+**Acceptance criteria:**
+
+- **AC1** `npm test` runs in single-digit seconds, not ~55.
+- **AC2** Every retry/backoff/timeout test still exercises the real code path in `degiro.js`,
+  unmodified.
+- **AC3** No test's *assertions* change — only how it waits.
+- **AC4** A test that should still fail on a schedule regression (wrong delay, wrong attempt count)
+  still does.
+
+**Stop condition:** if making a test pass under a fake clock requires changing what `degiro.js` does
+(injecting a clock, a delay function, a config flag), stop — the point was zero production-code
+change, and a hook added just for testability is the thing rule 8 exists to keep out.

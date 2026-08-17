@@ -6,6 +6,22 @@ a bad place to find out *where things stand*. This is the index.
 **Last updated at 0.46.0.** It had been stale since 0.21.0, which is fifteen releases — if it looks
 stale again, trust the CHANGELOG and fix this.
 
+## Found on `claude/bug-report-pbvnjs`, not on `main`
+
+**A real, tested fix is sitting on a branch nobody merged.** One clean commit, `62721f0`,
+"0.46.1: Today uses DEGIRO's own live day result, not the ragged reconstructed edge," on top of a
+commit already in `main`. On a reported account, 4 of 12 US holdings had a fresh vwd close and 8
+did not, so the reconstructed "Today" figure counted a move for the updated ones and zero for the
+rest — it read −0,58 % where DEGIRO itself showed −2,5 %. The fix sums DEGIRO's own `todayPlBase`
+instead of reconstructing it, falls back to the old figure when the field is absent, and ships its
+own test, fixtures and both changelogs.
+
+It cherry-picks onto current `main` cleanly except for one conflict, in `CHANGELOG.md`: the fix
+wants to cut `0.46.1`, but `main` already carries an `[Unreleased]` US-61 entry that has not shipped
+a version yet. That is a release-cut decision — does this become its own `0.46.1`, or fold into
+whatever version ships US-61 — not something to resolve without you. **Recommend cherry-picking
+`62721f0`** once that's decided.
+
 ## Shipped and confirmed against a real account
 
 | Story | What it did | Release |
@@ -112,6 +128,7 @@ F1–F5 shipped in 0.37.0, F6–F9 in 0.38.0. U1–U5 need a decision rather tha
 | US-63 | **Momentum + rubber-band on the zoom** — release a US-12 zoom and it glides; drag past the ends and it resists. Recommended, build with US-55 | Nothing. Shares US-55's spring |
 | US-64 | **Sections arrive, they don't cut** — a spring cross-fade/slide between rail routes, transform/opacity only, reduced-motion aware. Polish | Nothing |
 | US-65 | **The honest number change** — a changed hero figure swaps (fade/slide), never a count-up: no interpolated value is ever rendered. Polish | Nothing |
+| US-66 | **The suite waits in real time for retries it could fake** — one test alone spends 31 of the suite's ~55 seconds asleep in a real `setTimeout` backoff. Node's `mock.timers` can fake that clock without `degiro.js` changing at all | Nothing. Test-only |
 | US-03 (2nd half) | Expiry, strike, call/put from data rather than a name string | A real HAR |
 | US-07 | Options & margin dashboard — the margin half drops if it is not in the response | A real HAR |
 
@@ -131,6 +148,36 @@ Not blockers, and not forgotten either.
 | B7 | Flag sparse FX gaps, or fetch a real FX series? | A rate unobserved for a quarter is already flagged |
 | B10 | Does DEGIRO book a split as a transaction pair? | Bounded — the rescaled instruments are all closed |
 | — | `price-scale-adjusted` factor 4.369 on one account | Bounded, same reason. Would need an account that still holds one |
+
+## Light scan — 2026-08-17
+
+Routine pass, not a deep audit. `npm test` (434/434), `npm run palette` (zero collisions, both
+themes) and `node tools/check-leaks.mjs` all green. Browser-checked `npm run demo` at 1440 and
+380px, light and dark — no console errors, no horizontal overflow. The eye toggle, the More menu
+and the Positions table's column-dropping all match `docs/redesign/DESIGN-BRIEF.md` as built.
+Nothing new to add to the design backlog; US-55/58/62–65 above already cover the next
+fluid-motion tier, and none of it is built yet, so there was nothing new to browser-check there.
+
+Security rules (CLAUDE.md #1, #5, #7, #9) all held: `engine.js` still pure, `throttledFetch` still
+the one queue with no retry on 401/403, the export/diagnostics allowlists intact, no login flow
+added. Two notes, neither worth a fix:
+
+- `src/lib/engine.js:1824,2631` write `computedAt: new Date().toISOString()` onto the *returned*
+  result — a metadata stamp, never read back as an input, so rule 1 holds in substance, but it is
+  literally `new Date()` inside the file the rule singles out as pure.
+- `src/ui/app.js:3912`'s `showFatal` logs `String(err?.message ?? err)` straight to the console,
+  unscrubbed — a second, less careful path beside `errlog.js`'s scrubbed ring. Low risk (these are
+  parse/reconciliation failures, not account dumps) but worth confirming no error message can ever
+  carry a raw amount or account id.
+
+Checked every branch besides `main` for stories that never landed. `bug-report-pbvnjs` is real, see
+above. `apple-fluid-poc` is an intentional POC kept off `main`, already referenced by name above.
+Everything else (`multi-broker-build`, `multi-broker-poc`, `paid-vs-grown-user-story-23ltue`,
+`popup-0470`, `portfolio-visualization-testing-xs5ck4`, `readme-0460`, `refine-0470`,
+`refine-0470b`, `refine-0470c`, `status-0460-cleanup`, `ui-overhaul-user-stories-odcw7i`,
+`degiro-portfolio-spike-7x5d4h`) is either fully merged or superseded by later work on `main`.
+
+U3 (one account 5,8 % out) is still the one open, blocked defect — unchanged this run.
 
 ## Out of scope, decided
 
