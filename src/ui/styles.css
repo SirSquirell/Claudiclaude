@@ -2066,3 +2066,20 @@ button.primary:active {
   gap: 8px 12px;
   margin-bottom: 12px;
 }
+
+/* The window every figure below belongs to. Quiet by design — it is a label,
+   not a heading — and loud only when it is refusing to draw. */
+.window-crumb {
+  font-size: 0.6875rem;
+  letter-spacing: var(--track);
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.window-crumb.thin {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: var(--hint);
+  color: var(--critical);
+}

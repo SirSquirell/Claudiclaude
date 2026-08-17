@@ -47,6 +47,14 @@ import { copySnapshot } from './snapshot.js';
 import { inExtension, load, send, wantsDemo } from './datasource.js';
 
 const RANGES = ['1M', '3M', '6M', 'YTD', '1Y', 'ALL'];
+/** What each preset is called in the crumb — a range button is not a sentence. */
+const RANGE_WORDS = {
+  '1M': 'last month',
+  '3M': 'last 3 months',
+  '6M': 'last 6 months',
+  YTD: 'this year so far',
+  '1Y': 'last year',
+};
 const GRANS = [
   { key: 'day', label: 'Day' },
   { key: 'week', label: 'Week' },
@@ -588,6 +596,35 @@ function buildControls() {
     state.selectedCells = [];
     render();
   });
+}
+
+/**
+ * Which window the figures belong to, in words and in dates.
+ *
+ * "There is no such thing as an unlabelled number here" is brief §4's rule, and
+ * this is the cheapest honest way to keep it: one line, above everything the
+ * control governs, naming the range and the two dates it resolved to. A reader
+ * who takes a screenshot of a 3-month result now ships the period with it.
+ *
+ * It also carries the refusal. Fewer than three points cannot make a line, and
+ * the honest response is to say the source's resolution rather than to draw
+ * something suggestive through two dots.
+ */
+function renderWindowCrumb(r, from, to) {
+  const el = $('#window-crumb');
+  if (!el) return;
+  const label = state.range === 'ALL' ? tr('whole history') : tr(RANGE_WORDS[state.range] ?? state.range);
+  const points = to - from + 1;
+  if (points < 3) {
+    el.className = 'window-crumb thin';
+    el.textContent = tr(
+      'Too short to draw: {n} data point(s) in this window. The source is one value per day, so pick a longer period.',
+      { n: points },
+    );
+    return;
+  }
+  el.className = 'window-crumb';
+  el.textContent = `${label} · ${r.days[from]} → ${r.days[to]}`;
 }
 
 /**
@@ -1137,8 +1174,19 @@ function applyTab() {
     b.setAttribute('aria-selected', String(on));
     b.classList.toggle('is-on', on);
   }
-  // The toolbar drives the charts, and Holdings has none of them.
-  $('.controls').hidden = state.tab === 'holdings' || state.tab === 'notices';
+  /**
+   * Brief §4. Range applies on Overzicht, Rendement, Posities and Inkomsten;
+   * it is hidden on Vooruitblik — a window in the past changes nothing about a
+   * line running forward — and on Meldingen.
+   *
+   * Posities used to hide it too, which was right while that panel showed only
+   * today's holdings and wrong the moment US-49 gave it a windowed Result
+   * column: a control that governs a figure has to be reachable from the screen
+   * that figure is on.
+   */
+  const windowed = !['outlook', 'notices'].includes(state.tab);
+  $('.controls').hidden = !windowed;
+  $('#window-crumb').hidden = !windowed;
 }
 
 /** Is this canvas in the section currently on screen? */
@@ -1194,6 +1242,7 @@ function render() {
   // --- range window -----------------------------------------------------
   const from = rangeStartIndex(r.days, state.range);
   const to = rangeEndIndex(r.days, state.range);
+  renderWindowCrumb(r, from, to);
 
   // Below the window, not above it. B8's whole defect was that the tiles were
   // rendered before the range existed, so they could only ever be all-time.
