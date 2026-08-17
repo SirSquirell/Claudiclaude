@@ -3563,3 +3563,143 @@ If the card needs a number the tile does not already carry, stop: the tile is th
 score card that recomputes a figure has left the choke point where US-46 masks and where the leak
 test can see it. And if sharing the block means sharing what is rendered rather than the real tiles,
 stop — that is how Optimism Mode reaches a card with a reconciliation badge on it.
+
+---
+
+# Refinement 0.47b — two defects the first real run exposed
+
+Appended after US-52 to US-54 were refined, and deliberately not renumbered into them: these are
+**defects**, not extensions of US-47, and one of them is a translation gap rather than a design
+question. Both were found by the owner watching a real account rather than by reading the code.
+
+The three wrong-number defects from the same evening are already fixed and on `main`. What follows is
+what is left, plus one investigation whose shape is not yet known.
+
+---
+
+## US-55 — The card's small print is unreadable at the size it gets posted *(new, defect, refined)*
+
+> *"This tiny tekst is barely readable"* — pointing at the preview in the share sheet.
+
+The provenance line — dates, broker, reconciliation verdict, version — is drawn at **15 px on a
+1280 px card**. That is 1,2 % of the card's width, and the number was chosen against the *app's*
+type scale, where 15 px is read at 1:1 on a 1440 px viewport.
+
+**A card is never read at 1:1.** It is posted into a chat that renders it at 500–700 px wide, so
+15 px arrives as 6–8 px. The preview is what made this visible before anybody posted one, which is
+the preview earning its place — but the fix is in the card, not in the preview.
+
+This also interacts with US-54: a score card is *mostly* small print by comparison — a label, a
+caption, a provenance line and one big figure — so sizing it against the page rather than against
+the card would make that story ship the same defect three times over.
+
+### What to change
+
+- Every size inside `drawSnapshot` becomes a fraction of the card's **short edge**, so a 9:16 story
+  and a 16:9 banner carry the same apparent type size. Today they do not: the same 15 px is 2,1 % of
+  a 720 px-tall banner and 1,0 % of a 1440 px-tall story.
+- The floor comes from a measurement rather than taste: the provenance line must still be readable
+  when the whole card is 500 px wide, because that is what a Discord embed does to it.
+- The hierarchy does not change. The percentage still dominates and the provenance is still the
+  quietest thing there — this is a scale bug, not a re-design.
+
+### Acceptance criteria
+
+- **AC1** At every format in `FORMATS`, the provenance line is at least 2,4 % of the short edge.
+- **AC2** Rendered at 500 px wide, no string on the card computes below 10 px.
+- **AC3** Nothing overlaps at any format, tested against the longest instrument name in the fixture
+  *and* the longest provenance line — which is a failed reconciliation, not a passing one.
+- **AC4** Measured, not eyeballed: a test that renders each format and asserts computed sizes. A
+  screenshot cannot fail in CI.
+
+### Stop condition
+
+If making the small print readable forces the big figure smaller than the label, stop: the card has
+run out of room and the answer is fewer fields, not a flatter hierarchy. Say which field you would
+drop.
+
+---
+
+## US-56 — The popup was never redesigned, and it speaks no Dutch *(new, defect, refined)*
+
+Noticed from a screenshot the owner sent mid-sync. The popup shares `styles.css`, so it inherited
+0.46.0's tokens and *looks* plausible — which is exactly why two real problems went unnoticed
+through the whole overhaul.
+
+### The half that is a defect
+
+**It has no translations at all.** Every string is hardcoded English in `popup.html` and `popup.js`;
+there are no `data-i18n` attributes and `applyStatic` is never called. A reader who chose Nederlands
+gets a Dutch app and an English popup — and `missing()`, which exists so that an untranslated string
+is *counted rather than hidden*, never sees these because they never reach `t()`.
+
+That half goes first, and it is the reason this is a defect rather than a nice-to-have.
+
+### The half that is design
+
+None of the redesign's language reached it: no lockup, two equal-weight buttons where one of them is
+the primary action, and a 2×2 grid of four equal tiles where the app moved to one hero figure with
+supporting ones.
+
+Scope stays small — 320 px and four figures. Not the app's hierarchy transplanted, but its
+*reasoning* applied at this size: the mark, one hero (value), three small ones, the sparkline, one
+primary button. Every id stays; the popup has no parity test and renaming buys nothing.
+
+### The bug it must not grow
+
+`popup.js:105` does `e.target.textContent = 'Sync'` in a `finally`. The connection-check button had
+the same shape and it produced a real, reported defect: that button carries a broker mark, so
+clicking the mark made `e.target` the `<svg>`, `disabled` did nothing, and the busy label was written
+*inside the icon* where it stayed. The popup's button is plain text today, so it works — the moment
+it gains an icon it breaks the same way. Use `currentTarget`.
+
+### Acceptance criteria
+
+- **AC1** Every string in the popup goes through `t()`, and `missing()` reports zero for both
+  languages.
+- **AC2** Choosing Nederlands in the app and reopening the popup shows Dutch, including the sync
+  progress messages.
+- **AC3** Sync reads as the primary action; *Open full chart* does not compete with it.
+- **AC4** The busy label restores itself, via `currentTarget`.
+- **AC5** With amounts hidden the popup shows no figures either. It already does, through the
+  formatters — this pins it so a future inline format cannot open a hole.
+
+---
+
+## Investigation — a price series was rescaled by factor 4,369
+
+Not a story, because what to do depends on what it is.
+
+The split audit rescaled one instrument's history by **factor 4,369, spread 1,05**, on the owner's
+account. A split ratio is 2, 3, 4, 10 or 1-for-10; **4,369 is none of those**. The instrument's last
+close price is **August 2023**, which is the month it did a 1-for-10 reverse split and was renamed.
+The position closed in 2021, so this cannot move the final result — but it moves the **value chart
+over the months it was held**, which is the largest chart on the page.
+
+Two hypotheses, and separating them comes before changing anything:
+
+1. **The series spans the split and the audit fitted one factor across two regimes.** Then the factor
+   is meaningless and the audit should *refuse* rather than rescale — a wrong rescale is worse than
+   none, because it looks correct.
+2. **After the rename the vwd id serves a different instrument's series.** Then no factor fixes it,
+   and the finding is about identity rather than scale.
+
+The deliverable is a finding with a number in it. If the audit cannot tell these apart from the data
+it has, **say so** — that is more useful than a threshold nobody can justify.
+
+### Stop condition
+
+Do not change the rescale threshold to make one account look right. That constant polices every
+account, and tuning it to one series is how the next account gets silently mis-scaled.
+
+---
+
+## Still open, and not to be guessed at
+
+The reconciliation now reports **−0,05 against DEGIRO's 0,00** on the owner's account, attributed to
+cash rather than to any holding. DEGIRO lists `degiroCash` and `flatexCash` as separate fields, and
+`totalCash` may not cover both — the connection check's own `totalFieldsSeen` shows all three.
+
+**This needs one look at a real response, not a fix.** Five cents in red is the correct state until
+somebody knows which of those three fields is the whole balance. Picking one to make the check pass
+would be defeating the check.
