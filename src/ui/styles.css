@@ -119,10 +119,18 @@
   --pad: clamp(0.875rem, 0.55rem + 1.4vw, 1.375rem);
   --gap: clamp(0.75rem, 0.6rem + 0.6vw, 1rem);
   --outer: clamp(0.75rem, 0.35rem + 1.7vw, 1.625rem);
-  --base: 0.84375rem;
+  /* The scale from brief §8: eyebrow 11 / body 15 / panel title 15 semibold /
+     hint 12. Weight and size carry the hierarchy, which is why the borders got
+     thinner in the same pass.
+
+     Two sizes from that list are deliberately absent: the fact at 17px and the
+     hero at 38–56px. Both belong to elements phase 3 introduces, and a token
+     with no caller is a token nobody maintains — the hero size set today would
+     only make the seven equal tiles equally huge. */
+  --base: 0.9375rem;
   --kpi: clamp(1.25rem, 0.95rem + 1.3vw, 1.8125rem);
-  --title: 0.97rem;
-  --hint: 0.78rem;
+  --title: 0.9375rem;
+  --hint: 0.75rem;
   --track: 0.07em;
   --chart-h: clamp(9rem, 6rem + 9vw, 11.875rem);
   --hero-h: clamp(11rem, 8rem + 9vw, 15.625rem);
