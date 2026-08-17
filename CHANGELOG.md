@@ -16,6 +16,71 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.46.0] — 2026-08-17
+
+The interface, rebuilt. Eight phases, each with its own commit and its own gate; `docs/redesign/`
+holds the brief and `docs/redesign/MIGRATION.md` §3 is the parity table this release answers to.
+Nothing was dropped without a line in [docs/RETIRED.md](docs/RETIRED.md), and `test/parity.test.js`
+fails the build if anything is.
+
+**No resync is needed.** Not one stored response, parser or engine path changed — `src/lib/**` was
+touched in exactly one place, `snapshot.js`, and only to fix the two defects below. Every figure on
+the page is recomputed from the same raw responses as before.
+
+### Fixed
+
+- **A window's figures are now measured over that window.** The range control used to be a floating
+  bar that re-sliced all-time numbers, so every preset reported the same result. Each range now
+  recomputes from the engine's windowed helpers, anchored on the value the day *before* the window
+  opens — measuring from inside it makes the first day's move zero. Time-weighted return chains
+  daily factors rather than dividing endpoints, so a deposit landing mid-window cannot flatter it.
+  `test/window.test.js` asserts both.
+
+- **A chart whose y-axis does not start at zero now says so.** A 3-month value chart resolves to a
+  102.000–118.000 axis, which draws an ordinary quarter as a doubling. The axis is still allowed to
+  zoom — forcing zero throws away the detail the window was selected for — but a line under the plot
+  states the opening level.
+
+- **US-50: the shareable card's line started at the account's opening rather than at the buy.** Two
+  thirds of a card about a position bought last year was a flat run at zero. Underneath it was a
+  worse one: the result was measured over the selected window while the money paid in was all-time,
+  so a 1Y card on a six-year position divided one span by another and reported a percentage that
+  belonged to neither. One pure `positionSpan` now clips the series, the dates and the denominator
+  together. A position with fewer than two days in the window draws no line and claims no period.
+
+- **Amounts hidden meant hidden text and a shouting axis.** With the eye closed every chart drew
+  `€ •••` down its left edge — a masked figure repeated seven times, costing 65px of plot. The money
+  axis now drops its labels entirely; percentage axes keep theirs. `test/mask.test.js` asserts no
+  amount reaches the page while masked, and it was verified in a browser across all seven sections.
+
+### Changed
+
+- **A left rail replaces the tab row**, and the sections became routes: the section you are in is
+  visible rather than inferred, and last sync, reconciliation and data coverage moved to the rail's
+  foot. They used to sit among the KPI tiles, where "Data coverage 100,0 %" was rendered at the same
+  size as the total value.
+- **One Sync button and one "Meer" menu** instead of six top-level actions. Wipe & resync sits below
+  a rule, in red. The connection check opens in a modal.
+- **Each section has one hero figure, three supporting facts and an "Alle cijfers" disclosure** that
+  contains the rest. Nineteen figures in one grid is a wall; the same nineteen across five sections
+  is four per screen. Hint paragraphs became `?` disclosures with their wording unchanged.
+- **Charts have real heights** — viewport-scaled rather than a fixed 190px — and no chart forces a
+  symmetric axis on single-signed data.
+- **The share sheet.** The card button on a position now opens a sheet with a live preview: four
+  shapes (1:1, 4:5, 9:16, 16:9), light or dark independently of the page, amounts on or off, and a
+  name from four sources — none, first name, the account name, or one typed in. Download sits beside
+  Copy. Amounts default to hidden there whichever way the page is set, because a card leaves the
+  machine. A name read out of the account renders as "X's position"; a typed one renders as "shared
+  by X" and is never presented as the account's, for the same reason the card carries no badge.
+- **Uppercase above 11px is gone**, card-in-card nesting is flattened to one panel depth, and the
+  dark palette was re-measured: `npm run palette` reports zero collisions in both themes.
+
+### Not changed, deliberately
+
+- **A share count is still masked** while amounts are hidden, against the migration brief's "shares
+  survive". 137 shares of something with a public price *is* the position's value. The disagreement
+  is written down in `test/mask.test.js` rather than settled quietly.
+
 ## [0.45.0] — 2026-08-17
 
 ### Fixed
