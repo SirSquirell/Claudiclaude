@@ -3575,10 +3575,12 @@ tween on the figures themselves was considered and **rejected**: this project's 
 no number on screen was ever untrue, and an interpolated frame shows a value that never happened.
 So the motion goes on the *controls and the chrome*, never on the *data*.
 
-> **Build status — read before picking anything up.** Only **US-56** and **US-57** are buildable on
-> `main`. **US-55 and US-58 are POC-only** and must **not** be built on `main` by the automatic
-> development routine — they are experiments on branch `claude/apple-fluid-poc`, kept here as
-> pointers until the owner promotes them. Their entries below are stubs saying exactly that.
+> **Build status.** All four are buildable on `main`. **US-55 and US-58 were POC-only and are now
+> promoted** — the owner confirmed the prototype (2026-08-17): *"the POC was correct, it can go into
+> full production."* The validated prototype on branch `claude/apple-fluid-poc`
+> (`docs/prototypes/apple-fluid.html`) is the working reference the implementation should match — the
+> spring feel, the momentum, the reduced-motion behaviour and the type scale are all demonstrated
+> there.
 
 The through-line, Apple's own: an interface feels alive when motion **starts from the current
 on-screen value, inherits the user's velocity, projects momentum forward, and can be grabbed and
@@ -3588,17 +3590,66 @@ promise (vendor policy, rule 9's neighbourhood) would reject.
 
 ---
 
-## US-55 — Grab the chart to set the range *(POC-ONLY — DO NOT BUILD ON MAIN)*
+## US-55 — Grab the chart to set the range *(refined — POC validated, ready to build)*
 
-> **⛔ Not for the automatic development routine. Do not implement this on `main`.**
-> This is a **POC-only** experiment. Its full refinement and a working prototype live on branch
-> **`claude/apple-fluid-poc`** (`docs/prototypes/apple-fluid.html`). It is deliberately kept out of
-> the buildable backlog until the owner promotes it. A routine building the backlog on `main` must
-> **skip** this story — it is here as a pointer only, not as work to pick up.
+> **Prototype:** `claude/apple-fluid-poc` · `docs/prototypes/apple-fluid.html`. The owner confirmed
+> the feel; build to match it. The spring, the momentum projection, the rubber-band and the
+> reduced-motion snap are all working there.
 
-The idea, in one line: brush a range directly on the value chart — 1:1 tracking, velocity handoff to
-a spring, momentum-projected snap, rubber-band at the edges. Extends US-12. The reasoning, the traps
-and the acceptance criteria are on the POC branch, where the experiment belongs.
+The window is set by discrete buttons — 1M · 3M · 6M · YTD · 1Y · ALL — but the value chart is the
+most *physical* surface on the page, and US-12 already reads a drag on it (to zoom). This is the
+same gesture grown up: **brush a range directly on the chart**, and it becomes the window.
+
+**Apple principles at work:** direct manipulation (§2), velocity handoff (§5), momentum projection
+(§6), rubber-banding (§9), interruptibility (§3).
+
+**The feel, precisely:**
+
+- **1:1 tracking.** Pointer Events with `setPointerCapture`, respecting the offset from where the
+  edge was grabbed — the handle stays glued to the finger even past the plot bounds.
+- **Velocity handoff on release.** Keep a short position/timestamp history; on release the window
+  edge settles with a **critically-damped spring** (§4, `damping 1.0`, `response ~0.4`) continuing
+  at the finger's velocity, so there is no seam between dragging and settling.
+- **Momentum projection.** A flick projects where the edge is going (`current + project(v)`) and
+  snaps to the nearest day *there*, not under the release point — a flick throws the window.
+- **Rubber-band at the ends.** Dragging before the first day or past the last resists progressively
+  rather than stopping dead (§9), so the edge of the history reads as an edge, not a freeze.
+
+**The traps:**
+
+1. **Animate from the presentation value, always.** The settle spring starts from the edge's live
+   on-screen position, and a new grab *mid-settle* reads velocity from where it actually is — start
+   from the target and the handle jumps, which is the one thing §3 forbids.
+2. **Recompute per frame is honest here, and only because of rule 2.** The window moving redraws
+   real numbers every frame; there is no smoothing of the *data*, only of the handle. Rule 2's
+   "recomputing five years is milliseconds, measured not assumed" is the licence — so measure it,
+   and if a frame's recompute blows the budget, downsample the redraw, never the truth.
+3. **Reduced motion (§14) keeps the tracking, drops the overshoot.** The brush still follows the
+   finger 1:1 — that is direct control, not vestibular motion — but the settle becomes an instant
+   snap with no spring, under `prefers-reduced-motion`.
+4. **No series repaints on range change.** The composition ranks on the whole history (charts rule),
+   so moving the window must not recolour anything — the rule already exists and this is where it is
+   easiest to break.
+5. **The discrete buttons stay.** They are the fast path and the keyboard-accessible one; the
+   gesture is an addition, not a replacement (§5 Flexibility).
+
+**Acceptance criteria:**
+
+- **AC1** Brushing on the value chart sets the range, tracking the finger 1:1 with the grab offset
+  respected.
+- **AC2** On release the window edge settles with a spring carrying the release velocity, and a
+  flick lands where the momentum projects, snapped to a day.
+- **AC3** Grabbing an edge mid-settle reverses from its live position with no jump.
+- **AC4** Dragging past the first or last day rubber-bands rather than stopping hard.
+- **AC5** Under `prefers-reduced-motion`, tracking stays 1:1 and the settle is an instant snap with
+  no overshoot.
+- **AC6** `engine.js` is unchanged, the per-frame recompute stays within a measured budget, and no
+  series changes colour when the window moves.
+- **AC7** The discrete range buttons still work and still reflect the gesture's result.
+
+**Stop condition:** if the gesture needs the engine to expose anything it does not already return,
+stop — this is UI over the arrays the page already holds, and the moment it reaches into `engine.js`
+it has stopped being a rendering concern.
 
 ---
 
@@ -3690,17 +3741,54 @@ to US-47/US-52/US-54, and this story is the glass, not what is written on it.
 
 ---
 
-## US-58 — Type that changes shape with size *(POC-ONLY — DO NOT BUILD ON MAIN)*
+## US-58 — Type that changes shape with size *(refined — POC validated, ready to build)*
 
-> **⛔ Not for the automatic development routine. Do not implement this on `main`.**
-> This is a **POC-only** experiment. Its full refinement and a working before/after live on branch
-> **`claude/apple-fluid-poc`** (`docs/prototypes/apple-fluid.html`). It is deliberately kept out of
-> the buildable backlog until the owner promotes it. A routine building the backlog on `main` must
-> **skip** this story — it is here as a pointer only, not as work to pick up.
+> **Prototype:** `claude/apple-fluid-poc` · `docs/prototypes/apple-fluid.html`. The size slider there
+> shows the tracking tightening and the leading pulling in as the figure grows — build to match.
 
-The idea, in one line: size-specific tracking and leading (display negative and tight-leaded, body
-near-zero and looser), optical sizing, with a measured `npm run type` check in the palette's spirit.
-The reasoning, the traps and the acceptance criteria are on the POC branch.
+The hero figures — the giant `€ -0,05` — are set with body tracking. Apple §15: **tracking and
+leading are size-specific, never one value for all sizes.** Large display text wants *negative*
+tracking and *tight* leading; body wants near-zero tracking and looser leading. A single global
+`letter-spacing` is wrong somewhere, and on the biggest number on the page it is wrong most visibly.
+
+**Apple principles:** typography (§15), craft.
+
+**What it is:** size-bucketed tracking and leading in the tokens — display negative (~`-0.02em`) and
+tight-leaded, body near-`0` and comfortably leaded, small text slightly positive; `font-optical-
+sizing: auto`; all in `rem`/`em` so Dynamic-Type-style user scaling still works (US-16 already did
+the responsive sizing).
+
+**The measured check, because this repo does not assert craft — it measures it.** The palette rule
+(CLAUDE.md, Charts) is the standing example: *"the palette is measured, not asserted… a comment is
+not a check."* Type gets the same treatment — an `npm run type` that reads the tokens and **fails on
+a fixed global letter-spacing and on any display size not carrying negative tracking**, so the
+buckets cannot silently rot back to one value.
+
+**The traps:**
+
+1. **This is type shape, not number format.** Numbers stay `nl-NL` (a locale for money, US-32/US-46),
+   and this story does not touch the formatters — the minus sign, the thousands dot and the decimal
+   comma are the formatter's, and tracking must be measured *at the display size* so they do not
+   crowd. Eyeballing it is the "comment is not a check" mistake.
+2. **Optical sizing needs a variable font.** Confirm the bundled Inter Tight / Inter face actually
+   carries an optical axis; if it does not, `font-optical-sizing` is a no-op and this is tracking and
+   leading only — stated plainly rather than promised.
+3. **Contrast is unaffected but re-checked.** Tighter tracking can nudge legibility; the palette/
+   contrast checks stay green.
+
+**Acceptance criteria:**
+
+- **AC1** Tracking and leading are size-bucketed in the tokens; there is no fixed global
+  `letter-spacing`.
+- **AC2** Display figures carry negative tracking and tight leading; body sits near `0` with looser
+  leading.
+- **AC3** A measured check (`npm run type`, wired into `npm test` like the palette) fails on a fixed
+  global tracking value and on a display size without negative tracking.
+- **AC4** Numbers are still `nl-NL` formatted; the formatters are untouched.
+- **AC5** The contrast checks still pass in both themes.
+
+**Stop condition:** if the change reaches into the number formatters, stop — number formatting is
+US-46's choke point and US-32's locale, and this story is CSS shape, not digits.
 
 ---
 
@@ -3841,3 +3929,118 @@ cash rather than to any holding. DEGIRO lists `degiroCash` and `flatexCash` as s
 **This needs one look at a real response, not a fix.** Five cents in red is the correct state until
 somebody knows which of those three fields is the whole balance. Picking one to make the check pass
 would be defeating the check.
+
+---
+
+# Refinement 0.49 — the Positions table fits the width it is given
+
+## US-61 — Responsive columns, before a column chooser *(new, refined)*
+
+> *"we need a solution for the width of the columns where we fix this unresponsive table. Maybe give
+> a toggle where we can show or hide certain columns, basically make it responsive like that? Or what
+> does mister apple design think."*
+
+### The complaint is real, and US-49 half-anticipated it
+
+The merged Positions table (US-49) carries eleven columns — Instrument, Quantity, Price, Average
+paid, Value, Paid in vs grown, Result, Dividend (all time), % of bought, Share %, Currency — plus the
+snapshot button. Below a wide desktop it overflows into a horizontal scrollbar on the table itself
+(the second screenshot). US-49's AC9 already required the table to *"scroll in its own container… no
+horizontal page scroll"*, and it does — the scrollbar is scoped, the page does not move. **But a
+scoped scrollbar is the floor, not the goal.** A scrollbar under the primary content of the page
+reads as "it did not fit," and the owner is right that it should fit.
+
+**A second example settles what kind of problem this is.** With US-46 anonymize *on* — every amount
+masked to `€ •••` — the table still overflows exactly as far. Masking narrows the *cells* and does
+nothing to the *column count*, so the eleven columns still demand their width. That is the tell:
+this is a **layout/priority** problem, not a content one, and no amount of shortening what is *in* a
+cell fixes it. The lever is how many columns are shown, which is what the two mechanisms below act
+on.
+
+### What mister apple design thinks: two mechanisms, in this order
+
+The instinct — a column on/off toggle — is **right, but it is the second half, not the first.** Apple
+§16.6 (Simplicity, *not* minimalism) and §16.5 (Flexibility) split this into two jobs:
+
+1. **Priority-based responsive disclosure — the default, and it does the real work.** Every column
+   gets a priority. At full width all eleven show; as the table's own container narrows, the
+   **lowest-priority columns drop first**, and the dropped ones fold into a **per-row expand** (a
+   disclosure on the row reveals the hidden fields for that position). No configuration, the common
+   path stays clean, and the detail is one level deeper — which is exactly *"show the common path
+   first, advanced options one level deeper."* A fresh install fits on first paint, with nobody
+   touching a setting.
+
+2. **A column chooser — the escape hatch, and the owner's proposal.** A **Columns** control in the
+   existing filter row (beside *Open · Closed · All*, the type chips and *Table · Share*), a
+   checklist of the optional columns, persisted like the theme and anonymize. This is Flexibility's
+   *"let people hide what they don't use"* — it refines the responsive default for a power user, it
+   does not carry the whole load. Building only the chooser leaves a first-run reader staring at a
+   scrollbar until they discover a menu, which is the thing to avoid.
+
+The order matters because the chooser alone does not solve the reported problem, and the responsive
+default alone solves it for everyone. Build the default first; the chooser is cheap once it exists.
+
+### The load-bearing four, which never drop and cannot be hidden
+
+The responsive drop and the chooser both respect a floor: **Instrument** (with its swatch — US-49
+calls it *"non-negotiable"* because the swatch ties the row to the composition chart), **Value**,
+**Paid in vs grown** (the whole reason US-49 exists, and the feature the owner singled out), and
+**Result**. These four are the answer to *"how is this position doing"*; everything else is support.
+The chooser locks them on; the responsive pass never removes them; and if even these four cannot fit
+the narrowest screen, *that* is when the scoped scroll (US-49 AC9, header sticky) is the honest
+fallback — for four columns, not eleven.
+
+### It reuses machinery that already exists
+
+The table already drops columns conditionally: under *Closed*, `Quantity`, `Price` and `Share %` are
+`—` for every row and are dropped rather than rendered as a column of dashes (US-49). **Width-priority
+is the same mechanism keyed on the container's width instead of the view.** So this is an extension of
+a path that is already there, not a new table.
+
+### The traps
+
+1. **Measure the container, not the viewport.** The table sits in a section with a left rail (US-16),
+   so the space it has is not `window.innerWidth`. A `ResizeObserver` on the table's own container
+   decides which columns drop, or it drops the wrong ones on a wide window with a narrow panel.
+2. **No layout jump.** US-49's *"one row height for both states"* holds: dropping a column or
+   expanding a row must not reflow every row's height. The paid-in-vs-grown bar is the tall cell and
+   sets the height; the expand opens beneath a row without changing the rows around it.
+3. **Hiding a column changes no number.** The cash row still carries `accountResult −
+   positionResult` so the Result column sums to the account's result (US-49); the `est.` marker and
+   the unattributed-dividend note still appear. Column visibility is display-only and touches nothing
+   the engine computed.
+4. **Visibility and masking are orthogonal.** US-46 still governs amounts in whatever columns are
+   shown; hiding a column is not masking it and masking a column is not hiding it. Two independent
+   display states, and a test keeps them from entangling.
+5. **A dropped column's caveat is not tidied away.** If `Currency` drops, the row expand still
+   states the currency; if a row is estimated, the `est.` caveat survives into the compact view —
+   US-49's standing warning that a redesign must not lose the caveat.
+6. **No reordering, no presets, no second layout (rule 8).** Nobody asked to drag columns into a new
+   order or to save named column sets, and the priority+expand reaches phone widths without a
+   separate card-layout to maintain. If it turns out it cannot, a card layout is its own story — not
+   smuggled in here.
+
+### Acceptance criteria
+
+- **AC1** At a wide width all columns render. As the table's container narrows, the lowest-priority
+  columns drop in a defined priority order, and the load-bearing four never drop.
+- **AC2** Every dropped column is reachable per row through a disclosure that shows that position's
+  hidden fields. No data becomes unreachable at any width.
+- **AC3** A **Columns** control in the filter row toggles the optional columns; the load-bearing four
+  are locked on; the choice persists like the theme and survives a reload.
+- **AC4** At the narrowest width the table fits with no horizontal *page* scroll; if the load-bearing
+  set itself cannot fit, it scrolls in its own container with the header sticky (US-49 AC9).
+- **AC5** Hiding or dropping a column changes no figure: the cash row still makes Result sum to the
+  account's result, and the `est.` marker and unattributed-dividend note still render.
+- **AC6** With US-46 on, amounts in the visible columns are still masked; visibility and masking are
+  independent, asserted by a test.
+- **AC7** No row-height reflow when columns drop, the chooser changes, or a row expands.
+- **AC8** `npm run demo` renders the table at 1280 px (all columns), a tablet width (priority drop),
+  and a phone width (load-bearing four + row expand) with no horizontal page scroll at any of them.
+
+### Stop condition
+
+If making it responsive needs a number the engine does not already return, stop — this is display
+over `r.byProduct`, which already holds every figure. And if the narrow layout grows into a second
+full card-rendering path with its own code, stop and make *that* its own story: the priority-drop and
+the row expand are the smaller thing that answers the complaint, and rule 8 says build that first.
