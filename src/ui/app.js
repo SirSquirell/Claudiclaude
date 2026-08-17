@@ -41,9 +41,9 @@ import { isSameRun } from '../lib/sync.js';
 import { ADAPTERS, connected as connectedBrokers } from '../lib/brokers/index.js';
 import { LANGS, applyStatic, getLang, missing as missingTranslations, setLang, t as tr } from './i18n.js';
 import { THEMES, alpha, applyAnonymize, applyTheme, fmtEurCents, fmtPct, fmtPrice, fmtQty, fmtSigned, getAnonymize, getTheme, onThemeChange, setAnonymize, setTheme, tokens } from './theme.js';
-import { snapshotModel } from '../lib/snapshot.js';
+import { FORMATS, ownerLine, positionSpan, snapshotModel } from '../lib/snapshot.js';
 import { brokerMarkSvg, lockupSvg, markSvg } from './brand.js';
-import { copySnapshot } from './snapshot.js';
+import { copySnapshot, downloadSnapshot, drawSnapshot, tokensForTheme } from './snapshot.js';
 import { inExtension, load, send, wantsDemo } from './datasource.js';
 
 const RANGES = ['1M', '3M', '6M', 'YTD', '1Y', 'ALL'];
@@ -92,6 +92,16 @@ const state = {
   cumulativeView: 'line',
   /** Which section is on screen. The page was 3 788 pixels of one scroll. */
   tab: 'overview',
+  /**
+   * The share sheet's settings, and they persist across openings on purpose:
+   * whoever posts these posts several, and re-picking 9:16 and a handle for
+   * every one is the friction that makes a feature go unused. `productId` is the
+   * only part that changes per card.
+   *
+   * `amounts` starts at `false` — a card leaves the machine, so the private
+   * default is the right one even when the page is showing figures.
+   */
+  share: { productId: null, format: '16:9', theme: null, amounts: false, nameSource: 'first', handle: '' },
 };
 
 /**
@@ -389,40 +399,199 @@ function wireSnapshots() {
   const table = $('#holdings');
   if (!table || table.dataset.snapWired) return;
   table.dataset.snapWired = '1';
-  table.addEventListener('click', async (e) => {
+  table.addEventListener('click', (e) => {
     const btn = e.target.closest?.('button[data-snap]');
-    if (!btn) return;
-    const w = lastWindow;
-    const r = w?.result;
-    const p = r?.byProduct?.find((x) => String(x.productId) === btn.dataset.snap);
-    if (!p) return;
-
-    btn.disabled = true;
-    try {
-      const model = snapshotModel({
-        name: p.name,
-        symbol: p.symbol,
-        from: r.days[w.from],
-        to: r.days[w.to],
-        result: sumWindow(p.pnl, w.from, w.to),
-        paidIn: p.paidIn?.at(-1) ?? 0,
-        series: cumulativeWindow(p.pnl, w.from, w.to),
-        anonymized: getAnonymize(),
-        // Tri-state, deliberately. An account with nothing to reconcile against
-        // reports `null`, which the card renders as "not checked" and never as
-        // a pass. A clean badge on an unverified figure is the failure this
-        // whole line exists to prevent.
-        reconciled: r.reconciliation ? r.reconciliation.ok === true : null,
-        asOf: r.days[w.to] ?? null,
-        version: inExtension ? chrome.runtime.getManifest().version : demoVersion,
-      });
-      const out = await copySnapshot(model);
-      if (out.ok) notice('ok', tr('Image copied. Paste it wherever you like.'));
-      else notice('error', `${tr('Could not reach the clipboard')}: ${out.error}`);
-    } finally {
-      btn.disabled = false;
-    }
+    if (btn) openShareSheet(btn.dataset.snap);
   });
+}
+
+/**
+ * The card's model for whatever the sheet is currently set to.
+ *
+ * One function so the preview, the clipboard and the file can never disagree
+ * about what they are showing — the bug this shape prevents is a preview drawn
+ * from the sheet's settings and a download drawn from the page's.
+ *
+ * Returns `null` when the position is not in the last render's window, which is
+ * possible: the sheet holds a `productId` across renders and the range control
+ * can move underneath it.
+ */
+function shareModel() {
+  const w = lastWindow;
+  const r = w?.result;
+  const p = r?.byProduct?.find((x) => String(x.productId) === String(state.share.productId));
+  if (!p) return null;
+
+  /**
+   * US-50. The arrays and the window, and nothing worked out here.
+   *
+   * The old version of this call computed the result over the selected window
+   * and the money-in over all time, then divided one by the other — so a 1Y card
+   * on a six-year position reported a percentage measured over two different
+   * spans. Handing the arrays to `snapshotModel` moves the clipping into the pure
+   * module where it is tested, and leaves this function with no arithmetic left
+   * to get wrong.
+   */
+  if (!positionSpan(p.qty, w.from, w.to)) return null;
+
+  return snapshotModel({
+    name: p.name,
+    symbol: p.symbol,
+    days: r.days,
+    qty: p.qty,
+    pnl: p.pnl,
+    paidIn: p.paidIn,
+    window: { from: w.from, to: w.to },
+    /**
+     * The sheet's own switch, not the page's. `getAnonymize()` decides what is on
+     * screen; a card is a different audience, and the sheet defaults to hiding
+     * the amount whichever way the page is set.
+     */
+    anonymized: !state.share.amounts,
+    owner: ownerLine({
+      source: state.share.nameSource,
+      fullName: state.data?.accountName ?? '',
+      username: state.data?.accountName ?? '',
+      handle: state.share.handle,
+    }),
+    // Tri-state, deliberately. An account with nothing to reconcile against
+    // reports `null`, which the card renders as "not checked" and never as
+    // a pass. A clean badge on an unverified figure is the failure this
+    // whole line exists to prevent.
+    reconciled: r.reconciliation ? r.reconciliation.ok === true : null,
+    // The freshness of the data, which is the last day the page has — not the
+    // last day this position existed. Those differ for a closed position, and
+    // "as of" is a claim about the sync, not about the holding.
+    asOf: r.days[w.to] ?? null,
+    version: inExtension ? chrome.runtime.getManifest().version : demoVersion,
+  });
+}
+
+/** What the sheet's four name options are, and what each one promises. */
+const NAME_SOURCES = [
+  { key: 'first', label: 'First name' },
+  { key: 'username', label: 'Account name' },
+  { key: 'handle', label: 'A name I type' },
+  { key: 'none', label: 'No name' },
+];
+
+/** Redraw the preview from the current settings. Cheap enough to do per click. */
+function paintSharePreview() {
+  const host = $('#share-preview');
+  if (!host) return;
+  const model = shareModel();
+  if (!model) {
+    const p = document.createElement('p');
+    p.className = 'hint';
+    p.textContent = tr('This position is not inside the selected period.');
+    host.replaceChildren(p);
+    return;
+  }
+  host.replaceChildren(drawSnapshot(model, tokensForTheme(state.share.theme), { format: state.share.format }));
+}
+
+/** The name row: which sources are offered, and what each one warns about. */
+function paintShareName() {
+  const sel = $('#share-name');
+  const input = $('#share-handle');
+  const note = $('#share-name-note');
+  if (!sel) return;
+
+  if (sel.dataset.built !== String(getLang())) {
+    sel.dataset.built = String(getLang());
+    sel.replaceChildren(...NAME_SOURCES.map((s) => {
+      const o = document.createElement('option');
+      o.value = s.key;
+      o.textContent = tr(s.label);
+      return o;
+    }));
+  }
+  sel.value = state.share.nameSource;
+
+  input.hidden = state.share.nameSource !== 'handle';
+  input.placeholder = tr('Discord name');
+  input.value = state.share.handle;
+
+  /**
+   * One warning, on one option, and it is the honest one.
+   *
+   * "Account name" is whatever DEGIRO has on the account, which for a good many
+   * people is a real full name rather than a handle — so the option says what it
+   * will put on something they are about to post publicly. `first` gets no
+   * warning because a first name is what the default already is; `handle` gets
+   * none because they typed it themselves.
+   */
+  const text = state.share.nameSource === 'username'
+    ? tr('This is the name DEGIRO has for the account, which may be your full name.')
+    : '';
+  note.textContent = text;
+  note.hidden = !text;
+}
+
+/**
+ * Open the sheet for one position.
+ *
+ * Everything about *what* is on the card lives in `shareModel`; this wires the
+ * controls once and repaints. `showModal` rather than a fixed overlay: the
+ * dialog element already gives a focus trap, Escape and a backdrop, and
+ * reimplementing those three badly is how a share sheet ends up unclosable on a
+ * phone.
+ */
+function openShareSheet(productId) {
+  const dlg = $('#share-sheet');
+  if (!dlg) return;
+  state.share.productId = productId;
+  // Follow the page the first time, then remember what was picked.
+  state.share.theme ??= getTheme() === 'auto'
+    ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+    : getTheme();
+
+  if (!dlg.dataset.wired) {
+    dlg.dataset.wired = '1';
+    $('#share-handle').addEventListener('input', (e) => {
+      state.share.handle = e.target.value;
+      paintSharePreview();
+    });
+    $('#share-name').addEventListener('change', (e) => {
+      state.share.nameSource = e.target.value;
+      paintShareName();
+      paintSharePreview();
+    });
+    $('#btn-share-close').addEventListener('click', () => dlg.close());
+    $('#btn-share-copy').addEventListener('click', () => runShare(copySnapshot, tr('Image copied. Paste it wherever you like.')));
+    $('#btn-share-download').addEventListener('click', () => runShare(downloadSnapshot, tr('Image saved.')));
+  }
+
+  paintShareControls();
+  paintShareName();
+  paintSharePreview();
+  if (!dlg.open) dlg.showModal();
+}
+
+/** The three segmented controls, rebuilt whenever one of them changes. */
+function paintShareControls() {
+  buildChoice('#share-format', FORMATS.map((f) => ({ key: f.id, label: f.id })),
+    () => state.share.format, (k) => { state.share.format = k; paintShareControls(); paintSharePreview(); });
+  buildChoice('#share-theme', [{ key: 'light', label: tr('Light') }, { key: 'dark', label: tr('Dark') }],
+    () => state.share.theme, (k) => { state.share.theme = k; paintShareControls(); paintSharePreview(); });
+  buildChoice('#share-amounts', [{ key: 'off', label: tr('Hidden') }, { key: 'on', label: tr('Shown') }],
+    () => (state.share.amounts ? 'on' : 'off'),
+    (k) => { state.share.amounts = k === 'on'; paintShareControls(); paintSharePreview(); });
+}
+
+/**
+ * Run one of the two exports and report what happened.
+ *
+ * Both can fail for reasons the reader can act on — a clipboard needs a focused
+ * document, a download can be blocked — so neither is allowed to fail silently,
+ * and the sheet stays open either way so a second attempt costs one click.
+ */
+async function runShare(fn, okText) {
+  const model = shareModel();
+  if (!model) return;
+  const out = await fn(model, { format: state.share.format, theme: state.share.theme });
+  if (out.ok) notice('ok', okText);
+  else notice('error', `${tr('Could not export the image')}: ${out.error}`);
 }
 
 /**
@@ -3259,7 +3428,7 @@ function renderHoldings(r, composition, compColours, t, from, to) {
         <td class="${signClass(pct ?? 0)}">${pct == null ? dash : esc(fmtPct(pct))}</td>
         <td>${isOpen ? `${((p.current / total) * 100).toFixed(1)}%` : dash}</td>
         <td>${esc(p.currency)}${estimated ? ' <span class="muted" title="No price history for this instrument, so it is held at the last price it traded at — its result is an estimate.">·&nbsp;est.</span>' : ''}</td>
-        <td><button type="button" class="snap" data-snap="${esc(p.productId)}" title="${esc(tr('Copy a shareable image of this position'))}" aria-label="${esc(tr('Copy a shareable image of this position'))}">⧉</button></td>
+        <td><button type="button" class="snap" data-snap="${esc(p.productId)}" title="${esc(tr('Share this position'))}" aria-label="${esc(tr('Share this position'))}">⧉</button></td>
       </tr>`;
     })
     .join('');

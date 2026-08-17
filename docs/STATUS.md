@@ -56,6 +56,8 @@ person.** This is the gate that is open.
 | US-35 | **Put that frown upside down** — Optimism Mode on the Overview | 0.39.0 |
 | — | U1, U2, U4, U5 resolved; the Result percentage; the version in the header | 0.39.0 |
 | US-51 | **A dollar price is no longer printed with a euro sign** — the traded price renders in the currency it was traded in, at four decimals, and Amount is the cash flow | 0.45.0 |
+| US-50 | **The snapshot line starts at the buy and ends at the close.** One pure `positionSpan` clips the series, the period *and* the percentage's basis, so a windowed result is no longer divided by an all-time `paidIn` | next |
+| US-47+ | **The share sheet** — four shapes, light or dark, amounts off by default, and a name the sharer chooses from four sources. Download beside the clipboard | next |
 
 **What to look at first**, if you only look at one thing: the Notices tab after a sync. 0.36.0 made
 background failures visible for the first time, so if something has been quietly failing for weeks
@@ -79,7 +81,6 @@ F1–F5 shipped in 0.37.0, F6–F9 in 0.38.0. U1–U5 need a decision rather tha
 | Story | State | Waiting on |
 |---|---|---|
 | US-49 | **One table per position, not two.** Holdings and profit-and-loss-per-product merged, keeping the paid-in-vs-grown bar and the per-product dividend. Half the columns follow the range control and half do not, so every all-time column declares it | Nothing new to compute — every figure is on `r.byProduct` today. Lands with the UI overhaul |
-| US-50 | **The snapshot line starts at the buy**, and ends at the close. Clipping is one pure `positionSpan` in `lib/snapshot.js` used for the series, the period *and* the percentage's basis — the same defect also divides a windowed result by an all-time `paidIn` | Nothing. Defect, small, and it should land before the overhaul rather than inside it |
 | US-46 | **Anonymize** — mask every amount and quantity, keep every percentage. Masking lives inside the three formatters in `theme.js`, so a money field added later is masked by default | Nothing. Small, and it must land before US-47 |
 | US-47 | **A shareable snapshot per position, on the clipboard.** No network, no Discord API. "Certified" downgraded to provenance: the one claim we can honestly make is the reconciliation verdict | US-46, which decides whether the card may carry amounts |
 | US-48 | **A watermark behind the tables and charts.** Chart.js plugin for the canvases, CSS for the tables, drawn in the padding rather than under the series | **The PNG.** Monochrome with alpha, bundled, 2× — the contract is in the story |

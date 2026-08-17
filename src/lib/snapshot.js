@@ -35,8 +35,103 @@
  * somebody remembers. The 0.10.0 export leaked three fields exactly that way.
  */
 export const SNAPSHOT_FIELDS = Object.freeze([
-  'name', 'symbol', 'period', 'pct', 'pctBasis', 'amount', 'spark', 'provenance',
+  'name', 'symbol', 'period', 'pct', 'pctBasis', 'amount', 'spark', 'provenance', 'owner',
 ]);
+
+/**
+ * Where the name on the card came from, and what each source is allowed to
+ * claim.
+ *
+ * Four sources rather than a checkbox, because they are not the same promise.
+ * `first` and `username` are read out of the account, so the card may present
+ * them as *the account's* — that is what makes a card feel attributable at all.
+ * `handle` is typed by whoever is sharing, so it is a label and nothing more: a
+ * typed name rendered as though the broker confirmed it would be the card
+ * asserting something no code here checked, which is the same failure as a
+ * forgeable badge (see the module note above).
+ *
+ * `derived` is what encodes that difference, and `ownerLine` is the only thing
+ * that reads it.
+ */
+export const OWNER_SOURCES = Object.freeze({
+  none: { derived: false },
+  first: { derived: true },
+  username: { derived: true },
+  handle: { derived: false },
+});
+
+/**
+ * Resolve the name on the card.
+ *
+ * `first` is deliberately the default and deliberately only the first name: a
+ * full name on something posted in a public channel is more than the reader
+ * needed to know who it is, and less than they can take back afterwards.
+ *
+ * An empty value at any source collapses to no name at all — a card that says
+ * "shared by" and then nothing is worse than a card with no line.
+ */
+export function ownerLine({ source = 'first', fullName = null, username = null, handle = null } = {}) {
+  const spec = OWNER_SOURCES[source] ?? OWNER_SOURCES.none;
+  const text = source === 'first' ? String(fullName ?? '').trim().split(/\s+/)[0]
+    : source === 'username' ? String(username ?? '').trim()
+      : source === 'handle' ? String(handle ?? '').trim()
+        : '';
+  if (!text) return null;
+  return { text, derived: spec.derived };
+}
+
+/**
+ * US-50 — the span a position actually existed for.
+ *
+ * The defect: a card for something bought last month drew a line starting at the
+ * account's opening, so eleven twelfths of it was a flat run at zero and the
+ * shape — the only thing the sparkline claims to show — was squeezed into the
+ * last inch. The line has to start at the buy.
+ *
+ * "The buy" is the first day the position was held, and the end is the last day
+ * it was held, so a closed position stops at its sale instead of trailing a flat
+ * line to today. Both are clipped to the window the reader selected: a 3-month
+ * card for a five-year holding shows three months, not five years.
+ *
+ * `null` only when the position was never open inside the window at all. A
+ * position held for a single day *is* a span and is returned as one; whether one
+ * point can be drawn is the renderer's problem, and `drawSpark` already declines
+ * it. Deciding that here would make this function quietly about drawing.
+ */
+export function positionSpan(qty, from = 0, to = (qty?.length ?? 1) - 1) {
+  const q = qty ?? [];
+  const lo = Math.max(0, from);
+  const hi = Math.min(q.length - 1, to);
+  let first = -1;
+  let last = -1;
+  for (let i = lo; i <= hi; i++) {
+    // A short is a position too, so it is `!== 0` and not `> 0`.
+    if (Math.abs(q[i] ?? 0) > 1e-9) {
+      if (first < 0) first = i;
+      last = i;
+    }
+  }
+  return first < 0 ? null : { from: first, to: last };
+}
+
+/**
+ * The four shapes a card can be, in the order the sheet offers them.
+ *
+ * Pixel sizes rather than ratios, because the renderer needs a size and a ratio
+ * plus a guessed base width is how two callers end up disagreeing about it. They
+ * are the aspect ratios the places these get posted actually crop to — square,
+ * the portrait a feed shows without cropping, a full-height story, and a
+ * landscape that fits a chat message. Anything else is a fifth entry here and no
+ * change anywhere else.
+ */
+export const FORMATS = Object.freeze([
+  { id: '1:1', w: 900, h: 900 },
+  { id: '4:5', w: 900, h: 1125 },
+  { id: '9:16', w: 810, h: 1440 },
+  { id: '16:9', w: 1280, h: 720 },
+]);
+
+export const formatById = (id) => FORMATS.find((f) => f.id === id) ?? FORMATS[0];
 
 /** And what a provenance line may carry. Same rule, one level down. */
 export const PROVENANCE_FIELDS = Object.freeze(['broker', 'asOf', 'reconciled', 'version']);
@@ -94,28 +189,75 @@ export function sparkline(series, max = 48) {
 export function snapshotModel({
   name,
   symbol = null,
-  from = null,
-  to = null,
-  result = 0,
-  paidIn = 0,
-  series = [],
+  /**
+   * US-50. The position's own arrays and the reader's window, rather than three
+   * numbers the caller worked out first.
+   *
+   * This is the shape the defect asked for. The old signature took `from`, `to`,
+   * `result`, `paidIn` and `series` already computed, and the caller computed
+   * them over *two different spans*: the result over the selected window, the
+   * money in over all time. A 1Y card on a six-year position divided one by the
+   * other. Handing over the arrays means the span is resolved once, here, and
+   * used for all three — the numerator, the denominator and the dates cannot
+   * drift apart again because there is only one of them.
+   */
+  days = [],
+  qty = [],
+  pnl = [],
+  paidIn = [],
+  window: win = null,
   anonymized = false,
+  owner = null,
   broker = 'DEGIRO',
   asOf = null,
   reconciled = null,
   version = null,
 } = {}) {
-  const { pct, basis } = returnOnMoneyIn(result, paidIn);
+  const lo = win?.from ?? 0;
+  const hi = win?.to ?? Math.max(0, (days.length || qty.length) - 1);
+  const span = positionSpan(qty, lo, hi);
+
+  /**
+   * AC5: fewer than two days inside the window draws no line *and claims no
+   * period*. The second half is the one that matters — a card carrying dates it
+   * did not draw is the same lie as the over-long line, told in the footer.
+   */
+  const drawable = span != null && span.to > span.from;
+
+  let result = 0;
+  let moneyIn = 0;
+  const series = [];
+  if (span) {
+    let running = 0;
+    for (let i = span.from; i <= span.to; i++) {
+      running += pnl[i] ?? 0;
+      series.push(running);
+    }
+    result = running;
+    // Over the same days, so numerator and denominator agree. The day before the
+    // position opened is the baseline; before the series it is zero.
+    moneyIn = (paidIn[span.to] ?? 0) - (span.from > 0 ? paidIn[span.from - 1] ?? 0 : 0);
+  }
+
+  const { pct, basis } = returnOnMoneyIn(result, moneyIn);
 
   const model = {
     name: String(name ?? '—'),
     symbol: symbol && symbol !== name ? String(symbol) : null,
-    period: { from, to },
+    period: drawable ? { from: days[span.from] ?? null, to: days[span.to] ?? null } : { from: null, to: null },
     pct,
     pctBasis: basis,
     // The only field US-46 controls, and the only one that can carry a figure.
     amount: anonymized ? null : result,
-    spark: sparkline(series),
+    spark: drawable ? sparkline(series) : [],
+    /**
+     * Normalised here rather than trusted from the caller, so the only two
+     * shapes that can reach the canvas are `null` and `{text, derived}`. A
+     * caller passing a bare string would otherwise get a name on the card with
+     * no answer to the question the card has to answer: did the broker say this,
+     * or did somebody type it?
+     */
+    owner: owner?.text ? { text: String(owner.text), derived: owner.derived === true } : null,
     provenance: pick({
       broker: String(broker),
       asOf,

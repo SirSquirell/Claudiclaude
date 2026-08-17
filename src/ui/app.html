@@ -479,6 +479,50 @@
         </p>
       </dialog>
 
+      <!--
+        The share sheet. One dialog for every figure that can be shared: the
+        controls change the card, the card is redrawn, and nothing here knows
+        which position it is looking at — `openShareSheet` supplies that.
+
+        The preview is the artefact itself, drawn at the selected format and
+        scaled down by CSS, so what is on screen is what lands on the clipboard.
+        A separate "preview style" would be a second renderer to keep in step.
+      -->
+      <dialog class="modal share-sheet" id="share-sheet">
+        <h2 id="share-title" data-i18n>Share this position</h2>
+
+        <div class="share-body">
+          <div class="share-preview" id="share-preview"></div>
+
+          <div class="share-controls">
+            <div class="field">
+              <span class="field-label" data-i18n>Shape</span>
+              <div class="group" id="share-format" role="group"></div>
+            </div>
+            <div class="field">
+              <span class="field-label" data-i18n>Theme</span>
+              <div class="group" id="share-theme" role="group"></div>
+            </div>
+            <div class="field">
+              <span class="field-label" data-i18n>Amounts</span>
+              <div class="group" id="share-amounts" role="group"></div>
+            </div>
+            <div class="field">
+              <label class="field-label" for="share-name" data-i18n>Name on the card</label>
+              <select id="share-name"></select>
+              <input id="share-handle" type="text" maxlength="32" autocomplete="off" hidden />
+              <p class="hint" id="share-name-note" hidden></p>
+            </div>
+          </div>
+        </div>
+
+        <div class="actions" style="margin-top: 12px">
+          <button id="btn-share-copy" type="button" data-i18n>Copy image</button>
+          <button id="btn-share-download" type="button" data-i18n>Download</button>
+          <button id="btn-share-close" type="button" data-i18n>Close</button>
+        </div>
+      </dialog>
+
 
     <script src="../../vendor/chart.umd.js"></script>
     <script type="module" src="app.js"></script>

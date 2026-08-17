@@ -3047,7 +3047,7 @@ different story.
 
 ---
 
-## US-50 — The snapshot line starts when the position does *(new, defect, refined)*
+## US-50 — The snapshot line starts when the position does *(built, phase 7)*
 
 > *"the popouts that we can use as sharable objects show a line thats way too long, the line should
 > start at buy not at the opening of an account or something"*
