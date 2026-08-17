@@ -1,0 +1,441 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Apple-fluid POC — US-55…US-58</title>
+<!--
+  A throwaway prototype for the 0.48 Apple-design pass (US-55…US-58).
+
+  Not shipped code and it does not follow src/ boundaries — its only job is to
+  let a human *feel* the four stories before any of them is built. Everything is
+  self-contained: the spring is ~30 lines of rAF (no vendored library, which the
+  extension's CSP and offline promise would reject), the data is mocked, and
+  there is no Chrome API or DEGIRO login anywhere near it.
+
+  Open it in a browser. Drag things. Grab them mid-flight and reverse. Flip the
+  reduced-motion switch and watch the overshoot disappear but the tracking stay.
+-->
+<style>
+  :root{
+    --bg:#0b0e12; --surface:#12161c; --surface-2:#171c24; --line:#232a34;
+    --ink:#e8edf3; --muted:#8b97a7; --faint:#5b6675;
+    --blue:#5b8dd6; --blue-ink:#7fb0f0; --up:#5b8dd6; --down:#ff6b5b;
+    --accent:#ff6a45; --glass:rgba(20,26,34,.62);
+    --shadow:0 24px 60px -20px rgba(0,0,0,.75);
+    --r:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);
+    font:100%/1.5 "Inter Tight",Inter,system-ui,-apple-system,sans-serif;
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+  body{max-width:940px;margin:0 auto;padding:28px 20px 120px}
+  h1{font-size:clamp(1.5rem,3.4vw,2.1rem);letter-spacing:-.02em;line-height:1.05;margin:.2em 0 .1em}
+  .sub{color:var(--muted);font-size:.86rem;margin:0 0 8px}
+  .accentbar{width:4px;height:1.3em;background:var(--accent);border-radius:3px;display:inline-block;
+    vertical-align:-.18em;margin-right:12px}
+  section{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+    padding:22px 22px 24px;margin:26px 0}
+  section h2{font-size:1.02rem;letter-spacing:-.01em;margin:0 0 2px;display:flex;gap:10px;align-items:baseline}
+  section h2 .tag{font-size:.68rem;font-weight:600;letter-spacing:.06em;color:var(--accent);
+    background:rgba(255,106,69,.1);padding:3px 8px;border-radius:999px}
+  section p.note{color:var(--muted);font-size:.84rem;margin:.35em 0 1.1em;max-width:64ch}
+  .muted{color:var(--muted)} .faint{color:var(--faint)}
+
+  /* ---- press feedback on pointer-down, everywhere (US-56) ---- */
+  .press{cursor:pointer;user-select:none;-webkit-user-select:none;touch-action:manipulation;
+    transition:transform .1s ease-out, background .12s ease-out, border-color .12s ease-out}
+  .press.is-down{transform:scale(.97)}
+  :root[data-motion="reduce"] .press{transition:background .12s ease-out}
+  :root[data-motion="reduce"] .press.is-down{transform:none;background:var(--surface-2)}
+
+  .btn{background:var(--surface-2);border:1px solid var(--line);color:var(--ink);
+    border-radius:10px;padding:8px 14px;font:inherit;font-size:.86rem}
+  .btn.primary{background:var(--blue);border-color:var(--blue);color:#06101f;font-weight:600}
+  .row-chips{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .chip{border:1px solid var(--line);background:var(--surface-2);border-radius:999px;
+    padding:6px 13px;font-size:.82rem;color:var(--muted)}
+  .chip[aria-pressed="true"]{background:var(--ink);color:#0b0e12;border-color:var(--ink);font-weight:600}
+
+  /* ---- section 1: fluid range ---- */
+  .chartwrap{position:relative;border:1px solid var(--line);border-radius:12px;overflow:hidden;
+    background:linear-gradient(180deg,#0e1218,#0b0e12)}
+  canvas{display:block;width:100%;height:220px;touch-action:none}
+  .brush{position:absolute;top:0;bottom:0;background:rgba(91,141,214,.10);
+    border-left:1.5px solid var(--blue-ink);border-right:1.5px solid var(--blue-ink);
+    pointer-events:none}
+  .handle{position:absolute;top:0;bottom:0;width:22px;cursor:ew-resize;touch-action:none}
+  .handle::after{content:"";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+    width:5px;height:44px;border-radius:3px;background:var(--blue-ink);box-shadow:0 0 0 4px rgba(11,14,18,.6)}
+  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-top:16px}
+  .tile .lab{font-size:.62rem;letter-spacing:.09em;color:var(--muted);text-transform:uppercase}
+  .tile .fig{font-variant-numeric:tabular-nums;letter-spacing:-.02em;line-height:1.05;
+    font-size:clamp(1.6rem,4vw,2.1rem);margin-top:4px}
+  .tile .cap{font-size:.76rem;color:var(--faint);margin-top:2px}
+  .pos{color:var(--up)} .neg{color:var(--down)}
+  .ranges{display:flex;gap:6px;margin-top:16px;flex-wrap:wrap}
+
+  /* ---- section 3: material share sheet ---- */
+  .scrim{position:fixed;inset:0;background:rgba(4,6,9,0);backdrop-filter:blur(0px);
+    pointer-events:none;z-index:40}
+  .sheet{position:fixed;left:50%;top:50%;width:min(340px,86vw);z-index:41;
+    transform:translate(-50%,-50%) scale(.9);opacity:0;pointer-events:none;
+    filter:blur(14px);will-change:transform,opacity,filter}
+  .card{background:var(--glass);backdrop-filter:blur(26px) saturate(160%);
+    border:1px solid rgba(255,255,255,.10);border-top-color:rgba(255,255,255,.22);
+    border-radius:18px;box-shadow:var(--shadow);padding:20px 20px 18px;color:var(--ink)}
+  :root[data-transp="reduce"] .card{background:#151a21;backdrop-filter:none}
+  :root[data-transp="reduce"] .scrim{backdrop-filter:none!important}
+  .card .name{font-weight:600;letter-spacing:-.01em}
+  .card .big{font-size:2.5rem;letter-spacing:-.03em;line-height:1.02;margin:8px 0 0;
+    font-variant-numeric:tabular-nums}
+  .card .basis{color:var(--muted);font-size:.78rem}
+  .split{margin:14px 0 6px}
+  .split .bar{display:block;height:9px;border-radius:6px;overflow:hidden;background:#0d1117;
+    display:flex;gap:2px}
+  .split .bar i{background:var(--blue);display:block} .split .bar em{background:#2f3947;display:block}
+  .split .words{font-size:.76rem;color:var(--muted);margin-top:6px}
+  .card .prov{font-size:.68rem;color:var(--faint);margin-top:14px;border-top:1px solid rgba(255,255,255,.08);padding-top:10px}
+  .formats{overflow:hidden;margin:16px 0 4px;padding:2px}
+  .formats .strip{display:flex;gap:12px;touch-action:pan-y;cursor:grab}
+  .formats .strip:active{cursor:grabbing}
+  .fmt{flex:0 0 auto;width:96px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);
+    display:grid;place-items:center;color:var(--muted);font-size:.72rem;gap:6px;padding:10px 0}
+  .fmt .shape{border:1.5px solid var(--faint);border-radius:4px}
+  .fmt[aria-selected="true"]{border-color:var(--blue-ink);color:var(--ink);background:#12202f}
+  .fmt[aria-selected="true"] .shape{border-color:var(--blue-ink)}
+
+  /* ---- section 4: type ---- */
+  .type-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:640px){.type-grid{grid-template-columns:1fr}.type-grid{max-width:none}}
+  .type-cell{border:1px solid var(--line);border-radius:12px;padding:18px;background:var(--surface-2)}
+  .type-cell .k{font-size:.62rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+  .before .fig{font-size:clamp(2.2rem,7vw,3.4rem);letter-spacing:normal;line-height:1.5;
+    font-variant-numeric:tabular-nums;margin-top:6px}
+  .after .fig{font-size:clamp(2.2rem,7vw,3.4rem);letter-spacing:-.03em;line-height:1.02;
+    font-variant-numeric:tabular-nums;font-optical-sizing:auto;margin-top:6px}
+  .type-cell .cap{color:var(--faint);font-size:.76rem;margin-top:8px}
+
+  .toggles{display:flex;gap:18px;flex-wrap:wrap;align-items:center;margin-top:14px;
+    padding-top:14px;border-top:1px dashed var(--line)}
+  .toggle{display:flex;gap:8px;align-items:center;font-size:.82rem;color:var(--muted)}
+  .toggle input{accent-color:var(--blue)}
+  :root[data-contrast="more"] .btn,:root[data-contrast="more"] .chip,
+  :root[data-contrast="more"] .fmt{border-color:var(--muted)!important}
+  .hint{font-size:.72rem;color:var(--faint);margin-top:10px}
+  code{background:#0d1117;border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:.82em}
+</style>
+</head>
+<body>
+
+<header>
+  <h1><span class="accentbar"></span>Apple-fluid — a POC you can grab</h1>
+  <p class="sub">US-55 · US-56 · US-57 · US-58 — motion &amp; craft, none of it on the numbers. Mock data. No engine, no login.</p>
+</header>
+
+<!-- ============================ US-55 ============================ -->
+<section>
+  <h2><span class="tag">US-55</span> Grab the chart to set the range</h2>
+  <p class="note">Drag either handle. It tracks your finger 1:1, rubber-bands past the ends, and on
+    release settles with a critically-damped spring — a <em>flick</em> throws it, momentum projecting
+    where it lands and snapping to a day. Grab a handle mid-settle and it reverses from where it is.
+    The Result recomputes every frame from the selected span — real arithmetic, no smoothing of the data.</p>
+
+  <div class="chartwrap" id="chartwrap">
+    <canvas id="chart"></canvas>
+    <div class="brush" id="brush"></div>
+    <div class="handle" id="hL"></div>
+    <div class="handle" id="hR"></div>
+  </div>
+
+  <div class="tiles">
+    <div class="tile"><div class="lab">Result · selected</div><div class="fig" id="tResult">+€ 0</div><div class="cap" id="tResultCap">—</div></div>
+    <div class="tile"><div class="lab">Window</div><div class="fig" id="tWindow" style="font-size:1.3rem;letter-spacing:0">—</div><div class="cap" id="tWindowCap">drag a handle</div></div>
+  </div>
+
+  <div class="ranges" id="ranges"></div>
+  <p class="hint">The discrete buttons stay (US-55 AC7) — they animate the window to a preset with the same spring.</p>
+</section>
+
+<!-- ============================ US-56 ============================ -->
+<section>
+  <h2><span class="tag">US-56</span> Response, and honest degradation</h2>
+  <p class="note">Everything here highlights on <em>pointer-down</em>, not on release — press and hold
+    to feel it, drag away to cancel. Flip the switches to simulate the OS accessibility settings and
+    watch the whole page adapt: reduced-motion keeps the tracking above but drops the overshoot;
+    reduced-transparency frosts the share card solid; more-contrast borders the controls.</p>
+
+  <div class="row-chips" style="margin-bottom:14px">
+    <button class="btn primary press">Sync now</button>
+    <button class="btn press">Wipe &amp; resync</button>
+    <span class="chip press" role="button">1M</span>
+    <span class="chip press" role="button" aria-pressed="true">ALL</span>
+    <span class="chip press" role="button">Anonymize</span>
+  </div>
+
+  <div class="toggles">
+    <label class="toggle"><input type="checkbox" id="mReduce"> <code>prefers-reduced-motion</code></label>
+    <label class="toggle"><input type="checkbox" id="mTransp"> <code>prefers-reduced-transparency</code></label>
+    <label class="toggle"><input type="checkbox" id="mContrast"> <code>prefers-contrast: more</code></label>
+  </div>
+  <p class="hint">In the real story these read the media queries; here they're switches so you can toggle without OS settings.</p>
+</section>
+
+<!-- ============================ US-57 ============================ -->
+<section>
+  <h2><span class="tag">US-57</span> The share sheet as a material</h2>
+  <p class="note">Open it: the card <em>materializes</em> — blur and scale spring in together, so it
+    reads as a pane of glass arriving, not an opacity fade. The four formats are a momentum strip —
+    flick through them and it snaps. Content is frozen (that's US-52/54); this is only the glass.</p>
+  <button class="btn primary press" id="openSheet">Share this position ⧉</button>
+</section>
+
+<!-- ============================ US-58 ============================ -->
+<section>
+  <h2><span class="tag">US-58</span> Type that changes shape with size</h2>
+  <p class="note">The same figure, twice. Left: one global tracking and body leading — what the hero
+    numbers use today. Right: negative tracking and tight leading at display size, optical sizing on.
+    The bigger the number, the more it matters.</p>
+  <div class="type-grid">
+    <div class="type-cell before"><div class="k">Before · body metrics</div><div class="fig pos">+€ 16.712,84</div><div class="cap">letter-spacing: normal · line-height: 1.5</div></div>
+    <div class="type-cell after"><div class="k">After · display metrics</div><div class="fig pos">+€ 16.712,84</div><div class="cap">letter-spacing: −0.03em · line-height: 1.02 · optical</div></div>
+  </div>
+  <p class="hint">The story adds a measured <code>npm run type</code> check, in the palette's spirit — a comment is not a check.</p>
+</section>
+
+<!-- the share sheet lives at the end so it floats over everything -->
+<div class="scrim" id="scrim"></div>
+<div class="sheet" id="sheet">
+  <div class="card">
+    <div class="name">EQQQ <span class="muted">· Nasdaq-100</span></div>
+    <div class="big pos">+310,48%</div>
+    <div class="basis">on the money put in · whole history</div>
+    <div class="split">
+      <span class="bar"><i style="width:24%"></i><em style="width:76%"></em></span>
+      <div class="words">24% paid in · 76% grown</div>
+    </div>
+    <div class="formats"><div class="strip" id="strip"></div></div>
+    <div class="prov">DEGIRO · 17 aug 2026 · reconciled to the cent · v0.48-poc</div>
+  </div>
+</div>
+
+<script>
+/* ---------------------------------------------------------------------------
+   Spring — critically damped by default, velocity-aware, interruptible.
+   Apple's two knobs: `response` (seconds to reach target) and `damping` ratio
+   (1.0 = no overshoot, <1 bounces). Semi-implicit Euler on a rAF clock.
+--------------------------------------------------------------------------- */
+class Spring {
+  constructor(value, {response=0.4, damping=1.0}={}){
+    this.x=value; this.target=value; this.v=0; this.response=response; this.damping=damping;
+    this.onUpdate=null; this._raf=null; this._last=0;
+  }
+  set(target, {velocity=null}={}){
+    this.target=target;
+    if(velocity!==null) this.v=velocity;
+    this._start();
+  }
+  snap(value){ this.x=value; this.target=value; this.v=0; if(this.onUpdate)this.onUpdate(this.x); }
+  _start(){ if(this._raf)return; this._last=performance.now(); this._raf=requestAnimationFrame(t=>this._step(t)); }
+  _step(now){
+    let dt=Math.min(0.032,(now-this._last)/1000)||0.016; this._last=now;
+    const w=2*Math.PI/this.response;            // natural frequency
+    const k=w*w, c=2*this.damping*w;            // stiffness, damping (mass=1)
+    const a=-k*(this.x-this.target)-c*this.v;   // spring + damper
+    this.v+=a*dt; this.x+=this.v*dt;
+    if(this.onUpdate)this.onUpdate(this.x);
+    if(Math.abs(this.x-this.target)<0.02 && Math.abs(this.v)<0.02){
+      this.x=this.target; this.v=0; if(this.onUpdate)this.onUpdate(this.x); this._raf=null; return;
+    }
+    this._raf=requestAnimationFrame(t=>this._step(t));
+  }
+}
+// Apple's momentum projection (exponential decay, not v²/2a).
+const project=(v,d=0.998)=>(v/1000)*d/(1-d);
+// Rubber-band resistance past a boundary.
+const rubber=(over,dim,c=0.55)=>(over*dim*c)/(dim+c*Math.abs(over));
+const reduceMotion=()=>document.documentElement.getAttribute('data-motion')==='reduce';
+
+/* ---------------------------------------------------------------------------
+   US-56 — press feedback on pointer-DOWN, commit on UP, cancel on drag-away.
+   One delegated pair of listeners, so anything with .press inherits it.
+--------------------------------------------------------------------------- */
+(function(){
+  let active=null;
+  const within=(el,x,y)=>{const r=el.getBoundingClientRect();return x>=r.left-10&&x<=r.right+10&&y>=r.top-10&&y<=r.bottom+10;};
+  document.addEventListener('pointerdown',e=>{
+    const el=e.target.closest('.press'); if(!el)return;
+    active=el; el.classList.add('is-down');
+  });
+  document.addEventListener('pointermove',e=>{
+    if(!active)return; active.classList.toggle('is-down', within(active,e.clientX,e.clientY));
+  });
+  const up=e=>{ if(!active)return;
+    if(active.hasAttribute('aria-pressed') && within(active,e.clientX,e.clientY)){
+      // toggle chips just to make the commit visible
+      const grp=active.parentElement;
+      if(active.classList.contains('chip')) grp.querySelectorAll('[aria-pressed]').forEach(c=>c.setAttribute('aria-pressed', c===active));
+    }
+    active.classList.remove('is-down'); active=null;
+  };
+  document.addEventListener('pointerup',up); document.addEventListener('pointercancel',up);
+})();
+
+/* Accessibility switches → root attributes the CSS keys off. */
+mReduce.addEventListener('change',e=>document.documentElement.setAttribute('data-motion',e.target.checked?'reduce':'no-preference'));
+mTransp.addEventListener('change',e=>document.documentElement.setAttribute('data-transp',e.target.checked?'reduce':'no-preference'));
+mContrast.addEventListener('change',e=>document.documentElement.setAttribute('data-contrast',e.target.checked?'more':'normal'));
+
+/* ---------------------------------------------------------------------------
+   US-55 — the fluid range brush.
+--------------------------------------------------------------------------- */
+(function(){
+  const wrap=document.getElementById('chartwrap');
+  const cv=document.getElementById('chart'), ctx=cv.getContext('2d');
+  const brush=document.getElementById('brush'), hL=document.getElementById('hL'), hR=document.getElementById('hR');
+  const N=260;                                  // "days"
+  // A mock equity curve: drift + a couple of dips + wobble. Deterministic.
+  const series=Array.from({length:N},(_,i)=>{
+    const t=i/N;
+    return 10000 + 9000*t + 2600*Math.sin(t*7.5) + 1400*Math.sin(t*19+1) - 3200*Math.max(0,Math.sin(t*3.1-1.6));
+  });
+  let W=0,H=0,dpr=Math.min(2,window.devicePixelRatio||1);
+  function size(){ W=wrap.clientWidth; H=220; cv.width=W*dpr; cv.height=H*dpr; cv.style.height=H+'px'; ctx.setTransform(dpr,0,0,dpr,0,0); draw(); layout(); }
+
+  // window edges in pixel space, each on its own spring (decompose, §3)
+  let loPx=W*0.15, hiPx=W*0.85;
+  const sLo=new Spring(loPx), sHi=new Spring(hiPx);
+  sLo.onUpdate=v=>{loPx=v;layout();recompute();}; sHi.onUpdate=v=>{hiPx=v;layout();recompute();};
+
+  const pxToIdx=px=>Math.round(Math.max(0,Math.min(1,px/W))*(N-1));
+  const idxToPx=i=>(i/(N-1))*W;
+
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    const lo=Math.min(...series),hi=Math.max(...series),span=hi-lo||1;
+    const x=i=>(i/(N-1))*W, y=v=>H-8-((v-lo)/span)*(H-24);
+    // area
+    const g=ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,'rgba(91,141,214,.28)'); g.addColorStop(1,'rgba(91,141,214,0)');
+    ctx.beginPath(); ctx.moveTo(0,H); for(let i=0;i<N;i++)ctx.lineTo(x(i),y(series[i])); ctx.lineTo(W,H); ctx.closePath(); ctx.fillStyle=g; ctx.fill();
+    // line
+    ctx.beginPath(); for(let i=0;i<N;i++){const px=x(i),py=y(series[i]); i?ctx.lineTo(px,py):ctx.moveTo(px,py);}
+    ctx.strokeStyle='#7fb0f0'; ctx.lineWidth=2; ctx.lineJoin='round'; ctx.stroke();
+  }
+  function layout(){
+    const L=Math.min(loPx,hiPx),R=Math.max(loPx,hiPx);
+    brush.style.left=L+'px'; brush.style.width=(R-L)+'px';
+    hL.style.left=(L-11)+'px'; hR.style.left=(R-11)+'px';
+  }
+  function recompute(){
+    const a=pxToIdx(Math.min(loPx,hiPx)), b=pxToIdx(Math.max(loPx,hiPx));
+    const res=series[b]-series[a];
+    const el=document.getElementById('tResult');
+    el.textContent=(res>=0?'+':'−')+'€ '+Math.abs(Math.round(res)).toLocaleString('nl-NL');
+    el.className='fig '+(res>=0?'pos':'neg');
+    const pct=series[a]?((res/series[a])*100):0;
+    document.getElementById('tResultCap').textContent=(pct>=0?'+':'')+pct.toFixed(1)+'% · '+(b-a)+' days';
+    document.getElementById('tWindow').textContent=(b-a)+' days';
+    document.getElementById('tWindowCap').textContent='day '+a+' → '+b+' of '+(N-1);
+  }
+
+  // ---- dragging a handle ----
+  function drag(handle, springSelf, getOther){
+    let hist=[]; let dragging=false;
+    handle.addEventListener('pointerdown',e=>{
+      e.preventDefault(); handle.setPointerCapture(e.pointerId); dragging=true; hist=[];
+      springSelf._raf&&cancelAnimationFrame(springSelf._raf); springSelf._raf=null; // interrupt settle
+    });
+    handle.addEventListener('pointermove',e=>{
+      if(!dragging)return;
+      let x=e.clientX-wrap.getBoundingClientRect().left;
+      // rubber-band past the ends (§9)
+      if(x<0) x=-rubber(-x,W); else if(x>W) x=W+rubber(x-W,W);
+      springSelf.snap(x);                          // 1:1, glued to finger
+      hist.push({x:e.clientX,t:performance.now()}); if(hist.length>6)hist.shift();
+    });
+    const end=e=>{
+      if(!dragging)return; dragging=false;
+      // velocity from the last few samples
+      let vel=0; if(hist.length>=2){const a=hist[0],b=hist[hist.length-1],dt=(b.t-a.t)/1000; if(dt>0)vel=(b.x-a.x)/dt;}
+      // project momentum, snap to nearest day (§6)
+      let landing=springSelf.x + (reduceMotion()?0:project(vel));
+      landing=Math.max(0,Math.min(W,landing));
+      const snapped=idxToPx(pxToIdx(landing));
+      if(reduceMotion()){ springSelf.snap(snapped); }
+      else { springSelf.response=0.42; springSelf.damping=1.0; springSelf.set(snapped,{velocity:vel}); }
+    };
+    handle.addEventListener('pointerup',end); handle.addEventListener('pointercancel',end);
+  }
+  drag(hL,sLo); drag(hR,sHi);
+
+  // ---- discrete range buttons (AC7) ----
+  const presets=[['1M',22],['3M',66],['6M',130],['YTD',180],['1Y',N-1],['ALL',N-1]];
+  const host=document.getElementById('ranges');
+  presets.forEach(([label,days],k)=>{
+    const b=document.createElement('button'); b.className='chip press'; b.textContent=label; b.setAttribute('role','button');
+    b.addEventListener('click',()=>{
+      host.querySelectorAll('.chip').forEach(c=>c.setAttribute('aria-pressed', c===b));
+      const to=N-1, from=Math.max(0,N-1-days);
+      if(reduceMotion()){ sLo.snap(idxToPx(from)); sHi.snap(idxToPx(to)); }
+      else { sLo.response=sHi.response=0.5; sLo.set(idxToPx(from)); sHi.set(idxToPx(to)); }
+    });
+    host.append(b);
+  });
+
+  new ResizeObserver(size).observe(wrap);
+  size(); recompute();
+  document.getElementById('ranges').querySelector('.chip:last-child')?.setAttribute('aria-pressed','true');
+})();
+
+/* ---------------------------------------------------------------------------
+   US-57 — the share sheet materializes; the format strip has momentum.
+--------------------------------------------------------------------------- */
+(function(){
+  const sheet=document.getElementById('sheet'), scrim=document.getElementById('scrim');
+  // three springs: scale, opacity, blur — decomposed so they can't desync
+  const sScale=new Spring(0.9,{response:0.34,damping:0.82});
+  const sOpac =new Spring(0,{response:0.3});
+  const sBlur =new Spring(14,{response:0.34});
+  const apply=()=>{ sheet.style.transform=`translate(-50%,-50%) scale(${sScale.x})`;
+    sheet.style.opacity=sOpac.x; sheet.style.filter=`blur(${Math.max(0,sBlur.x)}px)`;
+    scrim.style.backdropFilter=`blur(${sOpac.x*8}px)`; scrim.style.background=`rgba(4,6,9,${sOpac.x*0.5})`; };
+  sScale.onUpdate=apply; sOpac.onUpdate=apply; sBlur.onUpdate=apply;
+  let open=false;
+  function set(o){ open=o;
+    sheet.style.pointerEvents=o?'auto':'none'; scrim.style.pointerEvents=o?'auto':'none';
+    if(reduceMotion()){ sScale.snap(o?1:0.98); sOpac.snap(o?1:0); sBlur.snap(0); return; }
+    sScale.set(o?1:0.9); sOpac.set(o?1:0); sBlur.set(o?0:14);   // materialize / dematerialize (§12)
+  }
+  document.getElementById('openSheet').addEventListener('click',()=>set(true));
+  scrim.addEventListener('click',()=>set(false));
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')set(false);});
+
+  // format strip — swipe with momentum, snap to a card (§6)
+  const strip=document.getElementById('strip');
+  const shapes=[['1:1',34,34],['4:5',30,38],['9:16',24,42],['16:9',44,26]];
+  shapes.forEach(([id,w,h],i)=>{
+    const f=document.createElement('div'); f.className='fmt'; f.setAttribute('aria-selected',i===0);
+    f.innerHTML=`<span class="shape" style="width:${w}px;height:${h}px"></span>${id}`; strip.append(f);
+  });
+  const STEP=108; let sel=0;
+  const sX=new Spring(0,{response:0.4,damping:0.85});
+  sX.onUpdate=v=>strip.style.transform=`translateX(${v}px)`;
+  function select(i){ sel=Math.max(0,Math.min(shapes.length-1,i));
+    strip.querySelectorAll('.fmt').forEach((f,k)=>f.setAttribute('aria-selected',k===sel));
+    const target=-sel*STEP;
+    if(reduceMotion())sX.snap(target); else sX.set(target);
+  }
+  let hist=[],dragging=false,base=0;
+  strip.addEventListener('pointerdown',e=>{strip.setPointerCapture(e.pointerId);dragging=true;hist=[];base=sX.x;sX._raf&&cancelAnimationFrame(sX._raf);sX._raf=null;});
+  strip.addEventListener('pointermove',e=>{if(!dragging)return;
+    const dx=e.movementX; sX.snap(sX.x+dx); hist.push({x:e.clientX,t:performance.now()});if(hist.length>6)hist.shift();});
+  const end=()=>{if(!dragging)return;dragging=false;
+    let vel=0;if(hist.length>=2){const a=hist[0],b=hist[hist.length-1],dt=(b.t-a.t)/1000;if(dt>0)vel=(b.x-a.x)/dt;}
+    const landing=sX.x+(reduceMotion()?0:project(vel));
+    select(Math.round(-landing/STEP));};
+  strip.addEventListener('pointerup',end);strip.addEventListener('pointercancel',end);
+  select(0);
+})();
+</script>
+</body>
+</html>
