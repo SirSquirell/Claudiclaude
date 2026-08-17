@@ -215,3 +215,54 @@ export function drawMark(ctx, { x = 0, y = 0, height = 24, ink, accent, opacity 
 
 /** The drawn width for a given drawn height. Never chosen independently. */
 export const markWidth = (height) => (height * VIEWBOX.w) / VIEWBOX.h;
+
+// ---------------------------------------------------------------------------
+// broker marks
+// ---------------------------------------------------------------------------
+
+/**
+ * The two broker marks, redrawn as paths.
+ *
+ * **Drawn here rather than loaded from a file, for the same reason §7 of the
+ * brief gives for the Asteria mark**: an image through `<img>` does not inherit
+ * `currentColor` and is unreachable by the page's CSS, so a file-based mark has
+ * to pick a light or dark variant in JavaScript — which is the one thing the
+ * brand rule forbids. A path rides the text colour and needs no variant.
+ *
+ * **And they are drawn in ink, never in the broker's own blue.** Both marks are
+ * a cyan within a few degrees of `--pos`, and in this UI blue means *gain*: a
+ * cyan chip beside a column of blue plus-figures reads as a positive number
+ * rather than as an identity. Monochrome costs nothing here — at 16px the shape
+ * is what identifies it.
+ *
+ * These are simplified redraws for identification at rail and menu sizes, not
+ * reproductions of either company's asset.
+ */
+export const BROKER_MARKS = Object.freeze({
+  // Two bars.
+  degiro: Object.freeze(['M2 7.2 H22 V11 H2 Z', 'M2 13 H22 V16.8 H2 Z']),
+  // The peak, with the centre cut out — the mark without its crossbar.
+  trading212: Object.freeze(['M12 3.4 L22 20.6 H15.6 L12 12.2 L8.4 20.6 H2 Z']),
+});
+
+/**
+ * A broker's mark as an inline SVG, or `null` when we have no drawing for it.
+ *
+ * Null rather than a placeholder on purpose: a generic glyph beside a broker
+ * name looks like a failed load, and an adapter we have not drawn is better
+ * shown as its name alone.
+ */
+export function brokerMarkSvg(id, { size = 16, className = 'broker-mark' } = {}) {
+  const paths = BROKER_MARKS[id];
+  if (!paths) return null;
+  const svg = el('svg', {
+    viewBox: '0 0 24 24',
+    width: String(size),
+    height: String(size),
+    fill: 'currentColor',
+    'aria-hidden': 'true',
+    class: className,
+  });
+  for (const d of paths) svg.append(el('path', { d }));
+  return svg;
+}

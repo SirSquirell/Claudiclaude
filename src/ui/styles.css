@@ -232,11 +232,364 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-.wrap {
+.main {
   max-width: 1420px;
+  width: 100%;
   margin: 0 auto;
   padding: var(--outer);
+  min-width: 0;
 }
+/* --- the shell: rail + main ---------------------------------------------- */
+
+/*
+ * A two-column grid rather than a stack, because the rail is persistent: the
+ * section you are in stays visible instead of being inferred from which tab
+ * still looks pressed. Below 60em it becomes a stack again — a 200px rail on a
+ * 380px screen is half the width for six words.
+ */
+.app {
+  display: grid;
+  grid-template-columns: 13.5rem 1fr;
+  min-height: 100vh;
+}
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  padding: var(--gap) 0.75rem;
+  background: var(--rail);
+  border-right: var(--rule) solid var(--border);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  /* The rail is its own stacking context, above the panels.
+     Without this its menu loses to the chart cards: those are positioned (they
+     carry the watermark layer) and come later in the document, so at equal
+     z-index they paint over anything the rail puts on top — the menu was drawn
+     complete and then covered from the second card onward. */
+  z-index: 30;
+}
+
+.rail-head {
+  padding: 0.375rem 0.5rem 0.25rem;
+  color: var(--text-primary);
+}
+
+.rail-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/*
+ * A rail item is a button, not a tab: it carries `aria-current` when it is the
+ * one you are on, so a screen reader hears "current page" rather than a pressed
+ * state on a control that navigates. The count badges are gone — they were card
+ * counts and read as unread badges.
+ */
+.rail-nav button {
+  text-align: left;
+  border: 0;
+  background: none;
+  border-radius: var(--radius-sm);
+  padding: 0.4375rem 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text-secondary);
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.rail-nav button:hover {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.rail-nav button[aria-current='page'] {
+  background: var(--surface-1);
+  color: var(--text-primary);
+  font-weight: 600;
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.rail-foot {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/*
+ * Data-quality facts, not figures. Deliberately small and quiet: the reader
+ * should be able to find "does this reconcile" without it competing with the
+ * total value, and it must still be able to shout when it disagrees — hence the
+ * .bad row keeping the critical colour.
+ */
+.rail-state {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.6875rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+  padding: 0 0.5rem 2px;
+}
+
+.rail-state .row {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+}
+
+.rail-state .row.bad {
+  color: var(--critical);
+  font-weight: 600;
+}
+
+.rail-state .row.ok .dot {
+  background: var(--pos);
+}
+
+.rail-state .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  flex: none;
+  transform: translateY(-1px);
+}
+
+button.primary {
+  background: var(--text-primary);
+  color: var(--surface-1);
+  border-color: var(--text-primary);
+  width: 100%;
+  justify-content: center;
+}
+
+button.primary:hover {
+  filter: brightness(1.15);
+}
+
+/* --- the overflow menu --------------------------------------------------- */
+
+.menu-wrap {
+  position: relative;
+}
+
+.menu-wrap > button {
+  width: 100%;
+  justify-content: center;
+}
+
+/*
+ * The one place in the redesign that is allowed to lift off the page, together
+ * with the tooltip and the share sheet: it has to read as detached from what it
+ * covers. Opens upward because it hangs off the foot of the rail.
+ */
+.menu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  /* Sized by its widest row rather than by the rail it hangs off: the rail is
+     13.5rem and the theme row is wider than that, so a shrink-to-fit box would
+     clip its last segment. It is the floating layer — overhanging is the point. */
+  width: max-content;
+  max-width: min(22rem, calc(100vw - 1.5rem));
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  background: var(--surface-1);
+  border: var(--rule) solid var(--border-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-float);
+}
+
+.menu button[role='menuitem'] {
+  text-align: left;
+  border: 0;
+  background: none;
+  border-radius: var(--radius-sm);
+  padding: 0.4375rem 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text-primary);
+}
+
+.menu button[role='menuitem']:hover {
+  background: var(--surface-2);
+}
+
+/* Destructive, below a rule, and it opens a confirm rather than firing. */
+.menu button.danger {
+  color: var(--critical);
+}
+
+.menu button.danger:hover {
+  background: var(--neg-soft);
+}
+
+.menu-sep {
+  height: var(--rule);
+  background: var(--border);
+  margin: 4px 2px;
+}
+
+.menu-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 0.5rem;
+  flex-wrap: wrap;
+}
+
+.menu-label {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+}
+
+/* --- top bar ------------------------------------------------------------- */
+
+.topbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: var(--gap);
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  width: 2rem;
+  height: 2rem;
+  color: var(--text-secondary);
+}
+
+.icon-btn[aria-pressed='true'] {
+  background: var(--surface-3);
+  color: var(--text-primary);
+}
+
+/* The slash is only there when amounts are hidden — the icon states the state
+   rather than needing a label beside it. */
+.icon-btn .eye-slash {
+  opacity: 0;
+}
+
+.icon-btn[aria-pressed='true'] .eye-slash {
+  opacity: 1;
+}
+
+/* --- granularity: a label that opens ------------------------------------- */
+
+.gran {
+  position: relative;
+}
+
+.gran > button {
+  border-color: transparent;
+  background: none;
+  color: var(--text-secondary);
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.gran > button:hover {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.gran > button .caret {
+  opacity: 0.6;
+  margin-left: 2px;
+}
+
+.gran .menu {
+  bottom: auto;
+  top: calc(100% + 6px);
+  min-width: 13rem;
+}
+
+/* A granularity the window cannot carry says why instead of looking broken. */
+.gran .menu button[disabled] {
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.gran .menu .why {
+  display: block;
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+/* --- the connection check, as a modal ------------------------------------ */
+
+.modal {
+  max-width: min(46rem, calc(100vw - 2rem));
+  width: 100%;
+  border: var(--rule) solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface-1);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-float);
+  padding: var(--pad);
+  font: inherit;
+}
+
+.modal::backdrop {
+  background: rgba(10, 14, 18, 0.45);
+}
+
+@media (max-width: 60em) {
+  .app {
+    grid-template-columns: 1fr;
+  }
+
+  .rail {
+    position: static;
+    height: auto;
+    border-right: 0;
+    border-bottom: var(--rule) solid var(--border);
+  }
+
+  .rail-nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .rail-foot {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .rail-state {
+    flex: 1;
+  }
+
+  button.primary,
+  .menu-wrap > button {
+    width: auto;
+  }
+}
+
 
 /* --- header ------------------------------------------------------------- */
 
@@ -1467,4 +1820,22 @@ button.snap:focus-visible {
   overflow: hidden;
   clip: rect(0 0 0 0);
   white-space: nowrap;
+}
+
+/* A broker's mark beside its name: in ink, never in its own blue, because blue
+   means gain here — see BROKER_MARKS in brand.js. */
+.menu button[role='menuitem'] {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.broker-mark {
+  flex: none;
+  color: var(--text-secondary);
+}
+
+#diag-title .broker-mark {
+  vertical-align: -2px;
+  margin-right: 6px;
 }

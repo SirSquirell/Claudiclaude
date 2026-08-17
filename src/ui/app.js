@@ -38,10 +38,11 @@ import * as frown from './frown.js';
  */
 let demoVersion = null;
 import { isSameRun } from '../lib/sync.js';
+import { ADAPTERS, connected as connectedBrokers } from '../lib/brokers/index.js';
 import { LANGS, applyStatic, getLang, missing as missingTranslations, setLang, t as tr } from './i18n.js';
 import { THEMES, alpha, applyAnonymize, applyTheme, fmtEurCents, fmtPct, fmtPrice, fmtQty, fmtSigned, getAnonymize, getTheme, onThemeChange, setAnonymize, setTheme, tokens } from './theme.js';
 import { snapshotModel } from '../lib/snapshot.js';
-import { markSvg } from './brand.js';
+import { brokerMarkSvg, lockupSvg, markSvg } from './brand.js';
 import { copySnapshot } from './snapshot.js';
 import { inExtension, load, send, wantsDemo } from './datasource.js';
 
@@ -146,6 +147,14 @@ const $ = (sel) => document.querySelector(sel);
 // ---------------------------------------------------------------------------
 
 init().catch(showFatal);
+
+/**
+ * One entry point for the section, so a click, a reload and a pasted link all
+ * arrive the same way. Set before `init()` finishes so the first render already
+ * knows which section it is drawing.
+ */
+state.tab = routeFromHash();
+window.addEventListener('hashchange', applyRoute);
 
 async function init() {
   buildControls();
@@ -268,6 +277,7 @@ function retranslate() {
   for (const b of $('#theme-group').querySelectorAll('button')) {
     b.textContent = tr(b.dataset.key === 'auto' ? 'Auto' : b.dataset.key === 'light' ? 'Light' : 'Dark');
   }
+  paintDiagLabel();
   // Segmented controls cache a signature to avoid rebuilding on every render;
   // the label text just changed underneath them.
   for (const host of document.querySelectorAll('[data-sig]')) delete host.dataset.sig;
@@ -306,8 +316,17 @@ function buildAnonControl() {
   const b = $('#btn-anon');
   if (!b) return;
   const paint = () => {
-    b.setAttribute('aria-pressed', String(getAnonymize()));
-    b.textContent = tr(getAnonymize() ? 'Show amounts' : 'Anonymize');
+    const on = getAnonymize();
+    b.setAttribute('aria-pressed', String(on));
+    /**
+     * The words go on the label rather than into the button, because the button
+     * is an icon now: the slashed eye states the state, and writing text into it
+     * would replace the SVG. The accessible name still says which way the
+     * control will go, which is the thing `aria-pressed` alone does not.
+     */
+    const label = tr(on ? 'Show amounts' : 'Hide amounts');
+    b.setAttribute('aria-label', label);
+    b.title = label;
   };
   paint();
   b.addEventListener('click', () => {
@@ -519,27 +538,239 @@ function buildControls() {
     holdingsGroup.append(b);
   }
 
-  const tabBar = $('#tabs');
+  /**
+   * The rail.
+   *
+   * Three changes from the tab row it replaces, each from the brief:
+   *
+   *  - **No count badges.** They counted cards — `OVERVIEW 2 · PERFORMANCE 7` —
+   *    and every reader read them as unread counts.
+   *  - **`aria-current` rather than `aria-pressed`.** These navigate, so a
+   *    screen reader should hear "current page", not a toggle that is down.
+   *  - **The section is in the URL.** A reload, a bookmark or a pasted link
+   *    lands where you were instead of on Overview; it also means the browser's
+   *    back button does what it looks like it does.
+   */
+  const railNav = $('#tabs');
   for (const t of TABS) {
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = 'tab';
     b.dataset.tab = t.key;
-    b.setAttribute('role', 'tab');
-    const count = document.querySelectorAll(`[data-tab="${t.key}"] > .card`).length;
-    b.innerHTML = `${esc(tr(t.label))}<span class="count">${count}</span>`;
+    b.textContent = tr(t.label);
     b.addEventListener('click', () => {
-      state.tab = t.key;
-      render();
+      // Writing the hash is the whole of it — `hashchange` does the render, so
+      // a click and a pasted URL take exactly one path.
+      location.hash = `#/${t.key}`;
     });
-    tabBar.append(b);
+    railNav.append(b);
   }
+  $('#lockup').replaceChildren(lockupSvg({ height: 26 }));
+  /**
+   * The connection check names the broker it would check, read off the adapter's
+   * own `label`. With one adapter that is one line and no submenu — a submenu of
+   * one is depth for nothing — and with two it is two lines without a change
+   * here, because nothing about the broker is written in this file.
+   */
+  paintDiagLabel();
+  wireMore();
+  wireGran();
 
   $('#btn-clear-months').addEventListener('click', () => {
     state.selectedMonths = [];
     state.selectedCells = [];
     render();
   });
+}
+
+/**
+ * The connection check's label, which names the broker.
+ *
+ * A function rather than a line at wire time because it has to be rebuilt when
+ * the language changes: `applyStatic()` rewrites the text of everything carrying
+ * `data-i18n`, which is why this button does not carry it — the first version
+ * did, and the broker mark was replaced by plain text the moment anyone pressed
+ * NL.
+ */
+function paintDiagLabel() {
+  const diag = $('#btn-diagnose');
+  if (!diag) return;
+  diag.textContent = '';
+  for (const a of ADAPTERS) {
+    const mark = brokerMarkSvg(a.id, { size: 15 });
+    if (mark) diag.append(mark);
+  }
+  diag.append(
+    document.createTextNode(
+      ADAPTERS.length === 1
+        ? tr('Check connection · {broker}', { broker: ADAPTERS[0].label })
+        : tr('Check connection'),
+    ),
+  );
+}
+
+/**
+ * The section in the URL.
+ *
+ * A hash rather than a path because this page is opened from a file:// or
+ * chrome-extension:// origin with no server to route for us — a real path would
+ * 404 on reload. An unknown or absent hash falls back to the first section
+ * rather than showing nothing.
+ */
+function routeFromHash() {
+  const key = (location.hash || '').replace(/^#\/?/, '');
+  return TABS.some((t) => t.key === key) ? key : TABS[0].key;
+}
+
+function applyRoute() {
+  state.tab = routeFromHash();
+  if (state.data) render();
+}
+
+/**
+ * The overflow menu, and the two ways out of it.
+ *
+ * Escape and a click outside both close it, because a menu that can only be
+ * dismissed by hitting its own trigger again is a trap on a touchscreen.
+ */
+function wireMore() {
+  const btn = $('#btn-more');
+  const menu = $('#more-menu');
+  const close = () => {
+    menu.hidden = true;
+    btn.setAttribute('aria-expanded', 'false');
+  };
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const open = menu.hidden;
+    menu.hidden = !open;
+    btn.setAttribute('aria-expanded', String(open));
+  });
+  menu.addEventListener('click', (e) => {
+    // The language and theme groups live in here and are meant to be used
+    // without the menu vanishing under the pointer.
+    if (e.target.closest('[role="menuitem"]')) close();
+  });
+  document.addEventListener('click', (e) => {
+    if (!menu.hidden && !e.target.closest('.menu-wrap')) close();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !menu.hidden) close();
+  });
+}
+
+/**
+ * Granularity as a label that opens, not a second segmented bar.
+ *
+ * It is read far more often than it is changed — it states the resolution every
+ * figure on screen belongs to — and four equal segments for that is the same
+ * mistake as seven equal tiles. The buttons inside still carry `data-key`, so
+ * the candle path that forces a week keeps working unchanged.
+ */
+function wireGran() {
+  const host = $('#gran-group');
+  host.innerHTML = '';
+  const trigger = document.createElement('button');
+  trigger.type = 'button';
+  trigger.id = 'gran-trigger';
+  trigger.setAttribute('aria-haspopup', 'menu');
+  trigger.setAttribute('aria-expanded', 'false');
+  const menu = document.createElement('div');
+  menu.className = 'menu';
+  menu.role = 'menu';
+  menu.hidden = true;
+
+  for (const g of [{ key: 'auto', label: 'Auto' }, ...GRANS]) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.role = 'menuitem';
+    b.dataset.key = g.key;
+    b.textContent = tr(g.label);
+    b.setAttribute('aria-pressed', String(g.key === state.granularity));
+    b.addEventListener('click', () => {
+      state.granularity = g.key;
+      // Choosing a granularity by hand retires the note explaining that the
+      // candle toggle chose one for you.
+      state.granularityForcedByCandles = false;
+      for (const other of menu.querySelectorAll('button')) {
+        other.setAttribute('aria-pressed', String(other === b));
+      }
+      menu.hidden = true;
+      trigger.setAttribute('aria-expanded', 'false');
+      render();
+    });
+    menu.append(b);
+  }
+
+  trigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const open = menu.hidden;
+    menu.hidden = !open;
+    trigger.setAttribute('aria-expanded', String(open));
+  });
+  document.addEventListener('click', (e) => {
+    if (!menu.hidden && !e.target.closest('.gran')) {
+      menu.hidden = true;
+      trigger.setAttribute('aria-expanded', 'false');
+    }
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !menu.hidden) {
+      menu.hidden = true;
+      trigger.setAttribute('aria-expanded', 'false');
+    }
+  });
+  host.append(trigger, menu);
+}
+
+/**
+ * What the granularity trigger says.
+ *
+ * The resolution that is actually in use, and — when it was chosen for you —
+ * that it was automatic. A control that can say "Auto" without saying what Auto
+ * came out as leaves the reader to guess which resolution their figures are at.
+ */
+function updateGranLabel(resolved) {
+  const b = $('#gran-trigger');
+  if (!b) return;
+  const label = GRANS.find((g) => g.key === resolved)?.label ?? resolved;
+  const auto = state.granularity === 'auto' ? ` · ${tr('Auto')}` : '';
+  b.innerHTML = `${esc(tr('per {unit}', { unit: tr(label).toLowerCase() }))}${esc(auto)}<span class="caret" aria-hidden="true">⌄</span>`;
+}
+
+/**
+ * The rail foot: the facts about the data, not about the performance.
+ *
+ * Reconciliation keeps its verdict here as well as in the banner, and keeps its
+ * colour when it disagrees — rule 6 outranks tidiness, and a quiet rail with a
+ * red banner above it is still honest. Coverage moves out of the tile row,
+ * where it rendered at the same size as the total value.
+ */
+function renderRailState(data, r) {
+  const rows = [];
+  const synced =
+    data.mode === 'demo'
+      ? tr('Demo data')
+      : data.lastSyncAt
+        ? new Date(data.lastSyncAt).toLocaleString('nl-NL')
+        : tr('Not synced yet');
+  rows.push(`<div class="row"><span class="dot"></span><span>${esc(synced)}</span></div>`);
+
+  if (r.reconciliation) {
+    const ok = r.reconciliation.ok === true;
+    rows.push(
+      `<div class="row ${ok ? 'ok' : 'bad'}"><span class="dot"></span><span>${
+        esc(ok ? tr('Reconciles to the cent') : tr('DOES NOT reconcile'))
+      }</span></div>`,
+    );
+  }
+  const est = r.coverage?.estimated ?? 0;
+  const days = Math.max(1, r.coverage?.days ?? 1);
+  rows.push(
+    `<div class="row"><span class="dot"></span><span>${
+      esc(tr('{pct}% measured', { pct: (100 - (est / days) * 100).toFixed(1) }))
+    }</span></div>`,
+  );
+  $('#rail-state').innerHTML = rows.join('');
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -794,7 +1025,7 @@ function wireActions() {
   });
 
   $('#btn-hide-diag').addEventListener('click', () => {
-    $('#diagnostics').hidden = true;
+    $('#diagnostics').close();
   });
 
   $('#btn-export').addEventListener('click', async (e) => {
@@ -854,6 +1085,8 @@ function applyTab() {
   }
   for (const b of $('#tabs').querySelectorAll('button')) {
     const on = b.dataset.tab === state.tab;
+    if (on) b.setAttribute('aria-current', 'page');
+    else b.removeAttribute('aria-current');
     b.setAttribute('aria-selected', String(on));
     b.classList.toggle('is-on', on);
   }
@@ -908,6 +1141,7 @@ function render() {
   $('#subtitle').textContent =
     `${build ? `v${build} · ` : ''}${r.start} → ${r.end} · ${r.days.length} days · ${modeNote}`;
 
+  renderRailState(data, r);
   renderBanners(data, r);
 
   // --- range window -----------------------------------------------------
@@ -936,6 +1170,7 @@ function render() {
   const slice = (arr) => arr.slice(from, to + 1);
 
   const gran = state.granularity === 'auto' ? autoGranularity(to - from + 1) : state.granularity;
+  updateGranLabel(gran);
   markAutoGranularity(gran);
 
   // "Results per" used to reach only the two result charts, so pressing Month
@@ -3024,7 +3259,24 @@ function clearNotices() {
 
 function renderDiagnostics(report) {
   const box = $('#diagnostics');
-  box.hidden = false;
+  /**
+   * A modal rather than a card in the page flow.
+   *
+   * It is a once-a-month action whose output is a step table nobody needs beside
+   * their charts, and `<dialog>` brings Escape, the focus trap and the backdrop
+   * without a line of JavaScript. `showModal()` throws if it is already open, so
+   * the guard is not decoration.
+   */
+  if (!box.open) box.showModal();
+  /**
+   * The title names the broker, read off the adapter's own `label` rather than
+   * written here. That is what makes a second broker a data change instead of a
+   * UI change: `brokers/index.js` documents `label` as "what the UI shows", and
+   * every adapter carries its own `checkSession`.
+   */
+  const brokers = connectedBrokers(report?.rowCounts ?? null);
+  const who = (brokers.length ? brokers : ADAPTERS).map((a) => a.label).join(', ');
+  $('#diag-title').textContent = tr('Connection check · {broker}', { broker: who });
   $('#diag-summary').textContent = report.summary ?? '';
 
   const cell = (s) => {
