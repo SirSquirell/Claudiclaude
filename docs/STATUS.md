@@ -87,6 +87,9 @@ F1–F5 shipped in 0.37.0, F6–F9 in 0.38.0. U1–U5 need a decision rather tha
 
 | Story | State | Waiting on |
 |---|---|---|
+| US-59 | **The card's small print is unreadable** at the 500–700 px a chat renders it. Type inside a card must be a fraction of the card, not of the page — and US-54's score card is mostly small print, so this goes first | Nothing. Defect, measured |
+| US-60 | **The popup has no translations at all** — no `data-i18n`, `applyStatic` never called, so a Dutch reader gets an English popup — and none of the redesign's hierarchy | Nothing. The Dutch half is a defect |
+| — | **A price series was rescaled by factor 4,369**, which is not a split ratio. Investigation: one factor across two regimes, or a vwd id that changed instrument. Do not tune the threshold | Nothing |
 | US-37 | **Trading 212 R1 — PASS, measured 2026-08-13.** Page 200/401, logged out 401, and the service worker `PASS_JSON` with only an `Accept` header — so no device identifier is required either | Nothing. **US-39–US-45 are unblocked** |
 | US-44 | **Trading 212 renders through the existing pipeline** — no separate dashboard | Gated on US-37 and the data gates. Addendum body not yet received |
 | US-45 | Parameterise the session read (`session.js:19`) — renumbered twice | Deferred until R1 clears — rule 8 |
