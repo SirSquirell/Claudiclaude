@@ -134,6 +134,24 @@ export function fieldAlarms(stats, cfg = FIELD_ALARM) {
 }
 
 /** First non-nullish value among the candidate keys. */
+/**
+ * Pull the base-currency amount out of a DEGIRO currency map (`{EUR: n}`), the
+ * shape `todayPlBase` and `plBase` use. Returns `null` when nothing is stated,
+ * so the caller can distinguish "zero" from "absent" (rule 4). A plain number
+ * is passed through, and a map without the base key falls back to its only
+ * value rather than guessing between several.
+ */
+function currencyAmount(v, base = 'EUR') {
+  if (v == null || v === '') return null;
+  if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+  if (typeof v === 'object' && !Array.isArray(v)) {
+    if (v[base] != null) return num(v[base]);
+    const only = Object.values(v);
+    return only.length === 1 && only[0] != null ? num(only[0]) : null;
+  }
+  return num(v);
+}
+
 function pick(obj, keys, fallback = undefined) {
   const field = keys[0];
   let stat = fieldStats.get(field);
@@ -422,8 +440,28 @@ function flattenPairs(entry) {
  * @returns {{positions: Array<{productId, size, price, value}>, totalValue: number|null,
  *            totalCash: number|null, cash: Record<string, number>}}
  */
-export function parseUpdate(res) {
+export function parseUpdate(res, baseCurrency = 'EUR') {
   const positions = [];
+  /**
+   * DEGIRO's own result-so-far-today, summed across the open positions.
+   *
+   * `/update` states a `todayPlBase` per position — a currency map, `{EUR: n}`
+   * — which is the day figure DEGIRO shows in its own app. Summing it is the
+   * only way this project can report "today" that matches what the user sees in
+   * DEGIRO, and it is the honest one at the ragged edge of the data: the vwd
+   * daily-close series lags intraday, and it lags *per instrument* (one feed has
+   * today's close, another is still on Friday's), so the reconstructed
+   * day-over-day change on the last calendar day is a partial move — some
+   * holdings counted, others held flat. This number has that problem for none of
+   * them, because it is DEGIRO's, computed against every position's live price.
+   *
+   * `null`, not `0`, when the field is absent — an older capture, or a response
+   * shape that never carried it. A `0` would read as "flat today" and is exactly
+   * the plausible-wrong-number this project refuses to invent (rule 4); a `null`
+   * lets the caller fall back rather than lie.
+   */
+  let todayPlSum = 0;
+  let sawTodayPl = false;
   const portfolioRows = unwrap(res, ['portfolio.value', 'portfolio']) ?? [];
   if (Array.isArray(portfolioRows)) {
     for (const row of portfolioRows) {
@@ -432,6 +470,11 @@ export function parseUpdate(res) {
       if (!productId) continue;
       const size = num(pick(f, ['size', 'qty', 'quantity'], 0));
       if (size === 0) continue; // closed positions still show up with size 0
+      const todayPl = currencyAmount(pick(f, ['todayPlBase'], null), baseCurrency);
+      if (todayPl != null) {
+        todayPlSum += todayPl;
+        sawTodayPl = true;
+      }
       positions.push({
         productId,
         size,
@@ -465,6 +508,9 @@ export function parseUpdate(res) {
     positions,
     totalValue: totalValue == null ? null : num(totalValue),
     totalCash: totalCash == null ? null : num(totalCash),
+    // DEGIRO's own result-so-far-today. `null` when the response never carried
+    // `todayPlBase`, so a caller can tell "flat" from "not stated".
+    todayPl: sawTodayPl ? Math.round(todayPlSum * 100) / 100 : null,
     cash,
     // Everything else DEGIRO put in totalPortfolio, kept rather than dropped.
     // Two fields were being picked out of this object and the rest discarded

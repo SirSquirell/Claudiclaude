@@ -343,6 +343,12 @@ for (const ins of INSTRUMENTS) {
   const px = priceOn(ins.vwd, TODAY);
   const value = Math.round(qty * px * 100) / 100;
   positionsValue += value;
+  // DEGIRO's own day figure: today's close against the previous trading day,
+  // times the size held. A realistic small move so the demo's "Today" tile
+  // reads like a day and not like the whole position — see parseUpdate, which
+  // sums this to a number that matches DEGIRO's own.
+  const prevPx = priceOn(ins.vwd, addDays(TODAY, -1));
+  const todayPl = prevPx != null ? Math.round(qty * (px - prevPx) * 100) / 100 : 0;
   positions.push({
     id: ins.id,
     value: [
@@ -353,7 +359,7 @@ for (const ins of INSTRUMENTS) {
       { name: 'value', value: value },
       { name: 'accruedInterest', value: null },
       { name: 'plBase', value: { EUR: -value } },
-      { name: 'todayPlBase', value: { EUR: -value } },
+      { name: 'todayPlBase', value: { EUR: todayPl } },
       { name: 'portfolioValueCorrection', value: 0 },
       { name: 'breakEvenPrice', value: px },
       { name: 'averageFxRate', value: 1 },
