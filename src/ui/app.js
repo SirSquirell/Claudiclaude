@@ -1354,7 +1354,7 @@ function render() {
   }
 
   const months = monthlyTable(r);
-  renderMonthMatrix(months, t);
+  renderMonthMatrix(months, t, r.days[from], r.days[to]);
   renderMonthCompare(months, t);
 
   lastWindow = { result: r, from, to };
@@ -2275,8 +2275,18 @@ function divergingTint(value, maxAbs, t) {
   return alpha(value > 0 ? t.pos : t.neg, 0.08 + strength * 0.42);
 }
 
-function renderMonthMatrix(months, t) {
+function renderMonthMatrix(months, t, windowFrom = null, windowTo = null) {
   const table = $('#months');
+  /**
+   * Brief §4: the matrix keeps every year and greys the months outside the
+   * window rather than dropping them.
+   *
+   * Its whole point is comparison across years — filter it to the window and
+   * March 2024 has nothing to sit next to. So the rows stay and the cells the
+   * period excludes are dimmed: still readable, visibly not part of the figures
+   * above them.
+   */
+  const inWindow = (key) => !windowFrom || (key >= windowFrom.slice(0, 7) && key <= windowTo.slice(0, 7));
   const maxAbs = isPct() ? months.maxAbsPct : months.maxAbsPnl;
   const extremes = isPct() ? months.byPct : months.byPnl;
   const extremeKeys = new Set([extremes?.best?.month, extremes?.worst?.month].filter(Boolean));
@@ -2306,7 +2316,7 @@ function renderMonthMatrix(months, t) {
           // below, so the grid and the comparison read as one thing — and so
           // the ring cannot be confused with the best/worst outline.
           const pick = state.selectedCells.indexOf(c.month);
-          const cls = `cell${extremeKeys.has(c.month) ? ' extreme' : ''}${pick >= 0 ? ' picked' : ''}`;
+          const cls = `cell${extremeKeys.has(c.month) ? ' extreme' : ''}${pick >= 0 ? ' picked' : ''}${inWindow(c.month) ? '' : ' out'}`;
           const ring = pick >= 0 ? `;outline-color:${t.series[pick % t.series.length]}` : '';
           return `<td class="${cls}" style="background:${divergingTint(v, maxAbs, t)}${ring}" title="${esc(c.month)}: ${esc(fmtEurCents(c.pnl))} · ${c.returnPct.toFixed(2)}%"><button type="button" class="cell-pick" data-cell="${esc(c.month)}" aria-pressed="${pick >= 0}">${esc(fmtMetric(v))}</button></td>`;
         })

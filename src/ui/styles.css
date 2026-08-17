@@ -2083,3 +2083,14 @@ button.primary:active {
   font-size: var(--hint);
   color: var(--critical);
 }
+
+/* A month the period excludes: still legible, visibly not part of the figures
+   above it. Dimmed rather than removed, because the grid exists to compare
+   across years and a filtered grid has nothing to compare against. */
+#months td.cell.out {
+  opacity: 0.38;
+}
+
+#months td.cell.out button {
+  color: var(--text-muted);
+}
