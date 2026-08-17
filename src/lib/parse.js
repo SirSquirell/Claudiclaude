@@ -90,6 +90,17 @@ function unwrap(res, paths) {
 /**
  * @returns {Array<{id, date, productId, quantity, price, currency, fee, totalBase}>}
  * `quantity` is signed: positive for a buy, negative for a sell.
+ *
+ * `price` is in the instrument's own currency and `currency` says which — while
+ * `fee` and `totalBase` are in the account's base currency. That mixture is
+ * DEGIRO's, not ours, and it is worth stating here because reading `price` as a
+ * base-currency figure is exactly the defect US-51 fixed one layer up.
+ *
+ * `currency` is **null when the response does not state one.** It used to default
+ * to `'EUR'`, which is rule 4's forbidden move: an unrecognised value getting a
+ * plausible meaning. Every reader already falls through to the product's currency
+ * and then to the account's base, so a null costs nothing and a wrong guess costs
+ * a mislabelled price.
  */
 export function parseTransactions(res) {
   const rows = unwrap(res, ['data', 'transactions', 'data.transactions']) ?? [];
@@ -122,7 +133,7 @@ export function parseTransactions(res) {
         productId: String(pick(r, ['productId', 'product_id', 'id'], '')),
         quantity,
         price: num(pick(r, ['price', 'tradedPrice'], 0)),
-        currency: String(pick(r, ['currency', 'productCurrency'], 'EUR')),
+        currency: pick(r, ['currency', 'productCurrency'], '') ? String(pick(r, ['currency', 'productCurrency'], '')) : null,
         fee: num(pick(r, ['feeInBaseCurrency', 'fee', 'totalFeesInBaseCurrency'], 0)),
         totalBase: num(
           pick(r, ['totalPlusFeeInBaseCurrency', 'totalInBaseCurrency', 'totalPlusAllFeesInBaseCurrency', 'total'], 0),

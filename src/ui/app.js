@@ -39,7 +39,7 @@ import * as frown from './frown.js';
 let demoVersion = null;
 import { isSameRun } from '../lib/sync.js';
 import { LANGS, applyStatic, getLang, missing as missingTranslations, setLang, t as tr } from './i18n.js';
-import { THEMES, alpha, applyAnonymize, applyTheme, fmtEurCents, fmtPct, fmtQty, fmtSigned, getAnonymize, getTheme, onThemeChange, setAnonymize, setTheme, tokens } from './theme.js';
+import { THEMES, alpha, applyAnonymize, applyTheme, fmtEurCents, fmtPct, fmtPrice, fmtQty, fmtSigned, getAnonymize, getTheme, onThemeChange, setAnonymize, setTheme, tokens } from './theme.js';
 import { snapshotModel } from '../lib/snapshot.js';
 import { markSvg } from './brand.js';
 import { copySnapshot } from './snapshot.js';
@@ -2684,6 +2684,15 @@ function renderTransactions(data, r, from, to) {
   const all = [...(data.transactions ?? [])].sort((a, b) => String(b.date).localeCompare(String(a.date)));
   const inRange = state.txScope === 'all' ? all : all.filter((t) => t.date >= r.days[from] && t.date <= r.days[to]);
   const names = Object.fromEntries((r.byProduct ?? []).map((p) => [p.productId, p.symbol || p.name]));
+  /**
+   * US-51. The currency each price is quoted in, and where it comes from.
+   *
+   * The product's currency first, because that is what the engine values through
+   * (`engine.js:583`) and the two must not disagree about the same instrument;
+   * then the transaction's own; then nothing, which renders a bare number rather
+   * than a euro sign nobody checked.
+   */
+  const ccys = Object.fromEntries((r.byProduct ?? []).map((p) => [p.productId, p.currency || null]));
 
   buildChoice('#tx-scope', [{ key: 'range', label: tr('This range') }, { key: 'all', label: tr('Everything') }],
     () => state.txScope, (k) => { state.txScope = k; render(); });
@@ -2697,19 +2706,26 @@ function renderTransactions(data, r, from, to) {
   $('#tx-hint').textContent =
     `Newest first. ${shown.length.toLocaleString('nl-NL')} shown` +
     (inRange.length > shown.length ? ` of ${inRange.length.toLocaleString('nl-NL')} in range` : '') +
-    ` · ${all.length.toLocaleString('nl-NL')} in the whole history.`;
+    ` · ${all.length.toLocaleString('nl-NL')} in the whole history.` +
+    // US-51. Both columns say what they are, because both were read as something
+    // else: the price is the price that was actually paid, in the currency it was
+    // paid in, so for a foreign trade it is not the euro column divided by the
+    // quantity. And Amount is the cash flow, fee included — negative when money
+    // left the account, which is the direction DEGIRO's own statement uses.
+    ` Price is in the instrument's own currency; Amount is what moved in ${r.baseCurrency}, fees included.`;
 
   $('#transactions tbody').innerHTML = shown.length
     ? shown
         .map((t) => {
           const buy = (t.quantity ?? 0) > 0;
+          const ccy = ccys[t.productId] ?? t.currency ?? null;
           return `<tr>
         <td>${esc(formatDay(t.date))}</td>
         <td><span class="chip ${buy ? 'info' : 'warn'}">${esc(tr(buy ? 'Buy' : 'Sell'))}</span></td>
         <td>${esc(names[t.productId] ?? t.productId)}</td>
         <td class="num">${esc(fmtQty(t.quantity ?? 0))}</td>
-        <td class="num">${esc(fmtEurCents(t.price ?? 0))}</td>
-        <td class="num">${esc(fmtSigned(-(t.totalBase ?? 0)))}</td>
+        <td class="num">${esc(fmtPrice(t.price ?? 0, ccy))}</td>
+        <td class="num">${esc(fmtSigned(t.totalBase ?? 0))}</td>
       </tr>`;
         })
         .join('')

@@ -15,6 +15,42 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.45.0] — 2026-08-17
+
+### Fixed
+
+- **A price quoted in dollars was printed with a euro sign.** The transactions table rendered the
+  traded price through the euro formatter, so a fill at `$ 3,105` read `€ 3,11` — and nothing said
+  no conversion had happened. Reported from a real account, beside DEGIRO's own row.
+
+  **No number was wrong and nothing needs resyncing.** The engine never reads that field for
+  valuation: positions are priced through the product's own currency and the observed rate, and each
+  row's euro figure comes from DEGIRO's base-currency total. What was wrong was the label, which is
+  its own defect — multiply the printed € 3,11 by 900 shares and you get € 2.799, which cannot be
+  reconciled with the € 2.421,71 beside it, and the only way out is to assume one of the two columns
+  is lying.
+
+  The price now renders in the currency it was actually traded in, resolved from the product first
+  and the transaction second. When neither states one it renders **without a currency at all** — a
+  bare number rather than a euro sign nobody checked.
+
+- **Two different fills looked like the same one.** Prices were rounded to cents, so `$ 3,105` and
+  `$ 3,12` both printed as `3,11`-ish and a penny stock at `$ 0,0125` printed as `0,01`. A price is
+  not an amount: prices now carry up to four decimals, amounts still two.
+
+- **A purchase was signed positive.** The Amount column showed money leaving the account as
+  `+€ 2.421,71` where the broker's own statement shows `−€ 2.419,71`, under a header that said only
+  *Amount*. It is now the cash flow — negative when money left — and the hint says so, including
+  that fees are inside it, which is where the remaining difference from DEGIRO's row comes from.
+
+### Changed
+
+- **A transaction that does not state a currency no longer becomes a euro one.** The parser
+  defaulted the field to `EUR`; it is now `null`. Every reader already fell through to the product's
+  currency and then to the account's base, so nothing downstream changes — but an unrecognised value
+  acquiring a plausible meaning is the failure mode rule 4 exists for, and it was one layer under
+  the defect above.
+
 ## [0.42.0] — 2026-08-11
 
 ### Changed

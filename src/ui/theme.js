@@ -7,7 +7,7 @@
  * are read by the formatters that live here and neither is account data.
  */
 
-import { maskEur, maskQty, maskSigned } from '../lib/anon.js';
+import { maskEur, maskMoney, maskQty, maskSigned } from '../lib/anon.js';
 
 const read = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
@@ -44,6 +44,54 @@ const eur = new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR',
 const eurCents = new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const qtyFmt = new Intl.NumberFormat('nl-NL', { maximumFractionDigits: 4 });
+
+/**
+ * US-51. A traded price, in the currency it was actually traded in.
+ *
+ * The transactions table used to render the price through `fmtEurCents`, which
+ * is hardwired to EUR — so a fill at `$ 3,105` read `€ 3,11` and nothing said no
+ * conversion had happened. The arithmetic was never wrong: the engine values
+ * positions through the product's currency and takes each row's euro figure from
+ * DEGIRO's own base-currency total. It was a true number wearing the wrong sign,
+ * and a reader who multiplied it by the quantity could not reconcile it with the
+ * amount beside it.
+ *
+ * Two things this does that `fmtEurCents` cannot:
+ *
+ *  - **Four decimals.** `$ 3,105` and `$ 3,12` both round to `3,11`-ish at two,
+ *    which made two different fills look like the same one. A price is not an
+ *    amount. Minimum two, so ordinary prices do not grow a ragged tail.
+ *  - **No currency at all when it is unknown.** `Intl` throws on a code it does
+ *    not know, and the fallback is a bare number rather than a plausible euro
+ *    sign — CLAUDE.md rule 4 applied to a label.
+ *
+ * It lives here rather than at the call site because US-46 put every money
+ * format inside this module and `test/anon-brand-snapshot.js` enforces it: one
+ * inline `Intl.NumberFormat` with a currency and the mask has a hole.
+ */
+const priceFmts = new Map();
+
+const priceFmt = (ccy) => {
+  if (priceFmts.has(ccy)) return priceFmts.get(ccy);
+  const digits = { minimumFractionDigits: 2, maximumFractionDigits: 4 };
+  let entry;
+  try {
+    if (!ccy) throw new Error('no currency');
+    const f = new Intl.NumberFormat('nl-NL', { style: 'currency', currency: ccy, ...digits });
+    const symbol = f.formatToParts(0).find((p) => p.type === 'currency')?.value ?? ccy;
+    entry = { format: (n) => f.format(n), symbol };
+  } catch {
+    const f = new Intl.NumberFormat('nl-NL', digits);
+    entry = { format: (n) => f.format(n), symbol: null };
+  }
+  priceFmts.set(ccy, entry);
+  return entry;
+};
+
+export const fmtPrice = (n, ccy = null) => {
+  const f = priceFmt(ccy);
+  return anonymized ? maskMoney(f.symbol) : f.format(n ?? 0);
+};
 
 /**
  * The formatters, and the reason US-46 is a small story.

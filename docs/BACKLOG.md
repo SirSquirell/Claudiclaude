@@ -3138,7 +3138,26 @@ on.
 
 ---
 
-## US-51 — A dollar price is not a euro price *(new, defect, refined)*
+## US-51 — A dollar price is not a euro price *(built, 0.45.0)*
+
+**Built as refined, with two deviations, both narrowing it:**
+
+1. **`fmtPrice(n, ccy)`, not `fmtMoney(n, ccy)`.** A general money formatter taking a currency has
+   exactly one caller and the base currency is still EUR everywhere else, so the base-currency
+   plumbing the refinement sketched would have been a parameter with no second caller — rule 8. The
+   choke point is intact: it lives in `theme.js`, it masks, and the guard test still passes.
+2. **No implied rate in the tooltip, which the refinement had decided to add.** Two reasons found in
+   the code: `totalBase` includes the fee, so `|totalBase| ÷ |price × quantity|` is wrong in the
+   fourth digit — €2,00 of fee moves 1,1549 to 1,1540 — and for an option `price × quantity` is not
+   the native total at all, it is short by the contract size, which is the same trap `engine.js:441`
+   already documents for deriving rates from trades. A rate that is right for shares and 100× wrong
+   for options is worse than no rate. The visible currency symbol does the disclosure instead, which
+   is what the reader actually needed: it says the euro column is not this number times the quantity.
+
+Also decided while building: nl-NL renders USD as **`US$`**, not `$`. More specific than DEGIRO's own
+column and unambiguous between the dollars, so it stays.
+
+### The original refinement
 
 > *"zie je dat, DEGIRO heeft hier dollars staan en jij neemt het 1:1 over naar euro's"*
 

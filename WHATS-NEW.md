@@ -50,6 +50,8 @@ Zeven secties, elk met de cijfers die erbij horen boven de grafieken. Bij elk ci
   jaar met verlies sloot telt nergens anders mee, en is precies wat je wilt terugzien. `0.31.0`
 - **Transacties** — de regels achter elk cijfer op de pagina. `0.31.0`
 - **Koers en gemiddeld betaald** als kolommen in de tabel. `0.31.0`
+- **Koersen met vier decimalen, in hun eigen munt.** Een order van $ 3,105 en een van $ 3,12 zijn twee verschillende koersen; op centen afgerond leken ze dezelfde. `0.45.0`
+- **De kolom *Bedrag* is de geldstroom**: negatief als er geld van de rekening ging, zoals op je afschrift, en met de transactiekosten erin. `0.45.0`
 - **Hoeveel van een positie je eigen geld is**, en hoeveel het opleverde. `0.22.0`
 - **Tabel of ring**, zelfde groepering en zelfde kleuren. `0.11.0`
 
@@ -118,6 +120,7 @@ jouw grafiek ook niet — en helpt alleen Wipe & resync.**
 | **Weergave** | **De holdings-tabel toonde een omgerekend getal, geen aantal aandelen.** Met vier decimalen in Nederlandse opmaak stond `17,363` recht onder `2.000` en las het als zeventienduizend. | `0.10.0` |
 | **Wisselkoersen** | **Een bedrag in centen werd als wisselkoers gebruikt.** Gevonden via een foutrapport van een tester, en precies waarvoor dat rapport bestaat. | `0.28.0` |
 | **Eerlijkheid** | **Een contractgrootte via een geïnterpoleerde koers claimt niet langer "gemeten".** Hij heet nu *geschat*, wat hij was. Een getal mag er niet zekerder uitzien dan het is. | `0.29.0` |
+| **Valuta** | **Een koers in dollars stond er met een euroteken.** In de transactietabel werd de betaalde koers door de euro-opmaak gehaald, dus een order van $ 3,105 las `€ 3,11` — zonder dat er iets zei dat er niet omgerekend was. **Er is geen enkel getal fout geweest en resyncen is niet nodig:** de omrekening gebeurt in de motor, met de koers die je eigen transacties noemen, en het eurobedrag ernaast komt van DEGIRO zelf. Maar 900 × € 3,11 is € 2.799 en dat valt niet te rijmen met de € 2.421,71 ernaast — dus stond de koers er nu in de munt waarin hij ook echt betaald is. Weet de extensie de munt niet, dan staat er geen teken bij in plaats van een gegokt euroteken. | `0.45.0` |
 | **Rekenwerk** | **De verstreken tijd was één dag te lang.** Bij het omrekenen naar jaarrendement werd een *aantal* dagen gebruikt waar de *afstand* ertussen nodig was. | `0.33.0` |
 | **Laden** | **0.39.0 kon op sommige rekeningen helemaal niet laden** — een witte pagina met *"Cannot access 'value' before initialization"*. De waarschuwing over verouderde koersen greep naar een totaal dat pas verderop wordt samengesteld. Zag je die melding: updaten en op Sync drukken. Er is niets fout opgeslagen, de reconstructie kwam alleen nooit af. | `0.40.0` |
 | **Valuta** | **Een buitenlands instrument wordt nu omgerekend met de koers die z’n eigen transacties noemen.** 0.38.0 signaleerde alleen dat er iets niet klopte; nu wordt het opgelost — zonder te gokken wélke munt het is, want de verhouding tussen wat er afgerekend en wat er verhandeld is, í́s de koers. | `0.39.0` |
