@@ -3563,3 +3563,215 @@ If the card needs a number the tile does not already carry, stop: the tile is th
 score card that recomputes a figure has left the choke point where US-46 masks and where the leak
 test can see it. And if sharing the block means sharing what is rendered rather than the real tiles,
 stop — that is how Optimism Mode reaches a card with a reconciliation badge on it.
+
+---
+
+# Refinement 0.48 — an Apple-design pass on the feel
+
+Four stories from a design pass (2026-08-17) reading the app through Apple's *Designing Fluid
+Interfaces* lens. None of them is a new number and none touches `engine.js`; they are about
+**directness and craft**, which is the only kind of polish this project's ethos leaves room for. A
+tween on the figures themselves was considered and **rejected**: this project's whole claim is that
+no number on screen was ever untrue, and an interpolated frame shows a value that never happened.
+So the motion goes on the *controls and the chrome*, never on the *data*.
+
+The through-line, Apple's own: an interface feels alive when motion **starts from the current
+on-screen value, inherits the user's velocity, projects momentum forward, and can be grabbed and
+reversed at any instant.** Springs are the tool, and they must be ~30 lines of inline `rAF` — a
+vendored animation library is a remote-script-shaped dependency this project's CSP and offline
+promise (vendor policy, rule 9's neighbourhood) would reject.
+
+---
+
+## US-55 — Grab the chart to set the range *(new, refined — extends US-12)*
+
+The window is set by discrete buttons — 1M · 3M · 6M · YTD · 1Y · ALL — but the value chart is the
+most *physical* surface on the page, and US-12 already reads a drag on it (to zoom). This is the
+same gesture grown up: **brush a range directly on the chart**, and it becomes the window.
+
+**Apple principles at work:** direct manipulation (§2), velocity handoff (§5), momentum projection
+(§6), rubber-banding (§9), interruptibility (§3).
+
+**The feel, precisely:**
+
+- **1:1 tracking.** Pointer Events with `setPointerCapture`, respecting the offset from where the
+  edge was grabbed — the handle stays glued to the finger even past the plot bounds.
+- **Velocity handoff on release.** Keep a short position/timestamp history; on release the window
+  edge settles with a **critically-damped spring** (§4, `damping 1.0`, `response ~0.4`) continuing
+  at the finger's velocity, so there is no seam between dragging and settling.
+- **Momentum projection.** A flick projects where the edge is going (`current + project(v)`) and
+  snaps to the nearest day *there*, not under the release point — a flick throws the window.
+- **Rubber-band at the ends.** Dragging before the first day or past the last resists progressively
+  rather than stopping dead (§9), so the edge of the history reads as an edge, not a freeze.
+
+**The traps:**
+
+1. **Animate from the presentation value, always.** The settle spring starts from the edge's live
+   on-screen position, and a new grab *mid-settle* reads velocity from where it actually is — start
+   from the target and the handle jumps, which is the one thing §3 forbids.
+2. **Recompute per frame is honest here, and only because of rule 2.** The window moving redraws
+   real numbers every frame; there is no smoothing of the *data*, only of the handle. Rule 2's
+   "recomputing five years is milliseconds, measured not assumed" is the licence — so measure it,
+   and if a frame's recompute blows the budget, downsample the redraw, never the truth.
+3. **Reduced motion (§14) keeps the tracking, drops the overshoot.** The brush still follows the
+   finger 1:1 — that is direct control, not vestibular motion — but the settle becomes an instant
+   snap with no spring, under `prefers-reduced-motion`.
+4. **No series repaints on range change.** The composition ranks on the whole history (charts rule),
+   so moving the window must not recolour anything — the rule already exists and this is where it is
+   easiest to break.
+5. **The discrete buttons stay.** They are the fast path and the keyboard-accessible one; the
+   gesture is an addition, not a replacement (§5 Flexibility).
+
+**Acceptance criteria:**
+
+- **AC1** Brushing on the value chart sets the range, tracking the finger 1:1 with the grab offset
+  respected.
+- **AC2** On release the window edge settles with a spring carrying the release velocity, and a
+  flick lands where the momentum projects, snapped to a day.
+- **AC3** Grabbing an edge mid-settle reverses from its live position with no jump.
+- **AC4** Dragging past the first or last day rubber-bands rather than stopping hard.
+- **AC5** Under `prefers-reduced-motion`, tracking stays 1:1 and the settle is an instant snap with
+  no overshoot.
+- **AC6** `engine.js` is unchanged, the per-frame recompute stays within a measured budget, and no
+  series changes colour when the window moves.
+- **AC7** The discrete range buttons still work and still reflect the gesture's result.
+
+**Stop condition:** if the gesture needs the engine to expose anything it does not already return,
+stop — this is UI over the arrays the page already holds, and the moment it reaches into `engine.js`
+it has stopped being a rendering concern.
+
+---
+
+## US-56 — Response and graceful degradation, everywhere *(new, refined)*
+
+The lowest-risk, highest-trust item: a craft pass that makes the whole page feel *responsive* and
+degrade honestly. Two Apple needs at once — **response** (§1) and **accessibility** (§14) — and it
+lives in one place rather than per-component, the same way US-46's mask lives in the formatters.
+
+**What it is:**
+
+- **Feedback on pointer-*down*, not release (§1/§10).** Every button, row, chip and toggle
+  highlights the instant it is pressed, commits on release, and cancels if the finger drags away and
+  does not come back. Waiting for `click` to show anything is the latency §1 calls "a cliff".
+- **`prefers-reduced-motion: reduce` (§14).** Slides, springs and overshoot become short opacity
+  cross-fades; motion that aids comprehension (a thing appearing) stays, motion that is decoration
+  goes. Reduced motion is a *gentler* feedback, never *no* feedback.
+- **`prefers-reduced-transparency: reduce`.** Any translucent chrome frosts to near-solid — raise
+  background opacity, drop the blur.
+- **`prefers-contrast: more`.** Near-solid backgrounds with a defined contrasting border.
+
+**The traps:**
+
+1. **The palette is measured, and this changes surfaces.** Any contrast or transparency fallback is
+   a new surface the chart series sit on. `npm run palette` must stay green in both themes, and the
+   reconciliation-red and warning text must stay above their thresholds — a fallback that quietly
+   darkens a warning below legibility has failed the one thing rule 6 protects.
+2. **Press-on-down is feedback, not activation.** The highlight fires on `pointerdown`; the *action*
+   fires on `pointerup` over the target. Conflating them turns a highlight into an accidental
+   activation, which §10's "cancel-by-dragging-away" exists to prevent.
+3. **One layer, not fifty.** This belongs in the token/interaction layer so a control added next
+   year inherits it, exactly as a money field added next year inherits US-46's mask by having to
+   call the formatter. A per-component sprinkle is the denylist mistake in a different costume.
+
+**Acceptance criteria:**
+
+- **AC1** Every interactive element shows feedback on `pointerdown`, commits on `pointerup`, and
+  cancels when the pointer drags away without returning.
+- **AC2** Under `prefers-reduced-motion`, no slide/spring/overshoot plays; comprehension-preserving
+  cross-fades remain.
+- **AC3** Under `prefers-reduced-transparency`, translucent chrome renders frosted/solid.
+- **AC4** Under `prefers-contrast: more`, interactive surfaces gain a contrasting border.
+- **AC5** `npm run palette` passes in both themes after the change, and a test asserts the three
+  media queries are present rather than assumed.
+
+**Stop condition:** if any fallback would weaken the reconciliation-red, an `UNKNOWN`-count, or a
+price-gap warning below legibility, stop — rule 6 outranks the aesthetic, and a hidden disagreement
+with the broker is the failure this project exists not to ship.
+
+---
+
+## US-57 — The share sheet as a material *(new, refined — extends US-47+/US-54)*
+
+Motion only, on the sheet US-47+ built and US-52/US-54 fill with content. It changes **no field and
+moves no value**; it makes the sheet *feel* like a real object arriving.
+
+**Apple principles:** materials & depth (§12 "materialize, don't fade"), momentum (§6), spatial
+consistency (§7), interruptibility (§3).
+
+**The feel:**
+
+- **The card materializes.** On open it animates blur radius and scale together, so it reads as a
+  pane of glass arriving rather than an opacity fade; on close it mirrors the same path (§7).
+- **The four `FORMATS` become a swipeable strip.** Momentum projection and snap (§6) instead of a
+  click-list — flick through square / portrait / story / landscape and it lands on one.
+- **Interruptible throughout (§3).** Grab the strip mid-fling and it follows; grab the sheet while it
+  is closing and it reopens from where it is.
+
+**The traps:**
+
+1. **Content is frozen; this is motion.** The card's model stays US-47's allowlist (US-52's `split`,
+   US-54's score-card fields). A test asserts the model is byte-for-byte what it was — a motion story
+   that moves a value has become a different story.
+2. **Reduced motion and reduced transparency (§14).** The materialize becomes a plain fade; the
+   swipe still selects but snaps instantly; the blur drops to a solid under reduced-transparency.
+
+**Acceptance criteria:**
+
+- **AC1** The card materializes (blur + scale spring) on open and mirrors that path on close.
+- **AC2** The format strip is swipeable with momentum that projects and snaps to one shape.
+- **AC3** Grabbing the strip or the sheet mid-motion follows the finger from the live position.
+- **AC4** Under `prefers-reduced-motion` the materialize is a fade and the snap is instant; under
+  `prefers-reduced-transparency` the blur is solid.
+- **AC5** The snapshot and score-card models are unchanged, asserted by test — no field added, no
+  value moved.
+
+**Stop condition:** if the motion wants to change what is drawn on the card, stop — content belongs
+to US-47/US-52/US-54, and this story is the glass, not what is written on it.
+
+---
+
+## US-58 — Type that changes shape with size *(new, refined)*
+
+The hero figures — the giant `€ -0,05` — are set with body tracking. Apple §15: **tracking and
+leading are size-specific, never one value for all sizes.** Large display text wants *negative*
+tracking and *tight* leading; body wants near-zero tracking and looser leading. A single global
+`letter-spacing` is wrong somewhere, and on the biggest number on the page it is wrong most visibly.
+
+**Apple principles:** typography (§15), craft.
+
+**What it is:** size-bucketed tracking and leading in the tokens — display negative (~`-0.02em`) and
+tight-leaded, body near-`0` and comfortably leaded, small text slightly positive; `font-optical-
+sizing: auto`; all in `rem`/`em` so Dynamic-Type-style user scaling still works (US-16 already did
+the responsive sizing).
+
+**The measured check, because this repo does not assert craft — it measures it.** The palette rule
+(CLAUDE.md, Charts) is the standing example: *"the palette is measured, not asserted… a comment is
+not a check."* Type gets the same treatment — an `npm run type` that reads the tokens and **fails on
+a fixed global letter-spacing and on any display size not carrying negative tracking**, so the
+buckets cannot silently rot back to one value.
+
+**The traps:**
+
+1. **This is type shape, not number format.** Numbers stay `nl-NL` (a locale for money, US-32/US-46),
+   and this story does not touch the formatters — the minus sign, the thousands dot and the decimal
+   comma are the formatter's, and tracking must be measured *at the display size* so they do not
+   crowd. Eyeballing it is the "comment is not a check" mistake.
+2. **Optical sizing needs a variable font.** Confirm the bundled Inter Tight / Inter face actually
+   carries an optical axis; if it does not, `font-optical-sizing` is a no-op and this is tracking and
+   leading only — stated plainly rather than promised.
+3. **Contrast is unaffected but re-checked.** Tighter tracking can nudge legibility; the palette/
+   contrast checks stay green.
+
+**Acceptance criteria:**
+
+- **AC1** Tracking and leading are size-bucketed in the tokens; there is no fixed global
+  `letter-spacing`.
+- **AC2** Display figures carry negative tracking and tight leading; body sits near `0` with looser
+  leading.
+- **AC3** A measured check (`npm run type`, wired into `npm test` like the palette) fails on a fixed
+  global tracking value and on a display size without negative tracking.
+- **AC4** Numbers are still `nl-NL` formatted; the formatters are untouched.
+- **AC5** The contrast checks still pass in both themes.
+
+**Stop condition:** if the change reaches into the number formatters, stop — number formatting is
+US-46's choke point and US-32's locale, and this story is CSS shape, not digits.
