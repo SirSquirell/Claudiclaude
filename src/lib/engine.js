@@ -1600,7 +1600,23 @@ export function computePortfolio(input) {
       sum += v;
       counted++;
     }
-    if (complete && counted > 0) {
+    /**
+     * `counted > 0` **or** we hold nothing either.
+     *
+     * The guard was there to stop a partial sum wearing the face of a complete
+     * one, and it does — but it also refused the one case that is complete by
+     * definition. A real account came back with `reconciliation: null` on an
+     * emptied portfolio: every position closed, so `counted` was 0, so no anchor,
+     * so rule 6's acceptance test never ran on the account where it was easiest.
+     * DEGIRO stated the cash and we had reconstructed the cash; there was nothing
+     * missing except permission to compare them.
+     *
+     * The condition is our own ledger holding nothing, not DEGIRO reporting
+     * nothing — if we think we hold something and DEGIRO lists none of it, that
+     * disagreement is `position-mismatch` above and a total would paper over it.
+     */
+    const heldByUs = byProduct.reduce((k, p) => k + (Math.abs(p.qty[n - 1]) > 1e-9 ? 1 : 0), 0);
+    if (complete && (counted > 0 || heldByUs === 0)) {
       anchor = sum + Number(liveCash);
       anchorSource = 'derived';
     }
@@ -1693,12 +1709,33 @@ export function computePortfolio(input) {
     start,
     end,
     baseCurrency,
+    /**
+     * **Rounded for reading, exact for summing.**
+     *
+     * `pnl` and `netExternal` used to be rounded to cents here like everything
+     * else, and it produced a wrong number on a real account: the Result tile
+     * sums a window of daily figures, and 2 000 values each rounded by up to half
+     * a cent drifted **15 cents** away from the truth — 16,71 on screen where the
+     * engine's own `totals.totalPnl` said 16,56. Visibly wrong, too, because
+     * `value = paid in + result` then does not add up on the page.
+     *
+     * The drift grows with the length of the history rather than the size of the
+     * account, so it is worst on exactly the accounts this project is for. And it
+     * is CLAUDE.md rule 2 in miniature: a derived number was written down, read
+     * back as an input, and 2 000 small lies became one visible one.
+     *
+     * So the two series a caller is expected to *add up* keep full precision, and
+     * the rounding happens where it belongs — in the formatters, at the edge.
+     * `value`, `cash` and the rest are levels rather than addends: nobody sums a
+     * value series, so rounding those costs nothing and keeps the payload and the
+     * tooltips clean.
+     */
     value: Array.from(value, round2),
     positionsValue: Array.from(positionsValue, round2),
     cash: Array.from(cash, round2),
-    netExternal: Array.from(netExternal, round2),
+    netExternal: Array.from(netExternal),
     cumulativeDeposited: Array.from(cumulativeDeposited, round2),
-    pnl: Array.from(pnl, round2),
+    pnl: Array.from(pnl),
     estimated: Array.from(estimatedDay),
     byProduct: byProduct.map((p) => ({
       productId: p.productId,
@@ -1715,7 +1752,9 @@ export function computePortfolio(input) {
       hasSeries: p.hasSeries,
       values: Array.from(p.values, round2),
       qty: Array.from(p.qty),
-      pnl: Array.from(p.pnl, round2),
+      // Summed per window by the positions table and by the share card, so the
+      // same rule applies one level down: exact for summing.
+      pnl: Array.from(p.pnl),
       paidIn: Array.from(p.paidIn, round2),
       current: round2(p.values[n - 1]),
     })),
