@@ -3,7 +3,7 @@
 `docs/BACKLOG.md` is 2 000 lines of reasoning and evidence, which is the right place for *why* and
 a bad place to find out *where things stand*. This is the index.
 
-**Last updated at 0.45.0.** It had been stale since 0.21.0, which is fifteen releases — if it looks
+**Last updated at 0.46.0.** It had been stale since 0.21.0, which is fifteen releases — if it looks
 stale again, trust the CHANGELOG and fix this.
 
 ## Shipped and confirmed against a real account
@@ -55,11 +55,16 @@ person.** This is the gate that is open.
 | — | F6–F9: the projection, and a losing holding that reported no loss | 0.38.0 |
 | US-35 | **Put that frown upside down** — Optimism Mode on the Overview | 0.39.0 |
 | — | U1, U2, U4, U5 resolved; the Result percentage; the version in the header | 0.39.0 |
+| US-46 | **Anonymize** — every amount and quantity masked by replacement, every percentage kept. The mask lives inside the formatters, so a money field added later is masked because it had to call one to be money | 0.44.0 |
+| US-47 | **A shareable card per position.** Drawn, never a DOM capture; no network; provenance instead of a badge | 0.44.0 |
+| US-48 | **The Asteria mark behind the tables and charts**, drawn in the padding rather than under the series | 0.44.0 |
 | US-51 | **A dollar price is no longer printed with a euro sign** — the traded price renders in the currency it was traded in, at four decimals, and Amount is the cash flow | 0.45.0 |
-| US-50 | **The snapshot line starts at the buy and ends at the close.** One pure `positionSpan` clips the series, the period *and* the percentage's basis, so a windowed result is no longer divided by an all-time `paidIn` | next |
-| US-47+ | **The share sheet** — four shapes, light or dark, amounts off by default, and a name the sharer chooses from four sources. Download beside the clipboard | next |
-| US-35d | **Optimism Mode draws two different charts** rather than deforming the real one — *Belief in PROP* (conviction index, in points) and *What PROP still owes you* (upside remaining, in euros). `flipSeries` is gone | next |
-| US-17 | **A renamed DEGIRO field is now loud.** `pick()` tallies which candidate name carried each value; a load-bearing field absent on ≥95 % of rows raises a red banner naming it, and the bug report carries the per-field shares — which is also the measurement that lets `parse.js` stop guessing | next |
+| US-16 | **The interface, rebuilt** — left rail and routes, one hero figure and three facts per section, a period control that actually recomputes, real chart heights, and an axis that admits when it does not start at zero. Eight phases, `docs/RETIRED.md` as the ledger | 0.46.0 |
+| US-49 | **One table per position, not two.** Holdings and profit-and-loss-per-product merged, keeping the paid-in-vs-grown bar and the per-product dividend; every all-time column declares itself | 0.46.0 |
+| US-50 | **The snapshot line starts at the buy and ends at the close.** One pure `positionSpan` clips the series, the period *and* the percentage's basis, so a windowed result is no longer divided by an all-time `paidIn` | 0.46.0 |
+| US-47+ | **The share sheet** — four shapes, light or dark, amounts off by default, and a name the sharer chooses from four sources. Download beside the clipboard | 0.46.0 |
+| US-35d | **Optimism Mode draws two different charts** rather than deforming the real one — *Belief in PROP* (conviction index, in points) and *What PROP still owes you* (upside remaining, in euros). `flipSeries` is gone | 0.46.0 |
+| US-17 | **A renamed DEGIRO field is now loud.** `pick()` tallies which candidate name carried each value; a load-bearing field absent on ≥95 % of rows raises a red banner naming it, and the bug report carries the per-field shares — which is also the measurement that lets `parse.js` stop guessing | 0.46.0 |
 
 **What to look at first**, if you only look at one thing: the Notices tab after a sync. 0.36.0 made
 background failures visible for the first time, so if something has been quietly failing for weeks
@@ -82,10 +87,6 @@ F1–F5 shipped in 0.37.0, F6–F9 in 0.38.0. U1–U5 need a decision rather tha
 
 | Story | State | Waiting on |
 |---|---|---|
-| US-49 | **One table per position, not two.** Holdings and profit-and-loss-per-product merged, keeping the paid-in-vs-grown bar and the per-product dividend. Half the columns follow the range control and half do not, so every all-time column declares it | Nothing new to compute — every figure is on `r.byProduct` today. Lands with the UI overhaul |
-| US-46 | **Anonymize** — mask every amount and quantity, keep every percentage. Masking lives inside the three formatters in `theme.js`, so a money field added later is masked by default | Nothing. Small, and it must land before US-47 |
-| US-47 | **A shareable snapshot per position, on the clipboard.** No network, no Discord API. "Certified" downgraded to provenance: the one claim we can honestly make is the reconciliation verdict | US-46, which decides whether the card may carry amounts |
-| US-48 | **A watermark behind the tables and charts.** Chart.js plugin for the canvases, CSS for the tables, drawn in the padding rather than under the series | **The PNG.** Monochrome with alpha, bundled, 2× — the contract is in the story |
 | US-37 | **Trading 212 R1 — PASS, measured 2026-08-13.** Page 200/401, logged out 401, and the service worker `PASS_JSON` with only an `Accept` header — so no device identifier is required either | Nothing. **US-39–US-45 are unblocked** |
 | US-44 | **Trading 212 renders through the existing pipeline** — no separate dashboard | Gated on US-37 and the data gates. Addendum body not yet received |
 | US-45 | Parameterise the session read (`session.js:19`) — renumbered twice | Deferred until R1 clears — rule 8 |
