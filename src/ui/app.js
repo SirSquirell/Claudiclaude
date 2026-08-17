@@ -605,7 +605,13 @@ function buildControls() {
 function foldHints() {
   for (const hint of document.querySelectorAll('.card > p.hint, .card-head p.hint')) {
     const head = hint.closest('.card')?.querySelector('h2');
-    if (!head || hint.dataset.folded) continue;
+    /**
+     * Empty at load means the code fills it — `products-note` counts rows,
+     * `tx-hint` counts transactions. Those are live status lines, not
+     * explanations, and folding one gave the positions panel a second `?` that
+     * hid its own row count.
+     */
+    if (!head || hint.dataset.folded || !hint.textContent.trim()) continue;
     hint.dataset.folded = '1';
     hint.hidden = true;
     const btn = document.createElement('button');
@@ -1309,7 +1315,6 @@ function render() {
   renderYears(r);
   renderOutlook(r, t);
   renderAnnualised(r, from, to);
-  renderProducts(r, from, to);
   renderTransactions(data, r, from, to);
   renderFooter(r, data);
 }
@@ -2898,87 +2903,6 @@ function renderAnnualised(r, from, to) {
   });
 }
 
-/**
- * Everything ever traded, one row per product — closed positions included.
- *
- * The holdings table answers "what do I hold"; this answers "was that a good
- * idea", and for an account that has sold everything the first table is empty
- * while all of the answer sits here.
- *
- * Two column decisions carry the story, both from the refinement:
- *
- *  - **Dividend is beside Result, never inside it.** The per-product result is
- *    value moved less money put in; a dividend is cash and lands in the cash
- *    ledger, not in the instrument's value. Folding it in would make this column
- *    disagree with the identically named column on the holdings table, and two
- *    columns may not share a name and differ.
- *  - **The percentage says what it is divided by.** Result ÷ bought is honest
- *    and needs no cost-basis convention; anything divided by a cost basis would
- *    inherit the argument this project refuses to have.
- */
-function renderProducts(r, from, to) {
-  const rows = r.byProduct
-    .map((p) => {
-      const result = sumWindow(p.pnl, from, to);
-      const qty = p.qty.at(-1) ?? 0;
-      return {
-        name: p.name,
-        symbol: p.symbol && p.symbol !== p.name ? p.symbol : '',
-        type: p.productType && p.productType !== 'UNKNOWN' ? p.productType : 'OTHER',
-        open: Math.abs(qty) >= 1e-9,
-        bought: p.bought ?? 0,
-        sold: p.sold ?? 0,
-        dividend: p.dividend ?? 0,
-        current: p.current ?? 0,
-        result,
-        pct: p.bought > 0 ? (result / p.bought) * 100 : null,
-      };
-    })
-    .filter((x) => x.bought > 0.005 || x.sold > 0.005 || Math.abs(x.current) > 0.005);
-
-  // Chips are built from the types actually present. A hardcoded list would
-  // show an empty "Warrants" filter to someone who has never held one.
-  const types = [...new Set(rows.map((x) => x.type))].sort();
-  buildChoice('#products-filter', [{ key: 'ALL', label: tr('All') }, ...types.map((k) => ({ key: k, label: titleCase(k) }))],
-    () => state.productType, (k) => { state.productType = k; render(); });
-  buildChoice('#products-sort', [{ key: 'best', label: tr('Best first') }, { key: 'worst', label: tr('Worst first') }],
-    () => state.productSort, (k) => { state.productSort = k; render(); });
-
-  const shown = rows
-    .filter((x) => state.productType === 'ALL' || x.type === state.productType)
-    // Sorted by name as the tiebreak, so equal results do not reorder between
-    // renders — a table that jitters is a table nobody trusts.
-    .sort((a, b) => (state.productSort === 'best' ? b.result - a.result : a.result - b.result) || a.name.localeCompare(b.name));
-
-  const widest = Math.max(1, ...shown.map((x) => Math.abs(x.result)));
-
-  $('#products tbody').innerHTML = shown.length
-    ? shown
-        .map(
-          (x) => `<tr>
-        <td>${esc(x.name)}${x.symbol ? ` <span class="muted">${esc(x.symbol)}</span>` : ''}</td>
-        <td><span class="chip">${esc(titleCase(x.type))}</span></td>
-        <td><span class="chip ${x.open ? 'info' : ''}">${esc(tr(x.open ? 'Open' : 'Closed'))}</span></td>
-        <td class="num">${x.bought > 0.005 ? esc(fmtEurCents(x.bought)) : '<span class="muted">—</span>'}</td>
-        <td class="num">${x.sold > 0.005 ? esc(fmtEurCents(x.sold)) : '<span class="muted">—</span>'}</td>
-        <td class="num">${Math.abs(x.dividend) > 0.005 ? esc(fmtEurCents(x.dividend)) : '<span class="muted">—</span>'}</td>
-        <td class="num">${x.open ? esc(fmtEurCents(x.current)) : '<span class="muted">—</span>'}</td>
-        <td class="num ${signClass(x.result)}">${esc(fmtSigned(x.result))}</td>
-        <td class="num ${signClass(x.result)}">${x.pct == null ? '<span class="muted">—</span>' : esc(fmtPct(x.pct))}
-          <span class="minibar" style="--w:${Math.round((Math.abs(x.result) / widest) * 100)}%;--c:${x.result >= 0 ? 'var(--pos)' : 'var(--neg)'}"></span>
-        </td>
-      </tr>`,
-        )
-        .join('')
-    : '<tr><td colspan="9" class="muted">Nothing traded in this range.</td></tr>';
-
-  const unattributed = r.unattributedDividends ?? 0;
-  $('#products-note').textContent =
-    `${shown.length} of ${rows.length} product(s).` +
-    (unattributed
-      ? ` ${unattributed} dividend row(s) carry no product, so they are in the account total but not in any row above.`
-      : '');
-}
 
 /** DEGIRO's own type strings, in sentence case. Its vocabulary, not ours. */
 const titleCase = (s) => String(s).charAt(0) + String(s).slice(1).toLowerCase().replace(/_/g, ' ');
@@ -3092,9 +3016,43 @@ function renderHoldings(r, composition, compColours, t, from, to) {
   const total = r.totals.value || 1;
   const colours = colourByProduct(composition, compColours, t);
   const otherLabel = composition.layers.find((l) => l.key === '__other__')?.label;
+  /**
+   * US-49. One table for a position instead of two.
+   *
+   * Holdings and Profit-and-loss-per-product read the same array and shared
+   * three columns, so answering "how is EQQQ doing" meant matching a row by name
+   * across two cards. Everything ever traded is here now, closed included.
+   *
+   * **Half of these columns follow the range control and half cannot**: result is
+   * `sumWindow(p.pnl, from, to)`, while bought, sold, dividend and current are
+   * all-time scalars off the engine. Two cards hid that; one row would invent a
+   * comparison, so every all-time column says so in its own header.
+   */
+  const open = (p) => Math.abs(p.current) > 0.005;
+  const traded = (p) => (p.bought ?? 0) > 0.005 || (p.sold ?? 0) > 0.005 || open(p);
+  const types = [...new Set(r.byProduct.filter(traded).map((p) => p.productType || 'OTHER'))].sort();
+  buildChoice('#holdings-status',
+    [{ key: 'open', label: tr('Open') }, { key: 'closed', label: tr('Closed') }, { key: 'all', label: tr('All') }],
+    () => state.posStatus ?? 'open', (k) => { state.posStatus = k; render(); });
+  buildChoice('#products-filter', [{ key: 'ALL', label: tr('All') }, ...types.map((k) => ({ key: k, label: titleCase(k) }))],
+    () => state.productType, (k) => { state.productType = k; render(); });
+  buildChoice('#products-sort', [{ key: 'value', label: tr('Largest first') }, { key: 'best', label: tr('Best first') }, { key: 'worst', label: tr('Worst first') }],
+    () => state.productSort ?? 'value', (k) => { state.productSort = k; render(); });
+
+  const status = state.posStatus ?? 'open';
+  const sort = state.productSort ?? 'value';
   const rows = [...r.byProduct]
-    .filter((p) => Math.abs(p.current) > 0.005)
-    .sort((a, b) => b.current - a.current);
+    .filter(traded)
+    .filter((p) => (status === 'open' ? open(p) : status === 'closed' ? !open(p) : true))
+    .filter((p) => state.productType === 'ALL' || (p.productType || 'OTHER') === state.productType)
+    .sort((a, b) => {
+      const ra = sumWindow(a.pnl, from, to);
+      const rb = sumWindow(b.pnl, from, to);
+      // Name as the tiebreak, so equal results cannot reorder between renders —
+      // a table that jitters is a table nobody trusts.
+      return (sort === 'best' ? rb - ra : sort === 'worst' ? ra - rb : b.current - a.current)
+        || a.name.localeCompare(b.name);
+    });
 
   // Everything the account made in this window, and the part of it that came
   // from a position moving. The difference is not an error: cash earns
@@ -3186,15 +3144,22 @@ function renderHoldings(r, composition, compColours, t, from, to) {
       // exist, so the marker could never appear at all; and the warning that
       // does carry instruments truncates them at 40.
       const estimated = p.hasSeries === false;
+      const isOpen = open(p);
+      const dash = '<span class="muted">—</span>';
+      // Result over money ever put in, gross. Honest and needing no cost-basis
+      // convention — which is why the header names its denominator.
+      const pct = (p.bought ?? 0) > 0 ? (sumWindow(p.pnl, from, to) / p.bought) * 100 : null;
       return `<tr>
         <td><span class="swatch" style="background:${colour}"></span>${esc(p.name)}${p.symbol && p.symbol !== p.name ? ` <span class="muted">${esc(p.symbol)}</span>` : ''}${grouped ? ` <span class="muted">· in “${esc(otherLabel)}”</span>` : ''}</td>
-        <td>${esc(fmtQty(qty))}</td>
-        <td>${esc(unitPrice(p, qty))}</td>
+        <td>${isOpen ? esc(fmtQty(qty)) : dash}</td>
+        <td>${isOpen ? esc(unitPrice(p, qty)) : dash}</td>
         <td>${esc(averagePaid(p))}</td>
-        <td>${esc(fmtEurCents(p.current))}</td>
-        ${splitCell(p)}
+        <td>${isOpen ? esc(fmtEurCents(p.current)) : dash}</td>
+        ${isOpen ? splitCell(p) : `<td>${dash}</td>`}
         ${resultCell(sumWindow(p.pnl, from, to))}
-        <td>${((p.current / total) * 100).toFixed(1)}%</td>
+        <td>${Math.abs(p.dividend ?? 0) > 0.005 ? esc(fmtEurCents(p.dividend)) : dash}</td>
+        <td class="${signClass(pct ?? 0)}">${pct == null ? dash : esc(fmtPct(pct))}</td>
+        <td>${isOpen ? `${((p.current / total) * 100).toFixed(1)}%` : dash}</td>
         <td>${esc(p.currency)}${estimated ? ' <span class="muted" title="No price history for this instrument, so it is held at the last price it traded at — its result is an estimate.">·&nbsp;est.</span>' : ''}</td>
         <td><button type="button" class="snap" data-snap="${esc(p.productId)}" title="${esc(tr('Copy a shareable image of this position'))}" aria-label="${esc(tr('Copy a shareable image of this position'))}">⧉</button></td>
       </tr>`;
@@ -3209,11 +3174,23 @@ function renderHoldings(r, composition, compColours, t, from, to) {
       <td>${esc(fmtEurCents(r.totals.cash))}</td>
       <td class="muted">—</td>
       ${resultCell(accountResult - positionResult)}
+      <td class="muted">—</td>
+      <td class="muted">—</td>
       <td>${((r.totals.cash / total) * 100).toFixed(1)}%</td>
       <td>${esc(r.baseCurrency)}</td>
     </tr>`;
 
-  $('#holdings tbody').innerHTML = body + cashRow;
+  // An empty filter says so rather than showing a headed table with nothing in
+  // it, which reads as a load that failed.
+  const empty = `<tr><td colspan="12" class="muted">${esc(tr('No positions match this filter.'))}</td></tr>`;
+  $('#holdings tbody').innerHTML =
+    (rows.length ? body : empty) + (status === 'open' || status === 'all' ? cashRow : '');
+  const unattributed = r.unattributedDividends ?? 0;
+  $('#products-note').textContent =
+    `${rows.length} of ${r.byProduct.filter(traded).length} product(s).` +
+    (unattributed
+      ? ` ${unattributed} dividend row(s) carry no product, so they are in the account total but not in any row above.`
+      : '');
 
   renderHoldingsShare(composition, rows, compColours, t, r);
 }

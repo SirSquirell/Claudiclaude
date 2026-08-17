@@ -94,12 +94,17 @@ function parseRetired(md) {
   return { entries: out, bad };
 }
 
-test('the frozen inventory is a baseline of things that exist today', () => {
-  // Guards the guard. If an id in this list never existed, the list is a typo
-  // rather than an inventory, and every later assertion about it is theatre.
-  const html = read('../src/ui/app.html');
-  const missing = LEGACY_IDS.filter((id) => !html.includes(`id="${id}"`));
-  assert.deepEqual(missing, [], 'frozen ids that are not in app.html — fix the list, not the app');
+test('the frozen inventory is a well-formed baseline', () => {
+  /**
+   * Guards the guard, but only for what stays true.
+   *
+   * This originally also asserted that every frozen id was still in `app.html`,
+   * which was right on the day the list was frozen — a typo in it would have made
+   * every later assertion theatre — and wrong from the first relocation onward:
+   * US-49 merged `products` into the positions table, which is a decision in the
+   * ledger, not a missing element. "Exists, or is accounted for" is the next
+   * test's job, and having it twice meant a legitimate merge failed the suite.
+   */
   assert.equal(new Set(LEGACY_IDS).size, LEGACY_IDS.length, 'the same id is frozen twice');
   assert.equal(LEGACY_IDS.length, 50);
 });

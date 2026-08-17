@@ -2058,3 +2058,11 @@ button.primary:active {
     animation-duration: 0.01ms !important;
   }
 }
+
+/* The three filters of the merged positions table, on one row above it. */
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-bottom: 12px;
+}

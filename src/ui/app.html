@@ -304,12 +304,35 @@
         <div class="card">
           <div class="card-head">
             <div>
-              <h2 data-i18n>Holdings</h2>
+              <h2 data-i18n>Positions</h2>
+              <!--
+                US-49. One table where there were two. The same series as the
+                stacked chart, as numbers, and everything ever traded in the same
+                place — closed positions included, which is where most of the
+                answer to "was that a good idea" lives. Result is what the
+                position made; dividend is beside it rather than inside it,
+                because they are different things.
+              -->
+              <!--
+                One paragraph, both hints. The merged panel took over the words of
+                the card it replaced verbatim — the gate for this phase is that no
+                hint text is lost, and rewriting it into a summary would lose it
+                just as surely as deleting it.
+              -->
               <p class="hint" id="holdings-hint">
                 The same series as the stacked chart, as numbers — so nothing depends on telling two colours apart.
+                Everything ever traded, closed positions included — which is where most of the answer to
+                “was that a good idea” lives. Result is what the position made; dividend is beside it rather
+                than inside it, because they are different things. Result follows the period you picked;
+                Dividend and % of bought are all-time and say so in their headers.
               </p>
             </div>
             <div class="group" id="holdings-view"></div>
+          </div>
+          <div class="filter-row">
+            <div class="group" id="holdings-status"></div>
+            <div class="group" id="products-filter"></div>
+            <div class="group" id="products-sort"></div>
           </div>
           <div class="chart-box" id="holdings-pie-box" hidden><canvas id="c-holdings-pie"></canvas></div>
           <div class="table-scroll" id="holdings-table-wrap">
@@ -323,44 +346,11 @@
                   <th data-i18n>Value</th>
                   <th data-i18n>Paid in vs grown</th>
                   <th data-i18n>Result</th>
+                  <th data-i18n>Dividend (all time)</th>
+                  <th>% of bought</th>
                   <th data-i18n>Share</th>
                   <th data-i18n>Currency</th>
                   <th><span class="sr-only" data-i18n>Copy image</span></th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <div data-tab="holdings" class="grid" style="margin-top: 16px">
-        <div class="card">
-          <div class="card-head">
-            <div>
-              <h2 data-i18n>Profit and loss per product</h2>
-              <p class="hint" id="products-hint">
-                Everything ever traded, closed positions included — which is where most of the answer to
-                “was that a good idea” lives. Result is what the position made; dividend is beside it rather
-                than inside it, because they are different things.
-              </p>
-            </div>
-            <div class="group" id="products-sort"></div>
-          </div>
-          <div class="group" id="products-filter" style="margin-bottom: 12px"></div>
-          <div class="table-scroll tall-scroll">
-            <table id="products">
-              <thead>
-                <tr>
-                  <th data-i18n>Product</th>
-                  <th data-i18n>Type</th>
-                  <th data-i18n>Status</th>
-                  <th class="num" data-i18n>Bought</th>
-                  <th class="num" data-i18n>Sold</th>
-                  <th class="num" data-i18n>Dividend</th>
-                  <th class="num" data-i18n>Value now</th>
-                  <th class="num" data-i18n>Result</th>
-                  <th class="num">% of bought</th>
                 </tr>
               </thead>
               <tbody></tbody>

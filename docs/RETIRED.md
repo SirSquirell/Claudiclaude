@@ -31,7 +31,10 @@ a decision somebody can disagree with later.
 
 ## Relocated
 
-*(nothing yet — the migration has not started)*
+- `products` → Posities · merged into the positions table (US-49, phase 3b). The panel *Winst en
+  verlies per product* is gone as a separate card: everything ever traded, closed included, is now
+  in `#holdings`, with Dividend and % of bought as columns. Its controls kept their ids and moved to
+  that panel's head; `products-note` still carries the unattributed-dividend sentence.
 
 ## Retired
 
