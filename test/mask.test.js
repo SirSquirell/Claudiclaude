@@ -98,21 +98,37 @@ test('a percentage is not an amount, and keeps its digits', () => {
   });
 });
 
-test('a share count is masked, against the brief, on purpose', () => {
+test('a share count is masked, against the brief, and that is the decision', () => {
   /**
    * `MIGRATION.md`'s phase 6 row says "percentages, shares and counts survive".
-   * They do not, and this test is where that disagreement is written down rather
-   * than discovered.
+   * Quantities do not, and this is where that disagreement is recorded rather
+   * than left to be rediscovered.
    *
-   * 137 shares of something whose price anyone can look up *is* the value of the
-   * position — a mask over the euros with the count left beside it is a feature
-   * that looks like it works and does not. The brief is right about percentages,
-   * which cannot be reversed into a balance, and right about counts that are not
-   * quantities (the number of transactions, the number of positions, a month
-   * count) — none of those go through `fmtQty`. Changing this is a decision for
-   * the owner; until then the stricter behaviour stands and it is the older one.
+   * **Settled at 0.46.0**, owner delegating ("jij bepaalt"): the count stays
+   * masked. 137 shares of something whose price anyone can look up *is* the value
+   * of the position — 137 × € 128 is € 17.536 — so a mask over the euros with the
+   * count beside it hides the figure and leaves it derivable, which is worse than
+   * not masking at all because it *looks* like it works.
+   *
+   * The brief is right about the other two, and the distinction it missed is
+   * derivable-to-money rather than the grammatical category: a percentage cannot
+   * be reversed into a balance, and a count that is not a quantity — transactions,
+   * positions, months — carries no price to multiply by. None of those go through
+   * `fmtQty`, which is why one formatter is the whole of this decision.
+   *
+   * To reverse it: `fmtQty` stops consulting the toggle, `maskQty` comes out of
+   * `anon.js`, and this assertion flips. Three lines, and they are together on
+   * purpose.
    */
   withMask(true, () => assert.equal(/\d/.test(fmtQty(137)), false));
+
+  // The counts that are *not* quantities keep their digits, which is the half of
+  // the brief that was right. Asserted so a later reading of "counts survive"
+  // cannot be applied to `fmtQty` by analogy.
+  withMask(true, () => {
+    assert.equal(fmtPct(340), '+340.00%');
+    assert.equal((1457).toLocaleString('nl-NL'), '1.457');
+  });
 });
 
 test('the money axis stops drawing labels rather than repeating the mask', () => {

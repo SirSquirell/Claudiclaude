@@ -38,9 +38,17 @@ Optimism Mode, and nobody notices for two months. The reference concept in
 | 3 | **Hierarchy.** Per section: one hero figure, three supporting facts, and an `Alle cijfers` disclosure that contains every remaining tile. Hint paragraphs become `?` disclosures. | Every tile in §3 accounted for; text of every hint preserved verbatim somewhere |
 | 4 | **The window.** Make the range control real per §4 of the brief: anchor, recompute, label, adapt, refuse. Hide it on Vooruitblik and Meldingen. | New `test/window.test.js`: for each range, result equals the sum of monthly results in the window, and TWR chains rather than divides |
 | 5 | **Charts.** Real heights, measured width, non-zero baseline plus disclosure for bounded windows, no symmetric axis on single-signed data, x labels clear of downward bars. | Visual pass at 1440 / 1024 / 380px; no clipped bar, no clipped axis label |
-| 6 | **Hidden amounts.** Eye toggle in the top bar; replacement not blur; percentages, shares and counts survive; chart y-labels drop. | `test/mask.test.js` asserts no amount string is present in the DOM while masked |
+| 6 | **Hidden amounts.** Eye toggle in the top bar; replacement not blur; percentages and non-quantity counts survive; chart y-labels drop. | `test/mask.test.js` asserts no amount string is present in the DOM while masked |
 | 7 | **Sharing.** Share affordance per figure; the sheet; four formats; account-derived name with off/first/full; download plus clipboard. | `test/anon-brand-snapshot.test.js` extended: card field set equals `SNAPSHOT_FIELDS`, and `SNAPSHOT_FIELDS` now contains `name` |
 | 8 | **Parity sweep.** Walk §3 top to bottom in the running app. | Every row is *built* or in `docs/RETIRED.md` |
+
+**Amended at 0.46.0, phase 6.** This row said "percentages, shares and counts survive" and shares do
+not — a quantity beside a public price *is* the amount, so 137 stuks with the euros masked hides the
+figure and leaves it derivable. The distinction that matters is derivable-to-money, not the
+grammatical category: percentages and counts that are not quantities (transactions, positions,
+months) survive and never touched `fmtQty` anyway. Settled by the owner delegating the call; the
+reasoning is in `test/mask.test.js` beside the assertion, together with the three lines that would
+reverse it.
 
 Phases 1–3 are cosmetic and reversible. 4 onwards changes what numbers mean, so each of those needs
 a test, not a screenshot.
