@@ -1,0 +1,2043 @@
+<!doctype html>
+<html lang="nl" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Portfolio — redesign concept</title>
+<style>
+/* ============================================================
+   PORTFOLIO — redesign concept
+   Same data, same engine, different information design.
+   Tokens first; every value below is used, none are decorative.
+   ============================================================ */
+
+:root {
+  color-scheme: light;
+  --paper:      #FBFAF8;
+  --surface:    #FFFFFF;
+  --surface-2:  #F4F2EE;
+  --rail:       #F6F4F0;
+  --ink:        #14181D;
+  --ink-2:      #5C6672;
+  --ink-3:      #939CA7;
+  --line:       #E9E6E0;
+  --line-2:     #D6D2CA;
+  --pos:        #1668C4;
+  --pos-soft:   #E4EDF9;
+  --neg:        #C0303D;
+  --neg-soft:   #FAE7E8;
+  --accent:     #B8532F;
+  /* The logo's own two values. Deliberately separate from --accent: white on
+     #D9531E measures 4.03:1, under the 4.5:1 floor, where --accent measures
+     4.87:1 — and --accent is a filled button background. Swapping them is not
+     a rename, it is a measured change to a validated palette. */
+  --brand-ink:    #16213E;
+  --brand-accent: #D9531E;
+  --s1: #4E77CE; --s2: #7A52A8; --s3: #0F8288; --s4: #AC4519;
+  --s5: #9E8018; --s6: #547C41; --s7: #99376A; --s8: #8B8981;
+
+  --r:   10px;
+  --r-s: 6px;
+  --hair: 1px;
+
+  --f: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --fn: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --paper:      #0D1116;
+  --surface:    #141920;
+  --surface-2:  #1B222B;
+  --rail:       #10151B;
+  --ink:        #E8EDF3;
+  --ink-2:      #98A3B0;
+  --ink-3:      #6B7683;
+  --line:       #232B35;
+  --line-2:     #333D49;
+  --pos:        #5FA3F0;
+  --pos-soft:   #16283D;
+  --neg:        #EF737E;
+  --neg-soft:   #341C21;
+  --accent:     #E08355;
+  --brand-ink:    #E8EDF5;
+  --brand-accent: #F97038;
+  --s1: #4A86DE; --s2: #A383D0; --s3: #41BABC; --s4: #DA7E4B;
+  --s5: #D0AC3E; --s6: #7FAE5C; --s7: #F086B9; --s8: #7B8798;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  font-family: var(--f);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  color: var(--ink);
+  background: var(--paper);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Numbers are always tabular. A column of figures that jitters is unreadable. */
+.n, td.n, .hero-value, .stat-v, .delta { font-variant-numeric: tabular-nums; }
+
+/* ---------- app shell ---------------------------------------------------- */
+
+.app { display: grid; grid-template-columns: 232px 1fr; min-height: 100vh; background: var(--rail); }
+main { background: var(--paper); }
+
+.rail {
+  background: var(--rail);
+  border-right: var(--hair) solid var(--line);
+  display: flex; flex-direction: column;
+  position: sticky; top: 0; height: 100vh;
+  padding: 20px 12px 12px;
+}
+
+.brand { padding: 2px 10px 22px; }
+/* The lockup: mark plus wordmark, the wordmark in the UI's own stack with the
+   brand's tracking. Ink rides currentColor so there is no second palette and
+   no theme branch in JavaScript. */
+.lockup { display: flex; align-items: center; gap: 9px; color: var(--brand-ink); }
+.lockup .mark { display: block; flex: none; }
+.wordmark {
+  font-size: 0.9375rem; font-weight: 500; letter-spacing: 0.16em;
+  color: var(--brand-ink); line-height: 1;
+}
+.brand-sub { font-size: 0.6875rem; color: var(--ink-3); margin: 5px 0 0 2px; }
+
+nav.sections { display: flex; flex-direction: column; gap: 1px; }
+
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; border-radius: var(--r-s);
+  font-size: 0.875rem; font-weight: 500; color: var(--ink-2);
+  background: none; border: 0; cursor: pointer; text-align: left; width: 100%;
+  font-family: inherit;
+}
+.nav-item:hover { background: var(--surface-2); color: var(--ink); }
+.nav-item[aria-current="true"] { background: var(--surface); color: var(--ink); font-weight: 580;
+  box-shadow: 0 0 0 var(--hair) var(--line), 0 1px 2px rgba(0,0,0,.04); }
+.nav-item .ico { width: 15px; height: 15px; flex: none; opacity: .75; }
+.nav-item[aria-current="true"] .ico { opacity: 1; color: var(--accent); }
+.nav-item .tail { margin-left: auto; font-size: 0.6875rem; color: var(--ink-3); }
+.nav-item .tail.warn {
+  background: var(--neg-soft); color: var(--neg); font-weight: 600;
+  border-radius: 99px; padding: 1px 6px;
+}
+
+.rail-foot { margin-top: auto; padding: 12px 10px 0; border-top: var(--hair) solid var(--line); }
+.sync-line { display: flex; align-items: center; gap: 7px; font-size: 0.75rem; color: var(--ink-2); }
+.dot { width: 6px; height: 6px; border-radius: 99px; background: var(--pos); flex: none; }
+.sync-when { font-size: 0.6875rem; color: var(--ink-3); margin: 3px 0 10px 13px; }
+
+.btn {
+  font-family: inherit; font-size: 0.8125rem; font-weight: 550;
+  padding: 7px 12px; border-radius: var(--r-s); cursor: pointer;
+  border: var(--hair) solid var(--line-2); background: var(--surface); color: var(--ink);
+  display: inline-flex; align-items: center; gap: 7px;
+  transition: background .12s, border-color .12s;
+}
+.btn:hover { background: var(--surface-2); }
+.btn-primary { background: var(--ink); color: var(--paper); border-color: var(--ink); width: 100%; justify-content: center; }
+.btn-primary:hover { background: var(--ink-2); border-color: var(--ink-2); }
+.btn-ghost { border-color: transparent; background: none; color: var(--ink-2); }
+.btn-ghost:hover { background: var(--surface-2); color: var(--ink); }
+.btn-icon { padding: 7px; }
+
+/* ---------- overflow menu ------------------------------------------------ */
+.menu-wrap { position: relative; }
+.menu {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 40;
+  background: var(--surface); border: var(--hair) solid var(--line);
+  border-radius: var(--r); box-shadow: 0 12px 32px rgba(20,25,30,.13), 0 2px 6px rgba(20,25,30,.06);
+  padding: 6px; min-width: 232px;
+}
+.menu-label { font-size: 0.6875rem; color: var(--ink-3); padding: 7px 10px 4px; letter-spacing: .04em; text-transform: uppercase; }
+.menu button {
+  display: flex; width: 100%; align-items: center; gap: 9px; text-align: left;
+  font-family: inherit; font-size: 0.8125rem; color: var(--ink);
+  background: none; border: 0; padding: 7px 10px; border-radius: var(--r-s); cursor: pointer;
+}
+.menu button:hover { background: var(--surface-2); }
+.menu button.danger { color: var(--neg); }
+.menu hr { border: 0; border-top: var(--hair) solid var(--line); margin: 5px 0; }
+.seg-inline { display: flex; gap: 2px; padding: 4px 10px 8px; }
+
+/* ---------- main --------------------------------------------------------- */
+
+main { min-width: 0; }
+
+.topbar {
+  position: sticky; top: 0; z-index: 30;
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px clamp(16px, 2.4vw, 34px);
+  background: color-mix(in srgb, var(--paper) 88%, transparent);
+  backdrop-filter: blur(12px);
+  border-bottom: var(--hair) solid var(--line);
+}
+.topbar h1 { font-size: 1.0625rem; font-weight: 620; margin: 0; letter-spacing: -0.012em; }
+.topbar .spacer { margin-left: auto; }
+.crumb { font-size: 0.75rem; color: var(--ink-3); }
+
+.page { padding: clamp(18px, 2.4vw, 30px) clamp(16px, 2.4vw, 34px) 64px; max-width: 1360px; }
+
+/* ---------- hero --------------------------------------------------------- */
+
+.hero {
+  display: grid; grid-template-columns: minmax(0,1fr) auto; gap: clamp(20px, 3vw, 56px);
+  align-items: end; padding-bottom: 22px; margin-bottom: 22px;
+  border-bottom: var(--hair) solid var(--line);
+}
+@media (max-width: 62rem) { .hero { grid-template-columns: 1fr; align-items: start; } }
+
+.eyebrow {
+  font-size: 0.6875rem; font-weight: 600; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--ink-3);
+}
+.hero-value {
+  font-size: clamp(2.375rem, 1.4rem + 3.6vw, 3.5rem);
+  font-weight: 630; letter-spacing: -0.035em; line-height: 1.02;
+  margin: 8px 0 0;
+}
+.hero-meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 20px; margin-top: 12px; font-size: 0.875rem; color: var(--ink-2); }
+.delta { font-weight: 580; }
+.delta.up { color: var(--pos); }
+.delta.down { color: var(--neg); }
+.sep { color: var(--line-2); }
+
+/* Supporting figures read as a list of facts, not as seven rival headlines. */
+.facts { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 2px 28px; }
+@media (max-width: 62rem) { .facts { grid-template-columns: repeat(auto-fit, minmax(150px,1fr)); } }
+.fact { padding: 2px 0; }
+.fact-k { font-size: 0.75rem; color: var(--ink-3); display: flex; align-items: center; gap: 5px; }
+.fact-v { font-size: 1.0625rem; font-weight: 580; letter-spacing: -0.015em; font-variant-numeric: tabular-nums; margin-top: 1px; }
+.fact-n { font-size: 0.6875rem; color: var(--ink-3); }
+
+/* The explainer is a disclosure, not a permanent paragraph. */
+.q {
+  width: 14px; height: 14px; border-radius: 99px; flex: none;
+  border: var(--hair) solid var(--line-2); background: none; color: var(--ink-3);
+  font-size: 9px; font-family: inherit; line-height: 1; cursor: help; padding: 0;
+  display: inline-grid; place-items: center;
+}
+.q:hover { border-color: var(--ink-3); color: var(--ink-2); }
+.tip {
+  position: fixed; z-index: 60; max-width: 290px;
+  background: var(--ink); color: var(--paper);
+  font-size: 0.75rem; line-height: 1.45; padding: 9px 11px; border-radius: var(--r-s);
+  box-shadow: 0 8px 24px rgba(0,0,0,.2); pointer-events: none;
+}
+
+/* ---------- panels ------------------------------------------------------- */
+
+.panel { background: var(--surface); border: var(--hair) solid var(--line); border-radius: var(--r); margin-bottom: 16px; }
+.panel-head {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  padding: 14px 18px; border-bottom: var(--hair) solid var(--line);
+}
+.panel-head h2 { font-size: 0.9375rem; font-weight: 600; margin: 0; letter-spacing: -0.01em; display: flex; align-items: center; gap: 6px; }
+.panel-head .sub { font-size: 0.8125rem; color: var(--ink-3); }
+.panel-head .spacer { margin-left: auto; }
+.panel-body { padding: 16px 18px 18px; }
+.panel-body.flush { padding: 0; }
+.panel-foot { padding: 11px 18px; border-top: var(--hair) solid var(--line); font-size: 0.75rem; color: var(--ink-3); }
+
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 68rem) { .cols { grid-template-columns: 1fr; } }
+.cols-3-2 { display: grid; grid-template-columns: 3fr 2fr; gap: 16px; }
+@media (max-width: 68rem) { .cols-3-2 { grid-template-columns: 1fr; } }
+
+/* ---------- segmented control -------------------------------------------- */
+
+.seg { display: inline-flex; gap: 1px; background: var(--surface-2); border-radius: 7px; padding: 2px; }
+.seg button {
+  font-family: inherit; font-size: 0.75rem; font-weight: 550; color: var(--ink-2);
+  background: none; border: 0; padding: 4px 10px; border-radius: 5px; cursor: pointer;
+}
+.seg button:hover { color: var(--ink); }
+.seg button[aria-pressed="true"] {
+  background: var(--surface); color: var(--ink);
+  box-shadow: 0 0 0 var(--hair) var(--line), 0 1px 2px rgba(0,0,0,.05);
+}
+.check { display: inline-flex; align-items: center; gap: 6px; font-size: 0.8125rem; color: var(--ink-2); cursor: pointer; }
+.check input { accent-color: var(--pos); }
+
+/* ---------- charts ------------------------------------------------------- */
+
+.chart-host { width: 100%; overflow: hidden; }
+.chart { display: block; max-width: 100%; }
+.chart text { font-family: var(--f); font-variant-numeric: tabular-nums; }
+.ax { fill: var(--ink-3); font-size: 10.5px; }
+.gl { stroke: var(--line); stroke-width: 1; }
+.zl { stroke: var(--line-2); stroke-width: 1; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 12px; font-size: 0.75rem; color: var(--ink-2); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.swatch { width: 9px; height: 9px; border-radius: 2px; flex: none; }
+
+/* ---------- tables ------------------------------------------------------- */
+
+.tw { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
+thead th {
+  text-align: left; font-weight: 550; color: var(--ink-3); font-size: 0.75rem;
+  padding: 9px 12px; border-bottom: var(--hair) solid var(--line); white-space: nowrap;
+  position: sticky; top: 0; background: var(--surface);
+}
+thead th.n, tbody td.n { text-align: right; }
+tbody td { padding: 9px 12px; border-bottom: var(--hair) solid var(--line); white-space: nowrap; }
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr:hover td { background: var(--surface-2); }
+td.name { font-weight: 520; }
+td .ticker { color: var(--ink-3); font-weight: 400; margin-left: 6px; font-size: 0.75rem; }
+.up { color: var(--pos); }
+.down { color: var(--neg); }
+.muted { color: var(--ink-3); }
+
+/* Share is a quantity: draw it, don't only print it. */
+.bar-cell { display: flex; align-items: center; gap: 9px; justify-content: flex-end; }
+.bar-track { display: block; width: 62px; height: 5px; border-radius: 99px; background: var(--surface-2); overflow: hidden; flex: none; }
+.bar-fill { display: block; height: 100%; border-radius: 99px; }
+.dotm { width: 7px; height: 7px; border-radius: 2px; flex: none; display: inline-block; margin-right: 8px; vertical-align: 0.5px; }
+
+.pill { font-size: 0.6875rem; padding: 2px 7px; border-radius: 99px; background: var(--surface-2); color: var(--ink-2); }
+
+/* ---------- composition strip -------------------------------------------- */
+.strip { display: flex; height: 30px; border-radius: 6px; overflow: hidden; gap: 1px; }
+.strip > div { position: relative; }
+.strip > div span {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  font-size: 0.6875rem; font-weight: 600; color: #fff; letter-spacing: .01em;
+}
+
+/* ---------- heatmap ------------------------------------------------------ */
+table.matrix td, table.matrix th { padding: 6px 7px; font-size: 0.75rem; text-align: right; border: 0; }
+table.matrix thead th { color: var(--ink-3); font-weight: 550; }
+table.matrix tbody th { text-align: left; color: var(--ink-2); font-weight: 550; padding-left: 12px; }
+table.matrix tbody tr:hover td { background: none; }
+table.matrix td b { font-weight: 500; }
+.scale-row { display: flex; align-items: center; gap: 9px; font-size: 0.6875rem; color: var(--ink-3); margin-top: 12px; padding-left: 12px; }
+.scale-bar { width: 130px; height: 7px; border-radius: 99px;
+  background: linear-gradient(90deg, var(--neg), var(--neg-soft), var(--surface-2), var(--pos-soft), var(--pos)); }
+
+/* ---------- notices ------------------------------------------------------ */
+.notice { display: flex; gap: 12px; padding: 13px 0; border-bottom: var(--hair) solid var(--line); }
+.notice:last-child { border-bottom: 0; }
+.notice-ico { width: 17px; height: 17px; flex: none; margin-top: 2px; }
+.notice h3 { font-size: 0.875rem; font-weight: 580; margin: 0 0 2px; }
+.notice p { margin: 0; font-size: 0.8125rem; color: var(--ink-2); }
+.notice .code { font-family: var(--fn); font-size: 0.6875rem; color: var(--ink-3); }
+
+/* ---------- caveat band -------------------------------------------------- */
+.caveat {
+  border-left: 3px solid var(--accent); background: var(--surface-2);
+  padding: 14px 16px; border-radius: 0 var(--r-s) var(--r-s) 0; margin-bottom: 16px;
+}
+.caveat h3 { margin: 0 0 4px; font-size: 0.875rem; font-weight: 600; }
+.caveat p { margin: 0; font-size: 0.8125rem; color: var(--ink-2); max-width: 68ch; }
+
+.field { display: inline-flex; align-items: center; gap: 8px; font-size: 0.8125rem; color: var(--ink-2); }
+.field input[type=number] {
+  font-family: inherit; font-size: 0.8125rem; font-variant-numeric: tabular-nums;
+  width: 6.5rem; padding: 5px 8px; border-radius: var(--r-s);
+  border: var(--hair) solid var(--line-2); background: var(--surface); color: var(--ink);
+}
+
+.empty { padding: 34px 18px; text-align: center; color: var(--ink-3); font-size: 0.8125rem; line-height: 1.6; }
+
+/* ---------- the rest of the figures -------------------------------------- */
+.figures {
+  background: var(--surface); border: var(--hair) solid var(--line);
+  border-radius: var(--r); margin-bottom: 16px;
+}
+.figures > summary {
+  list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px;
+  padding: 12px 18px; font-size: 0.8125rem; font-weight: 550; color: var(--ink-2);
+}
+.figures > summary::-webkit-details-marker { display: none; }
+.figures > summary:hover { color: var(--ink); }
+.figures[open] > summary { border-bottom: var(--hair) solid var(--line); }
+.figures .chev { display: inline-flex; transition: transform .15s; }
+.figures[open] .chev { transform: rotate(180deg); }
+.fig-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 16px 26px; padding: 16px 18px 18px;
+}
+.fig-k { font-size: 0.75rem; color: var(--ink-3); display: flex; align-items: center; gap: 5px; }
+.fig-v { font-size: 1rem; font-weight: 570; letter-spacing: -0.012em; font-variant-numeric: tabular-nums; margin-top: 1px; }
+.fig-n { font-size: 0.6875rem; color: var(--ink-3); margin-top: 1px; }
+
+/* ---------- hidden amounts ----------------------------------------------- */
+.mask-btn[aria-pressed="true"] { background: var(--surface-2); color: var(--ink); border-color: var(--line-2); }
+.mask-note {
+  display: none; align-items: center; gap: 6px;
+  font-size: 0.75rem; color: var(--ink-3);
+}
+body.is-masked .mask-note { display: inline-flex; }
+
+/* ---------- share modal --------------------------------------------------- */
+.share-btn { color: var(--ink-3); }
+.share-btn:hover { color: var(--ink); }
+.hero-value .share-btn { vertical-align: 0.35em; margin-left: 6px; }
+
+.modal-back {
+  position: fixed; inset: 0; z-index: 90; display: grid; place-items: center;
+  background: rgba(12,16,20,.42); backdrop-filter: blur(3px); padding: 20px;
+}
+.modal {
+  background: var(--surface); border: var(--hair) solid var(--line); border-radius: 14px;
+  box-shadow: 0 24px 70px rgba(0,0,0,.28); width: min(940px, 100%); max-height: 92vh;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.modal-head { display: flex; align-items: center; padding: 14px 18px; border-bottom: var(--hair) solid var(--line); }
+.modal-head h2 { font-size: 0.9375rem; font-weight: 600; margin: 0; }
+.modal-head .btn { margin-left: auto; }
+.modal-body { display: grid; grid-template-columns: 1fr 320px; gap: 0; overflow: auto; }
+@media (max-width: 52rem) { .modal-body { grid-template-columns: 1fr; } }
+.preview {
+  padding: 22px; background: var(--surface-2); display: grid; place-items: center;
+  border-right: var(--hair) solid var(--line);
+}
+.preview canvas { max-width: 100%; max-height: 52vh; border-radius: 8px; box-shadow: 0 6px 22px rgba(0,0,0,.14); }
+.controls-col { padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+.ctl { display: block; }
+.ctl > span { display: flex; align-items: center; gap: 5px; font-size: 0.75rem; color: var(--ink-3); margin-bottom: 6px; }
+.seg.wrap { flex-wrap: wrap; }
+.ctl input[type=text] {
+  width: 100%; font-family: inherit; font-size: 0.8125rem; padding: 7px 10px;
+  border-radius: var(--r-s); border: var(--hair) solid var(--line-2);
+  background: var(--surface); color: var(--ink);
+}
+.src-chip {
+  font-size: 0.625rem; text-transform: none; letter-spacing: 0;
+  background: var(--surface-2); color: var(--ink-2);
+  border-radius: 99px; padding: 2px 7px; margin-left: auto;
+}
+.ident-preview {
+  margin-top: 7px; font-size: 0.8125rem; font-weight: 550; color: var(--ink);
+  padding: 7px 10px; border-radius: var(--r-s); background: var(--surface-2);
+}
+.ident-preview .muted { font-weight: 400; }
+.warn-line { margin: -6px 0 0; font-size: 0.75rem; color: var(--accent); line-height: 1.45; }
+.fields { border-top: var(--hair) solid var(--line); padding-top: 12px; }
+.fields-k { font-size: 0.6875rem; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 7px; }
+.fields .pill { margin: 0 4px 4px 0; display: inline-block; font-family: var(--fn); font-size: 0.6875rem; }
+.fields p { font-size: 0.75rem; color: var(--ink-3); margin: 9px 0 0; line-height: 1.5; }
+.modal-actions { display: flex; gap: 8px; margin-top: auto; }
+.modal-actions .btn { flex: 1; justify-content: center; }
+.copy-note { font-size: 0.75rem; color: var(--ink-3); min-height: 1em; }
+
+.eyebrow .win {
+  font-weight: 500; letter-spacing: 0; text-transform: none;
+  color: var(--ink-3); margin-left: 6px;
+}
+td.out b, td.out { opacity: .34; }
+/* dragging a window out of the chart */
+.brush { position: relative; cursor: crosshair; touch-action: none; }
+.brush-box {
+  position: absolute; top: 0; bottom: 22px; z-index: 2; pointer-events: none;
+  background: color-mix(in srgb, var(--pos) 12%, transparent);
+  border-left: 1px solid var(--pos); border-right: 1px solid var(--pos);
+}
+.brush-hint { font-size: 0.6875rem; color: var(--ink-3); margin: 10px 0 0; }
+.zoom-state {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  background: var(--surface-2); border-radius: var(--r-s);
+  padding: 8px 10px 8px 12px; margin-bottom: 12px; font-size: 0.8125rem; color: var(--ink-2);
+}
+.zoom-state b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.zoom-state .btn { margin-left: auto; }
+
+td.pick, th.pick-col { cursor: pointer; }
+td.pick:hover, th.pick-col:hover { outline: 1px solid var(--line-2); outline-offset: -1px; }
+td.pick.sel { outline: 2px solid var(--ink); outline-offset: -2px; opacity: 1; }
+td.pick:focus-visible, th.pick-col:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* ---------- mobile ------------------------------------------------------- */
+@media (max-width: 54rem) {
+  .app { grid-template-columns: 1fr; }
+  .rail {
+    position: static; height: auto; flex-direction: row; align-items: center;
+    overflow-x: auto; padding: 10px 12px; border-right: 0; border-bottom: var(--hair) solid var(--line);
+  }
+  .brand { padding: 0 14px 0 4px; }
+  .brand-sub { display: none; }
+  nav.sections { flex-direction: row; gap: 2px; }
+  .nav-item { white-space: nowrap; }
+  .nav-item .ico, .rail-foot { display: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ===================== LEFT RAIL ===================== -->
+  <aside class="rail">
+    <div class="brand">
+      <div class="lockup" id="lockup"></div>
+      <div class="brand-sub">Portfolio history · DEGIRO · demo</div>
+    </div>
+
+    <nav class="sections" id="nav"></nav>
+
+    <div class="rail-foot">
+      <div class="sync-line"><span class="dot"></span> Bijgewerkt · sluit op DEGIRO</div>
+      <div class="sync-when">13 aug 2026, 09:41 · 2.048 dagen · 100% dekking</div>
+      <button class="btn btn-primary" type="button">Synchroniseren</button>
+      <div style="display:flex;gap:6px;margin-top:6px">
+        <div class="menu-wrap" style="flex:1">
+          <button class="btn btn-ghost" type="button" id="more-btn" aria-expanded="false" style="width:100%;justify-content:center">
+            Meer
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div class="menu" id="more-menu" hidden style="left:0;right:auto;bottom:calc(100% + 6px);top:auto">
+            <div class="menu-label">Weergave</div>
+            <div class="seg-inline">
+              <div class="seg" id="theme-seg">
+                <button type="button" data-theme="light" aria-pressed="true">Licht</button>
+                <button type="button" data-theme="dark" aria-pressed="false">Donker</button>
+              </div>
+              <div class="seg" id="lang-seg">
+                <button type="button" aria-pressed="true">NL</button>
+                <button type="button" aria-pressed="false">EN</button>
+              </div>
+            </div>
+            <hr />
+            <div class="menu-label">Gegevens</div>
+            <button type="button">Verbinding controleren</button>
+            <button type="button">Exporteer JSON</button>
+            <button type="button">Kopieer foutrapport</button>
+            <hr />
+            <button type="button" class="danger">Wissen en opnieuw ophalen…</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ===================== MAIN ===================== -->
+  <main>
+    <div class="topbar">
+      <h1 id="page-title">Overzicht</h1>
+      <span class="crumb" id="page-crumb">jan 2021 – aug 2026</span>
+      <span class="mask-note">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3l18 18"/><path d="M10.6 5.1A9.7 9.7 0 0112 5c5.5 0 9 6 9 6a15 15 0 01-3.1 3.8M6.2 6.6A15.5 15.5 0 003 11s3.5 6 9 6a9.4 9.4 0 004.2-1"/></svg>
+        bedragen verborgen
+      </span>
+      <span class="spacer"></span>
+      <button class="btn btn-ghost btn-icon mask-btn" type="button" id="mask-btn" aria-pressed="false">
+        <svg class="eye-open" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
+      <div class="seg" id="range-seg" role="group" aria-label="Periode">
+        <button type="button" data-r="1M">1M</button>
+        <button type="button" data-r="3M">3M</button>
+        <button type="button" data-r="6M">6M</button>
+        <button type="button" data-r="YTD">YTD</button>
+        <button type="button" data-r="1J">1J</button>
+        <button type="button" data-r="ALL" aria-pressed="true">Alles</button>
+      </div>
+    </div>
+
+    <div class="page" id="page"></div>
+  </main>
+</div>
+
+<script>
+/* =====================================================================
+   DATA — the real numbers out of the project's own demo fixtures.
+   Index 0 is a synthetic zero point one day before the account opened, so
+   every window has an anchor to measure from — including "everything".
+   ===================================================================== */
+
+const LBL=["2020-12-31","2021-01-31","2021-02-28","2021-03-31","2021-04-30","2021-05-31","2021-06-30","2021-07-31","2021-08-31","2021-09-30","2021-10-31","2021-11-30","2021-12-31","2022-01-31","2022-02-28","2022-03-31","2022-04-30","2022-05-31","2022-06-30","2022-07-31","2022-08-31","2022-09-30","2022-10-31","2022-11-30","2022-12-31","2023-01-31","2023-02-28","2023-03-31","2023-04-30","2023-05-31","2023-06-30","2023-07-31","2023-08-31","2023-09-30","2023-10-31","2023-11-30","2023-12-31","2024-01-31","2024-02-29","2024-03-31","2024-04-30","2024-05-31","2024-06-30","2024-07-31","2024-08-31","2024-09-30","2024-10-31","2024-11-30","2024-12-31","2025-01-31","2025-02-28","2025-03-31","2025-04-30","2025-05-31","2025-06-30","2025-07-31","2025-08-31","2025-09-30","2025-10-31","2025-11-30","2025-12-31","2026-01-31","2026-02-28","2026-03-31","2026-04-30","2026-05-31","2026-06-30","2026-07-31","2026-08-13"];
+const VAL=[0,4853,5334,9705,9890,9837,10549,10460,9480,9746,9906,10722,10874,11764,11766,10967,10679,11234,11647,12033,12074,11804,12693,13315,15017,16920,16867,16935,29798,31368,31603,32329,34630,37121,37324,36358,40809,50838,48828,52838,51736,52664,54804,56919,56568,61920,62366,67407,69005,87655,87188,89336,82312,81954,84310,83462,81391,83321,64773,68478,66691,64409,65215,93750,98795,103618,103486,112610,115940.77];
+const PAID=[0,5000,5400,9800,9800,10200,10600,10600,11000,11000,11400,11800,11800,12300,12800,13300,13800,14300,14300,14800,15300,15300,15800,16300,16300,17050,17050,17050,29800,30550,30550,31300,32050,32800,33550,33550,34300,44300,44300,45300,46300,46300,47300,48300,48300,49300,50300,51300,52300,67300,68800,70300,71800,71800,73300,74800,76300,77800,55800,57300,58800,58800,60800,80800,80800,82800,84800,84800,84800];
+
+const TODAY = LBL[LBL.length-1];
+const N = LBL.length;
+
+const MONTHS = {
+  2021:[-146.60,80.80,-29.10,185.12,-452.88,311.20,-88.98,-1379.98,266.09,-239.66,416.42,151.58],
+  2022:[389.75,-497.55,-1299.50,-787.28,54.19,413.61,-114.14,-459.44,-269.60,388.54,121.95,1702.67],
+  2023:[1152.38,-52.10,67.22,113.04,820.57,235.03,-24.84,1551.67,1740.91,-547.20,-966.06,3701.07],
+  2024:[29.03,-2009.83,3010.03,-2101.91,928.03,1139.80,1115.30,-351.20,4351.61,-553.96,4041.17,598.19],
+  2025:[3650.26,-1967.42,648.01,-8524.38,-357.82,856.45,-2348.19,-3570.69,429.62,3452.07,2205.40,-3287.81],
+  2026:[-2281.54,-1194.09,8535.33,5044.65,2822.56,-2131.23,9123.28,3331.15],
+};
+
+const YEARS = [
+  {y:2026, open:66690.66, close:115940.77, in_:26000, out:null, res:23250.11, ret:24.75, div:722.34, cost:15, tr:6},
+  {y:2025, open:69005.16, close:66690.66, in_:28500, out:-22000, res:-8814.50, ret:-8.44, div:905.31, cost:38, tr:10},
+  {y:2024, open:40808.90, close:69005.16, in_:18000, out:null, res:10196.26, ret:19.44, div:360.37, cost:39, tr:11},
+  {y:2023, open:15017.21, close:40808.90, in_:18000, out:null, res:7791.69, ret:29.80, div:100.31, cost:33, tr:9},
+  {y:2022, open:10874.01, close:15017.21, in_:4500, out:null, res:-356.80, ret:-5.90, div:42.29, cost:35, tr:9},
+  {y:2021, open:null, close:10874.01, in_:11800, out:null, res:-925.99, ret:-9.56, div:45.96, cost:20, tr:8, note:'vanaf 4 jan'},
+];
+
+/* `from` is the month index a position first appears, so the generated
+   per-holding history does not pretend everything was held from day one. */
+const HOLD = [
+  {n:'BE Semiconductor', t:'BESI',  q:80,   px:389.67, avg:182.00, v:31173.60, res:17571.56, sh:26.9, grown:56, from:1,  c:'--s6'},
+  {n:'Argenx SE',        t:'ARGX',  q:18,   px:916.21, avg:564.49, v:16491.78, res:6330.89,  sh:14.2, grown:38, from:37, c:'--s7'},
+  {n:'Wolters Kluwer',   t:'WKL',   q:125,  px:123.42, avg:88.75,  v:15427.50, res:4333.42,  sh:13.3, grown:28, from:28, c:'--s2'},
+  {n:'iShares Core MSCI World', t:'IWDA', q:113, px:80.76, avg:81.09, v:9125.88, res:586.83, sh:7.9,  grown:6,  from:1,  c:'--s3'},
+  {n:'ING Groep',        t:'INGA',  q:1114, px:8.15,   avg:10.78,  v:9079.10,  res:-2927.56, sh:7.8,  grown:-24,from:6,  c:'--s5'},
+  {n:'Shell plc',        t:'SHELL', q:217,  px:39.46,  avg:31.20,  v:8562.82,  res:1791.91,  sh:7.4,  grown:21, from:13, c:'--s4'},
+  {n:'Vanguard FTSE AW', t:'VWRL',  q:81,   px:100.87, avg:86.38,  v:8170.47,  res:1071.37,  sh:7.0,  grown:13, from:3,  c:'--s1'},
+  {n:'ASML Holding',     t:'ASML',  q:8,    px:765.49, avg:552.83, v:6123.92,  res:2779.01,  sh:5.3,  grown:45, from:28, c:'--s3'},
+  {n:'Prosus',           t:'PRX',   q:48,   px:83.42,  avg:56.31,  v:4004.16,  res:4321.38,  sh:3.5,  grown:100,from:37, c:'--s4'},
+  {n:'Prop Trading Group',t:'PROP', q:383,  px:10.43,  avg:28.46,  v:3994.69,  res:-6907.32, sh:3.4,  grown:-63,from:49, c:'--s7'},
+  {n:'Contanten',        t:'',      q:null, px:null,   avg:null,   v:3786.85,  res:2189.28,  sh:3.3,  grown:0,  from:1,  c:'--s8', cash:true},
+];
+
+const TX = [
+  ['2026-06-26','Koop','ARGX',3,750.13,2252.39],
+  ['2026-05-26','Koop','SHELL',87,34.66,3017.42],
+  ['2026-03-02','Koop','ARGX',15,527.10,7908.50],
+  ['2026-03-02','Koop','BESI',35,232.24,8130.40],
+  ['2026-02-26','Koop','IWDA',14,81.92,1147.88],
+  ['2026-02-26','Koop','VWRL',13,83.61,1087.93],
+  ['2026-01-26','Koop','SHELL',57,37.47,2137.79],
+  ['2026-01-26','Koop','IWDA',25,84.28,2108.00],
+  ['2026-01-19','Verkoop','BESI',-18,235.34,-4234.12],
+  ['2025-12-26','Koop','BESI',6,245.40,1474.40],
+  ['2025-10-14','Verkoop','INGA',-220,9.12,-2006.40],
+  ['2025-09-26','Koop','PROP',120,21.40,2568.00],
+  ['2025-06-26','Koop','WKL',30,101.55,3046.50],
+  ['2025-02-26','Koop','ASML',3,690.20,2070.60],
+];
+
+/* Everything ever traded, closed positions included — which is where most of
+   the answer to "was that a good idea" lives. */
+const PRODUCTS = [
+  {n:'BE Semiconductor', t:'BESI',  st:'Open',    b:17836.16, s:4234.12,  d:366.66, now:31173.60, r:17571.56},
+  {n:'Argenx SE',        t:'ARGX',  st:'Open',    b:10160.89, s:0,        d:0,      now:16491.78, r:6330.89},
+  {n:'Wolters Kluwer',   t:'WKL',   st:'Open',    b:11094.08, s:0,        d:237.69, now:15427.50, r:4333.42},
+  {n:'Prosus',           t:'PRX',   st:'Open',    b:6645.08,  s:6962.30,  d:57.41,  now:4004.16,  r:4321.38},
+  {n:'ASML Holding',     t:'ASML',  st:'Open',    b:14926.36, s:11581.45, d:259.65, now:6123.92,  r:2779.01},
+  {n:'Shell plc',        t:'SHELL', st:'Open',    b:6770.91,  s:0,        d:201.84, now:8562.82,  r:1791.91},
+  {n:'Vanguard FTSE AW', t:'VWRL',  st:'Open',    b:8897.58,  s:1798.48,  d:327.77, now:8170.47,  r:1071.37},
+  {n:'iShares MSCI World',t:'IWDA', st:'Open',    b:21408.43, s:12869.38, d:0,      now:9125.88,  r:586.83},
+  {n:'ING Groep',        t:'INGA',  st:'Open',    b:12006.66, s:725.56,   d:0,      now:9079.10,  r:-2927.56},
+  {n:'Prop Trading Group',t:'PROP', st:'Open',    b:10902.01, s:0,        d:0,      now:3994.69,  r:-6907.32},
+];
+
+const NOTICES = [
+  {lvl:'warn', code:'PRICE_GAP', t:'3 handelsdagen zonder slotkoers voor PROP',
+   d:'De koers van de vorige dag is doorgetrokken. Raakt alleen de dagwaarde op 4, 5 en 8 aug 2026, niet het resultaat over de periode.'},
+  {lvl:'info', code:'FX_DAILY', t:'Valuta omgerekend tegen dagkoers',
+   d:'Posities in vreemde valuta gebruiken de ECB-dagkoers. DEGIRO rekent op transactiemoment, dus kleine verschillen met je afschrift zijn normaal.'},
+];
+
+const PROVENANCE = { broker:'DEGIRO', asOf:'13 aug 2026', reconciled:true, version:'0.44.1' };
+
+/* =====================================================================
+   DERIVED SERIES
+   Everything below is computed once, so no view has to invent a number.
+   ===================================================================== */
+
+/** Monthly result, index-aligned with LBL (MF[i] is the month ending LBL[i]). */
+const MF = (() => {
+  const out = [0];
+  for (const y of Object.keys(MONTHS)) for (const v of MONTHS[y]) out.push(v);
+  return out;
+})();
+
+/** Net external cashflow per month — real, straight out of PAID. */
+const DEP = VAL.map((_,i) => i ? PAID[i]-PAID[i-1] : 0);
+
+const mulberry = s => () => { s |= 0; s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s>>>15, 1|s);
+  t = t + Math.imul(t ^ t>>>7, 61|t) ^ t; return ((t ^ t>>>14) >>> 0) / 4294967296; };
+
+/** Dividend per month, generated but pinned to the real per-year totals. */
+const DIVM = (() => {
+  const rnd = mulberry(777), out = new Array(N).fill(0), byYear = {};
+  for (let i=1;i<N;i++) (byYear[LBL[i].slice(0,4)] ||= []).push(i);
+  for (const y in byYear) {
+    const idx = byYear[y], tot = (YEARS.find(r => String(r.y)===y)||{}).div || 0;
+    const w = idx.map(()=>0.3+rnd()), s = w.reduce((a,b)=>a+b,0);
+    idx.forEach((i,k)=> out[i] = tot*w[k]/s);
+  }
+  return out;
+})();
+
+/** Per-holding value history. Generated, but it sums to VAL at every point
+ *  and lands exactly on today's known shares, so nothing derived from it can
+ *  contradict a figure printed elsewhere. */
+const HSER = (() => {
+  const rnd = mulberry(4242);
+  const walks = HOLD.map(()=>{ let v=1; return Array.from({length:N},()=>{ v *= 0.94+rnd()*0.13; v = Math.max(.5,Math.min(1.9,v)); return v; }); });
+  const out = HOLD.map(()=>new Array(N).fill(0));
+  for (let i=1;i<N;i++) {
+    const t = Math.pow(i/(N-1), 2.2), w = [];
+    let sum = 0;
+    HOLD.forEach((h,k)=>{
+      const on = i >= h.from;
+      const v = on ? h.sh*walks[k][i]*(1-t) + h.sh*t : 0;
+      w[k]=v; sum+=v;
+    });
+    HOLD.forEach((h,k)=> out[k][i] = sum ? VAL[i]*w[k]/sum : 0);
+  }
+  return out;
+})();
+
+/* =====================================================================
+   FORMATTING
+   ===================================================================== */
+
+/* ---------------------------------------------------------------------
+   Hidden amounts.
+
+   Replacement, not blur. A CSS blur leaves the real string in the DOM: you
+   select it, you copy it, you open devtools, or the share card reads it
+   back out — and the number is there again. So the figure never reaches
+   the page at all and there is nothing left to unblur.
+
+   Fixed width, three dots, always. A mask that keeps the digit count still
+   tells you whether it is four figures or six, and the magnitude is most of
+   what a screenshot gives away. Percentages stay: they are the part that is
+   safe to show and the part worth showing.
+   --------------------------------------------------------------------- */
+let MASKED = localStorage.getItem('ph-masked') === '1';
+const DOTS = '•••';
+
+const nlNum = (v,d=2) => v.toLocaleString('nl-NL',{minimumFractionDigits:d,maximumFractionDigits:d});
+const eur   = (v,d=2) => MASKED ? `€ ${DOTS}` : (v<0?'−':'') + '€ ' + nlNum(Math.abs(v),d);
+const eurS  = (v,d=2) => MASKED ? `€ ${v>0?'+':v<0?'−':''}${DOTS}` : (v<0?'−':'+') + '€ ' + nlNum(Math.abs(v),d);
+const pct   = (v,d=2) => (v<0?'−':'+') + nlNum(Math.abs(v),d) + '%';
+const kEur  = v => MASKED ? '' : (v<0?'−':'') + '€' + (Math.abs(v)>=1000 ? nlNum(Math.abs(v)/1000,0)+'k' : nlNum(Math.abs(v),0));
+const qty   = v => MASKED ? DOTS : nlNum(v,0);   // share counts: quantity × public price = value
+const cnt   = v => nlNum(v,0);                  // plain counts: never a leak, never masked
+const cls   = v => v<0 ? 'down' : 'up';
+const esc   = s => String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const MN    = ['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
+const dLabel = iso => { const [y,m]=iso.split('-'); return MN[+m-1]+" '"+y.slice(2); };
+const dFull  = iso => { const [y,m,d]=iso.split('-'); return `${+d} ${MN[+m-1]} ${y}`; };
+const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+function q(text){ return `<button class="q" type="button" data-tip="${esc(text)}" aria-label="Uitleg">?</button>`; }
+
+let tipEl = null;
+document.addEventListener('pointerover', e => {
+  const b = e.target.closest('.q'); if(!b) return;
+  tipEl = document.createElement('div'); tipEl.className='tip'; tipEl.textContent=b.dataset.tip;
+  document.body.appendChild(tipEl);
+  const r=b.getBoundingClientRect(), t=tipEl.getBoundingClientRect();
+  tipEl.style.left = Math.max(8, Math.min(innerWidth-t.width-8, r.left-t.width/2+r.width/2))+'px';
+  tipEl.style.top  = (r.top > t.height+12 ? r.top-t.height-8 : r.bottom+8)+'px';
+});
+document.addEventListener('pointerout', e => { if(e.target.closest('.q') && tipEl){ tipEl.remove(); tipEl=null; } });
+
+/* =====================================================================
+   THE WINDOW
+   One function decides what "the selected period" means, and every figure
+   on screen is derived from it. The old UI had a range control that some
+   sections silently ignored; here a section either honours it or does not
+   show it.
+   ===================================================================== */
+
+let RANGE = 'ALL';
+/* A window dragged straight out of the chart. The old UI had this (there is a
+   #zoom-state element in app.html for it) and dropping it would have been the
+   quietest loss of the lot: the preset periods are all "ending today", and the
+   one thing a chart of six years invites you to do is look at the crash in the
+   middle. */
+let ZOOM = null;   // {a,b} absolute indices, or null
+/* Which months are picked out for comparison. A Set of 'YYYY-MM', because the
+   original lets you compare September 2025 against November 2020 — two cells
+   that share neither a row nor a column. */
+const SEL = new Set();
+
+const RANGE_LABELS = {'1M':'laatste maand','3M':'laatste 3 maanden','6M':'laatste 6 maanden',
+                      'YTD':'dit jaar','1J':'laatste 12 maanden','ALL':'sinds de start'};
+const rangeName = () => ZOOM ? 'gesleepte periode' : RANGE_LABELS[RANGE];
+
+function rangeStart(){
+  if (RANGE === 'ALL') return null;
+  if (RANGE === 'YTD') return TODAY.slice(0,4)+'-01-01';
+  const d = new Date(TODAY+'T00:00:00Z');
+  ({'1M':()=>d.setUTCMonth(d.getUTCMonth()-1),
+    '3M':()=>d.setUTCMonth(d.getUTCMonth()-3),
+    '6M':()=>d.setUTCMonth(d.getUTCMonth()-6),
+    '1J':()=>d.setUTCFullYear(d.getUTCFullYear()-1)})[RANGE]();
+  return d.toISOString().slice(0,10);
+}
+
+/** a = the anchor (the last point at or before the window opens), b = today.
+ *  Measuring from the anchor is what makes the first delta in a window real
+ *  instead of zero. */
+function win(){
+  if (ZOOM) return ZOOM;
+  const s = rangeStart();
+  if (!s) return {a:0, b:N-1};
+  let i = LBL.findIndex(x => x >= s);
+  if (i < 1) i = N-1;
+  return {a: Math.max(0,i-1), b: N-1};
+}
+
+function stats(){
+  const {a,b} = win();
+  let res=0, twr=1, div=0, dep=0, wd=0;
+  for (let i=a+1;i<=b;i++){
+    res += MF[i]; div += DIVM[i];
+    const base = VAL[i-1] > 1 ? VAL[i-1] : (PAID[i] || 0);
+    if (base > 1) twr *= 1 + MF[i]/base;
+    if (DEP[i] > 0) dep += DEP[i]; else wd += DEP[i];
+  }
+  let peak=-Infinity, pk=a, dd=0, ddPct=0, ddA=null, ddB=null;
+  for (let i=a;i<=b;i++){
+    if (VAL[i] > peak) { peak = VAL[i]; pk = i; }
+    const d = VAL[i]-peak;
+    if (d < dd && peak > 1) { dd=d; ddPct=d/peak*100; ddA=pk; ddB=i; }
+  }
+  return {a,b, v0:VAL[a], v1:VAL[b], res, twr:(twr-1)*100,
+          flow:PAID[b]-PAID[a], div, dep, wd, dd, ddPct, ddA, ddB,
+          points:b-a+1, from:LBL[a], to:LBL[b]};
+}
+
+const sl = arr => { const {a,b}=win(); return arr.slice(a,b+1); };
+/* The anchor at index 0 is a synthetic "before anything existed" point. It is
+   what makes the all-time delta real, but it is not a measurement, so it is
+   never drawn. */
+const slc = arr => { const {a,b}=win(); return arr.slice(Math.max(a,1), b+1); };
+const windowLabel = () => {
+  const {a,b} = win();
+  if (!ZOOM && RANGE==='ALL') return `${dLabel(LBL[1])} – ${dLabel(TODAY)}`;
+  return `${dFull(LBL[Math.max(a,1)])} – ${dFull(LBL[b])}`;
+};
+
+/** Deposit / withdrawal triangles, positioned inside the current window. */
+function flowMarkers(){
+  const {a,b}=win(), s=Math.max(a,1), out=[];
+  for (let i=s;i<=b;i++) if (Math.abs(DEP[i])>0.5) out.push({i:i-s, dir:DEP[i]>0?1:-1});
+  return out;
+}
+
+/** Too few points to draw honestly. Monthly source data cannot show a week. */
+function thin(){ return win().b - win().a < 2; }
+const thinNote = `<div class="empty">Deze periode bevat te weinig meetpunten om een lijn van te maken.<br>
+  De bron is een dagwaarde per maandeinde; kies een langere periode.</div>`;
+
+/* =====================================================================
+   SVG CHART PRIMITIVES
+   Drawn at measured pixel width; a stretched viewBox distorts axis type.
+   ===================================================================== */
+
+const CHARTS = [];
+function chartHost(kind,cfg){ const i=CHARTS.push({kind,cfg})-1;
+  return `<div class="chart-host" data-chart="${i}" style="height:${cfg.h||300}px"></div>`; }
+function drawCharts(){
+  document.querySelectorAll('.chart-host').forEach(el=>{
+    const c = CHARTS[+el.dataset.chart]; if(!c) return;
+    const W = Math.max(320, el.clientWidth);
+    el.innerHTML = c.kind==='line' ? buildLine(c.cfg,W) : c.kind==='stack' ? buildStack(c.cfg,W) : c.kind==='hbar' ? buildHBar(c.cfg,W) : buildBar(c.cfg,W);
+  });
+}
+addEventListener('resize', ()=>{ clearTimeout(window.__rt); window.__rt=setTimeout(drawCharts,120); });
+
+const lineChart  = cfg => chartHost('line',cfg);
+const hbarChart  = cfg => chartHost('hbar',cfg);
+const barChart   = cfg => chartHost('bar',cfg);
+const stackChart = cfg => chartHost('stack',cfg);
+
+function niceTicks(min,max,n=4){
+  const span = max-min || 1, raw = span/n, mag = Math.pow(10,Math.floor(Math.log10(raw)));
+  const step = [1,2,2.5,5,10].map(m=>m*mag).find(s=>raw<=s) || 10*mag;
+  const out=[]; let t=Math.ceil(min/step)*step;
+  while (t <= max+step*0.001){ out.push(+t.toFixed(6)); t+=step; }
+  return out;
+}
+
+function axis(g, {labels, W, h, PL, PR, PB, X}){
+  const step = Math.ceil(labels.length / Math.max(2, Math.floor(W/130)));
+  let s = '';
+  for (let i=0;i<labels.length;i+=step){
+    if (X(i) > W-PR-28) continue;
+    s += `<text class="ax" x="${X(i).toFixed(1)}" y="${h-8}" text-anchor="middle">${dLabel(labels[i])}</text>`;
+  }
+  return g+s;
+}
+
+/* With amounts hidden the y axis goes too: gridlines keep the shape legible,
+   labels would hand back the level the mask just removed. */
+const yPad = () => MASKED ? 18 : 64;
+
+function buildLine({series,labels,h=300,area=true,markers=null,fmt=kEur,zero=true},W){
+  const PL=yPad(),PR=16,PT=12,PB=26;
+  const all = series.flatMap(s=>s.data).filter(v=>v!=null);
+  /* A three-month window on a six-figure account, drawn from zero, is a flat
+     line: the axis spends 90% of its height on ground the window never
+     touches. So a window that does not contain the account's own start gets a
+     baseline near its own low — and the panel says so underneath, because a
+     chart that does not start at zero and does not admit it is the oldest
+     trick in the book. */
+  let lo, hi = Math.max(...all);
+  if (zero) lo = Math.min(0,...all);
+  else { const min = Math.min(...all); const pad = (hi-min || hi*0.05)*0.35; lo = Math.max(0, min-pad); }
+  const ticks = niceTicks(lo,hi,4);
+  lo=Math.min(lo,ticks[0]); hi=Math.max(hi,ticks[ticks.length-1]);
+  const X = i => PL + i*(W-PL-PR)/Math.max(1,labels.length-1);
+  const Y = v => PT + (hi-v)*(h-PT-PB)/(hi-lo || 1);
+
+  let g = ticks.map(t=>`<line class="gl" x1="${PL}" x2="${W-PR}" y1="${Y(t).toFixed(1)}" y2="${Y(t).toFixed(1)}"/>
+    <text class="ax" x="${PL-8}" y="${(Y(t)+3.5).toFixed(1)}" text-anchor="end">${fmt(t)}</text>`).join('');
+  g = axis(g,{labels,W,h,PL,PR,PB,X});
+
+  let paths='';
+  series.forEach((s,si)=>{
+    const d = s.data.map((v,i)=>`${i?'L':'M'}${X(i).toFixed(1)} ${Y(v).toFixed(1)}`).join(' ');
+    if (area && si===0) paths += `<defs><linearGradient id="ag${si}" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="${s.color}" stop-opacity=".20"/><stop offset="1" stop-color="${s.color}" stop-opacity="0"/>
+      </linearGradient></defs><path d="${d} L${X(s.data.length-1).toFixed(1)} ${Y(lo).toFixed(1)} L${X(0).toFixed(1)} ${Y(lo).toFixed(1)} Z" fill="url(#ag${si})"/>`;
+    paths += `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="${s.w||2}" stroke-linejoin="round" stroke-linecap="round" ${s.dash?`stroke-dasharray="${s.dash}"`:''}/>`;
+  });
+
+  let mk='';
+  if (markers) markers.forEach(m=>{ const x=X(m.i), y=Y(lo);
+    mk += m.dir>0 ? `<path d="M${x-3.5} ${y+7} L${x+3.5} ${y+7} L${x} ${y+1.5} Z" fill="var(--pos)" opacity=".8"/>`
+                  : `<path d="M${x-3.5} ${y+1.5} L${x+3.5} ${y+1.5} L${x} ${y+7} Z" fill="var(--neg)" opacity=".8"/>`; });
+
+  return `<svg class="chart" viewBox="0 0 ${W} ${h}" width="${W}" height="${h}" role="img">
+    ${g}${paths}<line class="zl" x1="${PL}" x2="${W-PR}" y1="${Y(lo).toFixed(1)}" y2="${Y(lo).toFixed(1)}"/>${mk}</svg>`;
+}
+
+function buildBar({data,labels,h=260,fmt=kEur},W){
+  const neg = data.some(v=>v!=null && v<0);
+  const PL=yPad(),PR=16,PT=12,PB=neg?34:26;
+  const vals = data.filter(v=>v!=null);
+  const ticks = niceTicks(Math.min(0,...vals), Math.max(0,...vals), 4);
+  const lo=ticks[0], hi=ticks[ticks.length-1];
+  const bw=(W-PL-PR)/data.length;
+  const X = i => PL + i*bw;
+  const Y = v => PT + (hi-v)*(h-PT-PB)/(hi-lo || 1);
+  let g = ticks.map(t=>`<line class="${t===0?'zl':'gl'}" x1="${PL}" x2="${W-PR}" y1="${Y(t).toFixed(1)}" y2="${Y(t).toFixed(1)}"/>
+    <text class="ax" x="${PL-8}" y="${(Y(t)+3.5).toFixed(1)}" text-anchor="end">${fmt(t)}</text>`).join('');
+  g = axis(g,{labels,W,h,PL,PR,PB,X:i=>X(i)+bw/2});
+  const bars = data.map((v,i)=>{ if(v==null) return '';
+    const y0=Y(0), y1=Y(v);
+    return `<rect x="${(X(i)+bw*0.18).toFixed(1)}" y="${Math.min(y0,y1).toFixed(1)}" width="${Math.max(1,bw*0.64).toFixed(1)}"
+      height="${Math.max(1,Math.abs(y1-y0)).toFixed(1)}" rx="1" fill="${v<0?'var(--neg)':'var(--pos)'}"/>`; }).join('');
+  return `<svg class="chart" viewBox="0 0 ${W} ${h}" width="${W}" height="${h}" role="img">${g}${bars}</svg>`;
+}
+
+/** Ranked horizontal bars around a zero line — the shape of "what moved". */
+function buildHBar({rows,h,fmt=kEur},W){
+  const PL=MASKED?96:104, PR=16, PT=6, PB=22;
+  const vs = rows.map(r=>r.v);
+  const ticks = niceTicks(Math.min(0,...vs), Math.max(0,...vs), 4);
+  /* Extend past the ticks if a bar is longer than the last one, or the longest
+     bar silently runs off the plot — which is how a chart ends up lying. */
+  const lo = Math.min(ticks[0], ...vs), hi = Math.max(ticks[ticks.length-1], ...vs);
+  const X = v => PL + (v-lo)*(W-PL-PR)/(hi-lo);
+  const bh = (h-PT-PB)/rows.length;
+  let g = ticks.map(t=>`<line class="${t===0?'zl':'gl'}" x1="${X(t).toFixed(1)}" x2="${X(t).toFixed(1)}" y1="${PT}" y2="${h-PB}"/>
+    <text class="ax" x="${X(t).toFixed(1)}" y="${h-6}" text-anchor="middle">${fmt(t)}</text>`).join('');
+  const bars = rows.map((r,i)=>{
+    const y = PT + i*bh, x0 = X(0), x1 = X(r.v);
+    return `<text class="ax" x="${PL-10}" y="${(y+bh/2+3.5).toFixed(1)}" text-anchor="end">${esc(r.k)}</text>
+      <rect x="${Math.min(x0,x1).toFixed(1)}" y="${(y+bh*0.2).toFixed(1)}" width="${Math.max(1,Math.abs(x1-x0)).toFixed(1)}"
+        height="${(bh*0.6).toFixed(1)}" rx="2" fill="${r.v<0?'var(--neg)':'var(--pos)'}"/>`;
+  }).join('');
+  return `<svg class="chart" viewBox="0 0 ${W} ${h}" width="${W}" height="${h}" role="img">${g}${bars}</svg>`;
+}
+
+function buildStack({series,labels,h=300,fmt=kEur},W){
+  const PL=yPad(),PR=16,PT=12,PB=26;
+  const totals = labels.map((_,i)=> series.reduce((a,s)=>a+s.data[i],0));
+  const ticks = niceTicks(0, Math.max(...totals), 4);
+  const hi = ticks[ticks.length-1];
+  const X = i => PL + i*(W-PL-PR)/Math.max(1,labels.length-1);
+  const Y = v => PT + (hi-v)*(h-PT-PB)/(hi || 1);
+  let g = ticks.map(t=>`<line class="gl" x1="${PL}" x2="${W-PR}" y1="${Y(t).toFixed(1)}" y2="${Y(t).toFixed(1)}"/>
+    <text class="ax" x="${PL-8}" y="${(Y(t)+3.5).toFixed(1)}" text-anchor="end">${fmt(t)}</text>`).join('');
+  g = axis(g,{labels,W,h,PL,PR,PB,X});
+  let acc = labels.map(()=>0), bands='';
+  series.forEach(s=>{
+    const top = acc.map((v,i)=>v+s.data[i]);
+    const up = top.map((v,i)=>`${i?'L':'M'}${X(i).toFixed(1)} ${Y(v).toFixed(1)}`).join(' ');
+    const dn = acc.map((v,i)=>`L${X(acc.length-1-i).toFixed(1)} ${Y(acc[acc.length-1-i]).toFixed(1)}`).join(' ');
+    bands += `<path d="${up} ${dn} Z" fill="${s.color}" opacity=".9"/>`;
+    acc = top;
+  });
+  return `<svg class="chart" viewBox="0 0 ${W} ${h}" width="${W}" height="${h}" role="img">${g}${bands}</svg>`;
+}
+
+/* =====================================================================
+   SHARE — the card, and what may be on it.
+
+   Deliberately a *drawn* card, not a screenshot of the panel. A DOM capture
+   ships whatever happens to be on screen — an open tooltip, the row above,
+   a reconciliation banner. A drawn card ships a declared field list and
+   nothing else, which is the only version of this feature that is safe to
+   put a marketing button on.
+
+   The handle is typed by the user and stored locally. It is NOT derived from
+   the account name, which is redacted everywhere else in this project; a
+   handle that came from the account would put the identity back on the
+   artefact through the side door.
+   ===================================================================== */
+
+/* ---------------------------------------------------------------------
+   The Asteria mark. One geometry, two renderers.
+
+   Copied from assets/logo/asteria-logo-light.svg, in the coordinate space
+   of its translate(6,8) group, so the two cannot drift apart by hand. The
+   ink rides currentColor and the star takes --brand-accent, which means
+   there is no `theme === 'dark' ? a : b` anywhere and no second palette.
+
+   The wordmark is set in the UI's own stack rather than rasterised from
+   Inter Tight: a font that may not be installed is a cross-machine drift
+   waiting to happen, and a share card must look the same on every machine
+   that draws it. Below 24px the mark stands alone, per the brand note.
+   --------------------------------------------------------------------- */
+const MARK = {
+  line:'M5 37 L15 27 L24 31 L33 19',
+  dots:[[5,37],[15,27],[24,31]],
+  star:'M35 4 C35.7 9.2 38.2 12.3 44 13 C38.2 13.7 35.7 16.8 35 22 C34.3 16.8 31.8 13.7 26 13 C31.8 12.3 34.3 9.2 35 4 Z',
+  box:{x:2.2, y:4, w:41.8, h:35.8},
+};
+
+function markSVG(h=22){
+  const s = h/MARK.box.h, w = MARK.box.w*s;
+  return `<svg class="mark" width="${w.toFixed(1)}" height="${h}" viewBox="${MARK.box.x} ${MARK.box.y} ${MARK.box.w} ${MARK.box.h}" aria-hidden="true">
+    <path d="${MARK.line}" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+    ${MARK.dots.map(([x,y])=>`<circle cx="${x}" cy="${y}" r="2.8" fill="currentColor"/>`).join('')}
+    <path d="${MARK.star}" fill="var(--brand-accent)"/></svg>`;
+}
+
+function drawMark(c, x, y, h, ink, accent){
+  const s = h/MARK.box.h;
+  c.save(); c.translate(x, y); c.scale(s,s); c.translate(-MARK.box.x, -MARK.box.y);
+  c.strokeStyle = ink; c.lineWidth = 3.2; c.lineCap='round'; c.lineJoin='round';
+  c.stroke(new Path2D(MARK.line));
+  c.fillStyle = ink;
+  MARK.dots.forEach(([cx,cy])=>{ c.beginPath(); c.arc(cx,cy,2.8,0,Math.PI*2); c.fill(); });
+  c.fillStyle = accent; c.fill(new Path2D(MARK.star));
+  c.restore();
+  return MARK.box.w*s;
+}
+
+const CARD_FIELDS = Object.freeze(['title','sub','value','pct','period','spark','name','provenance']);
+
+const FORMATS = {
+  post:     {w:1080, h:1080, label:'Vierkant 1:1'},
+  portrait: {w:1080, h:1350, label:'Feed 4:5'},
+  story:    {w:1080, h:1920, label:'Story 9:16'},
+  wide:     {w:1200, h:675,  label:'Link 16:9'},
+};
+
+/* The account, as the sync already has it: fixtures/client.json → data.username
+   and data.firstContact. Nothing is typed, so a card cannot be used to claim
+   someone else's returns, and it cannot be blank or misspelled.
+
+   Two things this does NOT do, stated here because a reader will assume both.
+
+   It is not verification. Any value this extension can print, anyone holding
+   the extension can also patch — the same reason src/lib/snapshot.js refuses to
+   call the card "certified". A username from the account is exactly as
+   unprovable to a viewer as one that was typed in.
+
+   And `username` is a login name. It is one half of the credential pair, it is
+   not designed to be public the way a social handle is, and DEGIRO does not
+   hand out a new one. Publishing it invites credential stuffing against that
+   specific account and targeted phishing that can quote it back. The owner has
+   weighed that and chosen to offer it; the option therefore carries a warning
+   in the sheet, and `first` stays the default. */
+const ACCOUNT = {
+  username:  'mvdpijl',
+  firstName: 'Mathijs',
+  lastName:  'van der Pijl',
+};
+
+const IDENTITY = {
+  off:      {label:'Geen naam',      text:() => null},
+  first:    {label:'Voornaam',       text:() => ACCOUNT.firstName},
+  username: {label:'Gebruikersnaam', text:() => '@' + ACCOUNT.username},
+};
+
+const share = {
+  open:false, spec:null,
+  format:'post', theme:'light', amounts:!MASKED,
+  /* Default off. The name on a DEGIRO account is a legal name, and a legal name
+     on a public image is a heavier default than a hidden amount. */
+  identity: localStorage.getItem('ph-identity') || 'first',
+};
+
+function provenanceLine(p){
+  const bits = [p.broker, p.asOf];
+  bits.push(p.reconciled===true ? 'sluit tot op de cent op DEGIRO'
+          : p.reconciled===false ? 'SLUIT NIET op DEGIRO' : 'niet getoetst');
+  bits.push('v'+p.version);
+  return bits.join(' · ');
+}
+
+/** Downsample to a shape. No axis, no scale: the spark discloses the path
+ *  and never a level, which is why it survives amounts being hidden. */
+function spark(series, max=56){
+  const xs = series.filter(Number.isFinite);
+  if (xs.length <= max) return xs;
+  const stride = (xs.length-1)/(max-1);
+  return Array.from({length:max},(_,i)=>xs[Math.round(i*stride)]);
+}
+
+/* Brand ink and brand accent are the logo's own two values and stay separate
+   from the UI accent on purpose: white on #D9531E measures 4.03:1, under the
+   4.5:1 floor, where the UI accent measures 4.87:1 — and that one is a filled
+   button background. The star is decoration, so it may carry the brand value. */
+const CARD_THEME = {
+  light:{bg:'#FBFAF8', card:'#FFFFFF', ink:'#14181D', ink2:'#5C6672', ink3:'#939CA7', line:'#E9E6E0',
+         pos:'#1668C4', neg:'#C0303D', accent:'#B8532F', brandInk:'#16213E', brandAccent:'#D9531E'},
+  dark: {bg:'#0D1116', card:'#141920', ink:'#E8EDF3', ink2:'#98A3B0', ink3:'#6B7683', line:'#232B35',
+         pos:'#5FA3F0', neg:'#EF737E', accent:'#E08355', brandInk:'#E8EDF5', brandAccent:'#F97038'},
+};
+
+function drawCard(spec, fmt, theme, opts){
+  const F = FORMATS[fmt], T = CARD_THEME[theme];
+  const cv = document.createElement('canvas');
+  cv.width = F.w; cv.height = F.h;
+  const c = cv.getContext('2d');
+  const S = F.w/1080;
+  const FT = (px,w=500) => `${w} ${px*S}px ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif`;
+
+  /* A 16:9 link card is 675px tall where the square is 1080. The stack that
+     fits one does not fit the other, so the wide format is a two-column layout
+     rather than the same column squeezed — which is also what a link preview
+     actually looks like. */
+  const wide = F.w > F.h;
+  const P    = (wide ? 72 : 88) * S;
+  const footH = (wide ? 120 : 150) * S;
+  const footTop = F.h - footH;
+
+  c.fillStyle = T.bg; c.fillRect(0,0,F.w,F.h);
+
+  /* The lockup, drawn from the mark's own geometry rather than loaded from a
+     file: an SVG through drawImage does not inherit currentColor and cannot be
+     reached by the page's CSS, so a file-based watermark would have to pick a
+     variant in JavaScript — the one thing the brand note forbids. */
+  const mh = 52*S;
+  const mw = drawMark(c, P, P, mh, T.brandInk, T.brandAccent);
+  c.fillStyle = T.brandInk; c.font = `500 ${34*S}px ui-sans-serif, system-ui, sans-serif`;
+  c.letterSpacing = `${3*S}px`;
+  c.fillText('ASTERIA', P+mw+20*S, P+mh-6*S);
+  c.letterSpacing = '0px';
+
+  let y = P + mh;
+  if (!wide){                                    // the period sits under the lockup
+    c.fillStyle = T.ink3; c.font = FT(24,450);   // when there is room, in the footer when not
+    c.fillText(spec.period, P, y + 40*S);
+    y += 116*S;
+  } else {
+    y += 84*S;
+  }
+
+  const colW = wide ? (F.w-2*P)*0.54 : (F.w-2*P);
+
+  c.fillStyle = T.ink3; c.font = FT(24,600);
+  c.letterSpacing = `${1.6*S}px`;
+  c.fillText(clipText(c, spec.title.toUpperCase(), colW), P, y);
+  c.letterSpacing = '0px';
+  y += (wide ? 84 : 96)*S;
+
+  const hidden = !(opts.amounts || spec.value==null);
+  const big = hidden ? `€ ${DOTS}` : spec.value;
+  if (big){
+    c.fillStyle = spec.valueColor ? T[spec.valueColor] : T.ink;
+    const base = hidden ? 86 : (spec.value.length>13 ? 92 : 110);
+    c.font = FT(wide ? base*0.86 : base, 640);
+    c.fillText(big, P, y);
+    y += (wide ? 46 : 54)*S;
+  }
+
+  if (spec.pct != null){
+    const t = pct(spec.pct);
+    c.font = FT((wide?46:52),620);
+    const wpx = c.measureText(t).width;
+    c.fillStyle = spec.pct<0 ? T.neg : T.pos;
+    c.fillText(t, P, y+(wide?42:46)*S);
+    if (spec.pctNote){
+      c.fillStyle = T.ink2; c.font = FT(wide?27:30,450);
+      c.fillText(clipText(c, spec.pctNote, colW-wpx-18*S), P+wpx+18*S, y+(wide?42:46)*S);
+    }
+    y += (wide ? 78 : 92)*S;
+  }
+  const subText = hidden ? (spec.subHidden || '') : spec.sub;
+  if (subText){
+    c.fillStyle = T.ink2; c.font = FT(wide?27:30,450);
+    c.fillText(clipText(c, subText, colW), P, y+(wide?30:34)*S);
+    y += (wide ? 62 : 72)*S;
+  }
+
+  /* The shape. No axis and no scale: it discloses the path and never a level,
+     which is why it survives with the amounts hidden. */
+  const sp = spec.spark || [];
+  let cx0, cx1, cy0, cy1;
+  if (wide){
+    cx0 = P + colW + 44*S; cx1 = F.w - P;
+    cy0 = P + mh + 40*S;   cy1 = footTop - 34*S;
+  } else {
+    cx0 = P; cx1 = F.w - P;
+    cy0 = Math.min(y + 30*S, footTop - 170*S);
+    cy1 = footTop - 60*S;
+  }
+  const ch = Math.max(90*S, cy1-cy0);
+  if (sp.length > 1){
+    const lo = Math.min(...sp), hi = Math.max(...sp), span = hi-lo || 1;
+    const x  = i => cx0 + i*(cx1-cx0)/(sp.length-1);
+    const yy = v => cy0 + ch - ((v-lo)/span)*ch;
+    const col = sp[sp.length-1] >= sp[0] ? T.pos : T.neg;
+    c.beginPath(); c.moveTo(x(0), yy(sp[0]));
+    sp.forEach((v,i)=> c.lineTo(x(i), yy(v)));
+    c.lineTo(x(sp.length-1), cy0+ch); c.lineTo(x(0), cy0+ch); c.closePath();
+    const grad = c.createLinearGradient(0,cy0,0,cy0+ch);
+    grad.addColorStop(0, col+'44'); grad.addColorStop(1, col+'00');
+    c.fillStyle = grad; c.fill();
+    c.beginPath(); sp.forEach((v,i)=> i?c.lineTo(x(i),yy(v)):c.moveTo(x(i),yy(v)));
+    c.strokeStyle = col; c.lineWidth = 7*S; c.stroke();
+  }
+
+  /* Foot: who, and where it came from. */
+  c.strokeStyle = T.line; c.lineWidth = 2*S;
+  c.beginPath(); c.moveTo(P, footTop); c.lineTo(F.w-P, footTop); c.stroke();
+
+  const name = opts.name;
+  if (name){
+    c.fillStyle = T.ink; c.font = FT(32,620);
+    c.fillText(clipText(c, name, (F.w-2*P)*0.6), P, footTop + 48*S);
+  }
+  c.fillStyle = T.ink3; c.font = FT(wide?20:23,450);
+  const prov = wide ? `${spec.period} · ${spec.provenance}` : spec.provenance;
+  c.fillText(clipText(c, prov, F.w-2*P), P, footTop + (name ? 88*S : 48*S));
+
+  if (hidden){
+    c.fillStyle = T.ink3; c.font = FT(23,450);
+    const t = 'bedragen verborgen';
+    c.fillText(t, F.w-P-c.measureText(t).width, footTop + 48*S);
+  }
+  return cv;
+}
+
+/** Trim to fit. A long instrument name must not run off the card. */
+function clipText(c, text, max){
+  let t = String(text ?? '');
+  if (c.measureText(t).width <= max) return t;
+  while (t.length > 1 && c.measureText(t+'…').width > max) t = t.slice(0,-1);
+  return t+'…';
+}
+
+function shareBtn(key){ return `<button class="btn btn-ghost btn-icon share-btn" type="button" data-share="${key}" title="Deel als afbeelding" aria-label="Deel als afbeelding">
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 12v7a1 1 0 001 1h14a1 1 0 001-1v-7"/><path d="M12 3v13"/><path d="M8 7l4-4 4 4"/></svg></button>`; }
+
+/** Every shareable thing on the page, and the declared fields of its card. */
+function cardSpec(key){
+  const s = stats(), per = windowLabel(), prov = provenanceLine(PROVENANCE);
+  if (key === 'total') return {
+    title:'Totale waarde', value:eur(s.v1), valueColor:null, pct:s.twr,
+    pctNote:'in deze periode', sub:`${eur(s.flow)} zelf ingelegd · ${eurS(s.res)} resultaat`,
+    period:per, spark:spark(slc(VAL)), provenance:prov,
+    subHidden:'alleen verloop, geen bedragen' };
+  if (key === 'result') return {
+    title:'Resultaat', value:eurS(s.res), valueColor:s.res<0?'neg':'pos', pct:s.twr,
+    pctNote:'tijdgewogen', sub:'stortingen en opnames zijn eruit gerekend',
+    period:per, spark:spark(slc(VAL).map((v,i)=>v-slc(PAID)[i])), provenance:prov,
+    subHidden:'alleen verloop, geen bedragen' };
+  if (key === 'dividend') return {
+    title:'Dividend', value:eur(s.div), pct:null,
+    sub:'netto ontvangen in deze periode', period:per,
+    spark:spark(slc(DIVM)), provenance:prov };
+  if (key.startsWith('pos:')){
+    const k = +key.slice(4), h = HOLD[k], se = sl(HSER[k]);
+    const v0 = se[0], v1 = se[se.length-1];
+    return { title:h.n + (h.t?` · ${h.t}`:''), value:eur(v1),
+      pct: h.cash ? null : h.res/(h.v-h.res)*100, pctNote:'op wat erin ging',
+      sub:`${nlNum(h.sh,1)}% van de portefeuille`, period:per,
+      spark:spark(se), provenance:prov };
+  }
+  return null;
+}
+
+const cardOpts = () => ({amounts:share.amounts, name:IDENTITY[share.identity].text()});
+
+function openShare(key){
+  share.spec = cardSpec(key); if (!share.spec) return;
+  share.open = true; renderShare();
+}
+
+/* One element, one set of listeners.
+   The first version re-attached the modal's handlers on every renderShare(),
+   so after three format changes a single click ran four handlers, each of which
+   re-rendered and attached a fifth. The regression sweep caught it as a hang.
+   Listeners are bound once at create time and delegated, so the body can be
+   replaced as often as it likes. */
+let shareEl = null;
+
+function ensureShareEl(){
+  if (shareEl) return shareEl;
+  shareEl = document.createElement('div');
+  shareEl.id = 'share-modal';
+  shareEl.className = 'modal-back';
+
+  shareEl.addEventListener('click', e => {
+    if (e.target === shareEl || e.target.closest('[data-x]')) { closeShare(); return; }
+    const f = e.target.closest('#fmt-seg button');
+    if (f) { share.format = f.dataset.f; return renderShare(); }
+    const t = e.target.closest('#cardtheme-seg button');
+    if (t) { share.theme = t.dataset.t; return renderShare(); }
+    const i = e.target.closest('#ident-seg button');
+    if (i) { share.identity = i.dataset.i; localStorage.setItem('ph-identity', share.identity); return renderShare(); }
+    if (e.target.closest('#dl')) return download();
+    if (e.target.closest('#cp')) return copy();
+  });
+
+  shareEl.addEventListener('change', e => {
+    if (e.target.id === 'amt') { share.amounts = e.target.checked; renderShare(); }
+  });
+
+  document.body.appendChild(shareEl);
+  return shareEl;
+}
+
+function closeShare(){
+  share.open = false;
+  if (shareEl) { shareEl.remove(); shareEl = null; }
+}
+
+function paintCard(){
+  const host = shareEl && shareEl.querySelector('#share-canvas');
+  if (!host) return;
+  const cv = drawCard(share.spec, share.format, share.theme, cardOpts());
+  host.width = cv.width; host.height = cv.height;
+  host.getContext('2d').drawImage(cv, 0, 0);
+  host.style.aspectRatio = `${cv.width}/${cv.height}`;
+}
+
+function download(){
+  const cv = drawCard(share.spec, share.format, share.theme, cardOpts());
+  const a = document.createElement('a');
+  a.download = `asteria-${share.format}.png`;
+  a.href = cv.toDataURL('image/png');
+  a.click();
+}
+
+async function copy(){
+  const note = shareEl.querySelector('#cp-note');
+  try {
+    const cv = drawCard(share.spec, share.format, share.theme, cardOpts());
+    const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
+    await navigator.clipboard.write([new ClipboardItem({'image/png': blob})]);
+    note.textContent = 'Op het klembord.';
+  } catch {
+    note.textContent = 'Klembord geweigerd door de browser — gebruik downloaden.';
+  }
+}
+
+function renderShare(){
+  if (!share.open) { closeShare(); return; }
+  const el = ensureShareEl();
+  el.innerHTML = `
+    <div class="modal" role="dialog" aria-modal="true" aria-label="Deel als afbeelding">
+      <div class="modal-head">
+        <h2>Deel als afbeelding</h2>
+        <button class="btn btn-ghost btn-icon" type="button" data-x aria-label="Sluiten">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </div>
+      <div class="modal-body">
+        <div class="preview"><canvas id="share-canvas"></canvas></div>
+        <div class="controls-col">
+          <label class="ctl"><span>Formaat</span>
+            <div class="seg wrap" id="fmt-seg">${Object.entries(FORMATS).map(([k,f])=>
+              `<button type="button" data-f="${k}" aria-pressed="${share.format===k}">${f.label}</button>`).join('')}</div></label>
+
+          <label class="ctl"><span>Thema</span>
+            <div class="seg" id="cardtheme-seg">
+              <button type="button" data-t="light" aria-pressed="${share.theme==='light'}">Licht</button>
+              <button type="button" data-t="dark" aria-pressed="${share.theme==='dark'}">Donker</button>
+            </div></label>
+
+          <label class="ctl"><span>Naam op de kaart
+            <span class="src-chip">uit je DEGIRO-account</span>
+            ${q('Komt uit de accountgegevens die de sync al ophaalt, niet uit een invulveld: zelf iets kunnen intypen betekent dat iemand andermans rendement onder zijn eigen naam kan posten. Let op dat geen van deze opties de kaart bewijsbaar maakt — wat deze extensie kan printen, kan iedereen die de extensie heeft ook printen.')}</span>
+            <div class="seg wrap" id="ident-seg">${Object.entries(IDENTITY).map(([k,v])=>
+              `<button type="button" data-i="${k}" aria-pressed="${share.identity===k}">${v.label}</button>`).join('')}</div>
+            <div class="ident-preview">${share.identity==='off'
+              ? '<span class="muted">Geen naam op de kaart.</span>'
+              : esc(IDENTITY[share.identity].text())}</div>
+          </label>
+          ${share.identity==='username' ? `<p class="warn-line">Dit is je DEGIRO-inlognaam. Die is niet bedoeld om openbaar te zijn en je kunt hem niet wisselen: publiceren maakt gerichte phishing en credential stuffing op precies deze rekening makkelijker. Voor een publieke post is <b>Voornaam</b> de veiligere keuze.</p>` : ''}
+
+          <label class="check amounts"><input type="checkbox" id="amt" ${share.amounts?'checked':''} /> Bedragen tonen</label>
+          <p class="warn-line" ${share.amounts?'':'hidden'}>Deze kaart bevat je werkelijke bedragen. Zonder vinkje gaan alleen het percentage en de vorm mee, en die zeggen niets over de omvang.</p>
+
+          <div class="fields">
+            <div class="fields-k">Wat er op de kaart staat</div>
+            ${CARD_FIELDS.map(f=>`<span class="pill">${f}</span>`).join('')}
+            <p>Meer niet. De kaart wordt getekend, niet van het scherm gekopieerd, dus er kan niets meeliften wat toevallig openstond.</p>
+          </div>
+
+          <div class="modal-actions">
+            <button class="btn btn-primary" type="button" id="dl">PNG downloaden</button>
+            <button class="btn" type="button" id="cp">Kopiëren</button>
+          </div>
+          <div class="copy-note" id="cp-note"></div>
+        </div>
+      </div>
+    </div>`;
+  paintCard();
+}
+document.addEventListener('keydown', e=>{ if(e.key==='Escape' && share.open) closeShare(); });
+document.addEventListener('click', e=>{ const b=e.target.closest('[data-share]'); if(b) openShare(b.dataset.share); });
+
+/* =====================================================================
+   SECTIONS
+   ===================================================================== */
+
+/** The rest of the figures.
+
+    The old UI put seven of these in a row of equal tiles, which is why none
+    of them read as more important than any other. They are not deleted here,
+    they are demoted: one hero, three supporting facts, and everything else
+    one click away in a plain definition grid. Open by default on wide
+    screens, so nothing is actually hidden — just ranked. */
+function figures(title, rows){
+  return `<details class="figures" open>
+    <summary><span>${title}</span><span class="chev">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 9l6 6 6-6"/></svg></span></summary>
+    <div class="fig-grid">${rows.map(r=>`<div class="fig">
+      <div class="fig-k">${r.k}${r.tip?' '+q(r.tip):''}</div>
+      <div class="fig-v ${r.c||''}">${r.v}</div>
+      ${r.n?`<div class="fig-n">${r.n}</div>`:''}</div>`).join('')}</div></details>`;
+}
+
+function overview(){
+  const s = stats(), L = slc(LBL), V = slc(VAL), P = slc(PAID);
+  return `
+  <section class="hero">
+    <div>
+      <div class="eyebrow">Totale waarde <span class="win">${rangeName()}</span></div>
+      <div class="hero-value">${eur(s.v1)} ${shareBtn('total')}</div>
+      <div class="hero-meta">
+        <span><span class="delta ${cls(s.res)}">${eurS(s.res)}</span> <span class="muted">resultaat ${(RANGE==='ALL'&&!ZOOM)?'sinds de start':'in deze periode'}</span></span>
+        <span><span class="delta ${cls(s.twr)}">${pct(s.twr)}</span> <span class="muted">tijdgewogen ${q('De maandrendementen in deze periode achter elkaar geschakeld. Een storting midden in de periode maakt dit getal daardoor niet mooier of lelijker.')}</span></span>
+        <span><span class="delta up">${eurS(2535.90)}</span> <span class="muted">vandaag</span></span>
+      </div>
+    </div>
+    <div class="facts">
+      <div class="fact">
+        <div class="fact-k">Erin en eruit ${q('Alleen stortingen en opnames binnen de gekozen periode. Een storting is nooit winst.')}</div>
+        <div class="fact-v">${eurS(s.flow)}</div>
+        <div class="fact-n">${eur(s.dep,0)} erin · ${eur(s.wd,0)} eruit</div>
+      </div>
+      <div class="fact">
+        <div class="fact-k">Dividend</div>
+        <div class="fact-v">${eur(s.div)}</div>
+        <div class="fact-n">netto, in deze periode</div>
+      </div>
+      <div class="fact">
+        <div class="fact-k">Diepste daling ${q('Grootste val van top naar dal bínnen de gekozen periode. Bij een kortere periode is dit dus een ander getal, en dat hoort zo.')}</div>
+        <div class="fact-v">${s.ddA==null?'<span class="muted">—</span>':nlNum(s.ddPct,2)+'%'}</div>
+        <div class="fact-n">${s.ddA==null?'geen daling in deze periode':`${dLabel(LBL[s.ddA])} → ${dLabel(LBL[s.ddB])} · ${eur(s.dd,0)}`}</div>
+      </div>
+    </div>
+  </section>
+
+  ${figures('Alle cijfers', [
+    {k:'Vandaag', v:eurS(2535.90), c:'up', n:'sinds gisteren'},
+    {k:'Deze week', v:eur(-1895.58), c:'down', n:'5 handelsdagen'},
+    {k:'Zelf ingelegd', v:eur(84800), n:'hele looptijd, netto'},
+    {k:'Resultaat', v:eurS(31140.77), c:'up', n:'hele looptijd'},
+    {k:'Gerealiseerd', v:eur(0), n:'uit 0 gesloten posities',
+     tip:'Wat je daadwerkelijk hebt binnengehaald door te verkopen. In deze demo is nog niets volledig gesloten.'},
+    {k:'Ongerealiseerd', v:eurS(28951.49), c:'up', n:'staat nog op koers'},
+    {k:'Dividend', v:eur(2176.58), n:'€ 384,08 ingehouden · hele looptijd'},
+    {k:'Kosten', v:eur(180), n:'transactie- en aansluitkosten',
+     tip:'Wat een debetstand kost zit hier niet in.'},
+    {k:'Posities', v:cnt(10), n:'10 instrumenten ooit gehouden'},
+    {k:'Contanten', v:eur(3786.85), n:'3,3% van het totaal'},
+    {k:'Transacties', v:cnt(84), n:'349 geldbewegingen'},
+    {k:'Dekking', v:'100,0%', n:'0 van 2.048 dagen geschat',
+     tip:'Hoeveel van de dagwaarden op een echte slotkoers rusten in plaats van op een doorgetrokken koers.'},
+  ])}
+
+  <div class="panel">
+    <div class="panel-head">
+      <h2>Waarde over tijd</h2><span class="sub">${windowLabel()}</span>
+      <span class="spacer"></span>
+      <label class="check"><input type="checkbox" checked /> Contanten meetellen</label>
+      ${shareBtn('total')}
+    </div>
+    <div class="panel-body">
+      ${ZOOM ? `<div class="zoom-state">
+        <span>Gesleepte periode: <b>${dFull(LBL[ZOOM.a])} – ${dFull(LBL[ZOOM.b])}</b></span>
+        <button class="btn btn-ghost" type="button" id="zoom-reset">Terug naar ${RANGE_LABELS[RANGE]}</button>
+      </div>` : ''}
+      <div class="brush" data-off="${Math.max(win().a,1)}">
+      ${thin() ? thinNote : lineChart({labels:L, series:[{data:V,color:'var(--pos)',w:2}], h:320, markers:flowMarkers(), zero: RANGE==='ALL' && !ZOOM}) + `
+      <div class="legend">
+        <span><svg width="9" height="9"><path d="M4.5 0 L9 8 L0 8 Z" fill="var(--pos)"/></svg> geld erin</span>
+        <span><svg width="9" height="9"><path d="M4.5 9 L9 1 L0 1 Z" fill="var(--neg)"/></svg> geld eruit</span>
+      </div>`}
+      </div>
+      <p class="brush-hint">Sleep over de grafiek om een eigen periode te kiezen.</p>
+    </div>
+    <div class="panel-foot">Dagwaarde, gereconstrueerd uit je transacties, geldstromen en slotkoersen.${(RANGE==='ALL'&&!ZOOM)?'':' De as begint niet op nul en het eerste punt is de waarde op het moment dat de periode opent.'}</div>
+  </div>
+
+  <div class="cols-3-2">
+    <div class="panel">
+      <div class="panel-head"><h2>Ingelegd tegenover waarde</h2><span class="sub">het gat is groei</span></div>
+      <div class="panel-body">
+        ${thin() ? thinNote : lineChart({labels:L, h:250, area:false, zero:RANGE==='ALL', series:[
+          {data:V,color:'var(--pos)',w:2},{data:P,color:'var(--ink-3)',w:1.6,dash:'4 4'}]}) + `
+        <div class="legend"><span><i class="swatch" style="background:var(--pos)"></i> waarde</span>
+        <span><i class="swatch" style="background:var(--ink-3)"></i> zelf ingelegd</span></div>`}
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>Samenstelling</h2><span class="sub">vandaag</span></div>
+      <div class="panel-body">
+        <div class="strip">
+          ${HOLD.slice(0,6).map(h=>`<div style="flex:${h.sh};background:var(${h.c})"><span>${h.sh>=12?esc(h.t||'Cash'):''}</span></div>`).join('')}
+          <div style="flex:${HOLD.slice(6).reduce((a,b)=>a+b.sh,0)};background:var(--line-2)"><span>rest</span></div>
+        </div>
+        <table style="margin-top:14px"><tbody>
+          ${HOLD.slice(0,6).map((h,k)=>`<tr>
+            <td class="name"><i class="dotm" style="background:var(${h.c})"></i>${esc(h.n)}</td>
+            <td class="n muted">${nlNum(h.sh,1)}%</td>
+            <td class="n">${eur(h.v,0)}</td>
+            <td class="n ${cls(h.res)}">${eurS(h.res,0)}</td></tr>`).join('')}
+        </tbody></table>
+      </div>
+      <div class="panel-foot">10 posities · ${eur(3786.85,0)} contanten (3,3%)</div>
+    </div>
+  </div>`;
+}
+
+function performance(){
+  const s = stats(), {a,b} = win();
+  const idx = []; for (let i=a+1;i<=b;i++) idx.push(i);
+  const flat = idx.map(i=>MF[i]), flabels = idx.map(i=>LBL[i]);
+  let acc=0; const cum = flat.map(v=>acc+=v);
+  const inWin = i => i>=a+1 && i<=b;
+
+  const all = MF.slice(1).filter(v=>v!=null);
+  const mx = Math.max(...all.map(Math.abs));
+  const cellFor = (i,v,key) => {
+    if (v==null) return `<td class="muted">·</td>`;
+    const on = inWin(i), al = Math.min(1,Math.abs(v)/mx);
+    const bg = v>0 ? `color-mix(in srgb, var(--pos) ${(al*38).toFixed(0)}%, transparent)`
+                   : `color-mix(in srgb, var(--neg) ${(al*38).toFixed(0)}%, transparent)`;
+    return `<td class="pick ${on?'':'out'} ${SEL.has(key)?'sel':''}" data-m="${key}" tabindex="0"
+      style="background:${on?bg:'transparent'}"><b>${eurS(v,0)}</b></td>`;
+  };
+  let mi = 0;
+  const rows = Object.keys(MONTHS).map(y=>{
+    const cells = MONTHS[y].map((v,m)=>{ mi++; return cellFor(mi,v,`${y}-${String(m+1).padStart(2,'0')}`); });
+    while (cells.length < 12) cells.push('<td class="muted">·</td>');
+    const tot = MONTHS[y].reduce((x,v)=>x+(v||0),0);
+    return `<tr><th>${y}</th>${cells.join('')}<td style="border-left:1px solid var(--line)"><b class="${cls(tot)}">${eurS(tot,0)}</b></td></tr>`;
+  }).join('');
+
+  const yrs = YEARS.filter(r => r.y >= +LBL[a].slice(0,4));
+
+  return `
+  <section class="hero">
+    <div>
+      <div class="eyebrow">Resultaat <span class="win">${rangeName()}</span></div>
+      <div class="hero-value ${cls(s.res)}">${eurS(s.res)} ${shareBtn('result')}</div>
+      <div class="hero-meta">
+        <span><span class="delta ${cls(s.twr)}">${pct(s.twr)}</span> <span class="muted">tijdgewogen</span></span>
+        <span class="muted">stortingen en opnames zijn eruit gerekend</span>
+      </div>
+    </div>
+    <div class="facts">
+      <div class="fact"><div class="fact-k">Maanden</div><div class="fact-v">${flat.length}</div>
+        <div class="fact-n">${flat.filter(v=>v>0).length} in de plus</div></div>
+      <div class="fact"><div class="fact-k">Beste maand</div>
+        <div class="fact-v up">${eurS(Math.max(...flat),0)}</div>
+        <div class="fact-n">${dLabel(flabels[flat.indexOf(Math.max(...flat))])}</div></div>
+      <div class="fact"><div class="fact-k">Slechtste maand</div>
+        <div class="fact-v down">${eurS(Math.min(...flat),0)}</div>
+        <div class="fact-n">${dLabel(flabels[flat.indexOf(Math.min(...flat))])}</div></div>
+    </div>
+  </section>
+
+  ${figures('Alle cijfers', [
+    {k:'Per jaar, geldgewogen', v:pct(12.47), c:'up', n:'over 5,6 jaar',
+     tip:'Intern rendement over jouw werkelijke stortingen en opnames: wat jóuw geld verdiende, niet wat de portefeuille deed.'},
+    {k:'Gerealiseerd', v:eur(0), n:'uit 0 gesloten posities'},
+    {k:'Ongerealiseerd', v:eurS(28951.49), c:'up', n:'staat nog op koers'},
+    {k:'Maanden in de plus', v:'57,4%', n:'39 van 68 · hele historie'},
+    {k:'Beste maand', v:pct(12.79), c:'up', n:'dec 2022'},
+    {k:'Slechtste maand', v:pct(-13.26), c:'down', n:'aug 2021'},
+    {k:'Beste positie', v:eurS(17571.56,0), c:'up', n:'BESI · hele looptijd'},
+    {k:'Slechtste positie', v:eurS(-6907.32,0), c:'down', n:'PROP · hele looptijd'},
+    {k:'Diepste daling', v:s.ddA==null?'—':nlNum(s.ddPct,2)+'%', c:'down', n:s.ddA==null?'geen daling in deze periode':`${dLabel(LBL[s.ddA])} → ${dLabel(LBL[s.ddB])}`},
+    {k:'Kosten', v:eur(180), n:'hele looptijd'},
+  ])}
+
+  <div class="cols">
+    <div class="panel">
+      <div class="panel-head"><h2>Resultaat per maand</h2><span class="sub">${windowLabel()}</span></div>
+      <div class="panel-body">${flat.length<2?thinNote:barChart({data:flat,labels:flabels,h:250})}</div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>Cumulatief</h2><span class="sub">binnen de periode, vanaf nul</span></div>
+      <div class="panel-body">${flat.length<2?thinNote:lineChart({labels:flabels,series:[{data:cum,color:'var(--pos)'}],h:250})}</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h2>Wat bewoog</h2>
+      <span class="sub">waardeverandering per instrument, ${rangeName()}</span></div>
+    <div class="panel-body">
+      ${(()=>{ const rows = HOLD.map((h,k)=>{ const se=sl(HSER[k]); return {k:h.t||'Cash', v:se[se.length-1]-se[0]}; })
+                 .filter(r=>Math.abs(r.v)>1).sort((a,b)=>b.v-a.v);
+        return rows.length<2 ? thinNote : hbarChart({rows, h:Math.max(180, rows.length*30+30)}); })()}
+    </div>
+    <div class="panel-foot">Waardeverandering, niet resultaat: een bijkoop binnen de periode zit erin. Over de hele looptijd is er geen eerder punt, dus kies een periode om hier iets te zien.</div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h2>Per jaar</h2>
+      <span class="sub">${yrs.length<YEARS.length?`${YEARS.length-yrs.length} eerdere jaren vallen buiten de periode`:'hele historie'}</span></div>
+    <div class="panel-body flush"><div class="tw"><table>
+      <thead><tr><th>Jaar</th><th class="n">Begin</th><th class="n">Eind</th><th class="n">Ingelegd</th>
+        <th class="n">Opgenomen</th><th class="n">Resultaat</th><th class="n">Rendement</th>
+        <th class="n">Dividend</th><th class="n">Kosten</th><th class="n">Trades</th></tr></thead>
+      <tbody>${yrs.map(r=>`<tr>
+        <td class="name">${r.y}${r.note?` <span class="ticker">${r.note}</span>`:''}</td>
+        <td class="n">${r.open==null?'<span class="muted">—</span>':eur(r.open)}</td>
+        <td class="n">${eur(r.close)}</td><td class="n">${eur(r.in_)}</td>
+        <td class="n">${r.out==null?'<span class="muted">—</span>':eur(r.out)}</td>
+        <td class="n ${cls(r.res)}">${eurS(r.res)}</td><td class="n ${cls(r.ret)}">${pct(r.ret)}</td>
+        <td class="n">${eur(r.div)}</td><td class="n muted">${eur(r.cost)}</td><td class="n muted">${r.tr}</td>
+      </tr>`).join('')}</tbody></table></div></div>
+    <div class="panel-foot">Hele kalenderjaren, ook als de periode er middenin begint. Geen belastingdocument.</div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h2>Maand tegen maand</h2>
+      <span class="sub">alle jaren; wat buiten de periode valt staat er grijs bij</span>
+      <span class="spacer"></span>
+      <div class="seg"><button type="button" aria-pressed="true">Euro</button><button type="button" aria-pressed="false">Rendement %</button></div></div>
+    <div class="panel-body flush">
+      <div class="tw"><table class="matrix">
+        <thead><tr><th></th>${MN.map((m,i)=>`<th class="pick-col" data-col="${i+1}" tabindex="0">${m}</th>`).join('')}<th>jaar</th></tr></thead>
+        <tbody>${rows}</tbody></table></div>
+      <div class="scale-row" style="padding-bottom:14px">verlies <span class="scale-bar"></span> winst
+        <span style="margin-left:14px">grijs = buiten de gekozen periode</span>
+        <span style="margin-left:14px">klik een cel om te vergelijken, of een maandnaam voor alle jaren</span></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h2>Maanden vergelijken</h2>
+      <span class="sub">${SEL.size?`${SEL.size} gekozen`:'nog niets gekozen'}</span>
+      <span class="spacer"></span>
+      <button class="btn" type="button" id="clear-sel" ${SEL.size?'':'disabled'}>Selectie wissen</button></div>
+    <div class="panel-body">
+      ${SEL.size < 2
+        ? `<div class="empty">Kies twee of meer maanden in het raster hierboven.<br>
+             Een cel vergelijkt losse maanden, een maandnaam vergelijkt dezelfde maand over alle jaren.</div>`
+        : (()=>{ const keys=[...SEL].sort();
+            const vals=keys.map(k=>{ const [y,m]=k.split('-'); return (MONTHS[y]||[])[+m-1]; });
+            const ok=keys.filter((k,i)=>vals[i]!=null), okv=vals.filter(v=>v!=null);
+            const pos=okv.filter(v=>v>0).length, tot=okv.reduce((a,b)=>a+b,0);
+            return barChart({data:okv, labels:ok.map(k=>k+'-01'), h:220, every:1}) + `
+              <div class="fig-grid" style="padding:16px 0 0">
+                <div class="fig"><div class="fig-k">Gekozen</div><div class="fig-v">${cnt(okv.length)}</div><div class="fig-n">maanden</div></div>
+                <div class="fig"><div class="fig-k">Totaal</div><div class="fig-v ${cls(tot)}">${eurS(tot,0)}</div></div>
+                <div class="fig"><div class="fig-k">Gemiddeld</div><div class="fig-v ${cls(tot/okv.length)}">${eurS(tot/okv.length,0)}</div></div>
+                <div class="fig"><div class="fig-k">Beste</div><div class="fig-v up">${eurS(Math.max(...okv),0)}</div><div class="fig-n">${dLabel(ok[okv.indexOf(Math.max(...okv))]+'-01')}</div></div>
+                <div class="fig"><div class="fig-k">Slechtste</div><div class="fig-v down">${eurS(Math.min(...okv),0)}</div><div class="fig-n">${dLabel(ok[okv.indexOf(Math.min(...okv))]+'-01')}</div></div>
+                <div class="fig"><div class="fig-k">In de plus</div><div class="fig-v">${nlNum(pos/okv.length*100,0)}%</div><div class="fig-n">${pos} van ${okv.length}</div></div>
+              </div>`; })()}
+    </div>
+    <div class="panel-foot">Hele historie, niet de gekozen periode: vergelijken over jaargrenzen is het hele punt van dit raster.</div>
+  </div>`;
+}
+
+function holdings(){
+  const s = stats(), L = slc(LBL);
+  /* Over "everything" there is no earlier point to compare against — the
+     account did not exist. So the two comparison columns are replaced by the
+     all-time pair rather than printed as a row of dashes. */
+  const bounded = RANGE !== 'ALL';
+  const rows = HOLD.map((h,k)=>{
+    const se = sl(HSER[k]);
+    return {h,k, v0:se[0], v1:se[se.length-1], sh0: s.v0? se[0]/s.v0*100 : 0, sh1: se[se.length-1]/s.v1*100};
+  });
+  const top = [...HOLD.keys()].slice(0,7);
+  return `
+  <section class="hero">
+    <div>
+      <div class="eyebrow">Belegd vermogen <span class="win">vandaag</span></div>
+      <div class="hero-value">${eur(112153.92)}</div>
+      <div class="hero-meta">
+        <span class="muted">10 posities</span>
+        <span class="muted">${eur(3786.85)} contanten</span>
+        <span><span class="delta up">${eurS(28951.49)}</span> <span class="muted">nog niet verzilverd</span></span>
+      </div>
+    </div>
+    <div class="facts">
+      <div class="fact"><div class="fact-k">Grootste positie</div><div class="fact-v">26,9%</div><div class="fact-n">BESI</div></div>
+      <div class="fact"><div class="fact-k">Beste ${q('Hele looptijd, niet de gekozen periode. Per positie is geen geldstroom per dag beschikbaar, dus een resultaat over een deel van de tijd zou hier een schatting zijn en die staat er niet.')}</div><div class="fact-v up">${eurS(17571.56,0)}</div><div class="fact-n">BESI · hele looptijd</div></div>
+      <div class="fact"><div class="fact-k">Slechtste</div><div class="fact-v down">${eurS(-6907.32,0)}</div><div class="fact-n">PROP · hele looptijd</div></div>
+    </div>
+  </section>
+
+  ${figures('Alle cijfers', [
+    {k:'Posities', v:cnt(10), n:'open vandaag'},
+    {k:'Ooit gehandeld', v:cnt(10), n:'inclusief gesloten posities'},
+    {k:'Gesloten', v:cnt(0), n:'volledig verkocht'},
+    {k:'Grootste positie', v:'26,9%', n:'BESI · '+eur(31173.60,0)},
+    {k:'Kleinste positie', v:'3,4%', n:'PROP · '+eur(3994.69,0)},
+    {k:'Contanten', v:eur(3786.85), n:'3,3% van het totaal'},
+    {k:'Valuta', v:cnt(1), n:'alles in euro'},
+    {k:'Transacties', v:cnt(84), n:'hele looptijd'},
+  ])}
+
+  <div class="panel">
+    <div class="panel-head"><h2>Samenstelling over tijd</h2><span class="sub">${windowLabel()}</span></div>
+    <div class="panel-body">
+      ${thin()?thinNote:stackChart({labels:L, h:280, series: top.map(k=>({data:slc(HSER[k]), color:cssVar(HOLD[k].c)}))})}
+      <div class="legend">${top.map(k=>`<span><i class="swatch" style="background:var(${HOLD[k].c})"></i> ${esc(HOLD[k].t||HOLD[k].n)}</span>`).join('')}
+        <span class="muted">overige posities niet getekend</span></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h2>Posities</h2>
+      <span class="sub">${bounded?`waarde toen → nu over ${rangeName()}`:'vandaag, met de hele looptijd ernaast'}</span>
+      <span class="spacer"></span>
+      <div class="seg"><button type="button" aria-pressed="true">Tabel</button><button type="button" aria-pressed="false">Verdeling</button></div></div>
+    <div class="panel-body flush"><div class="tw"><table>
+      <thead><tr><th>Instrument</th><th class="n">Aantal</th><th class="n">Koers</th>
+        ${bounded
+          ? `<th class="n">Waarde toen</th><th class="n">Waarde nu</th><th class="n">Verschil</th>`
+          : `<th class="n">Gem. betaald</th><th class="n">Waarde</th><th class="n">Ingelegd vs gegroeid</th>`}
+        <th class="n">Aandeel</th><th class="n">Resultaat<br><span class="muted" style="font-weight:400">hele looptijd</span></th><th></th></tr></thead>
+      <tbody>${rows.map(r=>`<tr>
+        <td class="name"><i class="dotm" style="background:var(${r.h.c})"></i>${esc(r.h.n)}${r.h.t?`<span class="ticker">${r.h.t}</span>`:''}</td>
+        <td class="n muted">${r.h.q==null?'—':qty(r.h.q)}</td>
+        <td class="n">${r.h.px==null?'<span class="muted">—</span>':eur(r.h.px)}</td>
+        ${bounded
+          ? `<td class="n muted">${r.v0<1?'<span class="muted">nog niet in bezit</span>':eur(r.v0,0)}</td>
+             <td class="n">${eur(r.v1,0)}</td>
+             <td class="n ${cls(r.v1-r.v0)}">${r.v0<1?'<span class="muted">—</span>':eurS(r.v1-r.v0,0)}</td>`
+          : `<td class="n muted">${r.h.avg==null?'—':eur(r.h.avg)}</td>
+             <td class="n">${eur(r.h.v)}</td>
+             <td class="n muted">${r.h.cash?'—':(r.h.grown<0?`${-r.h.grown}% weg`:`${r.h.grown}% groei`)}</td>`}
+        <td class="n"><div class="bar-cell"><span>${nlNum(r.sh1,1)}%</span>
+          <span class="bar-track"><span class="bar-fill" style="width:${Math.min(100,r.sh1/26.9*100).toFixed(0)}%;background:var(${r.h.c})"></span></span></div></td>
+        <td class="n ${cls(r.h.res)}">${eurS(r.h.res)}</td>
+        <td class="n">${shareBtn('pos:'+r.k)}</td></tr>`).join('')}</tbody>
+    </table></div></div>
+    <div class="panel-foot">${bounded
+      ? '“Verschil” is waardeverandering, niet resultaat: een bijkoop midden in de periode zit erin. Het resultaat rechts staat er los naast en gaat over de hele looptijd.'
+      : 'Kies een periode om te zien wat elke positie in dat venster deed. Over de hele looptijd is er geen eerder meetpunt om tegen af te zetten.'}</div>
+  </div>
+
+  <div class="cols">
+    <div class="panel">
+      <div class="panel-head"><h2>Valuta</h2><span class="sub">waar de euro's op rusten</span></div>
+      <div class="panel-body">
+        <div class="strip">
+          <div style="flex:78.4;background:var(--s1)"><span>EUR 78,4%</span></div>
+          <div style="flex:14.2;background:var(--s3)"><span>USD 14,2%</span></div>
+          <div style="flex:7.4;background:var(--s5)"><span></span></div>
+        </div>
+        <table style="margin-top:14px"><tbody>
+          <tr><td class="name"><i class="dotm" style="background:var(--s1)"></i>Euro</td><td class="n muted">78,4%</td><td class="n">${eur(90864,0)}</td></tr>
+          <tr><td class="name"><i class="dotm" style="background:var(--s3)"></i>Amerikaanse dollar</td><td class="n muted">14,2%</td><td class="n">${eur(16464,0)}</td></tr>
+          <tr><td class="name"><i class="dotm" style="background:var(--s5)"></i>Britse pond</td><td class="n muted">7,4%</td><td class="n">${eur(8580,0)}</td></tr>
+        </tbody></table>
+      </div>
+      <div class="panel-foot">Alles op deze pagina staat in euro; dit is waar die euro's van afhangen.</div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>Contanten over tijd</h2><span class="sub">wat er stil stond</span></div>
+      <div class="panel-body">${thin()?thinNote:lineChart({labels:L, h:230, zero:true,
+        series:[{data:slc(HSER[HOLD.length-1]), color:'var(--s8)', w:2}]})}</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h2>Winst en verlies per product</h2>
+      <span class="sub">hele looptijd, gesloten posities inbegrepen</span>
+      <span class="spacer"></span>
+      <div class="seg"><button type="button" aria-pressed="true">Beste eerst</button><button type="button" aria-pressed="false">Slechtste eerst</button></div></div>
+    <div class="panel-body flush"><div class="tw"><table>
+      <thead><tr><th>Product</th><th>Type</th><th>Status</th><th class="n">Gekocht</th><th class="n">Verkocht</th>
+        <th class="n">Dividend</th><th class="n">Waarde nu</th><th class="n">Resultaat</th><th class="n">% van inleg</th></tr></thead>
+      <tbody>${PRODUCTS.map(pr=>`<tr>
+        <td class="name">${esc(pr.n)}<span class="ticker">${pr.t}</span></td>
+        <td class="muted">Aandeel</td>
+        <td><span class="pill">${pr.st}</span></td>
+        <td class="n">${eur(pr.b)}</td>
+        <td class="n">${pr.s?eur(pr.s):'<span class="muted">—</span>'}</td>
+        <td class="n">${pr.d?eur(pr.d):'<span class="muted">—</span>'}</td>
+        <td class="n">${pr.now?eur(pr.now):'<span class="muted">—</span>'}</td>
+        <td class="n ${cls(pr.r)}">${eurS(pr.r)}</td>
+        <td class="n ${cls(pr.r)}">${pct(pr.r/pr.b*100)}</td></tr>`).join('')}</tbody>
+    </table></div></div>
+    <div class="panel-foot">Resultaat is wat de positie opbracht; dividend staat ernaast en niet erin, omdat het twee verschillende dingen zijn. Geen kostprijsconventie nodig: voor één instrument geldt waarde = inleg + resultaat exact.</div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h2>Transacties</h2><span class="sub">${windowLabel()}</span></div>
+    <div class="panel-body flush"><div class="tw"><table>
+      <thead><tr><th>Datum</th><th>Type</th><th>Product</th><th class="n">Aantal</th><th class="n">Koers</th><th class="n">Bedrag</th></tr></thead>
+      <tbody>${(()=>{ const from=LBL[win().a];
+        const rows = TX.filter(t=>t[0]>=from);
+        if (!rows.length) return `<tr><td colspan="6"><div class="empty">Geen transacties in deze periode.</div></td></tr>`;
+        return rows.map(t=>`<tr><td class="muted">${dFull(t[0])}</td><td><span class="pill">${t[1]}</span></td>
+          <td class="name">${t[2]}</td><td class="n muted">${qty(t[3])}</td>
+          <td class="n">${eur(t[4])}</td><td class="n ${cls(t[5])}">${eurS(t[5])}</td></tr>`).join('');
+      })()}</tbody></table></div></div>
+    <div class="panel-foot">${TX.filter(t=>t[0]>=LBL[win().a]).length} van ${TX.length} in de demo</div>
+  </div>`;
+}
+
+function income(){
+  const s = stats(), L = slc(LBL);
+  const dv = slc(DIVM), dp = slc(DEP);
+  return `
+  <section class="hero">
+    <div>
+      <div class="eyebrow">Dividend <span class="win">${rangeName()}</span></div>
+      <div class="hero-value">${eur(s.div)} ${shareBtn('dividend')}</div>
+      <div class="hero-meta">
+        <span class="muted">netto ontvangen</span>
+        <span class="muted">${windowLabel()}</span>
+      </div>
+    </div>
+    <div class="facts">
+      <div class="fact"><div class="fact-k">Gestort</div><div class="fact-v">${eur(s.dep)}</div><div class="fact-n">in deze periode</div></div>
+      <div class="fact"><div class="fact-k">Opgenomen</div><div class="fact-v">${eur(s.wd)}</div><div class="fact-n">in deze periode</div></div>
+      <div class="fact"><div class="fact-k">Dividend op waarde ${q('Het dividend in deze periode gedeeld door de waarde van vandaag. Bij een korte periode is dit dus geen jaarrendement.')}</div>
+        <div class="fact-v">${nlNum(s.div/s.v1*100,2)}%</div><div class="fact-n">niet op jaarbasis</div></div>
+    </div>
+  </section>
+
+  ${figures('Alle cijfers', [
+    {k:'Dividend', v:eur(2176.58), n:'hele looptijd, netto'},
+    {k:'Bronbelasting', v:eur(384.08), n:'al ingehouden door DEGIRO',
+     tip:'Dit is niet wat je kunt terugvragen; dat hangt van je eigen aangifte af en staat hier niet.'},
+    {k:'Kosten', v:eur(180), n:'hele looptijd'},
+    {k:'Netto ingelegd', v:eur(84800), n:eur(106800,0)+' in, '+eur(22000,0)+' uit'},
+    {k:'Dividend op inleg', v:'2,57%', n:'hele looptijd, niet op jaarbasis'},
+    {k:'Betalingen', v:cnt(68), n:'maanden met dividend'},
+  ])}
+
+  <div class="cols">
+    <div class="panel">
+      <div class="panel-head"><h2>Dividend per maand</h2><span class="sub">netto</span>${shareBtn('dividend')}</div>
+      <div class="panel-body">${dv.length<2?thinNote:barChart({data:dv,labels:L,h:230,fmt:v=>MASKED?'':'€'+nlNum(v,0)})}</div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>Stortingen en opnames</h2><span class="sub">geen winst of verlies</span></div>
+      <div class="panel-body">${dp.length<2?thinNote:barChart({data:dp,labels:L,h:230})}</div>
+    </div>
+  </div>`;
+}
+
+function outlook(){
+  const yrs=[0,1,2,3,4,5,6,7,8,9,10];
+  const mk = r => yrs.map(y=>115941*Math.pow(1+r,y));
+  const L = yrs.map(y=>`${2026+y}-01-01`);
+  return `
+  <div class="caveat">
+    <h3>Dit is als enige geen meting.</h3>
+    <p>Alles elders is teruggerekend uit wat er werkelijk gebeurde en getoetst aan het totaal van DEGIRO zelf. Een projectie valt nergens aan te toetsen. De scenario's komen uit stukken die jouw eigen historie bevat, niet uit een aangenomen verdeling, en 5,6 jaar historie bevat één onafhankelijke periode van vijf jaar, hoeveel overlappende vensters je er ook uit schuift. Het periodefilter staat hier niet: een venster kiezen in het verleden verandert niets aan een lijn die de toekomst in loopt.</p>
+  </div>
+  <div class="panel">
+    <div class="panel-head"><h2>Vooruitblik</h2><span class="spacer"></span>
+      <div class="seg"><button type="button" aria-pressed="true">10 jaar</button><button type="button" aria-pressed="false">20 jaar</button><button type="button" aria-pressed="false">30 jaar</button></div>
+      <label class="field">Maandelijkse inleg <input type="number" value="500" step="50" min="0" /></label></div>
+    <div class="panel-body">
+      ${lineChart({labels:L,h:300,area:false,series:[
+        {data:mk(0.12),color:'var(--pos)',w:1.6,dash:'5 4'},
+        {data:mk(0.07),color:'var(--pos)',w:2.4},
+        {data:mk(0.02),color:'var(--ink-3)',w:1.6,dash:'5 4'}]})}
+      <div class="legend">
+        <span><i class="swatch" style="background:var(--pos)"></i> mediaan (7,0% p.j.)</span>
+        <span><i class="swatch" style="background:var(--ink-3)"></i> ongunstig kwartiel (2,0%)</span>
+        <span class="muted">gunstig kwartiel (12,0%)</span></div>
+    </div>
+    <div class="panel-foot">Gebaseerd op 3 onafhankelijke perioden van 5 jaar. Onder de 3 heet dit een voorbeeld, geen schatting. Deze kaart is niet deelbaar: een projectie hoort niet als resultaat rond te gaan.</div>
+  </div>`;
+}
+
+function notices(){
+  return `
+  <div class="panel">
+    <div class="panel-head"><h2>Meldingen</h2><span class="sub">alles waar de reconstructie onzeker over is</span>
+      <span class="spacer"></span><button class="btn" type="button">Kopieer foutrapport</button></div>
+    <div class="panel-body">
+      ${NOTICES.map(n=>`<div class="notice">
+        <svg class="notice-ico" viewBox="0 0 24 24" fill="none" stroke="${n.lvl==='warn'?'var(--accent)':'var(--ink-3)'}" stroke-width="2" stroke-linecap="round">
+          <circle cx="12" cy="12" r="9"/><path d="M12 8v5"/><path d="M12 16.5v.01"/></svg>
+        <div><h3>${esc(n.t)} <span class="code">${n.code}</span></h3><p>${esc(n.d)}</p></div></div>`).join('')}
+    </div>
+    <div class="panel-foot">Zolang hier iets staat dat een getal onbetrouwbaar maakt, zet de deelkaart “SLUIT NIET op DEGIRO” in de herkomstregel. Een kaart uit een account dat veertigduizend euro afwijkt mag geen schone regel dragen.</div>
+  </div>`;
+}
+
+/* =====================================================================
+   NAV / ROUTER
+   ===================================================================== */
+
+const ICONS = {
+  overzicht:'<path d="M3 13h4v8H3zM10 3h4v18h-4zM17 9h4v12h-4z"/>',
+  rendement:'<path d="M3 17l5-6 4 4 7-9"/><path d="M16 6h4v4"/>',
+  posities:'<circle cx="12" cy="12" r="9"/><path d="M12 3v9l6.4 3.7"/>',
+  inkomsten:'<path d="M12 2v20"/><path d="M17 6.5H9.5a3 3 0 000 6h5a3 3 0 010 6H6"/>',
+  vooruitblik:'<path d="M3 12h4l3 7 4-16 3 9h4"/>',
+  meldingen:'<circle cx="12" cy="12" r="9"/><path d="M12 8v5"/><path d="M12 16.5v.01"/>',
+};
+
+const PAGES = [
+  {id:'overzicht',   title:'Overzicht',   render:overview},
+  {id:'rendement',   title:'Rendement',   render:performance},
+  {id:'posities',    title:'Posities',    render:holdings},
+  {id:'inkomsten',   title:'Inkomsten',   render:income},
+  {id:'vooruitblik', title:'Vooruitblik', render:outlook, tail:'projectie'},
+  {id:'meldingen',   title:'Meldingen',   render:notices, tail:'2'},
+];
+
+/* A section either honours the window or does not show the control. */
+const RANGE_PAGES = new Set(['overzicht','rendement','posities','inkomsten']);
+
+let current = 'overzicht';
+
+function renderNav(){
+  document.getElementById('nav').innerHTML = PAGES.map(p=>`
+    <button class="nav-item" type="button" data-id="${p.id}" aria-current="${p.id===current}">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${ICONS[p.id]}</svg>
+      ${p.title}${p.tail?`<span class="tail">${p.tail}</span>`:''}</button>`).join('');
+}
+
+function render(){
+  const p = PAGES.find(x=>x.id===current);
+  document.getElementById('page-title').textContent = p.title;
+  document.getElementById('range-seg').hidden = !RANGE_PAGES.has(current);
+  [...document.getElementById('range-seg').children].forEach(x=>
+    x.setAttribute('aria-pressed', String(!ZOOM && x.dataset.r===RANGE)));
+  const eye = document.getElementById('mask-btn');
+  eye.setAttribute('aria-pressed', String(MASKED));
+  eye.title = MASKED ? 'Bedragen zijn verborgen \u2014 klik om ze te tonen'
+                     : 'Verberg de bedragen; percentages blijven staan';
+  document.getElementById('page-crumb').textContent =
+    RANGE_PAGES.has(current) ? windowLabel() : current==='vooruitblik' ? 'geen meting' : 'hele historie';
+  CHARTS.length = 0;
+  document.getElementById('page').innerHTML = p.render();
+  renderNav(); drawCharts(); scrollTo({top:0});
+}
+
+document.getElementById('nav').addEventListener('click', e=>{
+  const b = e.target.closest('.nav-item'); if(!b) return; current=b.dataset.id; render();
+});
+/* Dragging a window out of the chart.
+   Pointer events, so it works with a mouse, a trackpad and a touchscreen from
+   one code path. A drag shorter than 8px is a click, not a selection. */
+(function brush(){
+  let host=null, x0=0, box=null, off=0;
+  const rect = () => host.getBoundingClientRect();
+
+  document.getElementById('page').addEventListener('pointerdown', e=>{
+    const wrap = e.target.closest('.brush'); if(!wrap) return;
+    host = wrap.querySelector('.chart-host'); if(!host) return;
+    off = +wrap.dataset.off; x0 = e.clientX - rect().left;
+    box = document.createElement('div'); box.className='brush-box';
+    box.style.left = x0+'px'; box.style.width='0px';
+    host.style.position='relative'; host.appendChild(box);
+    host.setPointerCapture(e.pointerId);
+  });
+
+  document.addEventListener('pointermove', e=>{
+    if(!box) return;
+    const x = e.clientX - rect().left;
+    box.style.left  = Math.min(x0,x)+'px';
+    box.style.width = Math.abs(x-x0)+'px';
+  });
+
+  document.addEventListener('pointerup', e=>{
+    if(!box) return;
+    const x = e.clientX - rect().left, W = rect().width;
+    const drag = Math.abs(x-x0);
+    box.remove(); box=null;
+    if (drag < 8) return;                      // a click, not a selection
+    const PL = MASKED ? 18 : 64, PR = 16;
+    const n  = sl(LBL).length - (Math.max(win().a,1) - win().a);
+    const toI = px => Math.round(((px-PL)/(W-PL-PR)) * (n-1));
+    let i0 = Math.max(0, Math.min(n-1, toI(Math.min(x0,x))));
+    let i1 = Math.max(0, Math.min(n-1, toI(Math.max(x0,x))));
+    if (i1 - i0 < 2) return;                   // fewer than three points draws nothing
+    ZOOM = {a: off+i0, b: off+i1};
+    render();
+  });
+})();
+
+/* Month picking. Delegated, because the matrix is rebuilt on every render. */
+document.getElementById('page').addEventListener('click', e=>{
+  const cell = e.target.closest('td.pick');
+  if (cell){ SEL.has(cell.dataset.m) ? SEL.delete(cell.dataset.m) : SEL.add(cell.dataset.m); render(); return; }
+  const col = e.target.closest('th.pick-col');
+  if (col){
+    const m = col.dataset.col.padStart(2,'0');
+    const keys = Object.keys(MONTHS).map(y=>`${y}-${m}`).filter(k=>{
+      const [y,mm]=k.split('-'); return (MONTHS[y]||[])[+mm-1]!=null; });
+    const allOn = keys.every(k=>SEL.has(k));
+    keys.forEach(k=> allOn ? SEL.delete(k) : SEL.add(k));
+    render(); return;
+  }
+  if (e.target.closest('#clear-sel')){ SEL.clear(); render(); return; }
+  if (e.target.closest('#zoom-reset')){ ZOOM = null; render(); }
+});
+document.getElementById('page').addEventListener('keydown', e=>{
+  if (e.key!=='Enter' && e.key!==' ') return;
+  const t = e.target.closest('td.pick, th.pick-col');
+  if (t){ e.preventDefault(); t.click(); }
+});
+
+document.getElementById('mask-btn').addEventListener('click', ()=>{
+  MASKED = !MASKED;
+  localStorage.setItem('ph-masked', MASKED ? '1' : '0');
+  /* The card follows the page: if the amounts are hidden here, then hidden is
+     also the right default for something you are about to post publicly. */
+  share.amounts = !MASKED;
+  render(); if (share.open) renderShare();
+});
+document.getElementById('range-seg').addEventListener('click', e=>{
+  const b = e.target.closest('button'); if(!b) return;
+  RANGE = b.dataset.r; ZOOM = null;
+  [...e.currentTarget.children].forEach(x=>x.setAttribute('aria-pressed', String(x===b)));
+  render();
+});
+document.addEventListener('click', e=>{
+  const b = e.target.closest('.seg button');
+  if (b && !b.closest('#range-seg') && !b.closest('.modal'))
+    [...b.parentElement.children].forEach(x=>x.setAttribute('aria-pressed', String(x===b)));
+});
+
+const moreBtn=document.getElementById('more-btn'), moreMenu=document.getElementById('more-menu');
+moreBtn.addEventListener('click', e=>{ e.stopPropagation(); moreMenu.hidden=!moreMenu.hidden; moreBtn.setAttribute('aria-expanded',String(!moreMenu.hidden)); });
+document.addEventListener('click', ()=>{ moreMenu.hidden=true; moreBtn.setAttribute('aria-expanded','false'); });
+moreMenu.addEventListener('click', e=>e.stopPropagation());
+document.getElementById('theme-seg').addEventListener('click', e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  document.documentElement.dataset.theme=b.dataset.theme;
+  share.theme = b.dataset.theme; if (share.open) renderShare();
+});
+
+document.getElementById('lockup').innerHTML = markSVG(20) + '<span class="wordmark">ASTERIA</span>';
+
+render();
+</script>
+</body>
+</html>
