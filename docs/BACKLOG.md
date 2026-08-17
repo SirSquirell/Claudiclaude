@@ -3458,3 +3458,108 @@ it contradicts `app.js:3371`, `app.js:3432` and US-27 trap 1, and it cannot ship
 without a story that changes what SPEC promises. A flow cannot be split into capital and profit
 without the convention this project refused — and the refusal is the reason the rest of the page can
 be trusted.
+
+---
+
+## US-54 — A share button on the block, and a score card instead of a chart *(new, refined — extends US-47)*
+
+> *"nog beter zou zijn als je dat hele blok een share button geeft waarbij je daarna kan kiezen
+> welke tegel je gebruikt. Make those shared objects be a score card, they don't per se need a
+> chart."*
+
+### What this is: US-47 without the sparkline, and one button per section
+
+US-47 put a share button on each holdings *row* and drew a card with a sparkline. This asks for a
+share button on each **section** — the KPI block — and a card built from a **tile**: a big figure, a
+label, a caption, and nothing that has to be a chart. The screenshots are the *Portfolio history*
+and *Result* blocks; the request is one share action on the block, then pick which tile it renders.
+
+Almost everything already exists. The share sheet (US-47+), the four `FORMATS`, the clipboard-and-
+download, the provenance line, the owner line, US-46's amount masking and US-48's watermark are all
+built. **This story adds three things and no subsystem:** a section-level share button, a tile
+picker in the sheet, and a card layout with no sparkline. Rule 8 — if it grows a second clipboard
+path or a second provenance builder, it has gone wrong.
+
+### The tile is already the model, and that is what makes it safe
+
+A tile is `{ label, value, note, cls }` (`app.js:1982`), and `value`/`note` are **already-formatted
+strings** — `fmtSigned`, `fmtEurCents`, `fmtPct`, the `theme.js` choke point US-46 masks inside. So
+a card drawn from a tile's own strings **cannot show more than the page does**: anonymize is
+inherited by construction rather than re-implemented, which is the property US-46 was built to give
+and the reason this card does not reopen the leak. A `scoreCardModel({ label, figure, caption, … })`
+carries those strings plus provenance and owner, behind a frozen `SCORECARD_FIELDS` allowlist and
+the same poisoned-fixture leak test the snapshot model has.
+
+One real seam: the sheet has its **own** amount toggle, defaulting to off for something posted in
+public, independent of the page's anonymize (US-47+ `state.share.amounts`). A score card must obey
+the *sheet's* toggle, so the tile figure has to be obtainable under an explicit anonymize flag
+rather than only as whatever string the page currently holds. That is a small refactor — build the
+tile list with a passed-in flag — and it is the one piece of plumbing this story adds. Everything
+else it reuses.
+
+### Provenance matters *more* here, not less
+
+A holdings card is one position; a score card can be **Total value** or **Result** — the account's
+headline number. So the reconciliation verdict is the whole trust claim, and the card carries the
+same provenance line US-47 draws and says *"does not reconcile"* when it does not. A clean-looking
+*Result +€ 16,71* card from an account that is € 40 000 out is exactly the lie rule 6 and US-47
+already refuse; this card refuses it the same way, by drawing the tri-state verdict and never a pass
+for an unchecked one.
+
+### The trap: Optimism Mode must never reach a card that carries a badge
+
+`renderTiles` replaces the real tiles with joke versions when Optimism Mode is on — *"847 days of
+unwavering belief"* (`app.js:2125`). Every number *above* that line is the real one, and the
+quarantine is deliberate. A share button that grabs whatever is on screen would put a gag figure on
+a card that also carries a reconciliation verdict — a joke wearing a trust badge. **The share path
+reads the real `tiles`, never the cheerful `shown`.** This is the one thing easy to get wrong,
+because the obvious implementation shares what is rendered.
+
+### What does *not* get built (rule 8)
+
+- **One button per section, not per tile.** Nineteen figures would be nineteen buttons; the request
+  is one button on the block and the tile chosen *after*, in the sheet's picker.
+- **One tile per card, not a section collage.** Same shape as one position per card. A multi-tile
+  card is a different story if it is ever wanted.
+- **The holdings card keeps its sparkline.** *"They don't per se need a chart"* makes the chart
+  optional for the new score card, not removed from the position card. The chartless layout is a
+  shared drawer both *could* use later; converting US-47's card is not this story.
+- **No per-tile "shareable" flag.** The picker lists every tile in the section; a tile that is a
+  bare amount simply shows the mask when the sheet's amounts are off, visible in the preview. A
+  denylist of "un-shareable" tiles is rule 7's mistake waiting to happen.
+
+### The picker, and the layout
+
+The sheet gains a tile selector listing the section's tiles by label, defaulting to the section's
+hero (the first tile). The shape, theme, amounts and name controls are the ones already there. The
+card is the hero **figure** centred, the **label** above it, the **caption** (the tile's `note`)
+below, provenance at the foot, owner optional, watermark behind — the snapshot layout with the
+spark region given back to the figure. A `drawScoreCard(model, ctx)` sibling to `drawSnapshot`,
+holding no decisions, so a PNG's contents stay asserted through the model and not the pixels.
+
+### Acceptance criteria
+
+- **AC1** Each KPI section has one share button. It opens the sheet scoped to that section's tiles,
+  with a picker defaulting to the section's hero tile.
+- **AC2** The card is chartless: a figure, a label, a caption, provenance, optional owner, watermark.
+  No sparkline, and a test asserts the score-card model carries no series.
+- **AC3** The card draws the tile's own figure and caption, so under US-46 — or the sheet's own
+  amount toggle off — no euro amount appears, with no masking logic of its own. A poisoned tile
+  cannot get an unmasked amount onto the card.
+- **AC4** `SCORECARD_FIELDS` is a frozen allowlist; the leak test's poisoned fixture cannot push a
+  key through it, the same shape as `SNAPSHOT_FIELDS`.
+- **AC5** The provenance line renders the tri-state reconciliation verdict truthfully, including
+  *does not reconcile*, exactly as US-47.
+- **AC6** With Optimism Mode on, the shared card shows the **real** figure, never the cheerful one.
+  A test shares a tile with the mode on and asserts the real number.
+- **AC7** The card obeys the sheet's own amount toggle, defaulting to amounts off for a public card,
+  independent of the page's anonymize state.
+- **AC8** `npm run demo` renders the score card for a euro tile, a percentage tile and a euro-plus-
+  percent tile at one `FORMATS` shape without overflow.
+
+### Stop condition
+
+If the card needs a number the tile does not already carry, stop: the tile is the model, and a
+score card that recomputes a figure has left the choke point where US-46 masks and where the leak
+test can see it. And if sharing the block means sharing what is rendered rather than the real tiles,
+stop — that is how Optimism Mode reaches a card with a reconciliation badge on it.
