@@ -931,6 +931,43 @@ export function moversChart(ctx, { labels, values }, t) {
 }
 
 /**
+ * One series, one unit, no second line. US-35d's two charts.
+ *
+ * Deliberately not `cashChart` with different arguments: these are not amounts
+ * in every case — the conviction index is measured in points — so the y-axis and
+ * the tooltip take their formatter from the caller rather than assuming euros.
+ * Everything else is the base chrome, which is the point: they should look like
+ * the rest of the page and be wrong about nothing except their premise.
+ *
+ * No deposits line on either, because it means nothing on either.
+ */
+export function singleSeriesChart(ctx, { days, values }, t, { colour, format }) {
+  const opts = baseOptions(t);
+  opts.scales.x.ticks.callback = dayTickFormatter(days);
+  opts.scales.y.ticks.callback = (v) => format(v);
+  opts.plugins.tooltip.callbacks = { label: (item) => format(item.parsed.y) };
+
+  return new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: days,
+      datasets: [
+        {
+          data: values,
+          borderColor: colour,
+          backgroundColor: alpha(colour, 0.18),
+          borderWidth: 2,
+          fill: true,
+          pointRadius: 0,
+          tension: 0,
+        },
+      ],
+    },
+    options: opts,
+  });
+}
+
+/**
  * Uninvested cash over time.
  *
  * Its own chart rather than a band on the value chart, which already has one:

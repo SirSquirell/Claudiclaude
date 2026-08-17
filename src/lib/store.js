@@ -299,6 +299,11 @@ export const EXPORTABLE_META = [
   // Dates and HTTP statuses only.
   'missingWindows',
   'unreadableRows',
+  // US-17. Our own candidate field names and counts of rows they matched on —
+  // `{ quantity: { rows: 1457, missed: 0, matched: { quantity: 1457 } } }`. No
+  // value, no row, no date, and the names are ours rather than the account's,
+  // which is what makes this the rare thing that needs no redaction at all.
+  'fieldStats',
   'syncLog',
   'syncState',
   'urls',

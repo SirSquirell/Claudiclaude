@@ -1806,7 +1806,7 @@ the honest limit and is what the full export remains for.
 
 ---
 
-## US-17 — Notice when a field DEGIRO renamed stops arriving *(new)*
+## US-17 — Notice when a field DEGIRO renamed stops arriving *(built, 0.46.0)*
 
 Refined after 0.14.0, from a question I asked badly. The question was "should the nine
 swallowed catches and the silent parser fallbacks go in the bug report too". Measured, one
@@ -2346,7 +2346,7 @@ the picture wrong, which is the worst of both.
 
 ---
 
-## US-35d — Do not deform the chart. Draw a different one. *(refined, replaces US-35c)*
+## US-35d — Do not deform the chart. Draw a different one. *(built, 0.46.0)*
 
 > *"ik hoef niet dat je de graph verwisseld ik wil idd gwn dat je een nieuwe graph verzint, die
 > natuurlijk wel ERGENS op slaat"*

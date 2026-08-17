@@ -15,7 +15,7 @@
 
 import { isoDayOf } from './dates.js';
 import { classifyCashRow } from './classify.js';
-import { TRADER_HOST } from './config.js';
+import { FIELD_ALARM, TRADER_HOST } from './config.js';
 
 /** Coerce anything DEGIRO calls a number into a real number. */
 export function num(value) {
@@ -50,11 +50,103 @@ function stableKey(seen, parts) {
   return nth === 0 ? base : `${base}|${nth}`;
 }
 
+/**
+ * Which candidate name actually carried each value, counted.
+ *
+ * US-17, and the point is not defensive instrumentation. The parsers accept
+ * several candidate names per value **on purpose**, and nobody knows which one
+ * DEGIRO really sends — so `CLAUDE.md` rule 8 says the fallbacks earn their place
+ * only until a real capture confirms the shape, and then they are deleted. This
+ * is the measurement that lets that happen: if `totalBase` resolves through
+ * `total` on every row and never once through `totalPlusFeeInBaseCurrency`, the
+ * other three candidates are dead code and can go.
+ *
+ * The same counter answers the safety question, and the reason it has to be a
+ * *rate* rather than a count is worth stating: if DEGIRO renames
+ * `totalPlusFeeInBaseCurrency`, it does not go missing on three transactions out
+ * of 1 457 — it goes missing on all 1 457. "Absent on 3 of 1457" is ordinary
+ * sparse data and must raise nothing; "absent on 1457 of 1457" is a rename, and
+ * a load-bearing field silently returning `0` on every row is the failure this
+ * project's whole claim is against.
+ *
+ * ## Why this is module-global, in a file the layout calls pure
+ *
+ * Because the alternative changes `parseTransactions`'s return type, and every
+ * caller and every test with it, to carry a number no computation reads.
+ *
+ * The guarantee that makes it safe is narrower and testable: **nothing in the
+ * parse output depends on this map.** It is written to and never read by the
+ * parsers; `pick` returns exactly what it returned before. `test/parse.test.js`
+ * asserts that parsing the same fixture twice, with the tally full and with it
+ * empty, produces identical output — so this is observability beside the
+ * computation rather than state inside it.
+ */
+const fieldStats = new Map();
+
+/** Start a fresh tally. The caller decides what a "run" is; `sync.js` does. */
+export function resetFieldStats() {
+  fieldStats.clear();
+}
+
+/**
+ * The tally, as plain data.
+ *
+ * Keyed by the **first** candidate name, which is the canonical one. That choice
+ * is what makes US-17's last acceptance criterion hold: appending a candidate to
+ * a `pick()` list does not move the key, so there is no second list to keep in
+ * step and no way for the two to drift.
+ */
+export function getFieldStats() {
+  return Object.fromEntries(
+    [...fieldStats].map(([field, s]) => [field, {
+      rows: s.rows,
+      missed: s.missed,
+      matched: Object.fromEntries(s.matched),
+    }]),
+  );
+}
+
+/**
+ * Which load-bearing fields have gone missing on effectively every row.
+ *
+ * Pure, and takes the tally rather than reading it, so a test can hand it a
+ * synthetic one. Returns a list rather than a boolean because the alarm names the
+ * field — "something DEGIRO sends has been renamed" is not actionable and
+ * "`closePrice` is absent on 1 457 of 1 457 rows" is.
+ *
+ * `matched` comes along because it is the other half of the same finding: the
+ * name that *used* to work is the search term for whoever goes looking at
+ * DEGIRO's response.
+ */
+export function fieldAlarms(stats, cfg = FIELD_ALARM) {
+  const out = [];
+  for (const field of cfg.loadBearing) {
+    const s = stats?.[field];
+    // Too few rows for a rate to mean anything. Not an absence of evidence
+    // problem — a two-row account genuinely cannot tell the two cases apart.
+    if (!s || s.rows < cfg.minRows) continue;
+    const share = s.missed / s.rows;
+    if (share >= cfg.missingShare) {
+      out.push({ field, rows: s.rows, missed: s.missed, share, everMatched: Object.keys(s.matched) });
+    }
+  }
+  return out;
+}
+
 /** First non-nullish value among the candidate keys. */
 function pick(obj, keys, fallback = undefined) {
+  const field = keys[0];
+  let stat = fieldStats.get(field);
+  if (!stat) fieldStats.set(field, (stat = { rows: 0, missed: 0, matched: new Map() }));
+  stat.rows += 1;
+
   for (const k of keys) {
-    if (obj != null && obj[k] != null && obj[k] !== '') return obj[k];
+    if (obj != null && obj[k] != null && obj[k] !== '') {
+      stat.matched.set(k, (stat.matched.get(k) ?? 0) + 1);
+      return obj[k];
+    }
   }
+  stat.missed += 1;
   return fallback;
 }
 

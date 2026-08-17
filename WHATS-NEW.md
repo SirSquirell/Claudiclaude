@@ -69,3 +69,34 @@ tweederde van de kaart was een vlakke streep. Daaronder zat een ergere: het resu
 gekozen periode gemeten en het ingelegde geld over de hele looptijd, dus **stond er een percentage op
 de kaart dat bij geen van beide hoorde**. Beide zijn nu hetzelfde stuk tijd, en de datums op de kaart
 zeggen welk stuk dat is.
+
+## Optimism Mode tekent nu twee andere grafieken
+
+Het knopje 🙃 zette eerst de waardegrafiek op zijn kop. Dat had een probleem dat er niet uit te
+halen was: op de momenten dat je geld stórtte ging de lijn omláág, dus het plaatje klopte met niets.
+
+Nu komen er twee grafieken in de plaats van de echte, die allebei waar zijn als je ze gewoon leest:
+
+- **Geloof in {jouw positie}** — één punt voor elke dag dat je het vasthield terwijl het onder water
+  stond, gewogen naar hoe diep. Gemeten in punten, dus onmiskenbaar geen euro's. Hij kan alleen maar
+  stijgen, en hij gaat precies verticaal op het moment dat het hardst misgaat.
+- **Wat {jouw positie} je nog schuldig is** — hoeveel je verdient zodra het terug is op wat je
+  betaalde. Dit is letterlijk je verlies, met het teken omgedraaid door de *formulering* en niet door
+  de rekenkunde.
+
+Beide houden de stempel **NOT THE REAL NUMBERS** en de stortingenlijn is er terecht uit: die betekent
+op deze twee niets.
+
+## Een veld dat DEGIRO omdoopt geeft nu een rode melding
+
+Dit is er een die je hopelijk nooit ziet. De extensie leest een handvol velden waar álles van afhangt
+— aantal, koers, totaalbedrag, slotkoers. Doopt DEGIRO er één om, dan las de extensie dat tot nu toe
+als **nul**, zonder iets te zeggen: elke grafiek stond er nog, alleen met verkeerde cijfers erin.
+
+Ontbreekt zo'n veld nu op vrijwel elke regel, dan staat er een rode melding die het veld bij naam
+noemt. Op een paar losse regels gebeurt er niks — dat is gewoon een lege regel, en een alarm dat
+afgaat bij gezonde rekeningen is er een die niemand leest op de dag dat het wel telt.
+
+Het foutrapport zegt er nu ook bij welke veldnaam het werk deed en op hoeveel procent van de regels.
+Dat is geen bijzaak: de extensie kent per waarde meerdere mogelijke namen omdat niemand wist welke
+DEGIRO stuurt. Met deze meting weten we het wel, en kunnen de gokken eruit.

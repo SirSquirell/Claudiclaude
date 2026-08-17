@@ -50,6 +50,36 @@ export const HISTORY_FLOOR = '2008-01-01';
 export const EMPTY_YEARS_BEFORE_STOP = 2;
 
 /**
+ * US-17. When a missing field stops being sparse data and becomes a renamed one.
+ *
+ * A threshold, so per SPEC §3 it lives here as a constant a human reviewed rather
+ * than being derived from the data it polices — a rate computed from the same
+ * rows it is judging would move with them and never fire.
+ *
+ * The six fields are load-bearing in a specific sense: a silent `0` from any of
+ * them does not lose a few rows, it makes every figure on the page wrong while
+ * looking fine. `totalBase` is what exchange rates, contract sizes and every
+ * per-holding result are measured from; `quantity` empties the position ledger;
+ * `price` leaves the split audit with nothing to compare against; `change` zeroes
+ * cash so the account is worth only its positions; `closePrice` values positions
+ * at nothing; and `size` is what the reconciliation check reconciles against.
+ *
+ * Named by their **first** candidate, which is the key `parse.js` tallies under —
+ * so adding a candidate to one of those lists does not have to be mirrored here.
+ *
+ * 0.95 rather than 1.0 because a real feed has the odd genuinely empty row, and a
+ * threshold that only fires at exactly every row would be defeated by one of
+ * them.
+ */
+export const FIELD_ALARM = {
+  /** Fraction of rows a load-bearing field must be absent on to raise. */
+  missingShare: 0.95,
+  /** Below this many rows the rate says nothing, so nothing is raised. */
+  minRows: 20,
+  loadBearing: ['totalPlusFeeInBaseCurrency', 'quantity', 'price', 'change', 'closePrice', 'size'],
+};
+
+/**
  * SPEC §6: "max 1 request/second, chunked, with exponential backoff on non-200.
  * No polling loops, no retries in tight loops."
  */

@@ -53,6 +53,31 @@ the page is recomputed from the same raw responses as before.
   axis now drops its labels entirely; percentage axes keep theirs. `test/mask.test.js` asserts no
   amount reaches the page while masked, and it was verified in a browser across all seven sections.
 
+### Added
+
+- **US-17: a field DEGIRO renames is now loud instead of silent.** Every `pick()` in `parse.js`
+  records which candidate name actually carried the value, and a load-bearing field absent on 95 %
+  or more of rows raises a red banner naming it. The signal is a *rate* on purpose: a renamed field
+  does not go missing on three transactions out of 1 457, it goes missing on all 1 457 — and a raw
+  count would cry wolf on ordinary sparse data, which is worse than silence.
+
+  The same tally answers a question this project has been carrying since the fixtures were written.
+  The parsers accept several candidate names per value because nobody knew which one DEGIRO sends;
+  the bug report now states, per field, which name matched and on what share of rows. A candidate at
+  0 % is dead code, and per CLAUDE.md rule 8 it gets deleted rather than kept in case. The report
+  also carries `discovered`, so an account silently running on default cluster URLs says so.
+
+- **US-35d: Optimism Mode draws two different charts** instead of deforming the real one.
+  *Belief in {PROP}* is a conviction index — one point per day held under water, weighted by depth —
+  and *What {PROP} still owes you* is `max(0, paid in − worth)`, which ends at exactly the amount
+  that was lost. Both are true read straight and both happen to climb when things go badly, so the
+  sign is turned around by the framing rather than by arithmetic.
+
+  `flipSeries` is **gone**. It reflected the value series about its own midpoint, which produced
+  something shaped like a portfolio value chart while not being one — and it inverted the deposit
+  steps, so every moment money went in the line dropped. Both new charts keep the
+  NOT THE REAL NUMBERS stamp, and the deposits line is correctly absent from both.
+
 ### Changed
 
 - **A left rail replaces the tab row**, and the sections became routes: the section you are in is

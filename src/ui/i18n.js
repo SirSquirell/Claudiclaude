@@ -152,6 +152,21 @@ const DICT = {
     Download: 'Downloaden',
     'Image saved.': 'Afbeelding opgeslagen.',
     'Could not export the image': 'De afbeelding kon niet worden geëxporteerd',
+    // --- US-17: a renamed field ---
+    'DEGIRO has stopped sending “{field}”': 'DEGIRO stuurt “{field}” niet meer',
+    'Absent on {missed} of {rows} rows, and this extension reads it as zero — so every figure measured from it is wrong rather than missing. This is what a renamed field looks like. Send the bug report: it carries the names that used to work ({names}), which is what somebody needs to find the new one.':
+      'Afwezig op {missed} van {rows} regels, en deze extensie leest dat als nul — dus elk getal dat eruit volgt is fout in plaats van afwezig. Zo ziet een hernoemd veld eruit. Stuur het foutrapport: daarin staan de namen die het wél deden ({names}), en dat is wat iemand nodig heeft om de nieuwe te vinden.',
+    // --- Optimism Mode, US-35d ---
+    'Belief in {prop}, over time': 'Geloof in {prop}, door de tijd',
+    'One point for every day you held {prop} while it was under water, weighted by how far under. It has never gone down. Neither should you.':
+      'Eén punt voor elke dag dat je {prop} vasthield terwijl het onder water stond, gewogen naar hoe diep. Het is nog nooit gedaald. Jij ook niet.',
+    'What {prop} still owes you': 'Wat {prop} je nog schuldig is',
+    'How much you make the moment {prop} returns to what you paid. This is the number that grows when things go badly, which is why it is the only chart worth looking at.':
+      'Hoeveel je verdient op het moment dat {prop} terug is op wat je betaalde. Dit is het getal dat groeit als het slecht gaat, en daarom de enige grafiek die het bekijken waard is.',
+    'Daily total, reconstructed from your trades, cash movements and daily closing prices. Triangles on the baseline mark days money went in (up) or out (down).':
+      'Dagtotaal, gereconstrueerd uit je transacties, geldstromen en dagelijkse slotkoersen. Driehoekjes op de basislijn markeren dagen waarop geld in (omhoog) of uit (omlaag) de rekening ging.',
+    'The gap between the two lines is growth — everything that is not your own deposits.':
+      'Het verschil tussen de twee lijnen is groei — alles wat niet je eigen storting is.',
     'last month': 'laatste maand',
     'last 3 months': 'laatste 3 maanden',
     'last 6 months': 'laatste 6 maanden',

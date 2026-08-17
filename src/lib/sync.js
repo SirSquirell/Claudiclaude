@@ -18,7 +18,7 @@ import { chunk, fetchAccountOverview, fetchPriceChunk, fetchProductsInfo, fetchT
 import { DegiroHttpError, SessionExpiredError } from './degiro.js';
 import { computePortfolio } from './engine.js';
 import { addDays, splitWindows, subMonths, todayISO } from './dates.js';
-import { parseCashMovements, parseProducts, parseTransactions, parseUpdate } from './parse.js';
+import { getFieldStats, parseCashMovements, parseProducts, parseTransactions, parseUpdate, resetFieldStats } from './parse.js';
 import { SESSION_MESSAGES, checkSession, resolveSession } from './session.js';
 import {
   getAll,
@@ -348,6 +348,16 @@ async function doSync({ force = false, onProgress = () => {} } = {}) {
     for (const [why, n] of Object.entries(d.reasons ?? {})) into.reasons[why] = (into.reasons[why] ?? 0) + n;
   };
 
+  /**
+   * US-17. The field tally covers this run and no other.
+   *
+   * Reset here rather than never, because the counter is a *rate* and a rate
+   * accumulated across four syncs cannot answer the question it exists for: a
+   * field renamed today would sit at 25 % missing against three earlier runs and
+   * never cross the threshold.
+   */
+  resetFieldStats();
+
   try {
     // --- current portfolio, for reconciliation --------------------------
     const update = parseUpdate(probe.update);
@@ -568,6 +578,17 @@ async function doSync({ force = false, onProgress = () => {} } = {}) {
     // presence is itself the signal.
     await setMeta('missingWindows', missingWindows.length ? missingWindows.slice(0, 40) : null);
     await setMeta('unreadableRows', unreadable.transactions.count + unreadable.cashRows.count > 0 ? unreadable : null);
+    /**
+     * Which candidate field name carried each value, and on how many rows.
+     *
+     * Stored rather than computed on the page for the reason the page cannot
+     * compute it: `loadFromExtension` reads rows that were *already parsed*, so
+     * `parse.js` never runs there. This is the only place that knows.
+     *
+     * Field names are ours, not the account's — there is nothing here to redact,
+     * which is why it can go straight into the bug report.
+     */
+    await setMeta('fieldStats', getFieldStats());
     await setMeta('lastDataDate', today);
     await setMeta('lastSyncAt', Date.now());
     await setMeta('lastError', null);

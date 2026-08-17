@@ -19,7 +19,7 @@
 import { computePortfolio } from '../lib/engine.js';
 import { combineResults } from '../lib/combine.js';
 import * as degiro from '../lib/brokers/degiro.js';
-import { parseCashMovements, parseChartResponse, parseProducts, parseTransactions, parseUpdate } from '../lib/parse.js';
+import { getFieldStats, parseCashMovements, parseChartResponse, parseProducts, parseTransactions, parseUpdate, resetFieldStats } from '../lib/parse.js';
 import { todayISO } from '../lib/dates.js';
 
 export const inExtension = typeof chrome !== 'undefined' && !!chrome.runtime?.id;
@@ -99,6 +99,10 @@ async function loadJson(name) {
 }
 
 export async function loadDemo() {
+  // US-17. The demo is the only mode that parses in the page, so it can produce
+  // its own tally — which is what makes the renamed-field banner something a UI
+  // change can be checked against rather than only a unit test.
+  resetFieldStats();
   const meta = await loadJson('meta.json');
   const [txRaw, cashRaw, productsRaw, updateRaw] = await Promise.all([
     loadJson('transactions.json'),
@@ -148,7 +152,7 @@ export async function loadDemo() {
    * CLAUDE.md rule 7: no value copied out of a real account enters the fixtures,
    * because the value on screen is the one that gets pasted.
    */
-  return { result, meta, counts, mode: 'demo', live: update, transactions, products, accountName: 'Demo Belegger' };
+  return { result, meta: { ...meta, fieldStats: getFieldStats() }, counts, mode: 'demo', live: update, transactions, products, accountName: 'Demo Belegger' };
 }
 
 // --- extension -------------------------------------------------------------
@@ -178,6 +182,9 @@ const DIAGNOSTIC_META = {
   liveTotalFields: null,
   unreadableRows: null,
   missingWindows: null,
+  // US-17. Written by sync.js, because the page reads rows that were already
+  // parsed and so never runs parse.js itself.
+  fieldStats: null,
   persistedErrors: [],
 };
 

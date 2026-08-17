@@ -123,12 +123,24 @@
       <div data-tab="overview" class="grid">
         <div class="card">
           <div class="zoom-state" id="zoom-state" hidden></div>
-          <h2 data-i18n>Portfolio value including cash</h2>
-          <p class="hint">
-            Daily total, reconstructed from your trades, cash movements and daily closing prices.
-            Triangles on the baseline mark days money went in (up) or out (down).
-          </p>
-          <div class="chart-box tall"><canvas id="c-value"></canvas></div>
+          <!--
+            The title and the hint sit in spans because Optimism Mode swaps both
+            (US-35d) and `foldHints` appends the `?` button *into* the h2 — setting
+            textContent on the heading itself would delete it. `data-i18n` moves to
+            the span for the same reason.
+          -->
+          <h2><span id="value-title" data-i18n>Portfolio value including cash</span></h2>
+          <p class="hint"><span id="value-hint" data-i18n>Daily total, reconstructed from your trades, cash movements and daily closing prices. Triangles on the baseline mark days money went in (up) or out (down).</span></p>
+          <div class="chart-box tall">
+            <canvas id="c-value"></canvas>
+            <!--
+              US-35d: both joke charts keep the stamp, so a still frame gives them
+              away without the reader having to know what "pts" means. Smaller than
+              the one over the tiles — a stamp that hides the chart underneath it
+              defeats the point of having drawn one.
+            -->
+            <div class="frown-stamp frown-stamp-sm" aria-hidden="true"><span>NOT THE REAL NUMBERS</span></div>
+          </div>
           <!--
             Filled only when the axis does not start at zero — brief §4: "a chart
             that does not start at zero and does not admit it is the oldest trick
@@ -169,9 +181,12 @@
 
       <div data-tab="overview" class="grid" style="margin-top: 16px">
         <div class="card">
-          <h2 data-i18n>Money paid in vs what it is worth</h2>
-          <p class="hint">The gap between the two lines is growth — everything that is not your own deposits.</p>
-          <div class="chart-box"><canvas id="c-invested"></canvas></div>
+          <h2><span id="invested-title" data-i18n>Money paid in vs what it is worth</span></h2>
+          <p class="hint"><span id="invested-hint" data-i18n>The gap between the two lines is growth — everything that is not your own deposits.</span></p>
+          <div class="chart-box">
+            <canvas id="c-invested"></canvas>
+            <div class="frown-stamp frown-stamp-sm" aria-hidden="true"><span>NOT THE REAL NUMBERS</span></div>
+          </div>
         </div>
       </div>
 

@@ -1781,9 +1781,10 @@ td .chip {
   color: var(--pos);
 }
 
-/* The charts are inverted in the *data*, not here — see `flipSeries`. Flipping
-   the canvas mirrors the axis labels, which are drawn inside it, and an
-   unreadable axis is noise rather than a joke. */
+/* Nothing about the charts is done here. Optimism Mode draws two *different*
+   charts (US-35d), which is a data decision — and the transform it replaced was
+   a data decision too, for the same reason a CSS flip is not available: the axis
+   labels are drawn inside the canvas and mirror into unreadable glyphs. */
 
 .frown-stamp {
   position: absolute;
@@ -1814,6 +1815,22 @@ td .chip {
 @keyframes frown-stamp-in {
   0%   { transform: rotate(-11deg) scale(3); opacity: 0; }
   100% { transform: rotate(-11deg) scale(1); opacity: 0.85; }
+}
+
+/*
+ * The stamp over a chart, rather than over the tile grid.
+ *
+ * Smaller and quieter: the tile version is meant to be the first thing you see,
+ * and this one has to leave the chart readable — the chart is the joke here, so
+ * hiding it behind the disclaimer would throw away the punchline to make the
+ * disclaimer louder. Still large enough that a cropped screenshot carries it.
+ */
+.frown-stamp-sm span {
+  font-size: clamp(0.7rem, 0.45rem + 1.1vw, 1.25rem);
+  border-width: 0.2rem;
+  border-radius: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  opacity: 0.75;
 }
 
 .frown-confetti {

@@ -21,9 +21,11 @@ import {
   monthCompareChart,
   pnlChart,
   projectionChart,
+  singleSeriesChart,
   valueChart,
 } from './charts.js';
 import { buildBugReport } from '../lib/report.js';
+import { fieldAlarms } from '../lib/parse.js';
 import { captured, installErrorCapture } from './errors.js';
 import * as frown from './frown.js';
 
@@ -1491,19 +1493,27 @@ function render() {
   destroyCharts();
 
   /**
-   * Optimism Mode reflects the chart's own series, so a falling line climbs.
+   * US-35d. Optimism Mode draws two *different* charts, in place of the real two.
    *
-   * Applied here, at the last step before drawing, for the same reason the
-   * tiles are: everything upstream stays the real number, so nothing the export
-   * or the bug report can reach ever sees the cheerful version.
+   * The previous version reflected the value series about its own midpoint, which
+   * produced something shaped like a portfolio value chart while not being one —
+   * and on the deposit steps it inverted them, so every moment money went in the
+   * line dropped. `frown.js` explains why no rewording of that transform fixes
+   * it. These two are true read straight and only happen to climb when things go
+   * badly.
+   *
+   * Replacing rather than adding settles a smaller thing for free: the real
+   * charts are simply not rendered while the mode is on, so there is no moment
+   * when a joke chart and a real one are on screen together.
    */
-  const cheer = (arr) => (frown.isOn() && state.tab === 'overview' ? frown.flipSeries(arr) : arr);
+  const cheerful = frown.isOn() && state.tab === 'overview';
+  renderOptimismCharts(r, ends, atEnds, cheerful, t);
 
-  if (onScreen('#c-value')) state.charts.value = valueChart(
+  if (!cheerful && onScreen('#c-value')) state.charts.value = valueChart(
     $('#c-value'),
     {
       days: atEnds(r.days),
-      value: cheer(atEnds(r.value)),
+      value: atEnds(r.value),
       positionsValue: atEnds(r.positionsValue),
       // A flow is summed over the bucket, or a deposit inside a month would
       // vanish unless it happened to land on the last day of it.
@@ -1518,7 +1528,7 @@ function render() {
     },
     t,
   );
-  noteBaseline('#value-baseline', state.charts.value, r, from);
+  if (!cheerful) noteBaseline('#value-baseline', state.charts.value, r, from);
 
   const agg = aggregatePnl(r.days, r.pnl, gran, from, to);
   if (onScreen('#c-pnl')) state.charts.pnl = pnlChart($('#c-pnl'), agg, t);
@@ -1531,7 +1541,7 @@ function render() {
   const compColours = compositionColours(composition, t);
   if (onScreen('#c-comp')) state.charts.comp = compositionChart($('#c-comp'), downsampleComposition(composition, ends, from), t, compColours);
 
-  if (onScreen('#c-invested')) state.charts.invested = investedVsValueChart(
+  if (!cheerful && onScreen('#c-invested')) state.charts.invested = investedVsValueChart(
     $('#c-invested'),
     { days: atEnds(r.days), value: atEnds(r.value), cumulativeDeposited: atEnds(r.cumulativeDeposited) },
     t,
@@ -1753,6 +1763,67 @@ function zoomTo(range) {
   state.range = range;
   for (const b of $('#range-group').querySelectorAll('button')) b.setAttribute('aria-pressed', 'false');
   render();
+}
+
+/**
+ * US-35d. The two joke charts, and the copy that goes with them.
+ *
+ * They take over the Overview's two chart slots one for one, so the section keeps
+ * its shape and nothing new has to be laid out. Both titles and both subtitles are
+ * swapped here rather than in the markup, because both name the instrument the
+ * joke is about — and `frown.qualifies` has already guaranteed the reader holds
+ * it, so `{prop}` is never empty and there is no fallback path to keep alive.
+ *
+ * When the mode is off this restores the real copy and returns. That restore is
+ * the load-bearing half: without it, turning the mode off would leave *Belief in
+ * ASML* above the portfolio value chart, which is the one outcome worse than not
+ * having the feature.
+ */
+function renderOptimismCharts(r, ends, atEnds, cheerful, t) {
+  const prop = frown.subjectOf(r) ?? '';
+  const text = (sel, s) => { const el = $(sel); if (el) el.textContent = s; };
+
+  if (!cheerful) {
+    text('#value-title', tr('Portfolio value including cash'));
+    text('#value-hint', tr('Daily total, reconstructed from your trades, cash movements and daily closing prices. Triangles on the baseline mark days money went in (up) or out (down).'));
+    text('#invested-title', tr('Money paid in vs what it is worth'));
+    text('#invested-hint', tr('The gap between the two lines is growth — everything that is not your own deposits.'));
+    return;
+  }
+
+  text('#value-title', tr('Belief in {prop}, over time', { prop }));
+  text('#value-hint', tr('One point for every day you held {prop} while it was under water, weighted by how far under. It has never gone down. Neither should you.', { prop }));
+  text('#invested-title', tr('What {prop} still owes you', { prop }));
+  text('#invested-hint', tr('How much you make the moment {prop} returns to what you paid. This is the number that grows when things go badly, which is why it is the only chart worth looking at.', { prop }));
+
+  const days = atEnds(r.days);
+  // Both are cumulative over the whole series, then sampled onto the buckets the
+  // chart draws — computing them from the sampled values instead would count a
+  // month as one day and flatten the climb.
+  if (onScreen('#c-value')) {
+    const conviction = frown.convictionIndex(r.value);
+    state.charts.value = singleSeriesChart(
+      $('#c-value'),
+      { days, values: ends.map((i) => conviction[i]) },
+      t,
+      // The gain colour whatever it contains, which is the joke keeping a
+      // straight face: nothing about the drawing admits what it is measuring.
+      { colour: t.pos, format: (v) => `${Math.round(v).toLocaleString('nl-NL')} pts` },
+    );
+    // The baseline note is about a euro axis and this one is in points.
+    const note = $('#value-baseline');
+    if (note) note.hidden = true;
+  }
+
+  if (onScreen('#c-invested')) {
+    const upside = frown.upsideRemaining(r.value, r.cumulativeDeposited);
+    state.charts.invested = singleSeriesChart(
+      $('#c-invested'),
+      { days, values: ends.map((i) => upside[i]) },
+      t,
+      { colour: t.pos, format: (v) => fmtEurCents(v) },
+    );
+  }
 }
 
 /** Say what is selected, and offer the way back. A zoom you cannot leave is a trap. */
@@ -2369,6 +2440,30 @@ function renderBanners(data, r) {
       tr('DEGIRO sent rows this extension could not read'),
       tr('{n} row(s) arrived in a shape the parser did not recognise and were left out: {reasons}. Everything above is missing them, so treat it as incomplete rather than wrong — and send the bug report, because this is what a renamed field looks like.',
         { n: total, reasons }),
+    );
+  }
+
+  /**
+   * US-17. A load-bearing field that stopped arriving.
+   *
+   * Louder than the unreadable-row notice above, and deliberately: that one
+   * counts rows the parser rejected outright, which is visible in the total. This
+   * is the *silent* case — `pick` fell through to `0`, every row parsed cleanly,
+   * and the page draws a plausible chart out of nothing. CLAUDE.md already says
+   * loose parsing that silently returns `0` is worse than a loud failure, so a
+   * load-bearing field absent on effectively every row is an error banner naming
+   * the field, in the same class as the reconciliation check.
+   *
+   * A rate, never a count: absent on 3 of 1 457 rows is ordinary sparse data and
+   * raises nothing. `config.js` holds the threshold, reviewed by a human rather
+   * than derived from the rows it polices.
+   */
+  for (const a of fieldAlarms(data.meta?.fieldStats)) {
+    add(
+      'error',
+      tr('DEGIRO has stopped sending “{field}”', { field: a.field }),
+      tr('Absent on {missed} of {rows} rows, and this extension reads it as zero — so every figure measured from it is wrong rather than missing. This is what a renamed field looks like. Send the bug report: it carries the names that used to work ({names}), which is what somebody needs to find the new one.',
+        { field: a.field, missed: a.missed, rows: a.rows, names: a.everMatched.join(', ') || '—' }),
     );
   }
 
