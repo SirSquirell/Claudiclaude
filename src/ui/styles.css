@@ -37,18 +37,25 @@
 :root {
   color-scheme: light;
 
-  /* surfaces — a warm paper rather than a grey, from the mockup */
-  --page: #f5f1ea;
-  --surface-1: #fffdfa;
-  --surface-2: #f7f2ea;
-  --surface-3: #ece5d9;
-  --text-primary: #141d27;
-  --text-secondary: #5a6774;
-  --text-muted: #8b97a3;
-  --grid: #eae2d5;
-  --axis: #cfc4b1;
-  --border: #e3dbcd;
-  --border-strong: #cfc4b1;
+  /* Surfaces, from the 0.46 redesign package: a near-white paper with a warm
+     cast, one step of card, one step of fill, and the rail its own value. The
+     previous ramp was a warmer cream; these were re-measured rather than
+     eyeballed — every categorical slot's contrast is against --surface-1, so
+     moving the surface moves ten contrast pairs, and `npm run palette` is the
+     only thing that can say whether they still clear 3:1. They do, by more than
+     before: a whiter card lifts every slot. */
+  --page: #fbfaf8;
+  --surface-1: #ffffff;
+  --surface-2: #f4f2ee;
+  --surface-3: #eae6e0;
+  --rail: #f6f4f0;
+  --text-primary: #14181d;
+  --text-secondary: #5c6672;
+  --text-muted: #939ca7;
+  --grid: #e9e6e0;
+  --axis: #d6d2ca;
+  --border: #e9e6e0;
+  --border-strong: #d6d2ca;
 
   /* categorical slots, repaired to zero collisions — see tools/check-palette.mjs */
   --series-1: #557cd4;
@@ -62,6 +69,10 @@
 
   --pos: #0b5fc4;
   --neg: #c02434;
+  /* Tints of the two signs, for a bar or a chip behind a figure. Derived from
+     --pos / --neg rather than picked, so they cannot drift apart from them. */
+  --pos-soft: #e4edf9;
+  --neg-soft: #fae7e8;
 
 
   --good: #0b5fc4;
@@ -79,7 +90,16 @@
      Ink is here for the canvas only; in the DOM the mark rides currentColor. */
   --brand-ink: #16213e;
   --brand-accent: #d9531e;
-  --shadow: 0 1px 2px rgba(20, 29, 39, 0.05), 0 8px 22px rgba(20, 29, 39, 0.05);
+  /* Two roles, because the redesign has two layers and only one of them lifts.
+   *
+   * A panel sits *on* the page: a hairline and a 1px seat, nothing more. The
+   * 22px drop it used to carry is what made card-in-card read as depth, and
+   * depth is the thing brief §8 removes — hierarchy comes from weight and size.
+   * Only genuinely floating things — the tooltip, later the menu and the share
+   * sheet — lift off the page, and those keep a real shadow because they have to
+   * read as detached from what is under them. */
+  --shadow: 0 1px 2px rgba(20, 25, 30, 0.05);
+  --shadow-float: 0 12px 32px rgba(20, 25, 30, 0.13), 0 2px 6px rgba(20, 25, 30, 0.06);
 
   /* Shape and rhythm, from the mockup's "studio" skin.
    *
@@ -93,8 +113,8 @@
    * `clamp()` also removes most of the breakpoints: the figures shrink
    * continuously with the window instead of stepping down at four fixed widths.
    */
-  --radius: 0.875rem;
-  --radius-lg: 1.25rem;
+  --radius: 0.625rem;
+  --radius-sm: 0.375rem;
   --radius-pill: 999px;
   --pad: clamp(0.875rem, 0.55rem + 1.4vw, 1.375rem);
   --gap: clamp(0.75rem, 0.6rem + 0.6vw, 1rem);
@@ -103,7 +123,7 @@
   --kpi: clamp(1.25rem, 0.95rem + 1.3vw, 1.8125rem);
   --title: 0.97rem;
   --hint: 0.78rem;
-  --track: 0.13em;
+  --track: 0.07em;
   --chart-h: clamp(9rem, 6rem + 9vw, 11.875rem);
   --hero-h: clamp(11rem, 8rem + 9vw, 15.625rem);
   --kpi-w: 750;
@@ -116,17 +136,18 @@
   :root:not([data-theme='light']) {
     color-scheme: dark;
 
-    --page: #0d151d;
-    --surface-1: #141e28;
-    --surface-2: #1a2531;
-    --surface-3: #212e3c;
-    --text-primary: #e8eef4;
-    --text-secondary: #9aa8b8;
-    --text-muted: #6d7b8a;
-    --grid: #212e3c;
-    --axis: #3a4c5e;
-    --border: #273544;
-    --border-strong: #3a4c5e;
+    --page: #0d1116;
+    --surface-1: #141920;
+    --surface-2: #1b222b;
+    --surface-3: #232b35;
+    --rail: #10151b;
+    --text-primary: #e8edf3;
+    --text-secondary: #98a3b0;
+    --text-muted: #6b7683;
+    --grid: #232b35;
+    --axis: #333d49;
+    --border: #232b35;
+    --border-strong: #333d49;
 
     --series-1: #4a86de;
     --series-2: #a383d0;
@@ -139,6 +160,8 @@
 
     --pos: #63a6f6;
     --neg: #f4737f;
+    --pos-soft: #16283d;
+    --neg-soft: #341c21;
 
 
     --good: #63a6f6;
@@ -148,24 +171,26 @@
     --accent: #e08355;
   --brand-ink: #e8edf5;
   --brand-accent: #f97038;
-    --shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-float: 0 16px 40px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.4);
   }
 }
 
 :root[data-theme='dark'] {
   color-scheme: dark;
 
-  --page: #0d151d;
-  --surface-1: #141e28;
-  --surface-2: #1a2531;
-  --surface-3: #212e3c;
-  --text-primary: #e8eef4;
-  --text-secondary: #9aa8b8;
-  --text-muted: #6d7b8a;
-  --grid: #212e3c;
-  --axis: #3a4c5e;
-  --border: #273544;
-  --border-strong: #3a4c5e;
+  --page: #0d1116;
+  --surface-1: #141920;
+  --surface-2: #1b222b;
+  --surface-3: #232b35;
+  --rail: #10151b;
+  --text-primary: #e8edf3;
+  --text-secondary: #98a3b0;
+  --text-muted: #6b7683;
+  --grid: #232b35;
+  --axis: #333d49;
+  --border: #232b35;
+  --border-strong: #333d49;
 
   --series-1: #4a86de;
   --series-2: #a383d0;
@@ -178,6 +203,8 @@
 
   --pos: #63a6f6;
   --neg: #f4737f;
+  --pos-soft: #16283d;
+  --neg-soft: #341c21;
 
 
   --good: #63a6f6;
@@ -187,7 +214,8 @@
   --accent: #e08355;
   --brand-ink: #e8edf5;
   --brand-accent: #f97038;
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-float: 0 16px 40px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.4);
 }
 
 * {
@@ -222,7 +250,7 @@ header.top {
   padding: 18px var(--pad);
   background: var(--surface-1);
   border: var(--rule) solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius);
   box-shadow: var(--shadow);
 }
 
@@ -230,8 +258,7 @@ h1 {
   font-size: 1.25rem;
   font-weight: 700;
   margin: 0;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
+  letter-spacing: -0.01em;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -259,12 +286,20 @@ h1::before {
   flex-wrap: wrap;
 }
 
+/**
+ * Sentence case, at 11.5px.
+ *
+ * Uppercase survives in this file only on eyebrow labels at 11px and under —
+ * `.tile .label`, `.chip`, `th` — where it reads as a label rather than as
+ * emphasis. On a button it costs word-shape legibility for nothing: when every
+ * control shouts, none of them is emphasised, and it is the most recognisable
+ * machine-written tic in the stylesheet.
+ */
 button {
   font: inherit;
   font-size: 0.7188rem;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: var(--track);
+  letter-spacing: 0;
   color: var(--text-primary);
   background: var(--surface-1);
   border: 1px solid var(--border-strong);
@@ -431,15 +466,7 @@ button:disabled {
   padding: 12px 16px;
   background: var(--surface-1);
   border: var(--rule) solid var(--border);
-  border-radius: var(--radius-pill);
-  box-shadow: var(--shadow);
-}
-
-@media (max-width: 45em) {
-  /* A pill that has wrapped onto four lines is not a pill. */
-  .controls {
-    border-radius: var(--radius);
-  }
+  border-radius: var(--radius);
 }
 
 .group {
@@ -464,11 +491,13 @@ button:disabled {
   border-color: transparent;
 }
 
+/* The selected segment is told apart by its surface and its ink, not by being
+   lifted: it sits inside a control that sits inside a panel, and a shadow at
+   that depth is the third rounded container brief §1.5 counts. */
 .group button[aria-pressed='true'] {
   background: var(--surface-1);
   color: var(--text-primary);
   border-color: var(--border);
-  box-shadow: var(--shadow);
 }
 
 .group > .glabel {
@@ -614,7 +643,7 @@ label.check {
   color: var(--text-secondary);
   border: var(--rule) solid var(--border-strong);
   border-radius: var(--radius);
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-float);
   font-size: var(--hint);
   line-height: 1.5;
   /* It follows the pointer's target, so it must never become the target. */
