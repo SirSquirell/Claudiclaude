@@ -165,6 +165,10 @@ async function init() {
   // browser's own translation prompt read.
   document.documentElement.lang = getLang();
   applyStatic();
+  // After applyStatic, never before: it rewrites the text of every element
+  // carrying data-i18n, and the panel titles do — an earlier call appended the
+  // ? toggles and had them deleted a line later. Same trap as the broker mark.
+  foldHints();
   buildLangControl();
   buildThemeControl();
   applyAnonymize();
@@ -268,6 +272,10 @@ function buildLangControl() {
  */
 function retranslate() {
   applyStatic();
+  // After applyStatic, never before: it rewrites the text of every element
+  // carrying data-i18n, and the panel titles do — an earlier call appended the
+  // ? toggles and had them deleted a line later. Same trap as the broker mark.
+  foldHints();
   for (const b of $('#tabs').querySelectorAll('button')) {
     const tab = TABS.find((x) => x.key === b.dataset.tab);
     const count = b.querySelector('.count');
@@ -580,6 +588,39 @@ function buildControls() {
     state.selectedCells = [];
     render();
   });
+}
+
+/**
+ * Every permanent hint paragraph, one click away.
+ *
+ * The copy is good — that was the problem. Each card carried an explanatory
+ * paragraph *and* an (i) per figure *and* a footnote, which is prose doing the
+ * job hierarchy should do. So the words are not shortened and not deleted: the
+ * paragraph keeps its text verbatim and its id, and a `?` beside the panel title
+ * shows it.
+ *
+ * Runs once, over whatever is in the document — the hints are static markup, so
+ * there is nothing to re-run on render.
+ */
+function foldHints() {
+  for (const hint of document.querySelectorAll('.card > p.hint, .card-head p.hint')) {
+    const head = hint.closest('.card')?.querySelector('h2');
+    if (!head || hint.dataset.folded) continue;
+    hint.dataset.folded = '1';
+    hint.hidden = true;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'hint-toggle';
+    btn.textContent = '?';
+    btn.setAttribute('aria-expanded', 'false');
+    btn.setAttribute('aria-label', tr('What this means'));
+    btn.addEventListener('click', () => {
+      const open = hint.hidden;
+      hint.hidden = !open;
+      btn.setAttribute('aria-expanded', String(open));
+    });
+    head.append(btn);
+  }
 }
 
 /**
@@ -1757,9 +1798,21 @@ function renderTiles(r, from = 0, to = r.days.length - 1) {
     ? frown.optimismTiles(r, fmtSigned, frown.subjectOf(r)).map((t) => ({ ...t, tabs: ['overview'], cls: 'up' }))
     : tiles;
 
-  $('#tiles').innerHTML = shown
-    .filter((t) => t.tabs.includes(state.tab))
-    .map((t) => {
+  /**
+   * One hero, three facts, and everything else behind a disclosure.
+   *
+   * The seven tiles were equal in size, box and dot, so "Data coverage 100.0%"
+   * competed with the total value — and the reader opened the page for one
+   * number. Nothing is dropped: the rest moves into *All figures*, open by
+   * default, which loses the equality rather than the content.
+   *
+   * Which figure is the hero is the order of the `tiles` array above, per
+   * section, because that order already carries the author's intent — Total
+   * value leads Overzicht, Result leads Rendement, Dividend leads Inkomsten.
+   * A separate hero list would be a second place to keep in sync.
+   */
+  const mine = shown.filter((t) => t.tabs.includes(state.tab));
+  const cell = (t, kind) => {
       // `signClass` returns 'up' / 'down', not 'pos' / 'neg'. Guessing that
       // wrong made the whole feature a no-op that still looked wired up.
       const down = !cheerful && t.cls === 'down';
@@ -1767,7 +1820,7 @@ function renderTiles(r, from = 0, to = r.days.length - 1) {
       const note = cheerful && down ? frown.spin(t.label) : t.note;
       const cls = cheerful && down ? 'up flipped' : (t.cls ?? '');
       return `
-      <div class="tile${cheerful && down ? ' tile-flipped' : ''}">
+      <div class="tile ${kind}${cheerful && down ? ' tile-flipped' : ''}">
         <div class="label">${esc(tr(t.label))}${
           TILE_TIPS[t.label]
             ? `<button type="button" class="info" aria-label="${esc(tr(t.label))}"
@@ -1777,8 +1830,23 @@ function renderTiles(r, from = 0, to = r.days.length - 1) {
         <div class="value ${cls}" style="--len:${[...value].length}">${esc(value)}</div>
         <div class="note">${esc(note)}</div>
       </div>`;
-    })
-    .join('');
+  };
+
+  const [hero, ...others] = mine;
+  const facts = others.slice(0, 3);
+  const rest = others.slice(3);
+  $('#tiles').innerHTML = mine.length
+    ? `<div class="hero-row">
+        ${hero ? cell(hero, 'is-hero') : ''}
+        <div class="facts">${facts.map((t) => cell(t, 'is-fact')).join('')}</div>
+      </div>` +
+      (rest.length
+        ? `<details class="allfigures" open>
+             <summary>${esc(tr('All figures'))}</summary>
+             <div class="figures-grid">${rest.map((t) => cell(t, 'is-fig')).join('')}</div>
+           </details>`
+        : '')
+    : '';
 }
 
 /**

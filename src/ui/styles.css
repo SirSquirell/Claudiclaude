@@ -1847,3 +1847,164 @@ button.snap:focus-visible {
   vertical-align: -2px;
   margin-right: 6px;
 }
+
+/* --- hierarchy: one hero, three facts, the rest behind a disclosure -------- */
+
+/*
+ * The tile row used to be seven equal boxes, so the number the page exists for
+ * rendered at the same size as its data coverage. Weight and size carry the
+ * hierarchy now; the boxes are gone.
+ */
+.tiles {
+  display: block;
+  border: 0;
+  background: none;
+}
+
+.hero-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--pad) clamp(1.5rem, 4vw, 3.5rem);
+  padding: 0.5rem 0 var(--gap);
+}
+
+.tile {
+  border: 0;
+  background: none;
+  box-shadow: none;
+  padding: 0;
+}
+
+/*
+ * Sizes come from an explicit basis, never from max-content.
+ *
+ * `.tile` is a container-query container (`container-type: inline-size`, above),
+ * which is what lets a long amount shrink to fit its cell instead of being
+ * clipped — and it also makes the tile's own max-content width exactly 0. Two
+ * attempts at `min-width: max-content` here collapsed the hero to nothing and
+ * spilled a 56px figure across the facts beside it. So each kind gets a width,
+ * and the existing `--len` rule sizes the type inside it.
+ */
+.tile.is-hero {
+  flex: 0 0 auto;
+  width: min(100%, 23rem);
+  /* Raising --kpi rather than setting font-size: the value's own rule is
+     `min(--kpi, --fits)`, so the fit guard still wins on a seven-figure total
+     and nothing can be silently sliced. */
+  --kpi: clamp(2.375rem, 1.4rem + 3.2vw, 3.5rem);
+}
+
+.tile.is-hero .label {
+  white-space: nowrap;
+}
+
+.facts > .tile {
+  flex: 0 0 auto;
+  width: 9.5rem;
+  --kpi: 1.0625rem;
+}
+
+.figures-grid > .tile {
+  --kpi: 1.0625rem;
+}
+
+.tile .label {
+  font-size: 0.6875rem;
+}
+
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pad) clamp(1.25rem, 3vw, 2.5rem);
+}
+
+.allfigures {
+  border-top: var(--rule) solid var(--border);
+  padding-top: 0.5rem;
+  margin-bottom: var(--gap);
+}
+
+.allfigures > summary {
+  cursor: pointer;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: var(--track);
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 4px 0;
+}
+
+.figures-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: 0.75rem var(--pad);
+  padding: 0.5rem 0 0.25rem;
+}
+
+
+/* --- hints behind a ? ----------------------------------------------------- */
+
+/*
+ * Every card carried a permanent paragraph, an (i) per figure and a footnote.
+ * The copy is good — that is the problem: it was compensating for a layout that
+ * had not made the meaning obvious. The words are kept verbatim and moved one
+ * click away rather than shortened.
+ */
+.hint-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.125rem;
+  height: 1.125rem;
+  padding: 0;
+  margin-left: 6px;
+  border-radius: 50%;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  border-color: transparent;
+  vertical-align: 2px;
+}
+
+.hint-toggle:hover,
+.hint-toggle[aria-expanded='true'] {
+  color: var(--text-primary);
+  background: var(--surface-3);
+}
+
+.card p.hint[hidden] {
+  display: none !important;
+}
+
+/*
+ * A wide table scrolls inside its own panel, never sideways with the page.
+ *
+ * `.table-scroll` already had `overflow-x: auto`, but a grid item's default
+ * minimum width is its content, so the holdings table pushed its card, its grid
+ * and then the document — 101px of horizontal page scroll at 1440 and 923 at
+ * 380. It only surfaced with the rail in place, because the main column got
+ * narrower than the table had ever had to fit in.
+ */
+.grid,
+.card {
+  min-width: 0;
+}
+
+/* The page itself never scrolls sideways. The holdings table is wider than the
+   main column and scrolls inside its own wrapper, but the overflow still reached
+   the document — measured at 101px on a 1440 viewport and 923 on a 380 one, and
+   only visible once the rail narrowed the column. Clipping the column is the
+   rule from brief section 8 rather than a patch: wide content scrolls in its own
+   container, the body does not. */
+.main {
+  overflow-x: clip;
+}
+
+.card .table-scroll,
+#holdings-table-wrap,
+#compare-summary-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+}

@@ -126,6 +126,8 @@ const DICT = {
     Theme: 'Thema',
     Auto: 'Auto',
     More: 'Meer',
+    'All figures': 'Alle cijfers',
+    'What this means': 'Wat dit betekent',
     'Hide amounts': 'Bedragen verbergen',
     'per {unit}': 'per {unit}',
     'Reconciles to the cent': 'Sluit tot op de cent',
