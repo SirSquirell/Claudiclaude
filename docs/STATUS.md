@@ -103,12 +103,21 @@ F1–F5 shipped in 0.37.0, F6–F9 in 0.38.0. U1–U5 need a decision rather tha
 | US-52 | **Paid vs grown on the shareable card** — the composition bar beneath the hero pct, via a `splitModel` shared with the holdings row; amount-free, so it survives anonymize | Nothing. Small, and the split maths already exists in `splitCell` |
 | US-53 | **Paid vs grown on sell transactions** — refined to a decision, not a build. Per-sale profit is cost basis, which the project refused; recommendation is to decline or reframe as a labelled position figure | An owner decision between (a) position-to-date bar, (b) drop, (c) open cost basis as its own story |
 | US-54 | **A share button on each KPI block, and a chartless score card** — extends US-47's sheet with a tile picker; the tile is the model, so US-46 masking and the reconciliation verdict come for free | Nothing. The one seam is obtaining a tile figure under an explicit anonymize flag |
-| US-55 | **Grab the chart to set the range** — brush the value chart 1:1, velocity handoff to a spring, momentum-projected snap, rubber-band at the edges. Extends US-12; engine untouched, inline `rAF` spring | Nothing. A POC branch exists to feel it |
 | US-56 | **Response and graceful degradation** — feedback on pointer-down everywhere, plus reduced-motion / reduced-transparency / prefers-contrast fallbacks, in one layer | Nothing. Guardrail: `npm run palette` stays green |
 | US-57 | **The share sheet as a material** — the card materializes (blur+scale spring), the four formats become a momentum strip. Motion only, no field changes | Nothing. Rides on US-47+/US-52/US-54 |
-| US-58 | **Type that changes shape with size** — size-bucketed tracking and leading, optical sizing, with a measured `npm run type` check like the palette has | Nothing. CSS/tokens only; confirm the bundled font has an optical axis |
 | US-03 (2nd half) | Expiry, strike, call/put from data rather than a name string | A real HAR |
 | US-07 | Options & margin dashboard — the margin half drops if it is not in the response | A real HAR |
+
+## POC-only — do NOT build on `main`
+
+**For the automatic development routine: skip these. They are experiments on branch
+`claude/apple-fluid-poc` and must not be implemented on `main` until the owner promotes them.**
+They are intentionally absent from *Refined, not built* above so they are never picked up as work.
+
+| Story | Where it lives | Why POC-only |
+|---|---|---|
+| US-55 | `claude/apple-fluid-poc` · `docs/prototypes/apple-fluid.html` | Fluid chart-range gesture — the owner wants to feel it in the POC before it goes near `main` |
+| US-58 | `claude/apple-fluid-poc` · `docs/prototypes/apple-fluid.html` | Display typography pass — same, a POC experiment for now |
 
 ## Parked
 

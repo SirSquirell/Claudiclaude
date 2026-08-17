@@ -3575,6 +3575,11 @@ tween on the figures themselves was considered and **rejected**: this project's 
 no number on screen was ever untrue, and an interpolated frame shows a value that never happened.
 So the motion goes on the *controls and the chrome*, never on the *data*.
 
+> **Build status — read before picking anything up.** Only **US-56** and **US-57** are buildable on
+> `main`. **US-55 and US-58 are POC-only** and must **not** be built on `main` by the automatic
+> development routine — they are experiments on branch `claude/apple-fluid-poc`, kept here as
+> pointers until the owner promotes them. Their entries below are stubs saying exactly that.
+
 The through-line, Apple's own: an interface feels alive when motion **starts from the current
 on-screen value, inherits the user's velocity, projects momentum forward, and can be grabbed and
 reversed at any instant.** Springs are the tool, and they must be ~30 lines of inline `rAF` — a
@@ -3583,62 +3588,17 @@ promise (vendor policy, rule 9's neighbourhood) would reject.
 
 ---
 
-## US-55 — Grab the chart to set the range *(new, refined — extends US-12)*
+## US-55 — Grab the chart to set the range *(POC-ONLY — DO NOT BUILD ON MAIN)*
 
-The window is set by discrete buttons — 1M · 3M · 6M · YTD · 1Y · ALL — but the value chart is the
-most *physical* surface on the page, and US-12 already reads a drag on it (to zoom). This is the
-same gesture grown up: **brush a range directly on the chart**, and it becomes the window.
+> **⛔ Not for the automatic development routine. Do not implement this on `main`.**
+> This is a **POC-only** experiment. Its full refinement and a working prototype live on branch
+> **`claude/apple-fluid-poc`** (`docs/prototypes/apple-fluid.html`). It is deliberately kept out of
+> the buildable backlog until the owner promotes it. A routine building the backlog on `main` must
+> **skip** this story — it is here as a pointer only, not as work to pick up.
 
-**Apple principles at work:** direct manipulation (§2), velocity handoff (§5), momentum projection
-(§6), rubber-banding (§9), interruptibility (§3).
-
-**The feel, precisely:**
-
-- **1:1 tracking.** Pointer Events with `setPointerCapture`, respecting the offset from where the
-  edge was grabbed — the handle stays glued to the finger even past the plot bounds.
-- **Velocity handoff on release.** Keep a short position/timestamp history; on release the window
-  edge settles with a **critically-damped spring** (§4, `damping 1.0`, `response ~0.4`) continuing
-  at the finger's velocity, so there is no seam between dragging and settling.
-- **Momentum projection.** A flick projects where the edge is going (`current + project(v)`) and
-  snaps to the nearest day *there*, not under the release point — a flick throws the window.
-- **Rubber-band at the ends.** Dragging before the first day or past the last resists progressively
-  rather than stopping dead (§9), so the edge of the history reads as an edge, not a freeze.
-
-**The traps:**
-
-1. **Animate from the presentation value, always.** The settle spring starts from the edge's live
-   on-screen position, and a new grab *mid-settle* reads velocity from where it actually is — start
-   from the target and the handle jumps, which is the one thing §3 forbids.
-2. **Recompute per frame is honest here, and only because of rule 2.** The window moving redraws
-   real numbers every frame; there is no smoothing of the *data*, only of the handle. Rule 2's
-   "recomputing five years is milliseconds, measured not assumed" is the licence — so measure it,
-   and if a frame's recompute blows the budget, downsample the redraw, never the truth.
-3. **Reduced motion (§14) keeps the tracking, drops the overshoot.** The brush still follows the
-   finger 1:1 — that is direct control, not vestibular motion — but the settle becomes an instant
-   snap with no spring, under `prefers-reduced-motion`.
-4. **No series repaints on range change.** The composition ranks on the whole history (charts rule),
-   so moving the window must not recolour anything — the rule already exists and this is where it is
-   easiest to break.
-5. **The discrete buttons stay.** They are the fast path and the keyboard-accessible one; the
-   gesture is an addition, not a replacement (§5 Flexibility).
-
-**Acceptance criteria:**
-
-- **AC1** Brushing on the value chart sets the range, tracking the finger 1:1 with the grab offset
-  respected.
-- **AC2** On release the window edge settles with a spring carrying the release velocity, and a
-  flick lands where the momentum projects, snapped to a day.
-- **AC3** Grabbing an edge mid-settle reverses from its live position with no jump.
-- **AC4** Dragging past the first or last day rubber-bands rather than stopping hard.
-- **AC5** Under `prefers-reduced-motion`, tracking stays 1:1 and the settle is an instant snap with
-  no overshoot.
-- **AC6** `engine.js` is unchanged, the per-frame recompute stays within a measured budget, and no
-  series changes colour when the window moves.
-- **AC7** The discrete range buttons still work and still reflect the gesture's result.
-
-**Stop condition:** if the gesture needs the engine to expose anything it does not already return,
-stop — this is UI over the arrays the page already holds, and the moment it reaches into `engine.js`
-it has stopped being a rendering concern.
+The idea, in one line: brush a range directly on the value chart — 1:1 tracking, velocity handoff to
+a spring, momentum-projected snap, rubber-band at the edges. Extends US-12. The reasoning, the traps
+and the acceptance criteria are on the POC branch, where the experiment belongs.
 
 ---
 
@@ -3730,51 +3690,17 @@ to US-47/US-52/US-54, and this story is the glass, not what is written on it.
 
 ---
 
-## US-58 — Type that changes shape with size *(new, refined)*
+## US-58 — Type that changes shape with size *(POC-ONLY — DO NOT BUILD ON MAIN)*
 
-The hero figures — the giant `€ -0,05` — are set with body tracking. Apple §15: **tracking and
-leading are size-specific, never one value for all sizes.** Large display text wants *negative*
-tracking and *tight* leading; body wants near-zero tracking and looser leading. A single global
-`letter-spacing` is wrong somewhere, and on the biggest number on the page it is wrong most visibly.
+> **⛔ Not for the automatic development routine. Do not implement this on `main`.**
+> This is a **POC-only** experiment. Its full refinement and a working before/after live on branch
+> **`claude/apple-fluid-poc`** (`docs/prototypes/apple-fluid.html`). It is deliberately kept out of
+> the buildable backlog until the owner promotes it. A routine building the backlog on `main` must
+> **skip** this story — it is here as a pointer only, not as work to pick up.
 
-**Apple principles:** typography (§15), craft.
-
-**What it is:** size-bucketed tracking and leading in the tokens — display negative (~`-0.02em`) and
-tight-leaded, body near-`0` and comfortably leaded, small text slightly positive; `font-optical-
-sizing: auto`; all in `rem`/`em` so Dynamic-Type-style user scaling still works (US-16 already did
-the responsive sizing).
-
-**The measured check, because this repo does not assert craft — it measures it.** The palette rule
-(CLAUDE.md, Charts) is the standing example: *"the palette is measured, not asserted… a comment is
-not a check."* Type gets the same treatment — an `npm run type` that reads the tokens and **fails on
-a fixed global letter-spacing and on any display size not carrying negative tracking**, so the
-buckets cannot silently rot back to one value.
-
-**The traps:**
-
-1. **This is type shape, not number format.** Numbers stay `nl-NL` (a locale for money, US-32/US-46),
-   and this story does not touch the formatters — the minus sign, the thousands dot and the decimal
-   comma are the formatter's, and tracking must be measured *at the display size* so they do not
-   crowd. Eyeballing it is the "comment is not a check" mistake.
-2. **Optical sizing needs a variable font.** Confirm the bundled Inter Tight / Inter face actually
-   carries an optical axis; if it does not, `font-optical-sizing` is a no-op and this is tracking and
-   leading only — stated plainly rather than promised.
-3. **Contrast is unaffected but re-checked.** Tighter tracking can nudge legibility; the palette/
-   contrast checks stay green.
-
-**Acceptance criteria:**
-
-- **AC1** Tracking and leading are size-bucketed in the tokens; there is no fixed global
-  `letter-spacing`.
-- **AC2** Display figures carry negative tracking and tight leading; body sits near `0` with looser
-  leading.
-- **AC3** A measured check (`npm run type`, wired into `npm test` like the palette) fails on a fixed
-  global tracking value and on a display size without negative tracking.
-- **AC4** Numbers are still `nl-NL` formatted; the formatters are untouched.
-- **AC5** The contrast checks still pass in both themes.
-
-**Stop condition:** if the change reaches into the number formatters, stop — number formatting is
-US-46's choke point and US-32's locale, and this story is CSS shape, not digits.
+The idea, in one line: size-specific tracking and leading (display negative and tight-leaded, body
+near-zero and looser), optical sizing, with a measured `npm run type` check in the palette's spirit.
+The reasoning, the traps and the acceptance criteria are on the POC branch.
 
 ---
 
