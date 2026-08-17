@@ -3265,3 +3265,231 @@ the leak that story closed.
 If fixing the label requires converting anything, stop. The conversion is already done and lives in
 the engine; a second conversion in the UI is two answers to one question, and the rate this one
 would use is not the rate that settled the trade.
+
+---
+
+# Refinement 0.47 — from the first real account
+
+Five stories and one investigation, refined the evening the extension first ran against a real
+DEGIRO account. Four came from the owner watching the screen; the fifth and the investigation came
+out of the bug report. **They are ordered by what would embarrass us most if it shipped as-is**, not
+by size.
+
+The three defects that produced a wrong number are already fixed and on `main` (0.46.1). Everything
+below is what is left.
+
+---
+
+## US-52 — Share any figure, not only a position *(new, refined)*
+
+> *"you need to design a place where we can set a P/L value as an absolute and % for today and i
+> want that also to be shareable"* … *"oh ik zie dat je hier idd die P/L al heb staan. moet alleen
+> nog sharable zijn. nog beter zou zijn als je dat hele blok een share button geeft waarbij je
+> daarna kan kiezen welke tegel je gebruikt"*
+
+The owner's own correction is the story: **the figure already exists.** *Today* has read
+`+€ 2.535,90 +0,72%` since the redesign, absolute and percentage side by side, with the week under
+it. Nothing needs computing. What is missing is that a tile cannot be shared — only a position can.
+
+So this is not "add a daily P/L card". It is **one share affordance on the figures block, and a
+picker for which tile it draws.**
+
+### Why the block and not per tile
+
+Seven tiles with a share button each is seven affordances competing with seven numbers, and the
+hover-reveal that would hide them is not available on a phone. One button on the block, then a
+choice, is also the honest shape of the thing: the sheet already asks four questions (shape, theme,
+amounts, name), so *which figure* is a fifth question in a place that already asks questions.
+
+### What the card says
+
+The existing card is built around one instrument. A figure card has no instrument, so the fields
+change meaning rather than being reused loosely:
+
+| Card field | Position card | Figure card |
+|---|---|---|
+| `name` | the instrument | **the figure's label**, e.g. *Today*, *Result*, *Dividend received* |
+| `symbol` | ticker | **null** |
+| `pct` | return on money in | the tile's own percentage **where it has one**, else null |
+| `amount` | the position's result | the tile's amount |
+| `period` | the position's span | **the window the tile belongs to**, which the tile already states |
+| `spark` | cumulative result of that position | the series behind the figure, or **empty** where there is none |
+
+**The percentage is not invented.** *Today* carries one; *Data coverage* is one; *Dividend
+received* has none and the card must then show none rather than dividing by something to produce
+one. That is the same refusal `returnOnMoneyIn` already makes.
+
+### Which tiles can be shared, and which cannot
+
+Not all seven. A tile is shareable when it is **a figure about the account's money**. So:
+
+- **Yes**: Total value, Money paid in, Result, Today, Dividend received, Fees paid, Interest,
+  Deepest fall, and the largest-position tile.
+- **No**: *Data coverage* and anything else that is a fact about the *data*. A card saying
+  "100,0 % — Data coverage" is a card about the tool, not about the account, and the rail already
+  carries it where it belongs.
+
+The list is derived from the tile definitions rather than written twice: a tile declares
+`shareable: true`, and the picker is built from that. Two lists would drift, and the one that drifts
+is the one nobody looks at.
+
+### Acceptance criteria
+
+- **AC1** One share button on the figures block, reachable by keyboard, present at 380 px.
+- **AC2** The sheet opens with a *figure* picker listing exactly the tiles that declare themselves
+  shareable, defaulting to the hero.
+- **AC3** The card states the same number the tile does, to the cent, and the same percentage.
+  Asserted against `renderTiles`' own output, not recomputed — if the two can disagree, they will.
+- **AC4** A tile with no percentage produces a card with no percentage, and no fabricated one.
+- **AC5** The card names the window the figure belongs to. An all-time figure says so.
+- **AC6** `SNAPSHOT_FIELDS` is unchanged. This story moves no new *kind* of value onto the card.
+- **AC7** Amounts still default to hidden, and the eye still governs.
+
+### Stop condition
+
+If a tile's number cannot be read back from what `renderTiles` produced and has to be recomputed for
+the card, stop and say so. Two code paths to one figure is how the card ends up disagreeing with the
+page it was shared from, and that is worse than the feature being absent.
+
+---
+
+## US-53 — Paid in versus grown, on the card *(new, refined)*
+
+> *"Here i miss the paid vs grown % I also want paid vs grown in the shareable things"*
+
+The positions table has carried the paid-in-versus-grown bar since US-49: two segments that always
+sum to the whole, so the eye reads a proportion rather than comparing two lengths. The card, which
+is the thing that actually gets posted, has only the percentage.
+
+### What goes on the card
+
+The same two segments, drawn the same way, under the big percentage — and the wording follows the
+table's: *"72 % paid in · 28 % grown"*. Where more has come out than went in, the table already says
+**"all gain — more came out than went in"** and the card says the same rather than drawing a bar of
+one colour.
+
+The split comes from the same numbers the table uses (`paidIn` and the position's result over the
+span), so there is nothing new to compute — and US-50's span clipping already applies, which means
+the bar describes the same days the line does.
+
+### The one thing to get right
+
+The bar must not become a second, contradictory reading of the percentage above it. On a position
+that has doubled, *"50 % paid in · 50 % grown"* and *"+100 %"* are the same fact stated twice, and a
+reader who does not see that will think one of them is wrong. So the bar carries the words and the
+percentage above it carries the sign — and the card's own copy line ties them together.
+
+### Acceptance criteria
+
+- **AC1** The bar appears on all four card shapes and stays legible at each one's smallest rendered
+  size.
+- **AC2** The two segments sum to the full width at every input, including a loss and including
+  more-out-than-in.
+- **AC3** Under water, the card states it in words rather than drawing a negative segment.
+- **AC4** The split is read from the same fields the table reads. A test asserts the card and the
+  table agree for every position in the fixture.
+- **AC5** Masked amounts do not hide the bar — it is a proportion, and proportions survive US-46.
+
+---
+
+## US-54 — The card's small print is unreadable *(new, defect, refined)*
+
+> *"This tiny tekst is barely readable"*
+
+The provenance line — dates, broker, reconciliation verdict, version — is 15 px on a 1280 px card.
+That is 1,2 % of the card's width, and it was chosen against the *app's* type scale, where 15 px is
+read at 1:1 on a 1440 px viewport.
+
+A card is not read at 1:1. It is posted into a chat that renders it at 500–700 px wide, so 15 px
+arrives as 6–8 px. **The type inside a card has to be sized as a fraction of the card, not in the
+page's pixels.** The preview makes this visible early, which is why the owner saw it before anyone
+posted one.
+
+### What to change
+
+- Every size inside `drawSnapshot` becomes a fraction of the card's **short edge**, so a 9:16 story
+  and a 16:9 banner carry the same apparent type size.
+- The floor is set by what survives the smallest realistic render: the provenance line must be
+  readable when the whole card is 500 px wide. That is the measurement, not a preference.
+- The preview then shows the truth, because it draws the real card scaled — which it already does.
+
+### Acceptance criteria
+
+- **AC1** At every format, the provenance line is at least 2,4 % of the short edge.
+- **AC2** Rendered at 500 px wide, every string on the card is at least 10 px.
+- **AC3** The hierarchy is unchanged: the percentage still dominates, the provenance is still the
+  quietest thing on the card.
+- **AC4** Nothing overlaps at any format, including the longest instrument name in the fixture and
+  the longest provenance line (a failed reconciliation, which is the longest).
+- **AC5** Measured, not eyeballed: a test that renders each format and asserts the computed sizes.
+
+---
+
+## US-55 — The popup was never redesigned, and it speaks no Dutch *(new, refined)*
+
+Noticed when the owner sent a screenshot of it mid-sync. The popup shares `styles.css`, so it
+inherited 0.46.0's tokens and looks *plausible* — which is why nobody caught the two real problems.
+
+**It has no translations at all.** Every string is hardcoded English in `popup.html` and `popup.js`;
+`applyStatic` is never called and there are no `data-i18n` attributes. So a reader who chose
+Nederlands gets a Dutch app and an English popup. That is a defect, not a style question, and it is
+the half worth doing first.
+
+**And it has none of the redesign's language:** no lockup, two equal-weight buttons where one of
+them is the primary action, and a 2×2 grid of four equal tiles where the app moved to one hero
+figure and supporting ones.
+
+### Scope, deliberately small
+
+320 px wide and four figures. This is not the app's hierarchy transplanted — it is: the mark, one
+hero (value), three small ones, a sparkline, and one primary button. Every id stays, because the
+popup has no parity test and renaming them buys nothing.
+
+### Acceptance criteria
+
+- **AC1** Every string in the popup goes through `t()`; `missing()` reports zero for the popup on
+  both languages.
+- **AC2** Switching the app to Nederlands and reopening the popup shows Dutch.
+- **AC3** Sync is visibly the primary action; *Open full chart* is not competing with it.
+- **AC4** The busy label restores itself — the popup has the same `e.target`-versus-`currentTarget`
+  shape the connection-check button had, and it must not grow the same bug.
+- **AC5** The eye's state is honoured: with amounts hidden the popup shows no figures either. It
+  already is, via the formatters — this pins it.
+
+---
+
+## Investigation — AMC's price series was rescaled by 4,369
+
+Not a story yet, because what to do depends on what it is.
+
+The split audit rescaled one instrument's history by **factor 4,369, spread 1,05**. A split ratio is
+2, 3, 4, 10 or 1-for-10; **4,369 is not any of those**, and the instrument in question last had a
+close price in **August 2023**, which is when it did a 1-for-10 reverse split and was subsequently
+renamed. The position was closed in 2021, so this cannot move the final result — but it moves the
+**value chart over the months it was held**, which is the largest chart on the page.
+
+Two hypotheses worth separating before anything is changed:
+
+1. **The series spans the split and the audit is fitting one factor to two regimes.** Then the
+   factor is meaningless and the audit should refuse rather than rescale — a wrong rescale is worse
+   than none, because it looks correct.
+2. **The series is a different instrument's after the rename.** Then the vwd id no longer identifies
+   what we think it does, and no factor fixes that.
+
+The output must be a finding with a number in it, either way. If it turns out the audit cannot tell
+these apart from the data it has, **say that** — that is the honest answer and it is more useful
+than a threshold nobody can justify.
+
+### Stop condition
+
+Do not change the rescale threshold to make one account look right. That constant polices every
+account, and tuning it to one series is how the next account gets silently mis-scaled.
+
+---
+
+## Still open, and not to be guessed at
+
+The reconciliation now reports **−0,05 against DEGIRO's 0,00** on the owner's account, attributed to
+cash. DEGIRO lists `degiroCash` and `flatexCash` as separate fields and `totalCash` may not include
+both. **This needs one look at a real response, not a fix.** Five cents in red is the correct state
+until somebody knows which of the three fields is the whole balance.

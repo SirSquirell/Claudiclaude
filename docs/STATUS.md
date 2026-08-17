@@ -87,6 +87,11 @@ F1–F5 shipped in 0.37.0, F6–F9 in 0.38.0. U1–U5 need a decision rather tha
 
 | Story | State | Waiting on |
 |---|---|---|
+| US-52 | **Share any figure, not only a position.** One share button on the figures block, then pick which tile it draws. The Daily P/L figure already exists — only the sharing is missing | Nothing. Refined 0.47 |
+| US-53 | **Paid in versus grown, on the share card.** The bar the positions table has had since US-49, on the thing that actually gets posted | Nothing. Refined 0.47 |
+| US-54 | **The card's small print is unreadable** at the size a chat renders it. Type inside a card must be a fraction of the card, not of the page | Nothing. Defect, measured |
+| US-55 | **The popup has no translations at all** and none of the redesign's language. The Dutch half is a defect, not a style question | Nothing. Refined 0.47 |
+| — | **AMC's series was rescaled by factor 4,369**, which is not a split ratio. Investigation, not a story: the fix depends on what it is | Nothing. Do not tune the threshold to one account |
 | US-37 | **Trading 212 R1 — PASS, measured 2026-08-13.** Page 200/401, logged out 401, and the service worker `PASS_JSON` with only an `Accept` header — so no device identifier is required either | Nothing. **US-39–US-45 are unblocked** |
 | US-44 | **Trading 212 renders through the existing pipeline** — no separate dashboard | Gated on US-37 and the data gates. Addendum body not yet received |
 | US-45 | Parameterise the session read (`session.js:19`) — renumbered twice | Deferred until R1 clears — rule 8 |
