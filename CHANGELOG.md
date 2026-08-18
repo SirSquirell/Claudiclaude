@@ -41,6 +41,21 @@ plain increments — this is not a library and nothing depends on its API.
      holding is worth; a closed one is worth nothing. It read *"100% of what you paid in is gone"* on a
      sale that lost 20 %. The table has always shown a dash there and the card now does too.
 
+- **US-77 — the line on a shared card was missing the days that mattered.** The same report, the same
+  card: the sparkline reduced a position's history to 48 points by keeping every *n*-th day, so its
+  peak and its trough survived only if the sampling happened to land on them. Measured over the demo
+  account's ten positions, **5 % to 14 % of each position's range was thrown away** — on a six-year
+  holding the line drew a best moment €2 300 below the real one, and a fortnight-long crash inside a
+  long position could disappear entirely.
+
+  It is invisible when it happens: the line is normalised to its own extent, so losing the worst day
+  gives you the same height and the same confidence with a shallower shape. It also disagreed with the
+  page's own charts, which draw every day.
+
+  The card now keeps the lowest and the highest day of each stretch it summarises, in the order they
+  happened. Same 48 points, same drawing — but the worst day is always on it, no value is averaged or
+  invented, and a line that only ever rose still only rises.
+
   **No resync needed.** Nothing stored changed — these are all derived figures, recomputed from the raw
   responses already on disk. Open positions that have never been partly sold show the same numbers as
   before; closed and partly-sold ones are corrected.

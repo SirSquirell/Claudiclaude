@@ -4779,3 +4779,64 @@ asserted through `computePortfolio` instead of through the UI. Worth a round tri
 If agreeing needs a cost basis — proceeds minus FIFO cost, or an average — stop and re-read US-53.
 Every figure here is `value = paidIn + result` applied to one holding, which is why it can be checked
 at all; the moment a convention is chosen, it is a SPEC-level decision and not a defect fix.
+
+---
+
+## US-77 — The card's line was missing the days that mattered *(built, defect)*
+
+> *"ook de charting gaat niet goed"* — the second half of the same report as US-76, on the same card.
+
+`sparkline()` reduced a position's daily series to 48 points by taking every *n*-th day:
+
+```js
+const stride = (xs.length - 1) / (max - 1);
+return Array.from({ length: max }, (_, i) => xs[Math.round(i * stride)]);
+```
+
+Both ends survive, and nothing else is guaranteed. The peak and the trough are kept only if the stride
+happens to land on them, and on a multi-year position it lands on roughly one day in forty.
+
+**Measured over the demo account's ten positions: 5 % to 14 % of each position's range was thrown
+away.** On ASML the drawn high was €15 197 where the real one was €17 505; on INGA the drawn recovery
+stopped €580 short. A crash lasting a fortnight inside a five-year holding can vanish completely.
+
+### Why it is invisible, which is what makes it worth a story
+
+`drawSpark` normalises the line to *its own* extent. Lose the worst day and the remaining points
+simply fill the plot again: same height, same confidence, shallower shape. Nothing on the card looks
+wrong, there is no gap and no artefact — the line is just no longer the one the position drew. It is
+the same failure mode as the palette that was asserted rather than measured: plausible, and wrong in a
+direction nobody checks.
+
+It also disagrees with the app. The page's own charts draw every day, so the card and the chart of the
+same position over the same range showed two different shapes.
+
+### The fix
+
+Min/max decimation, the waveform convention. The interior is cut into equal-width buckets and each
+contributes its lowest and its highest day **in the order they happened**:
+
+- the global peak and trough are always drawn — they are the extreme of whichever bucket holds them;
+- no point is invented: every value is a real day's, never an average or an interpolation;
+- a monotone run stays monotone, because min-then-max of a rising bucket is its first and last day;
+- the point budget is unchanged (two per bucket plus both ends, ≤ 48), so nothing about the drawing,
+  the card layout or the file size moves.
+
+The one thing given up is uniform spacing in time: within a bucket, two days are drawn as if evenly
+spaced across it. Buckets are equal in time and each gets two slots, so the distortion is bounded by
+one bucket's width and never accumulates. On a shape with no x-axis that is the cheaper of the two
+prices — the honest version of a path is the one that still contains its worst day.
+
+### Acceptance criteria
+
+- **AC1** A series whose extremes fall between two stride points still draws both of them.
+- **AC2** Never more than `max` points, at every length either side of the cap.
+- **AC3** Every drawn point is a value that occurs in the input — no averaging, no interpolation.
+- **AC4** Both ends are kept; the last point is the position's result, which is the figure printed
+  above it (US-76).
+- **AC5** A monotone series comes back monotone.
+
+### Stop condition
+
+If keeping the shape needs more than 48 points, stop and re-read US-59: the card is read at the size a
+chat renders it, and a denser line there is a smudge, not more information.

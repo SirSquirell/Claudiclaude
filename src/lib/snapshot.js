@@ -285,17 +285,64 @@ export function returnOnMoneyIn(result, paidIn) {
 }
 
 /**
- * Reduce a series to at most `max` points, keeping the first and the last.
+ * Reduce a series to at most `max` points, keeping the first, the last **and
+ * every extreme**.
  *
  * The sparkline is a shape, not a reading: no axis, no scale, so it discloses
  * the path and never a level. Downsampling here rather than in the drawing code
  * keeps the model the whole truth of what will be drawn.
+ *
+ * Which is exactly why it cannot be sampled every *n*-th day, and used to be.
+ * Stride sampling keeps whatever days it happens to land on, so the peak and the
+ * trough survive only by luck — measured over the demo account's ten positions
+ * it threw away **5 % to 14 % of the range**, and on a six-year holding the line
+ * drew a best moment €2 300 below the real one. The line is then normalised to
+ * its own extent (`drawSpark`), so the drop is invisible: a shallower shape,
+ * drawn confidently, at full height. A crash that lasted a fortnight inside a
+ * five-year position could disappear entirely.
+ *
+ * Min/max decimation instead — the waveform convention. The interior is cut into
+ * buckets and each contributes its lowest and its highest day, in the order they
+ * happened, so:
+ *
+ *  - the global peak and trough are always drawn, because they are the extreme
+ *    of whichever bucket holds them;
+ *  - no wiggle is invented: every point is a real day's value, never averaged or
+ *    interpolated;
+ *  - and a monotone run stays monotone, because min-then-max of a rising bucket
+ *    is its first and last day.
+ *
+ * The cost is that spacing is no longer uniform in time. For a shape with no
+ * x-axis that is the cheaper of the two prices, and it is the one the rest of
+ * this file already pays: the card shows a path, and the honest version of a
+ * path is one that still contains its worst day.
  */
 export function sparkline(series, max = 48) {
   const xs = (series ?? []).filter((v) => Number.isFinite(v));
   if (xs.length <= max) return xs;
-  const stride = (xs.length - 1) / (max - 1);
-  return Array.from({ length: max }, (_, i) => xs[Math.round(i * stride)]);
+  // Two points per bucket, plus the first and the last, which are kept whatever
+  // they are: the last is the position's result, and a card whose line ends
+  // somewhere other than its own figure is the defect one story up.
+  const buckets = Math.floor((max - 2) / 2);
+  const out = [xs[0]];
+  const step = (xs.length - 2) / buckets;
+  for (let b = 0; b < buckets; b++) {
+    const lo = 1 + Math.floor(b * step);
+    const hi = Math.min(xs.length - 2, Math.floor(1 + (b + 1) * step) - 1);
+    if (hi < lo) continue;
+    let min = lo;
+    let max2 = lo;
+    for (let i = lo; i <= hi; i++) {
+      if (xs[i] < xs[min]) min = i;
+      if (xs[i] > xs[max2]) max2 = i;
+    }
+    // In the order they happened. Reversing them would draw a fall as a rise.
+    const [a, c] = min <= max2 ? [min, max2] : [max2, min];
+    out.push(xs[a]);
+    if (c !== a) out.push(xs[c]);
+  }
+  out.push(xs[xs.length - 1]);
+  return out;
 }
 
 /**

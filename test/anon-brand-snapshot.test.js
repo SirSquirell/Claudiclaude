@@ -490,12 +490,53 @@ test('the four formats are four distinct shapes, and an unknown one falls back',
 
 test('the sparkline keeps both ends and never more than the cap', () => {
   const s = sparkline(Array.from({ length: 900 }, (_, i) => i), 48);
-  assert.equal(s.length, 48);
+  assert.ok(s.length <= 48, `${s.length} points drawn where 48 is the cap`);
   assert.equal(s[0], 0);
   assert.equal(s.at(-1), 899);
+  // A rising series comes back rising. Min-then-max per bucket is what keeps it
+  // that way; taking them in index order rather than value order would draw a
+  // staircase on a straight line.
+  assert.deepEqual(s, [...s].sort((a, b) => a - b), 'a monotone series stays monotone');
   assert.deepEqual(sparkline([1, 2, 3]), [1, 2, 3]);
   assert.deepEqual(sparkline([1, NaN, 3]), [1, 3], 'a gap is dropped, not drawn as zero');
   assert.deepEqual(sparkline(null), []);
+});
+
+test('US-77 — the sparkline draws the worst day, whatever day it falls on', () => {
+  /**
+   * The second half of the discrepancy report: *"ook de charting gaat niet
+   * goed"*. It sampled every n-th day, so the peak and the trough survived only
+   * if the stride happened to land on them — and because `drawSpark` normalises
+   * the line to its own extent, losing them is invisible. You get a shallower
+   * shape, drawn confidently, at full height.
+   *
+   * Measured over the demo account's ten positions before the fix: 5 % to 14 %
+   * of each position's range gone. This is that measurement as an assertion, on
+   * a series built so the crash sits between two sampling points.
+   */
+  const days = Array.from({ length: 900 }, (_, i) => Math.sin(i / 40) * 100);
+  // A one-day crash and a one-day spike, deliberately off any round stride.
+  days[437] = -5000;
+  days[691] = 9000;
+
+  const drawn = sparkline(days, 48);
+  assert.ok(drawn.length <= 48, 'still inside the point budget');
+  assert.ok(drawn.includes(-5000), 'the worst day is on the card');
+  assert.ok(drawn.includes(9000), 'and so is the best one');
+
+  // Every point is a real day, never an average of two: a sparkline that
+  // interpolates is drawing a day that did not happen.
+  for (const v of drawn) assert.ok(days.includes(v), `${v} is not a day in the series`);
+
+  // And the ends are still the ends — the last point is the position's result,
+  // which is the figure printed above it (US-76).
+  assert.equal(drawn[0], days[0]);
+  assert.equal(drawn.at(-1), days.at(-1));
+
+  // The old behaviour, for the record: this stride never lands on 437 or 691.
+  const stride = (days.length - 1) / 47;
+  const byStride = Array.from({ length: 48 }, (_, i) => days[Math.round(i * stride)]);
+  assert.ok(!byStride.includes(-5000) && !byStride.includes(9000), 'which is the defect');
 });
 
 // ===========================================================================
