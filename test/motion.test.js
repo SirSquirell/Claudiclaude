@@ -506,8 +506,32 @@ test('US-78 — three shapes fit the window at any width, and the window stays a
    * two and a half items wide, so two of four shapes were visible and the reader
    * had no way to know the others existed. A third of the window cannot drift.
    */
-  assert.match(css, /\.fmt \{[^}]*width: calc\(\(100% - 16px\) \/ 3\);/);
-  assert.match(css, /\.fmt-window \{[^}]*overflow: hidden;/);
+  assert.match(css, /\.fmt-strip \.fmt \{[^}]*width: calc\(\(100% - 16px\) \/ 3\);/);
+  assert.match(css, /\.fmt-strip \.fmt-window \{[^}]*overflow: hidden;/);
+  /**
+   * Scoped under `.fmt-strip`, and that is not style — it is the fix for the
+   * second thing the browser pass found. The host is also a `.group`, and
+   * `@media (max-width: 39em)` gives every `.group button` `flex: 1 1 auto` so
+   * eight range buttons fit a phone. On this strip that made the chevrons 110 px
+   * wide and squeezed each shape into 23 px around a 30 px drawing. A bare `.fmt`
+   * loses to `.group button`; `.fmt-strip .fmt` does not, whatever the order.
+   */
+  for (const rule of ['.fmt', '.fmt-page', '.fmt-window', '.fmt-track']) {
+    assert.ok(
+      !new RegExp(`^\\${rule} \\{`, 'm').test(css),
+      `${rule} is written unscoped and loses to \`.group button\` on a narrow viewport`,
+    );
+  }
+
+  /**
+   * And the first thing it found: the controls column was 240 px with 394 px of
+   * content in it, because a grid item's `min-width` is its *min-content* and the
+   * widest thing in the column is a `<select>` whose longest option is a sentence.
+   * The strip's own measurements said three shapes fitted while the screen showed
+   * two — the third was outside the dialog, not outside the strip.
+   */
+  assert.match(css, /\.share-controls \{[^}]*min-width: 0;/);
+  assert.match(css, /\.share-controls > \*,\s*\n\.share-controls \.field > \* \{\s*\n\s*min-width: 0;/);
   // Trap 1: not a scroll container. A scroll position and a transform are two
   // mechanisms fighting over one x.
   assert.ok(!/\.fmt-window \{[^}]*overflow-x: (auto|scroll)/.test(css));

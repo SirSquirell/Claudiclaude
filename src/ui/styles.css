@@ -783,6 +783,28 @@ button.primary:hover {
 .share-controls {
   display: grid;
   gap: 0.875rem;
+  /*
+   * The column is 15rem wide (`.share-body`); its contents were 394 px.
+   *
+   * A grid item's `min-width` is `auto`, which means *min-content*, and the
+   * widest thing in here is a `<select>` whose min-content is its longest option
+   * — "Portfolio value (all time)" and the like. So the implicit column grew to
+   * fit that option, every row stretched to match, and the whole control column
+   * overflowed the dialog by 154 px. `width: 100%` on the select could not save
+   * it: 100 % of a column that has already been widened is the widened width.
+   *
+   * Found with US-78: the shape strip is a window three items wide, and the
+   * measurements said three shapes fitted while the screen showed two — because
+   * the third was outside the dialog rather than outside the strip. Zeroing the
+   * minimums here is what makes the sheet's right-hand column obey its own
+   * width, and it is why the chevrons had nowhere to appear.
+   */
+  min-width: 0;
+}
+
+.share-controls > *,
+.share-controls .field > * {
+  min-width: 0;
 }
 
 .field {
@@ -816,7 +838,7 @@ button.primary:hover {
   padding: 3px;
 }
 
-.fmt-window {
+.fmt-strip .fmt-window {
   /* A `0` basis rather than `auto`: with `auto` the window's width comes from its
      own content, and a percentage width on the items then has nothing definite to
      resolve against — the browser falls back to their content width and three
@@ -837,6 +859,17 @@ button.primary:hover {
 }
 
 /*
+ * Everything below is scoped under `.fmt-strip` rather than written on the bare
+ * class, and that is load-bearing rather than tidiness: the host is also a
+ * `.group`, and `@media (max-width: 39em)` gives every `.group button`
+ * `flex: 1 1 auto` so eight range buttons can share a phone's width. Applied to
+ * this strip it made the chevrons 110 px wide and squeezed each shape into 23 px
+ * with a 30 px drawing inside it. `.fmt-strip .fmt` outranks `.group button`
+ * whatever the source order, which is what a control with its own geometry inside
+ * a shared one needs.
+ */
+
+/*
  * The chevrons. Small, quiet, and outside the window so neither of them lands
  * between two shapes in the tab order.
  *
@@ -844,7 +877,7 @@ button.primary:hover {
  * `display` — because the item width is a share of the window, so a chevron that
  * came and went would resize every shape in the strip as you paged it.
  */
-.fmt-page {
+.fmt-strip .fmt-page {
   flex: 0 0 auto;
   padding: 2px 4px;
   border-color: transparent;
@@ -854,17 +887,17 @@ button.primary:hover {
   font-size: var(--base);
 }
 
-.fmt-page:disabled {
+.fmt-strip .fmt-page:disabled {
   visibility: hidden;
 }
 
-.fmt-page:hover:not(:disabled) {
+.fmt-strip .fmt-page:hover:not(:disabled) {
   color: var(--text-primary);
   background: var(--surface-3);
   border-color: transparent;
 }
 
-.fmt-track {
+.fmt-strip .fmt-track {
   display: flex;
   gap: 8px;
   /* The transform is written per frame by the spring; nothing here transitions
@@ -872,7 +905,7 @@ button.primary:hover {
   will-change: transform;
 }
 
-.fmt {
+.fmt-strip .fmt {
   flex: 0 0 auto;
   /* Two gaps of 8px, three items, one window. */
   width: calc((100% - 16px) / 3);
@@ -890,19 +923,19 @@ button.primary:hover {
   background: transparent;
 }
 
-.fmt-shape {
+.fmt-strip .fmt-shape {
   display: block;
   border: 1.5px solid var(--text-muted);
   border-radius: 3px;
   flex: none;
 }
 
-.fmt[aria-pressed='true'] {
+.fmt-strip .fmt[aria-pressed='true'] {
   background: var(--surface-1);
   border-color: var(--border);
 }
 
-.fmt[aria-pressed='true'] .fmt-shape {
+.fmt-strip .fmt[aria-pressed='true'] .fmt-shape {
   border-color: var(--text-primary);
 }
 

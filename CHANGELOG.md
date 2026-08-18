@@ -87,6 +87,14 @@ plain increments — this is not a library and nothing depends on its API.
   Sliding the strip no longer changes the card either: a drag browses, a click chooses. Nothing about
   the exported image changed — same renderer, same sizes, plus one more shape.
 
+  **Two of the four were in the sheet's layout rather than in the strip**, and both were found by
+  looking at it rather than by measuring it: the sheet's right-hand column was 240 px wide with 394 px
+  of controls in it, so the third shape and both chevrons were outside the dialog rather than outside
+  the strip — the *Name on the card* select's longest option had been silently setting the column's
+  width since the sheet shipped. And on a phone the shapes came out 23 px wide around a 30 px drawing,
+  because the rule that lets eight range buttons share a narrow screen applies to every button in a
+  segmented control, this one included.
+
 - **US-53 decided — no paid-in-vs-grown on a sell row, and the ledger says why.** The request was for
   the split on every sale. A sale is a *flow*, and splitting one into capital and profit needs FIFO or
   average cost — a convention this project has refused on the record four times, and the refusal is
