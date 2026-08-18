@@ -143,6 +143,37 @@ plain increments — this is not a library and nothing depends on its API.
 
 ### Changed
 
+- **US-81 — the five-cent reconciliation gap can now be located, and it is still five cents.** One
+  account has reported *"reconstructed € −0,05 · DEGIRO € 0,00 · off by € −0,05"* for two releases. The
+  banner was right to say so — rule 6 does not have a tolerance — but nothing on screen or in the bug
+  report said *where* to look, and the measured reason is uncomfortable: the report's discrepancy figure
+  is a ratio against DEGIRO's own total, and on an emptied account that total **is zero**, so the one
+  field whose job is to state the size of the gap came back empty exactly on the account small enough
+  (6 transactions, 81 cash movements) to audit by hand.
+
+  Four things now say where it is:
+
+  - **A failing banner states what it was compared against** — DEGIRO's own stated total, or, when
+    DEGIRO sent none, the sum of the position values and the cash balance it did send. Those are two
+    different defects with two different fixes: against a stated total the difference is in this
+    extension's ledger, while a derived comparison can be short because the cash field it used was not
+    the whole balance.
+  - **The bug report states the size of the gap against the ledger's own turnover**, which cannot be
+    zero on an account that has any cash movements at all. Still a ratio, never an amount.
+  - **The bug report attributes the gap across the cash categories**, as ratios of the residual — so a
+    gap that is exactly the total of the rows this extension deliberately holds outside your cash
+    balance (a flatex cash sweep, a reservation) reads as `-1` and names itself.
+  - **The connection check names which cash field the total came from** — `totalCash`, `reportCashBal`
+    or `cash` — lists the currencies `cashFunds` actually carried, and says whether they add up:
+    `agrees`, `short`, `over`, or that foreign cash makes the sum incomparable. Names and a verdict,
+    no amounts, because that output is written to be pasted into a bug report.
+
+  **No number on any screen changed, deliberately.** This is a locator, not a fix: the banner still
+  reads −0,05 in red. Three things were explicitly *not* done to make it go away — the cash-sweep
+  classification was not flipped, rule 6's one-cent threshold was not widened, and no fourth candidate
+  field was added to the cash pick on the strength of a guess. Each would trade one visible gap here for
+  an invisible error on every account.
+
 - **US-80 — `npm test` takes 1,8 seconds instead of 55.** Nothing was computing for those 55 seconds:
   every request in the extension goes through one queue that spaces requests 1,1 s apart and backs off
   2, 4, 8 seconds on a 5xx, and the tests drove that real schedule through the real event loop. One

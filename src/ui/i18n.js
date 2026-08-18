@@ -591,6 +591,11 @@ const DICT = {
       'Het gereconstrueerde totaal is precies {total}. DEGIRO gaf bij deze synchronisatie geen rekeningtotaal, dus dit is getoetst aan de som van de positiewaarden en het kassaldo die wél meekwamen \u2014 een onafhankelijke controle, maar \u00e9\u00e9n die een fout die al in DEGIRO\u2019s eigen positiewaarden zit niet kan opmerken.',
     'Reconstructed total is exactly {total}.': 'Het gereconstrueerde totaal is precies {total}.',
     'Total does not match DEGIRO': 'Totaal komt niet overeen met DEGIRO',
+    // US-81: a failing check says which anchor it failed against.
+    'DEGIRO sent no account total this sync, so this is compared against the sum of the position values and the cash balance it did send. If that cash figure is not the whole balance, the difference is in the comparison rather than in your history — send the bug report, it now says how the cash splits.':
+      'DEGIRO stuurde deze sync geen rekeningtotaal, dus dit wordt vergeleken met de som van de positiewaardes en het kassaldo dat wél is meegestuurd. Is dat kassaldo niet het hele saldo, dan zit het verschil in de vergelijking en niet in je historie — stuur het foutrapport, daarin staat nu hoe het kasgeld is verdeeld.',
+    'This is DEGIRO’s own stated account total, so the difference is in this extension’s ledger rather than in the comparison. Send the bug report: it now says which cash categories the difference matches.':
+      'Dit is het rekeningtotaal dat DEGIRO zelf opgeeft, dus het verschil zit in de administratie van deze extensie en niet in de vergelijking. Stuur het foutrapport: daarin staat nu bij welke kascategorieën het verschil past.',
     'Reconstructed total is {ours} but DEGIRO reports {theirs} — off by {diff}. If today is wrong, the history is wrong too. Do not trust these charts until this is zero.':
       'Het gereconstrueerde totaal is {ours} maar DEGIRO meldt {theirs} — een verschil van {diff}. Als vandaag niet klopt, klopt de historie ook niet. Vertrouw deze grafieken niet tot dit nul is.',
     'Nothing to reconcile against': 'Niets om tegen af te stemmen',

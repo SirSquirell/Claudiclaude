@@ -36,6 +36,32 @@ function topKeys(obj, limit = 14) {
 }
 
 /**
+ * Does the stated cash total account for every euro entry in `cashFunds`?
+ *
+ * A verdict, not a number (US-81 AC4). `EUR` and `FLATEX_EUR` are both euro
+ * balances and both appear in `cashFunds`; a `totalCash` that carries only one of
+ * them makes a derived anchor short by the other. Currencies other than the base
+ * one cannot be added without a rate, so their presence is reported as a reason
+ * the comparison cannot be made rather than papered over with an assumed rate.
+ *
+ *  - `not-stated` — no cash field matched at all.
+ *  - `agrees` / `short` / `over` — against the sum of the euro entries.
+ *  - `foreign-cash-present` — there is non-euro cash, so the sum is not comparable.
+ *  - `no-cash-funds` — the response carried no `cashFunds` list to compare with.
+ */
+function cashVerdict({ totalCash, cash }, base = 'EUR') {
+  if (totalCash == null) return 'not-stated';
+  const entries = Object.entries(cash ?? {});
+  if (!entries.length) return 'no-cash-funds';
+  const foreign = entries.filter(([ccy]) => !ccy.includes(base) && Number(cash[ccy]) !== 0);
+  if (foreign.length) return 'foreign-cash-present';
+  const sum = entries.filter(([ccy]) => ccy.includes(base)).reduce((k, [, v]) => k + Number(v || 0), 0);
+  const diff = Number(totalCash) - sum;
+  if (Math.abs(diff) < 0.01) return 'agrees';
+  return diff < 0 ? 'short' : 'over';
+}
+
+/**
  * @returns {Promise<{steps: Array, ok: boolean, summary: string}>}
  */
 export async function runDiagnostics() {
@@ -117,14 +143,31 @@ export async function runDiagnostics() {
     for (const pair of update.body?.totalPortfolio?.value ?? []) {
       if (pair?.name) totals[pair.name] = true;
     }
+    const seen = Object.fromEntries(Object.keys(totals).map((k) => [k, 1]));
     add('update', parsed.totalValue != null, {
       status: update.status,
       positions: parsed.positions.length,
       totalFieldsSeen: Object.keys(totals).slice(0, 20),
-      totalValueKey: whichKey(
-        Object.fromEntries(Object.keys(totals).map((k) => [k, 1])),
-        ['reportNetliq', 'totalvalue', 'total', 'netliq'],
-      ),
+      totalValueKey: whichKey(seen, ['reportNetliq', 'totalvalue', 'total', 'netliq']),
+      /**
+       * Which field the cash half of a derived anchor came from, and whether it is
+       * the whole balance — US-81 AC4.
+       *
+       * When DEGIRO states no account total, the anchor is its position values
+       * plus one cash field picked from three candidates. If the balance is split
+       * — a `cashFunds` list holding both `EUR` and `FLATEX_EUR`, say — then the
+       * field picked may be one part of it and the anchor is short, which looks
+       * exactly like a five-cent error in our own ledger and has a different fix
+       * entirely. `totalFieldsSeen` has always listed the names; it never said
+       * which one was used or whether it added up.
+       *
+       * Names and a verdict, never amounts: the balances are compared here and
+       * only the conclusion leaves. That is the rule this file exists under — its
+       * output is meant to be pasted into a bug report.
+       */
+      cashKey: whichKey(seen, ['totalCash', 'reportCashBal', 'cash']),
+      cashFundsCurrencies: Object.keys(parsed.cash).slice(0, 20),
+      cashVerdict: cashVerdict(parsed),
       note:
         parsed.totalValue == null
           ? 'No account-total field matched. The reconciliation check cannot run — this is the field to fix first.'

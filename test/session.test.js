@@ -155,6 +155,76 @@ test('the connection report carries no session id, account number or amount', as
   );
 });
 
+test('US-81 — the check names the cash field it used and says whether it is the whole balance', async () => {
+  /**
+   * The mechanism this is here to catch: DEGIRO states no account total, so the
+   * anchor is its position values plus one cash field picked from three
+   * candidates — and if the balance is split across `EUR` and `FLATEX_EUR` in
+   * `cashFunds`, the field picked may be one part of it. The anchor is then short
+   * and it looks exactly like a small error in our own ledger, with a completely
+   * different fix. `totalFieldsSeen` has always listed the names; nothing said
+   * which one was used or whether it added up.
+   *
+   * A verdict, and no amounts: the comparison happens inside `diagnose.js` and
+   * only its conclusion leaves. This whole file exists because that output is
+   * meant to be pasted into a bug report.
+   */
+  await clearMeta();
+  await withBrowser(
+    {
+      responses: {
+        '/pa/secure/client': json({ data: { intAccount: 1, id: 'T' } }),
+        '/v5/update/': json({
+          portfolio: { value: [] },
+          totalPortfolio: { value: [{ name: 'total', value: 500 }, { name: 'totalCash', value: 300 }] },
+          // 300 stated, 500 actually there: the split balance, in one response.
+          cashFunds: { value: [
+            { currencyCode: 'EUR', value: 300 },
+            { currencyCode: 'FLATEX_EUR', value: 200 },
+          ] },
+        }),
+      },
+    },
+    async () => {
+      const report = await diagnose.runDiagnostics();
+      const step = report.steps.find((s) => s.name === 'update');
+      assert.equal(step.cashKey, 'totalCash', 'which of the three candidates carried the balance');
+      assert.deepEqual(step.cashFundsCurrencies, ['EUR', 'FLATEX_EUR'], 'and what the response actually held');
+      assert.equal(step.cashVerdict, 'short', 'the stated total is one part of a split balance');
+      // Values, not substrings — an HTTP 200 is not two hundred euro.
+      const values = new Set();
+      (function walk(v) {
+        if (Array.isArray(v)) v.forEach(walk);
+        else if (v && typeof v === 'object') Object.values(v).forEach(walk);
+        else values.add(v);
+      })(report.steps.map(({ status, ...rest }) => rest));
+      for (const amount of [300, 200, 500]) {
+        assert.ok(!values.has(amount), `${amount} travelled as a value`);
+      }
+    },
+  );
+});
+
+test('US-81 — a single euro balance that adds up says so', async () => {
+  await clearMeta();
+  await withBrowser(
+    {
+      responses: {
+        '/pa/secure/client': json({ data: { intAccount: 1, id: 'T' } }),
+        '/v5/update/': json({
+          portfolio: { value: [] },
+          totalPortfolio: { value: [{ name: 'total', value: 42 }, { name: 'totalCash', value: 42 }] },
+          cashFunds: { value: [{ currencyCode: 'EUR', value: 42 }] },
+        }),
+      },
+    },
+    async () => {
+      const step = (await diagnose.runDiagnostics()).steps.find((s) => s.name === 'update');
+      assert.equal(step.cashVerdict, 'agrees');
+    },
+  );
+});
+
 test('the connection report says which step broke', async () => {
   await clearMeta();
   await withBrowser({ responses: { '/v5/update/': code(500) } }, async () => {

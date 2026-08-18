@@ -326,6 +326,46 @@ test('an empty account produces an empty, non-crashing result', () => {
   assert.ok(r.warnings.some((w) => w.code === 'no-data'));
 });
 
+test('US-81 — a failing reconciliation can be sized and located when DEGIRO reports zero', () => {
+  /**
+   * The owner's account, in the smallest form that reproduces it: every position
+   * closed, DEGIRO stating a net total of 0,00, and a residual of five cents that
+   * comes from rows the ledger deliberately holds outside the cash balance.
+   *
+   * The engine's own ratio divides by DEGIRO's total, so on this account the one
+   * field whose job is to say how big the difference is came back `null` — which
+   * is why the defect survived two releases as "still open". These two fields are
+   * the denominators that do not degenerate: the ledger's absolute turnover, and
+   * the per-category totals it already computed.
+   */
+  const r = computePortfolio({
+    products: {},
+    prices: {},
+    transactions: [],
+    cashRows: [
+      { date: '2024-01-01', description: 'Deposit', change: 1000, currency: 'EUR', category: 'DEPOSIT' },
+      { date: '2024-01-02', description: 'Withdrawal', change: -999.95, currency: 'EUR', category: 'WITHDRAWAL' },
+      // Held at `inCash: false`, so it is in no balance — and it is exactly the gap.
+      { date: '2024-01-02', description: 'Flatex cash sweep', change: -0.05, currency: 'EUR', category: 'CASH_SWEEP' },
+    ],
+    today: '2024-01-03',
+    liveTotal: 0,
+    liveCash: 0,
+    livePositions: [],
+  });
+
+  const rec = r.reconciliation;
+  assert.ok(rec, 'an account with a stated total of zero still gets a check');
+  assert.equal(rec.source, 'reported', 'DEGIRO stated the total, so the anchor is not derived');
+  assert.equal(rec.ok, false);
+  near(rec.diff, 0.05, 0.001, 'the gap is the five cents');
+  // The denominator that cannot be zero: 1000 + 999.95 + 0.05 of movement.
+  near(rec.cashFlow, 2000, 0.001);
+  // And the category totals travel with it, so the residual can be attributed.
+  near(rec.categories.CASH_SWEEP, -0.05, 0.001);
+  near(rec.categories.DEPOSIT, 1000, 0.001);
+});
+
 test('reconciliation reports the gap when the totals disagree', () => {
   const r = scenario({
     cashRows: [{ date: '2024-01-01', description: 'Deposit', change: 1000, currency: 'EUR', category: 'DEPOSIT' }],

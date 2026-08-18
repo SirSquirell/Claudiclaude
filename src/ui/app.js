@@ -3393,17 +3393,37 @@ function renderBanners(data, r) {
           : tr('Reconstructed total is exactly {total}.', { total: fmtEurCents(r.reconciliation.live) }),
       );
     } else {
+      /**
+       * US-81 AC1 — a failing check says what it failed against.
+       *
+       * The banner used to name two amounts and a difference and stop, and those
+       * three are the same whichever anchor was used. They are not the same
+       * defect: against DEGIRO's own stated total the gap is in this extension's
+       * ledger, while against a derived anchor the gap may be in the anchor —
+       * `liveCash` is one field picked out of DEGIRO's totals, and if the balance
+       * is split across two of them, the comparison is short and the history is
+       * fine. One account has read "still open" for two releases with nothing on
+       * screen to tell a reader which of the two they were looking at.
+       *
+       * No number changes here: the sentence is added, and the arithmetic above it
+       * is untouched.
+       */
+      const derived = r.reconciliation.source === 'derived';
       add(
         'error',
         NOTE_TITLES['reconciliation-failed'],
-        tr(
+        `${tr(
           'Reconstructed total is {ours} but DEGIRO reports {theirs} — off by {diff}. If today is wrong, the history is wrong too. Do not trust these charts until this is zero.',
           {
             ours: fmtEurCents(r.reconciliation.reconstructed),
             theirs: fmtEurCents(r.reconciliation.live),
             diff: fmtSigned(r.reconciliation.diff),
           },
-        ),
+        )} ${
+          derived
+            ? tr('DEGIRO sent no account total this sync, so this is compared against the sum of the position values and the cash balance it did send. If that cash figure is not the whole balance, the difference is in the comparison rather than in your history — send the bug report, it now says how the cash splits.')
+            : tr('This is DEGIRO’s own stated account total, so the difference is in this extension’s ledger rather than in the comparison. Send the bug report: it now says which cash categories the difference matches.')
+        }`,
       );
     }
   } else if (r.days.length) {

@@ -181,6 +181,47 @@ const DETAIL_SUMMARY = {
     cashShare: ratio(d.cash, d.reconstructed),
     residualOverCash: ratio(d.reconstructed - d.live, d.cash),
     /**
+     * Which anchor the check ran against — US-81 AC1.
+     *
+     * `reported` means DEGIRO stated a total and the gap is ours. `derived` means
+     * it stated none, so the anchor is *its* position values plus *its* cash
+     * field, and a shortfall may be in the anchor rather than in the ledger. The
+     * two have different fixes and the report could not tell them apart, which is
+     * most of why one account has been "still open" for two releases.
+     */
+    anchor: d.source === 'derived' || d.source === 'reported' ? d.source : null,
+    /**
+     * The size of the gap when DEGIRO's total is zero — US-81 AC2.
+     *
+     * `ratio` above divides by `live`, and on an emptied account `live` is 0, so
+     * the one field whose job is to say how big the discrepancy is came back
+     * `null` exactly where the account was small enough to audit by hand. The
+     * denominator here is the ledger's own absolute turnover, which is zero only
+     * on an account with no cash rows at all — and on such an account there is no
+     * residual to size.
+     *
+     * An amount in cents was considered and rejected: rule 7 is an allowlist and a
+     * difference is still an amount. This carries the same finding.
+     */
+    residualOverCashFlow: ratio(d.reconstructed - d.live, d.cashFlow),
+    /**
+     * The residual against each cash category — US-81 AC3.
+     *
+     * Ratios of the gap, so the answer is legible on sight: a category at 1.0 is
+     * a category whose rows sum to exactly the residual, which names the defect.
+     * The suspects it exists to test are the ones the ledger holds at
+     * `inCash: false` (`CASH_SWEEP`, `RESERVATION`) and anything that fell
+     * through to `UNKNOWN`.
+     *
+     * Category names are a fixed vocabulary from `classify.js` — not account data —
+     * and the values are ratios, so nothing here is an amount or an identity.
+     */
+    residualByCategory: Object.fromEntries(
+      Object.entries(d.categories ?? {})
+        .map(([cat, total]) => [cat, ratio(total, d.reconstructed - d.live)])
+        .filter(([, r]) => r !== null),
+    ),
+    /**
      * How each disagreeing instrument disagrees — as a ratio, unnamed, ranked.
      *
      * An account arrived reporting `ratio: 1.0098` and
@@ -283,6 +324,9 @@ export function buildBugReport({ result, meta = {}, counts = {}, version = null,
           // which overstates its own check.
           source: rec.source === 'derived' ? 'derived' : rec.source === 'reported' ? 'reported' : null,
           ratio: ratio(rec.reconstructed, rec.live),
+          // US-81 AC2, up here as well: `ratio` is `null` whenever DEGIRO's total
+          // is zero, and this is the summary block somebody reads first.
+          residualOverCashFlow: ratio(rec.reconstructed - rec.live, rec.cashFlow),
           instrumentsDisagreeing: (rec.attribution ?? []).length,
         }
       : null,

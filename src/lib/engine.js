@@ -980,12 +980,25 @@ export function computePortfolio(input) {
   const interestDaily = new Float64Array(n);
   const categoryTotals = {};
   let unclassified = 0;
+  /**
+   * The absolute turnover of the cash ledger — every movement, sign ignored.
+   *
+   * US-81. It exists to be a denominator that cannot be zero on an account that
+   * has any cash rows at all. The reconciliation's own ratio is the residual over
+   * DEGIRO's total, and on an emptied account DEGIRO's total *is* zero: the one
+   * field whose job is to say how big the discrepancy is came back `null`
+   * precisely on the account where the discrepancy was easiest to locate. Against
+   * turnover, five cents on 81 movements is a number rather than a shrug — and it
+   * is still a ratio, so rule 7 is unaffected.
+   */
+  let cashTurnover = 0;
 
   for (const row of cashRows) {
     const i = idxOf(row.date);
     if (i < 0) continue;
     const cat = row.category ?? CATEGORY.UNKNOWN;
     categoryTotals[cat] = (categoryTotals[cat] ?? 0) + row.change;
+    cashTurnover += Math.abs(row.change);
 
     if (affectsCash(cat)) {
       let arr = cashByCurrency.get(row.currency);
@@ -1672,6 +1685,21 @@ export function computePortfolio(input) {
        */
       cash: round2(cash[n - 1]),
       positions: round2(positionsValue[n - 1]),
+      /**
+       * Two more denominators for the same question, added by US-81.
+       *
+       * `cashFlow` is the ledger's absolute turnover, which is the denominator
+       * that survives DEGIRO reporting a total of zero. `categories` is where the
+       * cash series comes from, per rule table entry — the engine has computed it
+       * all along and threw it away for this purpose, and it is the field that
+       * answers the question by sight: if the rows held at `inCash: false` sum to
+       * exactly the gap, the gap is those rows and the search is over.
+       *
+       * Both become ratios of the residual in `report.js` and never travel as
+       * amounts.
+       */
+      cashFlow: round2(cashTurnover),
+      categories: mapValues(categoryTotals, round2),
       attribution: attribution.slice(0, 10),
     };
 

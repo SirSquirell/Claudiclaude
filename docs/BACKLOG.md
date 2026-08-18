@@ -5182,7 +5182,7 @@ change, and a hook added just for testability is the thing rule 8 exists to keep
 
 ---
 
-## US-81 — Locate the five cents. Do not tune anything to hide them *(new, defect, refined)*
+## US-81 — Locate the five cents. Do not tune anything to hide them *(built — the locator; the five cents are still there)*
 
 > *"The total doesn't match my account total right now"* — 0.47.0, the owner's account, with the
 > banner reading **reconstructed € −0,05 · DEGIRO € 0,00 · off by € −0,05**.
@@ -5287,6 +5287,25 @@ If the locator lands and the residual turns out to be one line, that is a **sepa
 with the evidence attached. And if the locator ships and still cannot say where the five cents are,
 that is the finding: write down what it ruled out, because ruling out the ledger is most of the way
 to the answer.
+
+### Built. What it can now say, and what it still cannot
+
+Four fields, no fix, and no number moved — AC6 held by construction, because nothing in the
+computation path was touched: `cashTurnover` and `categoryTotals` are additions to what the
+reconciliation *reports*, not to what it computes.
+
+| Question | Where the answer now is |
+|---|---|
+| Which anchor failed? | The red banner's second sentence, and `reconciliation.anchor` in the report |
+| How big is a gap against a zero total? | `residualOverCashFlow` — the residual over the ledger's absolute turnover, which is zero only on an account with no cash rows |
+| Is the gap the rows held outside the cash balance? | `residualByCategory` — a category at `-1` or `1` *is* the residual |
+| Did DEGIRO's cash total cover its own `cashFunds`? | The connection check's `cashKey`, `cashFundsCurrencies` and `cashVerdict` (`agrees` / `short` / `over` / `foreign-cash-present` / `not-stated`) |
+
+**What still needs the owner's account rather than this repo:** the ten minutes of reading the story
+asked for. The locator says which of the two mechanisms is in play; running it is what answers the
+question, and the answer is a new story with the evidence attached (rule: no fix without a capture).
+Two tests pin the shape of that evidence — a `CASH_SWEEP` row that is exactly the residual reads as
+`-1`, and a split `EUR`/`FLATEX_EUR` balance reads as `short`.
 
 ---
 

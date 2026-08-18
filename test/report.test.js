@@ -232,6 +232,62 @@ test('a ring that is not an array does not become one', () => {
   }
 });
 
+test('US-81 — the report states the size of a gap DEGIRO says is zero, and where it is', () => {
+  /**
+   * The measured failure this closes: `ratio()` returns `null` when the
+   * denominator is zero, and on an emptied account DEGIRO's total **is** zero. So
+   * the artefact designed to carry this finding off the machine went blind exactly
+   * when the account was small enough to audit by hand — 6 transactions, 81 cash
+   * movements, five cents — which is most of why it stayed open for two releases.
+   */
+  const out = buildBugReport({
+    result: {
+      byProduct: [],
+      reconciliation: {
+        ok: false, positionsAgree: true, source: 'reported',
+        reconstructed: 0.05, live: 0, diff: 0.05, cash: 0.05, positions: 0,
+        cashFlow: 2000, categories: { DEPOSIT: 1000, WITHDRAWAL: -999.95, CASH_SWEEP: -0.05 },
+        attribution: [],
+      },
+      warnings: [
+        {
+          level: 'warn',
+          code: 'reconciliation-failed',
+          detail: {
+            reconstructed: 0.05, live: 0, diff: 0.05, positionsAgree: true, source: 'reported',
+            cash: 0.05, positions: 0, cashFlow: 2000,
+            categories: { DEPOSIT: 1000, WITHDRAWAL: -999.95, CASH_SWEEP: -0.05 },
+            attribution: [],
+          },
+        },
+      ],
+    },
+  });
+
+  const d = out.warnings[0].detail;
+  assert.equal(d.ratio, null, 'the old ratio still degenerates — that is the point');
+  assert.equal(d.residualOverCashFlow, 0.000025, 'five cents against 2 000 of turnover');
+  assert.equal(out.reconciliation.residualOverCashFlow, 0.000025, 'and in the summary block too');
+  assert.equal(d.anchor, 'reported', 'which anchor failed decides which of two defects this is');
+
+  // The answer by sight: the rows held outside the cash balance are exactly −1×
+  // the residual, which names the suspect instead of describing the symptom.
+  assert.equal(d.residualByCategory.CASH_SWEEP, -1);
+  assert.equal(d.residualByCategory.DEPOSIT, 20000);
+
+  // Nothing here is an amount. Checked as values rather than as substrings: the
+  // ratio 20000 contains the digits of the turnover and is not the turnover.
+  const values = new Set();
+  (function walk(v) {
+    if (Array.isArray(v)) v.forEach(walk);
+    else if (v && typeof v === 'object') Object.values(v).forEach(walk);
+    else values.add(v);
+  })(out);
+  for (const amount of [999.95, -999.95, 2000, 0.05, -0.05, 1000]) {
+    assert.ok(!values.has(amount), `${amount} travelled as a value`);
+  }
+});
+
 test('a reconciliation gap says where it is, without saying how much', () => {
   /**
    * Two testers' accounts arrived off by half a percent with every share count
