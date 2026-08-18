@@ -742,3 +742,45 @@ test('the score card and the position card do not share a drawer by accident', (
   const app = read('../src/ui/app.js');
   assert.ok(/kind: score \? 'score' : 'position'/.test(app), 'the export path no longer says which card it is');
 });
+
+// ===========================================================================
+// US-57 — the sheet is the glass, never what is written on it
+// ===========================================================================
+
+test('AC5 — a motion story moved no value and added no field', () => {
+  /**
+   * The stop condition, as a check. US-57 is motion on the sheet US-47 built and
+   * US-52/US-54 fill: if it changes what a card can carry it has become a
+   * different story, and the two allowlists are exactly where that would show.
+   *
+   * Pinned as literal lists rather than as "unchanged", because a test that
+   * compares a thing to itself passes whatever the thing becomes.
+   */
+  assert.deepEqual([...SNAPSHOT_FIELDS], [
+    'name', 'symbol', 'period', 'pct', 'pctBasis', 'amount', 'split', 'spark', 'provenance', 'owner',
+  ]);
+  assert.deepEqual([...SCORECARD_FIELDS], [
+    'label', 'figure', 'caption', 'tone', 'period', 'provenance', 'owner',
+  ]);
+  assert.deepEqual([...PROVENANCE_FIELDS], ['broker', 'asOf', 'reconciled', 'version']);
+
+  // And the model still produces exactly its allowlist for a full set of inputs.
+  const m = snapshotModel({ ...base, owner: { text: 'Sam', derived: true } });
+  assert.deepEqual(Object.keys(m).sort(), [...SNAPSHOT_FIELDS].sort());
+});
+
+test('the sheet’s motion holds no opinion about the card’s contents', () => {
+  /**
+   * Structural version of the same rule: `materialize` animates the dialog and
+   * reads one custom property. If it ever reaches for the model, the glass has
+   * started editing what is written on it.
+   */
+  const app = read('../src/ui/app.js');
+  const fn = app.slice(app.indexOf('function materialize(dlg, open)'), app.indexOf('function closeShareSheet'));
+  assert.ok(!/model|snapshotModel|scoreCardModel|figure|amount/.test(fn));
+  // The close waits for the animation and swallows a cancellation, because a
+  // cancelled close means somebody re-opened it.
+  const close = app.slice(app.indexOf('function closeShareSheet'), app.indexOf('function showShareSheet'));
+  assert.match(close, /materialize\(dlg, false\)\s*\n\s*\.then\(\(\) => dlg\.close\(\)\)/);
+  assert.match(close, /\.catch\(\(\) => \{\}\)/);
+});

@@ -666,6 +666,60 @@ function openScoreSheet(section) {
   showShareSheet();
 }
 
+/**
+ * US-57 — the sheet as a material.
+ *
+ * *"Materialize, don't fade."* Blur and scale move together on open, so the
+ * sheet reads as a pane of glass arriving rather than a picture becoming
+ * opaque; the close runs the same path backwards, which is what makes the two
+ * feel like one object rather than two effects.
+ *
+ * Three things this deliberately does:
+ *
+ *  - **It reverses from the live state.** Re-opening while it is closing picks
+ *    up from where it is on screen — the existing animation is cancelled rather
+ *    than queued behind, so nothing jumps and nothing waits.
+ *  - **It never leaves the dialog half-shut.** `close()` happens on the
+ *    animation's `finished`, and a cancel resolves that promise as a rejection,
+ *    which is caught: a cancelled close means somebody re-opened it, and closing
+ *    anyway is exactly the wrong answer.
+ *  - **It moves nothing on the card.** Content belongs to US-47, US-52 and
+ *    US-54; this is the glass, not what is written on it.
+ *
+ * Under reduced motion it is a short fade with no scale and no blur — the sheet
+ * still announces itself, which is comprehension, without the travel. Under
+ * reduced transparency the blur drops out and the scale stays, because glass
+ * with nothing behind it is only a slow fade.
+ */
+function materialize(dlg, open) {
+  if (typeof dlg.animate !== 'function') return Promise.resolve();
+  for (const a of dlg.getAnimations()) a.cancel();
+  const reduced = prefersReducedMotion();
+  const blur = getComputedStyle(dlg).getPropertyValue('--sheet-blur').trim() || '14px';
+  const shut = reduced
+    ? { opacity: 0 }
+    : { opacity: 0, transform: 'scale(0.94)', filter: `blur(${blur})` };
+  const shown = reduced
+    ? { opacity: 1 }
+    : { opacity: 1, transform: 'scale(1)', filter: 'blur(0px)' };
+  const anim = dlg.animate(open ? [shut, shown] : [shown, shut], {
+    duration: reduced ? 120 : 260,
+    easing: 'cubic-bezier(0.22, 0.61, 0.36, 1)',
+    fill: 'both',
+  });
+  return anim.finished;
+}
+
+function closeShareSheet() {
+  const dlg = $('#share-sheet');
+  if (!dlg?.open) return;
+  materialize(dlg, false)
+    .then(() => dlg.close())
+    // Cancelled means somebody re-opened it mid-close. Closing anyway is the
+    // one answer that is certainly wrong.
+    .catch(() => {});
+}
+
 function showShareSheet() {
   const dlg = $('#share-sheet');
   if (!dlg) return;
@@ -689,7 +743,13 @@ function showShareSheet() {
       state.share.tileLabel = e.target.value;
       paintSharePreview();
     });
-    $('#btn-share-close').addEventListener('click', () => dlg.close());
+    $('#btn-share-close').addEventListener('click', closeShareSheet);
+    // Escape and the backdrop both go through the same path, so there is one
+    // way out and it looks the same however it was taken.
+    dlg.addEventListener('cancel', (e) => {
+      e.preventDefault();
+      closeShareSheet();
+    });
     $('#btn-share-copy').addEventListener('click', () => runShare(copySnapshot, tr('Image copied. Paste it wherever you like.')));
     $('#btn-share-download').addEventListener('click', () => runShare(downloadSnapshot, tr('Image saved.')));
   }
@@ -700,6 +760,7 @@ function showShareSheet() {
   paintShareName();
   paintSharePreview();
   if (!dlg.open) dlg.showModal();
+  materialize(dlg, true).catch(() => {});
 }
 
 /**
@@ -725,18 +786,135 @@ function paintShareTile() {
   sel.value = state.share.tileLabel ?? choices[0]?.key ?? '';
 }
 
+/**
+ * US-57 — the four shapes as a strip you can flick, not four words.
+ *
+ * Each shape draws itself at its own aspect ratio, so the control shows what it
+ * is choosing rather than naming it; the strip slides so the chosen one sits at
+ * the front, and a flick throws it with the same momentum projection the value
+ * chart uses. Same vocabulary, one module (`motion.js`), because two springs
+ * with different feels on one page read as two products.
+ *
+ * They stay `<button>`s in a `role="group"`. The drag is an addition on top of a
+ * control that is already reachable by Tab and Enter — a shape picker that needs
+ * a pointer is a shape picker some readers cannot use, and the gesture is
+ * exactly the sort of thing that quietly replaces the accessible path.
+ */
+const stripX = new Spring(0, { response: 0.4, damping: 0.9, restDistance: 0.4 });
+
+function paintShareFormats() {
+  const host = $('#share-format');
+  if (!host) return;
+  const pick = (id) => {
+    state.share.format = id;
+    // Once a shape has been chosen it stops being overridden by the per-kind
+    // default — a control that resets itself is a control the reader fights.
+    state.share.pickedFormat = true;
+    paintShareControls();
+    paintSharePreview();
+  };
+
+  if (host.dataset.built !== 'strip') {
+    host.dataset.built = 'strip';
+    host.classList.add('fmt-strip');
+    host.innerHTML = '';
+    const track = document.createElement('div');
+    track.className = 'fmt-track';
+    for (const f of FORMATS) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'fmt';
+      b.dataset.fmt = f.id;
+      // The proportions of the actual format, drawn at a fixed short edge, so
+      // the four are comparable at a glance and a fifth needs no code here.
+      const long = 34;
+      const w = (f.w >= f.h ? long : (long * f.w) / f.h);
+      const h = (f.h >= f.w ? long : (long * f.h) / f.w);
+      b.innerHTML = `<span class="fmt-shape" style="width:${w}px;height:${h}px"></span><span>${esc(f.id)}</span>`;
+      b.addEventListener('click', () => pick(f.id));
+      track.append(b);
+    }
+    host.append(track);
+    stripX.onUpdate = (v) => { track.style.transform = `translateX(${v}px)`; };
+    wireFormatStrip(host, track, pick);
+  }
+
+  const track = host.querySelector('.fmt-track');
+  const items = [...track.children];
+  items.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.fmt === state.share.format)));
+  const index = Math.max(0, FORMATS.findIndex((f) => f.id === state.share.format));
+  const target = -index * stepOf(track);
+  if (prefersReducedMotion()) stripX.snap(target);
+  else stripX.set(target);
+}
+
+/** The pitch between two items, measured rather than assumed from the CSS. */
+const stepOf = (track) => {
+  const [a, b] = track.children;
+  return b ? b.offsetLeft - a.offsetLeft : 0;
+};
+
+function wireFormatStrip(host, track, pick) {
+  let trail = [];
+  let dragging = false;
+  let moved = 0;
+
+  host.addEventListener('pointerdown', (e) => {
+    // Interruptible: taking hold stops the spring where it is, so the strip
+    // follows from its on-screen position rather than snapping to its target.
+    stripX.stop();
+    dragging = true;
+    moved = 0;
+    trail = [{ v: stripX.x, t: performance.now() }];
+    host.setPointerCapture(e.pointerId);
+  });
+
+  host.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    moved += Math.abs(e.movementX);
+    stripX.snap(stripX.x + e.movementX);
+    trail.push({ v: stripX.x, t: performance.now() });
+    if (trail.length > 8) trail.shift();
+  });
+
+  const end = () => {
+    if (!dragging) return;
+    dragging = false;
+    // A press that never moved is a click, and the item's own handler has it.
+    if (moved < 4) return;
+    trail.push({ v: stripX.x, t: performance.now() });
+    const step = stepOf(track) || 1;
+    const landed = stripX.x + (prefersReducedMotion() ? 0 : project(velocityFrom(trail)));
+    const index = Math.min(FORMATS.length - 1, Math.max(0, Math.round(-landed / step)));
+    pick(FORMATS[index].id);
+  };
+  host.addEventListener('pointerup', end);
+  host.addEventListener('pointercancel', end);
+
+  /**
+   * Tabbing to a shape brings it into the window.
+   *
+   * Without this the strip would be a hole rather than a control for anyone
+   * using a keyboard: the last two shapes are outside the window and still in
+   * the tab order, so focus would land on something invisible. The strip slides
+   * rather than the item being selected — arriving somewhere is not the same as
+   * choosing it, and Enter is still what picks.
+   *
+   * A transform cannot be scrolled into view, which is why the browser's own
+   * `scrollIntoView` does not cover this: there is no scroll position to move.
+   */
+  host.addEventListener('focusin', (e) => {
+    const item = e.target.closest?.('.fmt');
+    if (!item) return;
+    const target = -(item.offsetLeft - track.children[0].offsetLeft);
+    if (prefersReducedMotion()) stripX.snap(target);
+    else stripX.set(target);
+  });
+}
+
 /** The three segmented controls, rebuilt whenever one of them changes. */
 function paintShareControls() {
-  buildChoice('#share-format', FORMATS.map((f) => ({ key: f.id, label: f.id })),
-    () => state.share.format,
-    (k) => {
-      state.share.format = k;
-      // Once a shape has been chosen it stops being overridden by the per-kind
-      // default — a control that resets itself is a control the reader fights.
-      state.share.pickedFormat = true;
-      paintShareControls();
-      paintSharePreview();
-    });
+  paintShareFormats();
   buildChoice('#share-theme', [{ key: 'light', label: tr('Light') }, { key: 'dark', label: tr('Dark') }],
     () => state.share.theme, (k) => { state.share.theme = k; paintShareControls(); paintSharePreview(); });
   buildChoice('#share-amounts', [{ key: 'off', label: tr('Hidden') }, { key: 'on', label: tr('Shown') }],

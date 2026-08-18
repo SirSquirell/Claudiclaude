@@ -668,6 +668,77 @@ button.primary:hover {
   color: var(--text-muted);
 }
 
+/*
+ * US-57 — the format strip.
+ *
+ * A window with a track sliding behind it: the chosen shape sits at the front
+ * and the rest queue to its right. `overflow: hidden` is what makes it a strip
+ * rather than a row that has been pushed off its container.
+ */
+.fmt-strip {
+  overflow: hidden;
+  /* The horizontal drag is ours; vertical scrolling still belongs to the page,
+     which is what `pan-y` says and what a bare `none` would take away. */
+  touch-action: pan-y;
+  cursor: grab;
+  padding: 3px;
+}
+
+.fmt-strip:active {
+  cursor: grabbing;
+}
+
+.fmt-track {
+  display: flex;
+  gap: 10px;
+  /* The transform is written per frame by the spring; nothing here transitions
+     it, or the two would fight and the strip would lag the finger. */
+  will-change: transform;
+}
+
+.fmt {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  /* Wide enough that the next shape is visible past the edge of the window —
+     a strip whose neighbours are hidden looks like a control that is stuck. */
+  min-width: 6.5rem;
+  border-color: transparent;
+  background: transparent;
+}
+
+.fmt-shape {
+  display: block;
+  border: 1.5px solid var(--text-muted);
+  border-radius: 3px;
+  flex: none;
+}
+
+.fmt[aria-pressed='true'] {
+  background: var(--surface-1);
+  border-color: var(--border);
+}
+
+.fmt[aria-pressed='true'] .fmt-shape {
+  border-color: var(--text-primary);
+}
+
+/*
+ * The sheet arrives as a pane of glass rather than fading in: blur and scale
+ * move together, which is what makes it read as an object approaching instead of
+ * a picture becoming opaque. Written by `materialize()` through the Web
+ * Animations API so the open and the close are one reversible path, and so
+ * grabbing it mid-flight has something to interrupt.
+ */
+@media (prefers-reduced-transparency: reduce) {
+  /* Glass with nothing behind it is just a slow fade, so the blur goes and the
+     scale stays — the arrival is still an arrival. */
+  .share-sheet {
+    --sheet-blur: 0px;
+  }
+}
+
 .share-controls select,
 .share-controls input[type='text'] {
   width: 100%;

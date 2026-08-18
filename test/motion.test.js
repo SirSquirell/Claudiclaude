@@ -413,3 +413,78 @@ test('optical sizing is declared, and what it can do is stated rather than promi
   assert.match(css, /\*\*no font is bundled\.\*\*/);
   assert.ok(!/@font-face/.test(css), 'a font was bundled; the note above it is now wrong');
 });
+
+// ===========================================================================
+// US-57 — the share sheet as a material
+// ===========================================================================
+
+const sheet = app.slice(app.indexOf('function materialize(dlg, open)'), app.indexOf('function showShareSheet'));
+
+test('AC1 — the sheet materializes, and the close is the same path backwards', () => {
+  /**
+   * "Materialize, don't fade": blur and scale move together, so it reads as a
+   * pane of glass arriving rather than a picture becoming opaque. One keyframe
+   * pair used in both directions is what makes the open and the close feel like
+   * one object instead of two effects.
+   *
+   * Measured in a browser 40ms into the open: opacity 0.49, scale 0.969, blur
+   * 7.2px — all three mid-flight together — and mid-close the same three
+   * reversing with the dialog still open.
+   */
+  assert.match(sheet, /transform: 'scale\(0\.94\)', filter: `blur\(\$\{blur\}\)`/);
+  assert.match(sheet, /dlg\.animate\(open \? \[shut, shown\] : \[shown, shut\]/);
+});
+
+test('AC3 — re-opening mid-close reverses instead of queueing behind it', () => {
+  // Cancel, not wait: the sheet picks up from its on-screen state. And because
+  // `close()` hangs off the animation finishing, a cancelled close must not
+  // still close — which is why the rejection is swallowed rather than logged.
+  assert.match(sheet, /for \(const a of dlg\.getAnimations\(\)\) a\.cancel\(\);/);
+});
+
+test('AC4 — reduced motion is a fade, reduced transparency drops the blur', () => {
+  // Two different needs and two different answers: one removes the travel, the
+  // other removes the glass. Reduced motion keeps the sheet announcing itself,
+  // because that is comprehension rather than decoration.
+  assert.match(sheet, /const reduced = prefersReducedMotion\(\);/);
+  assert.match(sheet, /reduced\s*\n?\s*\? \{ opacity: 0 \}/);
+  assert.match(sheet, /getPropertyValue\('--sheet-blur'\)/);
+  assert.match(css, /@media \(prefers-reduced-transparency: reduce\) \{\s*\n[\s\S]{0,400}?--sheet-blur: 0px;/);
+});
+
+test('AC2/AC3 — the format strip has the chart’s physics, from the same module', () => {
+  /**
+   * One motion vocabulary. Two springs with different feels on one page read as
+   * two products, so the strip uses `motion.js`'s projection and velocity trail
+   * rather than its own — and taking hold stops the spring where it is, so it
+   * follows from the on-screen position.
+   *
+   * Verified in a browser: a leftward flick from 1:1 lands on 16:9 and the
+   * preview redraws at 2560×1440.
+   */
+  const strip = app.slice(app.indexOf('function wireFormatStrip'), app.indexOf("host.addEventListener('focusin'"));
+  assert.match(strip, /stripX\.stop\(\);/);
+  assert.match(strip, /project\(velocityFrom\(trail\)\)/);
+  assert.match(strip, /prefersReducedMotion\(\) \? 0 : project/);
+  // A press that never moved is a click; the item's own handler owns it.
+  assert.match(strip, /if \(moved < 4\) return;/);
+});
+
+test('the strip does not become a hole for anyone using a keyboard', () => {
+  /**
+   * Two of the four shapes sit outside the window and are still in the tab
+   * order, so without this focus lands on something invisible — the gesture
+   * quietly replacing the accessible path, which is the way these features
+   * usually go wrong. A transform has no scroll position, so the browser's own
+   * `scrollIntoView` cannot cover it.
+   *
+   * Browser-checked: at rest the window shows 1:1 and 4:5; tabbing to 9:16
+   * brings 9:16 and 16:9 into it, the selection does not move, and Enter picks.
+   */
+  assert.match(app, /host\.addEventListener\('focusin'/);
+  const focus = app.slice(app.indexOf("host.addEventListener('focusin'"));
+  assert.ok(!/pick\(/.test(focus.slice(0, 600)), 'arriving somewhere is not the same as choosing it');
+  // And they are buttons in a group, so Tab and Enter reach them at all.
+  assert.match(app, /b\.className = 'fmt';/);
+  assert.match(read('../src/ui/app.html'), /id="share-format" role="group"/);
+});

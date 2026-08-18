@@ -20,6 +20,28 @@ plain increments — this is not a library and nothing depends on its API.
 
 ### Added
 
+- **US-57 — the share sheet arrives as an object.** Motion only: it moves no value and adds no field,
+  and a test pins both allowlists literally so that stays true.
+
+  The sheet **materializes** — blur and scale move together on open, so it reads as a pane of glass
+  arriving rather than a picture becoming opaque, and the close runs the same path backwards. Grab it
+  again mid-close and it reverses from where it is; the dialog only actually closes when the
+  animation finishes, and a cancelled close is swallowed, because a cancelled close means somebody
+  re-opened it.
+
+  The four shapes are now a **strip you can flick** rather than four words: each draws itself at its
+  own aspect ratio, and a flick throws it with the same momentum projection the value chart uses —
+  one motion vocabulary, from one module, because two springs with different feels on one page read
+  as two products.
+
+  They are still buttons in a group, and tabbing to one brings it into the window without selecting
+  it: two of the four sit outside the strip and are in the tab order, so without that the gesture
+  would have quietly replaced the accessible path.
+
+  `prefers-reduced-motion` makes the arrival a short fade with no travel; `prefers-reduced-transparency`
+  drops the blur and keeps the scale, because glass with nothing behind it is only a slow fade.
+
+
 - **US-58 — the type scale is measured.** Tracking and leading are size-specific: display text wants
   negative tracking and tight leading, body wants near-zero and comfortable, small uppercase labels
   want positive tracking or the caps run together. Those values were already in the stylesheet and
