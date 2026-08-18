@@ -4286,6 +4286,30 @@ code path.
    *Wipe & resync…* but **not styled as the same kind of action** — this one destroys no data. The
    popup needs the frozen *state* visible all the same, because that is where a reader checks.
 
+### An "i" on the button, because nobody will read a changelog first
+
+Asked for explicitly, with "keep it simple" attached. The pattern exists: the `.info` button plus
+`data-tip` that 0.26.0 put on every figure, one shared fixed-position tooltip, hover *and* focus.
+This is the same control on a different row.
+
+Three sentences, in this order, because that is the order the question is asked in:
+
+> **How it works.** The extension uses the DEGIRO session your own browser already has, and
+> remembers the account number DEGIRO hands back. It never sees a password.
+>
+> **Disconnect** forgets that account number and stops syncing by itself.
+>
+> **It does not** delete your history — the figures stay, frozen at the last sync — and it does not
+> log you out of DEGIRO.
+
+Two things to get right and nothing else:
+
+- **`wireTips` is delegated on `#tiles`** (`app.js:2258`). The menu is a different root, so it needs
+  a second root registered — not a generic tooltip system with one caller today (rule 8).
+- **Both languages, and the tip is prose, not a spec.** It goes through `t()` like every tile tip, so
+  `missing()` counts it. If it grows past those three sentences it has turned into documentation and
+  belongs in the README instead.
+
 ### Acceptance criteria
 
 - **AC1** A disconnect action in the More menu, translated in both languages, behind a confirm that
@@ -4301,6 +4325,7 @@ code path.
 - **AC6** DEGIRO's cookie is untouched — asserted, no `chrome.cookies.remove` anywhere — and no label
   claims otherwise.
 - **AC7** Nothing is deleted from the raw or derived stores, and `engine.js` is unchanged.
+- **AC8** An `i` beside the action explains, in three sentences and in both languages, that the session is the browser's own, what disconnect forgets, and what it leaves alone. Reachable by hover *and* focus, like every other tip.
 
 ### Stop condition
 
