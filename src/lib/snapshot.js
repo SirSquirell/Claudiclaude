@@ -166,20 +166,33 @@ export function moneyInOver(paidIn, from = 0, to = (paidIn?.length ?? 1) - 1) {
 }
 
 /**
- * The four shapes a card can be, in the order the sheet offers them.
+ * The five shapes a card can be, in the order the sheet offers them.
  *
  * Pixel sizes rather than ratios, because the renderer needs a size and a ratio
  * plus a guessed base width is how two callers end up disagreeing about it. They
  * are the aspect ratios the places these get posted actually crop to — square,
- * the portrait a feed shows without cropping, a full-height story, and a
- * landscape that fits a chat message. Anything else is a fifth entry here and no
- * change anywhere else.
+ * the landscape that fits a chat message, the old-slide shape a presentation and
+ * a document want, the portrait a feed shows without cropping, and a full-height
+ * story.
+ *
+ * **The order is the order they are offered in, and the first three are the ones
+ * visible without sliding** (US-78): square, wide, and four-by-three. The two
+ * portraits follow, because a portrait is the shape somebody goes looking for
+ * rather than the one they reach for first. Reordering here reorders the strip,
+ * its tab order and what a screen reader reads, which is why it is done here and
+ * not with a CSS `order`.
+ *
+ * `4:3` arrived with US-78 as the test of the claim this comment used to make —
+ * that a fifth entry needs "no change anywhere else". It did not: every card
+ * test loops over `FORMATS`, so the type ramp, the minimum type size and the
+ * footer checks covered it on the first run.
  */
 export const FORMATS = Object.freeze([
   { id: '1:1', w: 900, h: 900 },
+  { id: '16:9', w: 1280, h: 720 },
+  { id: '4:3', w: 960, h: 720 },
   { id: '4:5', w: 900, h: 1125 },
   { id: '9:16', w: 810, h: 1440 },
-  { id: '16:9', w: 1280, h: 720 },
 ]);
 
 export const formatById = (id) => FORMATS.find((f) => f.id === id) ?? FORMATS[0];

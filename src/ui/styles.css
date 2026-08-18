@@ -796,28 +796,77 @@ button.primary:hover {
 }
 
 /*
- * US-57 — the format strip.
+ * US-57, corrected by US-78 — the format strip.
  *
- * A window with a track sliding behind it: the chosen shape sits at the front
- * and the rest queue to its right. `overflow: hidden` is what makes it a strip
- * rather than a row that has been pushed off its container.
+ * A window with a track sliding behind it, a chevron either side of the window.
+ * `overflow: hidden` on the window is what makes it a strip rather than a row
+ * that has been pushed off its container — and it stays `hidden` rather than
+ * `auto`: the spring writes `transform` per frame, and a scroll position plus a
+ * transform is two mechanisms fighting over one x.
+ *
+ * **Three shapes fit the window at any width, by construction.** The item is a
+ * third of the window minus the two gaps, so the strip cannot go back to showing
+ * two of four shapes because a column changed width — which is exactly how it
+ * shipped in 0.47.0, with a 6.5rem item that stopped being a third of anything.
  */
 .fmt-strip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px;
+}
+
+.fmt-window {
+  /* A `0` basis rather than `auto`: with `auto` the window's width comes from its
+     own content, and a percentage width on the items then has nothing definite to
+     resolve against — the browser falls back to their content width and three
+     stop filling the window. */
+  flex: 1 1 0;
+  /* Without this a flex item refuses to be narrower than its content, and the
+     track's five items would push the whole control past the column. */
+  min-width: 0;
   overflow: hidden;
   /* The horizontal drag is ours; vertical scrolling still belongs to the page,
      which is what `pan-y` says and what a bare `none` would take away. */
   touch-action: pan-y;
   cursor: grab;
-  padding: 3px;
 }
 
-.fmt-strip:active {
+.fmt-strip:active .fmt-window {
   cursor: grabbing;
+}
+
+/*
+ * The chevrons. Small, quiet, and outside the window so neither of them lands
+ * between two shapes in the tab order.
+ *
+ * They keep their space when they have nothing to do — `visibility`, not
+ * `display` — because the item width is a share of the window, so a chevron that
+ * came and went would resize every shape in the strip as you paged it.
+ */
+.fmt-page {
+  flex: 0 0 auto;
+  padding: 2px 4px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-muted);
+  line-height: 1;
+  font-size: var(--base);
+}
+
+.fmt-page:disabled {
+  visibility: hidden;
+}
+
+.fmt-page:hover:not(:disabled) {
+  color: var(--text-primary);
+  background: var(--surface-3);
+  border-color: transparent;
 }
 
 .fmt-track {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   /* The transform is written per frame by the spring; nothing here transitions
      it, or the two would fight and the strip would lag the finger. */
   will-change: transform;
@@ -825,12 +874,18 @@ button.primary:hover {
 
 .fmt {
   flex: 0 0 auto;
+  /* Two gaps of 8px, three items, one window. */
+  width: calc((100% - 16px) / 3);
   display: flex;
+  /* Stacked rather than side by side: three of these have to fit where two used
+     to, and the label under the shape is the space that was available. */
+  flex-direction: column;
   align-items: center;
-  gap: 8px;
-  /* Wide enough that the next shape is visible past the edge of the window —
-     a strip whose neighbours are hidden looks like a control that is stuck. */
-  min-width: 6.5rem;
+  gap: 4px;
+  padding: 5px 2px;
+  /* The hint size, which is the scale's label size — the id under the shape is a
+     label for a picture, not a piece of body text. */
+  font-size: var(--hint);
   border-color: transparent;
   background: transparent;
 }

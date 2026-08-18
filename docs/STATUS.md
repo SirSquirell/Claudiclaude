@@ -111,6 +111,8 @@ person.** This is the gate that is open.
 | US-61 | **The Positions table fits its width.** Columns-as-data: the lowest-priority ones drop as the table narrows and fold into a per-row expand, the load-bearing four (Instrument, Value, Paid in vs grown, Result) never drop, and a **Columns** chooser hides the rest, remembered like the theme. Browser-verified desktop→phone, no sideways page scroll; display only, no resync | 0.47.0 |
 | US-76 | **A card and its own table row now report the same result.** Three faults on closed and partly-sold positions: the card's span stopped the day before the sale, so it dropped the sale's own P/L — enough to flip a sign; the percentage divided by the money *still* in a position rather than what went in, which also fixes the table's **% of bought** dividing a windowed result by all-time buying; and a paid-in-vs-grown bar was drawn for positions worth nothing. Display only, no resync | Unreleased |
 | US-77 | **The card's line keeps its worst day.** The sparkline sampled every n-th day, so a position's peak and trough survived by luck — 5–14 % of the range gone on the demo account, invisible because the line normalises to its own extent. Min/max decimation at the same 48-point budget | Unreleased |
+| US-78 | **The share sheet's shape strip shows three shapes, and can be paged.** `4:3` added and the order changed so `1:1 · 16:9 · 4:3` are the three visible without sliding; the item is a third of the window so it cannot drift again; end stops and a rubber-band instead of a strip that could be pulled empty; and the defect the browser found — a captured pointer meant **tapping a shape never selected it** | Unreleased |
+| US-80 | **`npm test` runs in 1,8 s instead of 55.** The suite was sleeping through the real rate-limit spacing and the real exponential backoff — 31 s in one test. Faked per test on Node's `mock.timers`, with `degiro.js` untouched, and the backoff schedule now asserted rather than waited out | Unreleased |
 
 **What to look at first**, if you only look at one thing: the Notices tab after a sync. 0.36.0 made
 background failures visible for the first time, so if something has been quietly failing for weeks
@@ -147,7 +149,6 @@ Complete as of the 2026-08-18 consolidation — every open story number appears 
 | Story | State | Waiting on |
 |---|---|---|
 | US-81 | **Locate the five cents** — the −0,05 reconciliation gap on the owner's emptied account. A locator, not a fix: name the anchor, size the gap when DEGIRO's total is 0, attribute the residual across cash categories | Nothing — and it decides whether the gap is our ledger or DEGIRO's `totalCash` field |
-| US-78 | The share sheet's shape strip shows one of its four shapes | Nothing |
 | US-79 | Disconnect and freeze: throw the token away, keep the numbers | Nothing |
 | US-80 | The test suite spends ~31 s of its 55 s asleep in real `setTimeout` backoffs — `mock.timers` fakes the clock without touching `degiro.js` | Nothing |
 | US-35b (tiles) | The replacement Optimism tiles ("847 days of unwavering belief") — the charts half went via US-35c/US-35d, the tiles were never built | A decision that the joke is still wanted |

@@ -10,7 +10,7 @@ import { readFileSync } from 'node:fs';
 globalThis.requestAnimationFrame ??= () => 1;
 globalThis.cancelAnimationFrame ??= () => {};
 
-const { Spring, prefersReducedMotion, project, rubber, velocityFrom } = await import('../src/ui/motion.js');
+const { Spring, clampShift, prefersReducedMotion, project, rubber, shiftToShow, velocityFrom } = await import('../src/ui/motion.js');
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 
@@ -466,20 +466,88 @@ test('AC2/AC3 — the format strip has the chart’s physics, from the same modu
   assert.match(strip, /stripX\.stop\(\);/);
   assert.match(strip, /project\(velocityFrom\(trail\)\)/);
   assert.match(strip, /prefersReducedMotion\(\) \? 0 : project/);
-  // A press that never moved is a click; the item's own handler owns it.
-  assert.match(strip, /if \(moved < 4\) return;/);
+  // A press that never really moved is a click, and US-78 replaced this file's
+  // own 4-pixel literal with the number US-66 measured for the chart — counted
+  // as a distance from where the pointer went down, not as accumulated travel.
+  assert.match(strip, /travelPx = Math\.abs\(e\.clientX - from\)/);
+  assert.match(strip, /travelPx < GESTURE\.dragThresholdPx/);
+  assert.ok(!/moved < 4/.test(strip), 'the old travel threshold is gone, not shadowed');
+});
+
+test('US-78 — the strip has an end, and stops there', () => {
+  /**
+   * The defect: front-alignment with no clamp. Choosing the last of four shapes
+   * shifted the track three pitches, so the window showed one shape and a void
+   * where a fifth and sixth would be — and the drag had no bounds at all, so it
+   * could be pulled empty and only sprang back on release.
+   *
+   * The geometry is pure precisely so this can be arithmetic rather than a
+   * regex: 190 px of window over a 382 px track is 148 px of travel, and five
+   * items of 58 px with 8 px gaps put the last one's right edge at 322.
+   */
+  const geom = { width: 58, windowW: 190, max: 148 };
+  assert.equal(clampShift(-500, geom.max), -geom.max, 'the track cannot be pushed past its last item');
+  assert.equal(clampShift(20, geom.max), 0, 'nor pulled past its first');
+
+  // Already visible: do not move. A page that jumps for nothing reads as a bug.
+  assert.equal(shiftToShow(0, { ...geom, left: 66 }), 0);
+  // The last item, from the start: shifted exactly enough to show it whole.
+  assert.equal(shiftToShow(0, { ...geom, left: 264 }), -132);
+  // The first item, from the end: back to zero, and never positive.
+  assert.ok(Math.abs(shiftToShow(-148, { ...geom, left: 0 })) === 0);
+  // An item beyond the clamp cannot drag the track past its end either.
+  assert.equal(shiftToShow(0, { ...geom, left: 400 }), -geom.max);
+});
+
+test('US-78 — three shapes fit the window at any width, and the window stays a transform', () => {
+  /**
+   * Why this is CSS and not JS: the 0.47.0 strip hard-coded a 6.5rem item, which
+   * was a third of nothing in particular — in the 15rem controls column it was
+   * two and a half items wide, so two of four shapes were visible and the reader
+   * had no way to know the others existed. A third of the window cannot drift.
+   */
+  assert.match(css, /\.fmt \{[^}]*width: calc\(\(100% - 16px\) \/ 3\);/);
+  assert.match(css, /\.fmt-window \{[^}]*overflow: hidden;/);
+  // Trap 1: not a scroll container. A scroll position and a transform are two
+  // mechanisms fighting over one x.
+  assert.ok(!/\.fmt-window \{[^}]*overflow-x: (auto|scroll)/.test(css));
+  assert.ok(!/scroll-snap-type/.test(css));
+
+  // The chevrons: navigation, so they carry no pressed state and no format id,
+  // and they keep their space when they have nothing to do — a chevron that
+  // came and went would resize every shape in the strip.
+  assert.match(app, /className = 'fmt-page'/);
+  const pagers = app.slice(app.indexOf('const pager ='), app.indexOf('const window_ ='));
+  assert.ok(!/aria-pressed|dataset\.fmt/.test(pagers), 'a chevron is not a shape');
+  assert.match(app, /b\.disabled = !more;/);
+  assert.match(css, /\.fmt-page:disabled \{\s*\n\s*visibility: hidden;/);
+});
+
+test('US-78 AC4 — the sheet is open before anything measures it', () => {
+  /**
+   * A closed `<dialog>` is `display: none`, so every offset inside it is 0 and
+   * the strip's pitch measured 0 — which made the slide 0 whatever was chosen,
+   * and the default shape is the second of five. Painting after the open is the
+   * whole fix, and the order is the thing to keep.
+   */
+  const show = app.slice(app.indexOf('function showShareSheet'), app.indexOf('function paintShareTile'));
+  assert.ok(show.includes('openModal(dlg)'), 'the sheet is still opened here');
+  assert.ok(
+    show.indexOf('openModal(dlg)') < show.indexOf('paintShareControls()'),
+    'open first, then measure',
+  );
 });
 
 test('the strip does not become a hole for anyone using a keyboard', () => {
   /**
-   * Two of the four shapes sit outside the window and are still in the tab
+   * Two of the five shapes sit outside the window and are still in the tab
    * order, so without this focus lands on something invisible — the gesture
    * quietly replacing the accessible path, which is the way these features
    * usually go wrong. A transform has no scroll position, so the browser's own
    * `scrollIntoView` cannot cover it.
    *
-   * Browser-checked: at rest the window shows 1:1 and 4:5; tabbing to 9:16
-   * brings 9:16 and 16:9 into it, the selection does not move, and Enter picks.
+   * At rest the window shows 1:1, 16:9 and 4:3 (US-78); tabbing to 4:5 brings
+   * 4:5 and 9:16 into it, the selection does not move, and Enter picks.
    */
   assert.match(app, /host\.addEventListener\('focusin'/);
   const focus = app.slice(app.indexOf("host.addEventListener('focusin'"));

@@ -168,6 +168,32 @@ export const project = (v, deceleration = 0.998) => (v / 1000) * (deceleration /
 export const rubber = (overflow, dim, c = 0.55) => (overflow * dim * c) / (dim + c * Math.abs(overflow));
 
 /**
+ * A windowed strip's two geometry rules, pure so they can be tested (US-78).
+ *
+ * `clampShift` is the end stop: a track may be pushed left until its last item
+ * is flush with the window's right edge, and no further. Without it a control
+ * that aligns the chosen item to the *front* runs past its own end and shows a
+ * void where the next items would be, which is precisely how the share sheet's
+ * shape strip shipped in 0.47.0.
+ *
+ * `shiftToShow` slides the least that makes an item completely visible, in
+ * whichever direction it is missing from. The least, rather than aligning it to
+ * an edge: a strip that jumps a whole page when the item was already on screen
+ * has moved for no reason its reader can see.
+ *
+ * Both take and return the same `x` the spring holds — negative is shifted left —
+ * so a caller never has to convert between two sign conventions.
+ */
+export const clampShift = (x, max) => Math.min(0, Math.max(-max, x));
+
+export function shiftToShow(x, { left, width, windowW, max }) {
+  let next = x;
+  if (left < -x) next = -left;
+  else if (left + width > -x + windowW) next = windowW - left - width;
+  return clampShift(next, max);
+}
+
+/**
  * Whether to skip the settle.
  *
  * Reduced motion drops the *overshoot and the glide*, never the tracking: a

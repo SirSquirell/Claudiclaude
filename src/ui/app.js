@@ -48,7 +48,7 @@ import { FORMATS, moneyInOver, ownerLine, positionSpan, scoreCardModel, snapshot
 import { HOLDINGS_COLUMNS, baseHidden, droppableByPriority, optionalColumns } from './columns.js';
 import { brokerMarkSvg, lockupSvg, markSvg } from './brand.js';
 import { copySnapshot, downloadSnapshot, drawScoreCard, drawSnapshot, tokensForTheme } from './snapshot.js';
-import { Spring, prefersReducedMotion, project, rubber, revealOnArrival, velocityFrom, wirePressFeedback } from './motion.js';
+import { Spring, clampShift, prefersReducedMotion, project, rubber, revealOnArrival, shiftToShow, velocityFrom, wirePressFeedback } from './motion.js';
 import { inExtension, load, send, wantsDemo } from './datasource.js';
 
 const RANGES = ['1M', '3M', '6M', 'YTD', '1Y', 'ALL'];
@@ -785,11 +785,18 @@ function showShareSheet() {
   }
 
   $('#share-title').textContent = tr(state.share.kind === 'score' ? 'Share this figure' : 'Share this position');
+  /**
+   * US-78 AC4: **open first, then paint.** A closed `<dialog>` is
+   * `display: none`, so every `offsetLeft`, `offsetWidth` and `clientWidth`
+   * inside it is 0 — and the shape strip decides how far to slide from exactly
+   * those. Painting first is why the sheet used to open with the chosen shape off
+   * screen: the pitch measured 0, so the slide was 0, whatever was chosen.
+   */
+  openModal(dlg);
   paintShareTile();
   paintShareControls();
   paintShareName();
   paintSharePreview();
-  openModal(dlg);
 }
 
 /**
@@ -816,24 +823,169 @@ function paintShareTile() {
 }
 
 /**
- * US-57 — the four shapes as a strip you can flick, not four words.
+ * US-57, corrected by US-78 — the shapes as a strip you can slide, not five words.
  *
  * Each shape draws itself at its own aspect ratio, so the control shows what it
- * is choosing rather than naming it; the strip slides so the chosen one sits at
- * the front, and a flick throws it with the same momentum projection the value
- * chart uses. Same vocabulary, one module (`motion.js`), because two springs
- * with different feels on one page read as two products.
+ * is choosing rather than naming it, and a flick throws it with the same
+ * momentum projection the value chart uses. Same vocabulary, one module
+ * (`motion.js`), because two springs with different feels on one page read as
+ * two products.
  *
  * They stay `<button>`s in a `role="group"`. The drag is an addition on top of a
  * control that is already reachable by Tab and Enter — a shape picker that needs
  * a pointer is a shape picker some readers cannot use, and the gesture is
  * exactly the sort of thing that quietly replaces the accessible path.
+ *
+ * **What US-78 changed, and why the first version was wrong.** The strip was four
+ * items long inside a window two items wide, with nothing on screen saying so: a
+ * 15rem column minus its padding is 234 px over a 114 px pitch. Half the control
+ * had never been visible, and four separate rules made it worse — the chosen item
+ * was slid to the *front*, which for the last item scrolled the track past its
+ * own end; the drag had no bounds at all, so the strip could be pulled empty; the
+ * first paint measured a `<dialog>` that was still `display: none`, so the pitch
+ * came back 0 and the default shape was aligned off screen; and the pointer
+ * capture taken on `pointerdown` retargeted the click that followed, so **tapping
+ * a shape did not select it** — only a flick did, which is how that one survived
+ * a browser pass.
+ *
+ * Three rules replace them:
+ *
+ *  1. **Three per window, by construction.** The item width is a third of the
+ *     window in CSS, so three shapes are complete at any width the sheet has —
+ *     nothing is measured against a hard-coded 6.5rem that stops being a third
+ *     when the column changes.
+ *  2. **The chosen shape is brought *into* the window, not to its front**, and
+ *     the shift is clamped to the track, so there is no position from which the
+ *     strip shows a void. A drag past either end rubber-bands through
+ *     `motion.js` and settles back.
+ *  3. **A drag browses; a click chooses.** They are different questions — "which
+ *     shapes are there" and "this one" — and answering both with one gesture is
+ *     what made the last shapes unreachable once the shift was clamped. The two
+ *     chevrons page the window for the same reason, and carry no `aria-pressed`:
+ *     they are navigation, and a reader told there are seven shapes has been
+ *     lied to.
  */
 const stripX = new Spring(0, { response: 0.4, damping: 0.9, restDistance: 0.4 });
+
+/** The pitch between two items, measured rather than assumed from the CSS. */
+const stepOf = (track) => {
+  const [a, b] = track.children;
+  return b ? b.offsetLeft - a.offsetLeft : 0;
+};
+
+/**
+ * How far the track may be shifted left before it runs out of items.
+ *
+ * `scrollWidth` rather than a count times the pitch: the last item has no gap
+ * after it, and paying for that gap in the clamp is a strip that stops one gap
+ * short of its own end and shows a sliver of nothing.
+ */
+const shiftRangeOf = (window_, track) => {
+  const windowW = window_.clientWidth;
+  return { windowW, max: Math.max(0, track.scrollWidth - windowW) };
+};
 
 function paintShareFormats() {
   const host = $('#share-format');
   if (!host) return;
+
+  if (host.dataset.built !== 'strip') {
+    host.dataset.built = 'strip';
+    host.classList.add('fmt-strip');
+    host.innerHTML = '';
+
+    const pager = (dir, label) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'fmt-page';
+      b.dataset.dir = String(dir);
+      b.setAttribute('aria-label', tr(label));
+      // The glyph is decoration; the label above it is what is read out.
+      b.innerHTML = `<span aria-hidden="true">${dir < 0 ? '‹' : '›'}</span>`;
+      return b;
+    };
+
+    const window_ = document.createElement('div');
+    window_.className = 'fmt-window';
+    const track = document.createElement('div');
+    track.className = 'fmt-track';
+    for (const f of FORMATS) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'fmt';
+      b.dataset.fmt = f.id;
+      // The proportions of the actual format, drawn at a fixed long edge, so the
+      // five are comparable at a glance and a sixth needs no code here.
+      const long = 30;
+      const w = (f.w >= f.h ? long : (long * f.w) / f.h);
+      const h = (f.h >= f.w ? long : (long * f.h) / f.w);
+      b.innerHTML = `<span class="fmt-shape" style="width:${w}px;height:${h}px"></span><span>${esc(f.id)}</span>`;
+      track.append(b);
+    }
+    window_.append(track);
+    // The chevrons sit outside the window, one before the shapes and one after,
+    // so neither of them lands between two shapes in the tab order.
+    host.append(pager(-1, 'Earlier shapes'), window_, pager(1, 'Later shapes'));
+    stripX.onUpdate = (v) => {
+      track.style.transform = `translateX(${v}px)`;
+      paintPagers(host, window_, track, v);
+    };
+    wireFormatStrip(host, window_, track);
+  }
+
+  const window_ = host.querySelector('.fmt-window');
+  const track = host.querySelector('.fmt-track');
+  const items = [...track.children];
+  items.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.fmt === state.share.format)));
+  const index = Math.max(0, FORMATS.findIndex((f) => f.id === state.share.format));
+  bringIntoView(window_, track, items[index]);
+  // Not only from `onUpdate`: a strip that is already where it belongs never
+  // ticks, and the chevrons would keep whatever they said last time.
+  paintPagers(host, window_, track);
+}
+
+/**
+ * A chevron is shown only when there is something past that edge.
+ *
+ * Shown, not present: the two keep their space whatever they say, because the
+ * item width is a share of the window, so a chevron that came and went would
+ * resize every shape in the strip as you paged it. `disabled` plus `aria-hidden`
+ * is what takes them out of the tab order and out of the accessibility tree while
+ * they have nothing to do.
+ */
+function paintPagers(host, window_, track, x = stripX.x) {
+  const { max } = shiftRangeOf(window_, track);
+  for (const b of host.querySelectorAll('.fmt-page')) {
+    const dir = Number(b.dataset.dir);
+    const more = dir < 0 ? x < -0.5 : x > -max + 0.5;
+    b.disabled = !more;
+    b.setAttribute('aria-hidden', String(!more));
+  }
+}
+
+/**
+ * Slide the least that makes `item` completely visible.
+ *
+ * The least, rather than aligning it to an edge: a control that jumps a whole
+ * page when the chosen shape was already on screen has moved for no reason the
+ * reader can see. This is also the path that fixes the first open — it is called
+ * after the dialog is open, so the measurements are real rather than the zeroes a
+ * `display: none` dialog returns.
+ */
+function bringIntoView(window_, track, item) {
+  if (!item) return;
+  const { windowW, max } = shiftRangeOf(window_, track);
+  const x = shiftToShow(stripX.x, {
+    left: item.offsetLeft - track.children[0].offsetLeft,
+    width: item.offsetWidth,
+    windowW,
+    max,
+  });
+  if (prefersReducedMotion()) stripX.snap(x);
+  else stripX.set(x);
+}
+
+function wireFormatStrip(host, window_, track) {
   const pick = (id) => {
     state.share.format = id;
     // Once a shape has been chosen it stops being overridden by the per-kind
@@ -843,65 +995,60 @@ function paintShareFormats() {
     paintSharePreview();
   };
 
-  if (host.dataset.built !== 'strip') {
-    host.dataset.built = 'strip';
-    host.classList.add('fmt-strip');
-    host.innerHTML = '';
-    const track = document.createElement('div');
-    track.className = 'fmt-track';
-    for (const f of FORMATS) {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'fmt';
-      b.dataset.fmt = f.id;
-      // The proportions of the actual format, drawn at a fixed short edge, so
-      // the four are comparable at a glance and a fifth needs no code here.
-      const long = 34;
-      const w = (f.w >= f.h ? long : (long * f.w) / f.h);
-      const h = (f.h >= f.w ? long : (long * f.h) / f.w);
-      b.innerHTML = `<span class="fmt-shape" style="width:${w}px;height:${h}px"></span><span>${esc(f.id)}</span>`;
-      b.addEventListener('click', () => pick(f.id));
-      track.append(b);
-    }
-    host.append(track);
-    stripX.onUpdate = (v) => { track.style.transform = `translateX(${v}px)`; };
-    wireFormatStrip(host, track, pick);
-  }
-
-  const track = host.querySelector('.fmt-track');
-  const items = [...track.children];
-  items.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.fmt === state.share.format)));
-  const index = Math.max(0, FORMATS.findIndex((f) => f.id === state.share.format));
-  const target = -index * stepOf(track);
-  if (prefersReducedMotion()) stripX.snap(target);
-  else stripX.set(target);
-}
-
-/** The pitch between two items, measured rather than assumed from the CSS. */
-const stepOf = (track) => {
-  const [a, b] = track.children;
-  return b ? b.offsetLeft - a.offsetLeft : 0;
-};
-
-function wireFormatStrip(host, track, pick) {
   let trail = [];
   let dragging = false;
-  let moved = 0;
+  let capturedId = null;
+  let from = 0;
+  let travelPx = 0;
+
+  /** Land on an item boundary, inside the track, at the end of a gesture. */
+  const settle = (x) => {
+    const { max } = shiftRangeOf(window_, track);
+    const step = stepOf(track) || 1;
+    const snapped = -Math.round(-clampShift(x, max) / step) * step;
+    stripX.set(clampShift(snapped, max));
+  };
 
   host.addEventListener('pointerdown', (e) => {
+    // The chevrons are buttons on top of the strip, not a place to start a drag.
+    if (e.target.closest('.fmt-page')) return;
     // Interruptible: taking hold stops the spring where it is, so the strip
     // follows from its on-screen position rather than snapping to its target.
     stripX.stop();
     dragging = true;
-    moved = 0;
+    from = e.clientX;
+    travelPx = 0;
     trail = [{ v: stripX.x, t: performance.now() }];
-    host.setPointerCapture(e.pointerId);
   });
 
   host.addEventListener('pointermove', (e) => {
     if (!dragging) return;
-    moved += Math.abs(e.movementX);
-    stripX.snap(stripX.x + e.movementX);
+    // US-78 AC6: how far the pointer *is* from where it went down, not how far
+    // it has travelled in total. US-66 settled this for the chart: a wobble back
+    // and forth accumulates travel while the hand has not gone anywhere.
+    travelPx = Math.abs(e.clientX - from);
+    /**
+     * Capture only once this is a drag, and this is not a detail.
+     *
+     * A captured pointer retargets the `click` that follows to the capturing
+     * element — so with the capture taken on `pointerdown`, as it was in 0.47.0,
+     * the click never reached the shape and **tapping a shape did not select
+     * it**. Only a flick did, because the flick picked on release, which is how
+     * this survived a browser pass. Taking the capture at the threshold makes a
+     * tap an ordinary click on a button, and a drag still keeps following a
+     * finger that has left the strip.
+     */
+    if (travelPx >= GESTURE.dragThresholdPx && capturedId === null) {
+      capturedId = e.pointerId;
+      host.setPointerCapture(e.pointerId);
+    }
+    const { windowW, max } = shiftRangeOf(window_, track);
+    const raw = stripX.x + e.movementX;
+    // Past an edge the strip keeps moving, ever more slowly — the same
+    // resistance the value chart uses at the ends of the history.
+    if (raw > 0) stripX.snap(rubber(raw, windowW));
+    else if (raw < -max) stripX.snap(-max - rubber(-max - raw, windowW));
+    else stripX.snap(raw);
     trail.push({ v: stripX.x, t: performance.now() });
     if (trail.length > 8) trail.shift();
   });
@@ -909,35 +1056,61 @@ function wireFormatStrip(host, track, pick) {
   const end = () => {
     if (!dragging) return;
     dragging = false;
-    // A press that never moved is a click, and the item's own handler has it.
-    if (moved < 4) return;
+    if (capturedId !== null) {
+      host.releasePointerCapture(capturedId);
+      capturedId = null;
+    }
+    if (travelPx < GESTURE.dragThresholdPx) {
+      // A press that never really moved is a click, and the click handler has
+      // it. The strip may still be off a boundary if the press interrupted a
+      // settle, so it is put back either way.
+      settle(stripX.x);
+      return;
+    }
     trail.push({ v: stripX.x, t: performance.now() });
-    const step = stepOf(track) || 1;
-    const landed = stripX.x + (prefersReducedMotion() ? 0 : project(velocityFrom(trail)));
-    const index = Math.min(FORMATS.length - 1, Math.max(0, Math.round(-landed / step)));
-    pick(FORMATS[index].id);
+    settle(stripX.x + (prefersReducedMotion() ? 0 : project(velocityFrom(trail))));
   };
   host.addEventListener('pointerup', end);
   host.addEventListener('pointercancel', end);
 
   /**
+   * A click chooses; a drag does not.
+   *
+   * Delegated on the host rather than one listener per shape, so the drag it has
+   * to distinguish itself from is in the same closure — and on the host rather
+   * than the track, because a click that follows a captured pointer arrives
+   * there. A pointer that moved past the threshold is a browse, and the click
+   * the browser sends after it is discarded: sliding the strip to see what is
+   * there must not re-shape the card.
+   */
+  host.addEventListener('click', (e) => {
+    const item = e.target.closest?.('.fmt');
+    if (!item || travelPx >= GESTURE.dragThresholdPx) return;
+    pick(item.dataset.fmt);
+  });
+
+  for (const b of host.querySelectorAll('.fmt-page')) {
+    b.addEventListener('click', () => {
+      const { windowW, max } = shiftRangeOf(window_, track);
+      settle(clampShift(stripX.x - Number(b.dataset.dir) * windowW, max));
+    });
+  }
+
+  /**
    * Tabbing to a shape brings it into the window.
    *
-   * Without this the strip would be a hole rather than a control for anyone
-   * using a keyboard: the last two shapes are outside the window and still in
-   * the tab order, so focus would land on something invisible. The strip slides
-   * rather than the item being selected — arriving somewhere is not the same as
-   * choosing it, and Enter is still what picks.
+   * Without this the strip would be a hole rather than a control for anyone using
+   * a keyboard: the shapes past the window are still in the tab order, so focus
+   * would land on something invisible. The strip slides rather than the item
+   * being selected — arriving somewhere is not the same as choosing it, and Enter
+   * is still what picks.
    *
    * A transform cannot be scrolled into view, which is why the browser's own
    * `scrollIntoView` does not cover this: there is no scroll position to move.
    */
   host.addEventListener('focusin', (e) => {
     const item = e.target.closest?.('.fmt');
-    if (!item) return;
-    const target = -(item.offsetLeft - track.children[0].offsetLeft);
-    if (prefersReducedMotion()) stripX.snap(target);
-    else stripX.set(target);
+    if (item) bringIntoView(window_, track, item);
   });
 }
 

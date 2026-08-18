@@ -472,9 +472,11 @@ test('US-50 — the card measures its number over the days it draws', () => {
   assert.deepEqual(Object.keys(all).sort(), [...SNAPSHOT_FIELDS].sort());
 });
 
-test('the four formats are four distinct shapes, and an unknown one falls back', () => {
-  assert.equal(FORMATS.length, 4);
-  assert.deepEqual(FORMATS.map((f) => f.id), ['1:1', '4:5', '9:16', '16:9']);
+test('the five formats are five distinct shapes, and an unknown one falls back', () => {
+  // US-78: five, and the order is load-bearing — the first three are the ones
+  // the strip shows without sliding, and it is the tab order too.
+  assert.equal(FORMATS.length, 5);
+  assert.deepEqual(FORMATS.map((f) => f.id), ['1:1', '16:9', '4:3', '4:5', '9:16']);
   // Ratios, checked rather than trusted: a typo in a height is invisible on
   // screen and wrong in every posted card.
   const ratio = (id, want) => {
@@ -485,6 +487,7 @@ test('the four formats are four distinct shapes, and an unknown one falls back',
   ratio('4:5', 0.8);
   ratio('9:16', 9 / 16);
   ratio('16:9', 16 / 9);
+  ratio('4:3', 4 / 3);
   assert.equal(formatById('3:2'), FORMATS[0], 'an unknown id draws something rather than throwing');
 });
 

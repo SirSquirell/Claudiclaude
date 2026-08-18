@@ -134,6 +134,9 @@ const DICT = {
     // --- the share sheet (US-47, phase 7) ---
     'Share this position': 'Deel deze positie',
     Shape: 'Vorm',
+    // US-78: the two chevrons beside the shapes. Navigation, not choice.
+    'Earlier shapes': 'Eerdere vormen',
+    'Later shapes': 'Latere vormen',
     Amounts: 'Bedragen',
     Light: 'Licht',
     Dark: 'Donker',

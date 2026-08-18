@@ -62,6 +62,31 @@ plain increments — this is not a library and nothing depends on its API.
 
 ### Added
 
+- **US-78 — the share sheet offers five shapes, three of them visible, and `4:3` is new.** The strip
+  was four shapes long in a window two shapes wide, with nothing on screen saying the other two
+  existed: no arrows, no dots, no edge fade, and the only hint was a `grab` cursor that a touch screen
+  does not have. It now shows **1:1 · 16:9 · 4:3** at rest — a shape's width is a third of the window,
+  so three stay complete whatever width the sheet has — with a chevron either side that appears only
+  when there is something past that edge, and **4:3** added for a slide or a document.
+
+  Four things about it were wrong at once, and one of them made the control barely work:
+
+  1. **Tapping a shape did not select it.** The strip captured the pointer the moment you touched it,
+     which sends the click that follows to the strip instead of to the shape — so only a *flick*
+     changed the shape. It is captured at the drag threshold now, so a tap is a tap.
+  2. **The chosen shape could be off screen.** The sheet painted the strip before opening itself, and
+     nothing inside a closed dialog has a size yet, so the slide came out as zero — with the default
+     shape being the second of five, the pressed one was simply not in view.
+  3. **The strip could be pulled empty**, and choosing the last shape scrolled it past its own end into
+     a void. It has end stops now, and pushing past one resists and springs back like the value chart's
+     ends.
+  4. **A 2 px wobble counted as a drag**, because the threshold added up every wiggle instead of
+     measuring how far the pointer had actually gone. It is the same eight pixels the value chart uses,
+     from the same constant.
+
+  Sliding the strip no longer changes the card either: a drag browses, a click chooses. Nothing about
+  the exported image changed — same renderer, same sizes, plus one more shape.
+
 - **US-53 decided — no paid-in-vs-grown on a sell row, and the ledger says why.** The request was for
   the split on every sale. A sale is a *flow*, and splitting one into capital and profit needs FIFO or
   average cost — a convention this project has refused on the record four times, and the refusal is

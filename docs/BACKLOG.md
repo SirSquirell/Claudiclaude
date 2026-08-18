@@ -4858,7 +4858,7 @@ If keeping the shape needs more than 48 points, stop and re-read US-59: the card
 chat renders it, and a denser line there is a smudge, not more information.
 
 
-## US-78 — Three of the four shapes are off screen, and nothing says so *(new, defect + story, refined)*
+## US-78 — Three of the four shapes are off screen, and nothing says so *(built)*
 
 *Refined on `claude/v47-nav-aspect-ratio-v0wa42` as US-76; renumbered here — see the note above on how the numbers collided.*
 
@@ -4980,6 +4980,32 @@ Three things, in order of what they cost:
 **Stop condition:** if fitting three shapes requires the sheet's layout to change — the controls column
 widening, the preview shrinking — stop and say so. That is a share-sheet layout story with a preview to
 re-check at four sizes, and this one is a picker that hides most of itself.
+
+### Built, and it was five mechanisms rather than four
+
+The stop condition was not reached: the item is a *third of the window* in CSS, so three shapes are
+complete at whatever width the column has, and no layout above the strip moved. Everything else landed
+as refined — `4:3` cost one line and every card test picked it up unchanged, exactly as the `FORMATS`
+comment claimed it would.
+
+**The fifth mechanism was found in the browser, and it is the worst of them: tapping a shape did not
+select it.** `setPointerCapture` on `pointerdown` retargets the `click` that follows to the capturing
+element, so the click never reached the button — only a *flick* changed the shape, because the flick
+picked on release. That is why 0.47.0's browser pass missed it: the pass flicked. The capture is now
+taken at the drag threshold rather than on contact, so a tap is an ordinary click on a button and a
+drag still follows a finger that has left the strip.
+
+Two consequences of clamping the shift that the refinement did not state, both settled here:
+
+- **A drag browses and a click chooses.** Pick-on-release cannot survive an end stop — the last two
+  shapes are never at the front, so they would have become unreachable by gesture.
+- **Bringing the chosen shape *into* the window replaced front-alignment**, which is also the whole of
+  mechanism 2: there is no longer a position from which the strip can show a void.
+
+Verified in a browser at 1280 px and 320 px, in both motion modes: three shapes whole at rest, the
+chevrons hidden exactly when there is nothing past their edge, a 600 px over-drag rubber-banding and
+settling on the last page, a 3 px wobble still selecting, a 200 px drag selecting nothing, and Tab
+reaching the fifth shape with Enter picking it.
 
 ---
 
