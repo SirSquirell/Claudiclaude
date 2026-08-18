@@ -110,6 +110,16 @@ plain increments — this is not a library and nothing depends on its API.
 
 ### Fixed
 
+- **The chart readouts speak Dutch.** The same gap US-60 found in the popup, one surface over and
+  found while building US-62: `charts.js` had no translations at all — every tooltip line was a
+  hardcoded English literal, so the numbers a Dutch reader actually reads were labelled *Value*,
+  *Day change*, *Cumulative*, *Withholding tax*. Twenty-two sites now go through `t()`, and
+  `missing()` reports zero.
+
+  Buy and sell counts are singular and plural keys rather than an English `s` glued on: Dutch does
+  not form its plural the same way, and a dictionary keyed on the finished phrase cannot repair a
+  word assembled from pieces.
+
 - **US-60 — the popup speaks Dutch, and looks like the rest of the extension.** Every string in it
   was hardcoded English: no `data-i18n` attributes, `applyStatic` never called. Choosing Nederlands
   gave you a Dutch app and an English popup — and `missing()`, which exists precisely so an

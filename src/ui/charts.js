@@ -12,6 +12,7 @@
  *    already carries the sign, so colour is never the only channel.
  */
 
+import { t as tr } from './i18n.js';
 import { alpha, fmtEur, fmtEurCents, fmtSigned, getAnonymize } from './theme.js';
 import { drawMark } from './brand.js';
 import { WATERMARK } from '../lib/config.js';
@@ -395,7 +396,7 @@ function downsample(labels, seriesList, max) {
  * nothing. `estimated` is per *drawn point*, so at Week or Month it is true when
  * anything inside that bucket was estimated.
  */
-export const estimatedNote = (flags, i) => (flags?.[i] ? 'No quote that day — held at the last price it traded at.' : null);
+export const estimatedNote = (flags, i) => (flags?.[i] ? tr('No quote that day — held at the last price it traded at.') : null);
 
 export function valueChart(ctx, { days, value, positionsValue, netExternal, pnl, trades, estimated, includeCash }, t) {
   const series = includeCash ? value : positionsValue;
@@ -428,24 +429,28 @@ export function valueChart(ctx, { days, value, positionsValue, netExternal, pnl,
   };
   opts.plugins.tooltip.callbacks = {
     title: (items) => formatDay(days[items[0].dataIndex]),
-    label: (item) => `Value: ${fmtEurCents(item.parsed.y)}`,
+    label: (item) => tr('Value: {v}', { v: fmtEurCents(item.parsed.y) }),
     afterBody: (items) => {
       const i = items[0].dataIndex;
       const lines = [];
-      if (i > 0) lines.push(`Day change: ${fmtSigned(series[i] - series[i - 1])}`);
+      if (i > 0) lines.push(tr('Day change: {v}', { v: fmtSigned(series[i] - series[i - 1]) }));
       if (Math.abs(netExternal[i]) > 0.005) {
-        lines.push(`${netExternal[i] > 0 ? 'Deposit' : 'Withdrawal'}: ${fmtSigned(netExternal[i])}`);
+        lines.push(tr(netExternal[i] > 0 ? 'Deposit: {v}' : 'Withdrawal: {v}', { v: fmtSigned(netExternal[i]) }));
       }
       const est = estimatedNote(estimated, i);
       if (est) lines.push(est);
       const traded = tradeByIndex.get(i);
       if (traded) {
         const what = [
-          traded.buys ? `${traded.buys} buy${traded.buys > 1 ? 's' : ''}` : null,
-          traded.sells ? `${traded.sells} sell${traded.sells > 1 ? 's' : ''}` : null,
+          // Singular and plural are separate keys rather than an English `s`
+          // glued on: Dutch does not form its plural the same way, and a
+          // dictionary keyed on the finished phrase cannot fix a word built
+          // out of pieces.
+          traded.buys ? tr(traded.buys === 1 ? '{n} buy' : '{n} buys', { n: traded.buys }) : null,
+          traded.sells ? tr(traded.sells === 1 ? '{n} sell' : '{n} sells', { n: traded.sells }) : null,
         ].filter(Boolean).join(', ');
-        const who = traded.names.join(', ') + (traded.more ? ` +${traded.more} more` : '');
-        lines.push(`Traded: ${what}${who ? ` — ${who}` : ''}`);
+        const who = traded.names.join(', ') + (traded.more ? tr(' +{n} more', { n: traded.more }) : '');
+        lines.push(tr('Traded: {what}', { what }) + (who ? ` — ${who}` : ''));
       }
       return lines;
     },
@@ -486,7 +491,7 @@ export function pnlChart(ctx, { labels, pnl, starts }, t) {
   opts.interaction = { mode: 'index', intersect: false };
   opts.plugins.tooltip.callbacks = {
     title: (items) => starts[items[0].dataIndex] ?? labels[items[0].dataIndex],
-    label: (item) => `${item.parsed.y >= 0 ? 'Gain' : 'Loss'}: ${fmtSigned(item.parsed.y)}`,
+    label: (item) => tr(item.parsed.y >= 0 ? 'Gain: {v}' : 'Loss: {v}', { v: fmtSigned(item.parsed.y) }),
   };
   opts.scales.y.grid.color = (c) => (c.tick.value === 0 ? t.axis : t.grid);
 
@@ -520,7 +525,7 @@ export function cumulativeChart(ctx, { labels, cumulative, starts, estimated }, 
   opts.plugins.crosshair = { color: t.axis };
   opts.plugins.tooltip.callbacks = {
     title: (items) => starts[items[0].dataIndex] ?? labels[items[0].dataIndex],
-    label: (item) => `Cumulative: ${fmtSigned(item.parsed.y)}`,
+    label: (item) => tr('Cumulative: {v}', { v: fmtSigned(item.parsed.y) }),
     afterBody: (items) => [estimatedNote(estimated, items[0].dataIndex)].filter(Boolean),
   };
   opts.scales.y.grid.color = (c) => (c.tick.value === 0 ? t.axis : t.grid);
@@ -588,7 +593,7 @@ export function compositionChart(ctx, composition, t, colours) {
   opts.plugins.tooltip.callbacks = {
     title: (items) => formatDay(sampledDays[items[0].dataIndex]),
     label: (item) => `${item.dataset.label}: ${fmtEurCents(item.parsed.y)}`,
-    footer: (items) => `Total: ${fmtEurCents(items.reduce((a, i) => a + i.parsed.y, 0))}`,
+    footer: (items) => tr('Total: {v}', { v: fmtEurCents(items.reduce((a, i) => a + i.parsed.y, 0)) }),
   };
   opts.plugins.tooltip.itemSort = (a, b) => b.parsed.y - a.parsed.y;
 
@@ -610,7 +615,7 @@ export function investedVsValueChart(ctx, { days, value, cumulativeDeposited }, 
     footer: (items) => {
       const i = items[0].dataIndex;
       const gap = value[i] - cumulativeDeposited[i];
-      return `Growth: ${fmtSigned(gap)}`;
+      return tr('Growth: {v}', { v: fmtSigned(gap) });
     },
   };
 
@@ -620,7 +625,7 @@ export function investedVsValueChart(ctx, { days, value, cumulativeDeposited }, 
       labels: days,
       datasets: [
         {
-          label: 'Portfolio value',
+          label: tr('Portfolio value'),
           data: value,
           borderColor: t.series[0],
           backgroundColor: alpha(t.series[0], 0.1),
@@ -630,7 +635,7 @@ export function investedVsValueChart(ctx, { days, value, cumulativeDeposited }, 
           fill: '+1', // shade the gap between value and money paid in
         },
         {
-          label: 'Money paid in (net)',
+          label: tr('Money paid in (net)'),
           data: cumulativeDeposited,
           borderColor: t.series[1],
           backgroundColor: 'transparent',
@@ -652,7 +657,7 @@ export function investedVsValueChart(ctx, { days, value, cumulativeDeposited }, 
 export function depositChart(ctx, { labels, amounts }, t) {
   const opts = baseOptions(t);
   opts.plugins.tooltip.callbacks = {
-    label: (item) => `${item.parsed.y >= 0 ? 'Paid in' : 'Taken out'}: ${fmtSigned(item.parsed.y)}`,
+    label: (item) => tr(item.parsed.y >= 0 ? 'Paid in: {v}' : 'Taken out: {v}', { v: fmtSigned(item.parsed.y) }),
   };
   opts.scales.y.grid.color = (c) => (c.tick.value === 0 ? t.axis : t.grid);
 
@@ -689,7 +694,7 @@ export function dividendChart(ctx, rows, t) {
     label: (item) => `${item.dataset.label}: ${fmtEurCents(Math.abs(item.parsed.y))}`,
     footer: (items) => {
       const row = rows[items[0].dataIndex];
-      return `Gross: ${fmtEurCents(row.gross)}`;
+      return tr('Gross: {v}', { v: fmtEurCents(row.gross) });
     },
   };
 
@@ -699,7 +704,7 @@ export function dividendChart(ctx, rows, t) {
       labels: rows.map((r) => r.month),
       datasets: [
         {
-          label: 'Received (net)',
+          label: tr('Received (net)'),
           data: rows.map((r) => r.net),
           backgroundColor: alpha(t.series[0], 0.85),
           borderRadius: 4,
@@ -709,7 +714,7 @@ export function dividendChart(ctx, rows, t) {
           maxBarThickness: 30,
         },
         {
-          label: 'Withholding tax',
+          label: tr('Withholding tax'),
           data: rows.map((r) => r.tax),
           backgroundColor: alpha(t.series[1], 0.85),
           borderRadius: 4,
@@ -870,10 +875,10 @@ export function candleChart(ctx, data, t) {
     label: (item) => {
       const c = data.candles[item.dataIndex];
       return [
-        `Open  ${fmtSigned(c.open)}`,
-        `High  ${fmtSigned(c.high)}`,
-        `Low   ${fmtSigned(c.low)}`,
-        `Close ${fmtSigned(c.close)}`,
+        tr('Open  {v}', { v: fmtSigned(c.open) }),
+        tr('High  {v}', { v: fmtSigned(c.high) }),
+        tr('Low   {v}', { v: fmtSigned(c.low) }),
+        tr('Close {v}', { v: fmtSigned(c.close) }),
       ];
     },
   };
@@ -889,7 +894,7 @@ export function candleChart(ctx, data, t) {
       labels: data.labels,
       datasets: [
         {
-          label: 'Range',
+          label: tr('Range'),
           data: data.candles.map((c) => [c.low, c.high]),
           backgroundColor: data.candles.map((c) => alpha(colour(c), 0.45)),
           barPercentage: 0.14,
@@ -897,7 +902,7 @@ export function candleChart(ctx, data, t) {
           grouped: false,
         },
         {
-          label: 'Open to close',
+          label: tr('Open to close'),
           data: data.candles.map((c) => [Math.min(c.open, c.close), Math.max(c.open, c.close)]),
           backgroundColor: data.candles.map((c) => alpha(colour(c), 0.85)),
           borderRadius: 2,

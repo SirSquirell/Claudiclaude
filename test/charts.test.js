@@ -35,7 +35,7 @@ test('AC2 — the readout can only report a day the series holds', () => {
   // the pointer's x. A tooltip that did arithmetic on a pixel position is how an
   // in-between value would get in.
   const value = charts.slice(charts.indexOf('export function valueChart'), charts.indexOf('export function pnlChart'));
-  const label = value.match(/label:\s*\(item\)\s*=>\s*`Value:\s*\$\{([^}]+)\}`/);
+  const label = value.match(/label:\s*\(item\)\s*=>\s*tr\('Value: \{v\}',\s*\{\s*v:\s*([^}]+)\}\)/);
   assert.ok(label, 'the value readout no longer reports the point it was given');
   assert.match(label[1], /item\.parsed\.y/);
 });
@@ -44,8 +44,8 @@ test('AC3 — the readout’s amount goes through the masking formatters', () =>
   // US-46's choke point. The readout is an amount like any other, so it masks
   // for the same reason and by the same route — not by a rule of its own.
   const value = charts.slice(charts.indexOf('export function valueChart'), charts.indexOf('export function pnlChart'));
-  assert.match(value, /Value:\s*\$\{fmtEurCents\(/);
-  assert.match(value, /Day change:\s*\$\{fmtSigned\(/);
+  assert.match(value, /tr\('Value: \{v\}', \{ v: fmtEurCents\(/);
+  assert.match(value, /tr\('Day change: \{v\}', \{ v: fmtSigned\(/);
 });
 
 test('AC4 — a day valued from a stale price says so, on both charts', () => {

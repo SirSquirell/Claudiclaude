@@ -470,6 +470,41 @@ const DICT = {
     'Which figure': 'Welk cijfer',
     "{name}'s portfolio": 'de portefeuille van {name}',
     'There is no figure to share for this period.': 'Er is geen cijfer om te delen voor deze periode.',
+
+    // --- the charts' readouts (US-62, and the same gap US-60 found in the popup)
+    // charts.js had no translations at all either: every tooltip line was
+    // hardcoded English, so the Dutch page's most-read numbers were labelled in
+    // the wrong language. Found while building US-62, fixed with it.
+    'No quote that day — held at the last price it traded at.':
+      'Die dag geen koers — gewaardeerd tegen de laatste koers waarop het handelde.',
+    'Value: {v}': 'Waarde: {v}',
+    'Day change: {v}': 'Dagverschil: {v}',
+    'Deposit: {v}': 'Storting: {v}',
+    'Withdrawal: {v}': 'Opname: {v}',
+    '{n} buy': '{n} aankoop',
+    '{n} buys': '{n} aankopen',
+    '{n} sell': '{n} verkoop',
+    '{n} sells': '{n} verkopen',
+    ' +{n} more': ' +{n} meer',
+    'Traded: {what}': 'Gehandeld: {what}',
+    'Gain: {v}': 'Winst: {v}',
+    'Loss: {v}': 'Verlies: {v}',
+    'Cumulative: {v}': 'Cumulatief: {v}',
+    'Total: {v}': 'Totaal: {v}',
+    'Growth: {v}': 'Gegroeid: {v}',
+    'Portfolio value': 'Portefeuillewaarde',
+    'Money paid in (net)': 'Ingelegd (netto)',
+    'Paid in: {v}': 'Ingelegd: {v}',
+    'Taken out: {v}': 'Opgenomen: {v}',
+    'Gross: {v}': 'Bruto: {v}',
+    'Received (net)': 'Ontvangen (netto)',
+    'Withholding tax': 'Dividendbelasting',
+    'Open  {v}': 'Open  {v}',
+    'High  {v}': 'Hoog  {v}',
+    'Low   {v}': 'Laag  {v}',
+    'Close {v}': 'Slot  {v}',
+    Range: 'Bereik',
+    'Open to close': 'Open tot slot',
     'no money in to compare against': 'geen inleg om mee te vergelijken',
     'Total matches what DEGIRO reports': 'Totaal komt overeen met wat DEGIRO meldt',
     'No projection is drawn, because the growth rate measured from your history is {rate}% a year. That is not what a market does \u2014 it is what an account looks like when deposits and the trades they paid for are recorded a day apart, which distorts the early months. Set the rates yourself above to see a projection anyway.':
