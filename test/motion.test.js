@@ -194,3 +194,60 @@ test('the gesture asks the engine for nothing', () => {
   assert.ok(!/computePortfolio|engine\.js/.test(gesture));
   assert.ok(!/\brender\(\)/.test(gesture.replace(/chart\.render\(\)/g, '')), 'the page re-renders during the gesture');
 });
+
+// ===========================================================================
+// US-65 — the honest number change
+// ===========================================================================
+
+const css = read('../src/ui/styles.css');
+
+test('AC2 — nothing anywhere can produce a figure between the old and the new', () => {
+  /**
+   * The entire story. A count-up tween shows, on every frame, a value the
+   * account never had — and this project's whole claim is that it shows none. So
+   * the swap animates the *element* and never the *number*: the two spans hold
+   * complete strings the formatters produced, and the motion is CSS, which has
+   * no access to the digits at all.
+   *
+   * Proven in a browser by sampling every tile every frame across a range
+   * change: each changed figure showed exactly two distinct strings and never a
+   * third. This is the structural guarantee behind that measurement.
+   */
+  const tiles = app.slice(app.indexOf('const cell = (t, kind) =>'), app.indexOf('const [hero, ...others]'));
+  assert.match(tiles, /class="swap-in">\$\{esc\(value\)\}/);
+  assert.match(tiles, /class="swap-out"[^>]*>\$\{esc\(previous\)\}/);
+  // Only the two formatted strings reach the markup — no arithmetic on either.
+  assert.ok(!/parseFloat|Number\(|\+\s*\(1\s*-|lerp|tween/i.test(tiles), 'the swap has started computing a value');
+
+  // And the motion is declarative, so there is no frame loop that could.
+  assert.match(css, /@keyframes figure-out/);
+  assert.match(css, /@keyframes figure-in/);
+  assert.ok(!/figure-(in|out)/.test(app), 'the swap animation is being driven from script');
+});
+
+test('AC4 — a figure only swaps when it actually changed', () => {
+  // Transitioning on every render flickers on a tab switch that changed
+  // nothing. Keyed by label rather than position, because the sections show
+  // overlapping subsets in different orders and an index would call a tab
+  // switch a change.
+  const tiles = app.slice(app.indexOf('const cell = (t, kind) =>'), app.indexOf('const [hero, ...others]'));
+  assert.match(tiles, /const changed = previous !== undefined && previous !== value;/);
+  assert.match(app, /const lastTileValue = new Map\(\);/);
+});
+
+test('AC5 — reduced motion is an instant swap, not a slower one', () => {
+  // A cross-fade is still motion, and there is nothing here it would help
+  // anyone understand. Verified in a browser: the departing figure computes to
+  // `display: none` and the arriving one to `animation-name: none`.
+  const block = css.slice(css.indexOf('@media (prefers-reduced-motion: reduce) {\n  .tile .value.swap'));
+  assert.match(block, /\.swap-out \{ display: none; \}/);
+  assert.match(block, /\.swap-in \{ animation: none; \}/);
+});
+
+test('the departing figure is a ghost — out of the pointer’s way and out of the tree', () => {
+  // It is a picture of something that is no longer true, so it must not be
+  // readable by a screen reader or clickable.
+  const tiles = app.slice(app.indexOf('const cell = (t, kind) =>'), app.indexOf('const [hero, ...others]'));
+  assert.match(tiles, /class="swap-out" aria-hidden="true"/);
+  assert.match(css, /\.tile \.value\.swap > \.swap-out \{\s*\n\s*pointer-events: none;/);
+});

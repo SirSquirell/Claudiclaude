@@ -2458,6 +2458,15 @@ function buildTiles(r, from = 0, to = r.days.length - 1) {
  * Put them on screen: one hero, three facts, the rest behind a disclosure — and
  * the Optimism Mode substitution, which happens here and nowhere earlier.
  */
+/**
+ * The last figure each tile showed, so a change can be told from a repaint.
+ *
+ * Keyed by the tile's label rather than by position: the sections show
+ * overlapping subsets and the order inside one is not stable across tabs, so an
+ * index would call a tab switch a change and animate figures that did not move.
+ */
+const lastTileValue = new Map();
+
 function renderTiles(r, from = 0, to = r.days.length - 1) {
   const tiles = buildTiles(r, from, to);
 
@@ -2492,6 +2501,24 @@ function renderTiles(r, from = 0, to = r.days.length - 1) {
    * A separate hero list would be a second place to keep in sync.
    */
   const mine = shown.filter((t) => t.tabs.includes(state.tab));
+
+  /**
+   * US-65 — the honest number change.
+   *
+   * When the range changes a hero figure jumps, and the obvious move is a
+   * count-up tween. It stays **rejected**: every frame of a count-up shows a
+   * value the account never had, which is the one thing this project refuses.
+   * The honest form is a *swap* — the old string leaves and the new one arrives,
+   * with nothing in between.
+   *
+   * That is not a softer version of the same idea, it is a different one. A
+   * tween interpolates the *number*; this animates the *element*, and the only
+   * two pieces of text that exist are the two the formatters produced. There is
+   * no code path here that could compute a third.
+   *
+   * Only on a real change (AC4): transitioning on every render would flicker on
+   * a tab switch that changed nothing.
+   */
   const cell = (t, kind) => {
       // `signClass` returns 'up' / 'down', not 'pos' / 'neg'. Guessing that
       // wrong made the whole feature a no-op that still looked wired up.
@@ -2499,6 +2526,14 @@ function renderTiles(r, from = 0, to = r.days.length - 1) {
       const value = cheerful && down ? frown.cheerUp(t.value) : t.value;
       const note = cheerful && down ? frown.spin(t.label) : t.note;
       const cls = cheerful && down ? 'up flipped' : (t.cls ?? '');
+      /**
+       * Both strings come from the formatters, so a masked figure transitions as
+       * a mask (AC3) with nothing here knowing that it is one. The first sight
+       * of a tile is not a change — `previous` is undefined and it simply draws.
+       */
+      const previous = lastTileValue.get(t.label);
+      const changed = previous !== undefined && previous !== value;
+      lastTileValue.set(t.label, value);
       return `
       <div class="tile ${kind}${cheerful && down ? ' tile-flipped' : ''}">
         <div class="label">${esc(tr(t.label))}${
@@ -2507,7 +2542,10 @@ function renderTiles(r, from = 0, to = r.days.length - 1) {
                  data-tip="${esc(tr(TILE_TIPS[t.label]))}">i</button>`
             : ''
         }</div>
-        <div class="value ${cls}" style="--len:${[...value].length}">${esc(value)}</div>
+        <div class="value ${cls}${changed ? ' swap' : ''}" style="--len:${[...value].length}">${
+          changed ? `<span class="swap-in">${esc(value)}</span>`
+            + `<span class="swap-out" aria-hidden="true">${esc(previous)}</span>` : esc(value)
+        }</div>
         <div class="note">${esc(note)}</div>
       </div>`;
   };

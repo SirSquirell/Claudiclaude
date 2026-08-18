@@ -907,6 +907,58 @@ button:disabled {
   white-space: nowrap;
 }
 
+/* --- US-65: the honest number change ------------------------------------- */
+
+/*
+ * A figure that changed swaps: the old string leaves, the new one arrives, and
+ * there is never anything in between. The rejected alternative is a count-up,
+ * where every frame shows a value the account never had.
+ *
+ * Both spans hold complete formatted strings. Nothing here interpolates, and
+ * nothing can — CSS has no access to the digits, which is a large part of why
+ * the transition lives in the stylesheet rather than in a rAF loop.
+ */
+.tile .value.swap {
+  position: relative;
+  display: grid;
+}
+
+.tile .value.swap > .swap-in,
+.tile .value.swap > .swap-out {
+  grid-area: 1 / 1;
+  white-space: nowrap;
+}
+
+/* The departing figure is out of the accessibility tree and out of the way of
+   the pointer: it is a ghost of something that is no longer true. */
+.tile .value.swap > .swap-out {
+  pointer-events: none;
+  animation: figure-out 0.26s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+}
+
+.tile .value.swap > .swap-in {
+  animation: figure-in 0.3s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+/* Transform and opacity only — nothing that reflows. */
+@keyframes figure-out {
+  to { opacity: 0; transform: translateY(-0.32em); }
+}
+
+@keyframes figure-in {
+  from { opacity: 0; transform: translateY(0.32em); }
+}
+
+/*
+ * Reduced motion is an instant swap. The old figure is not faded out, it is
+ * simply not there — a cross-fade is still motion, and there is nothing here it
+ * would help anyone understand.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .tile .value.swap > .swap-out { display: none; }
+  .tile .value.swap > .swap-in { animation: none; }
+}
+
 .tile .note {
   color: var(--text-muted);
   font-size: var(--hint);

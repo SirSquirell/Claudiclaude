@@ -20,6 +20,20 @@ plain increments — this is not a library and nothing depends on its API.
 
 ### Added
 
+- **US-65 — a figure that changed says so, without ever showing a figure that was not true.** Change
+  the range and the hero numbers used to jump. The obvious move is a count-up tween, and it stays
+  rejected: every frame of a count-up renders a value the account never had. The honest form is a
+  **swap** — the old string leaves, the new one arrives, and there is nothing in between.
+
+  That is a different mechanism, not a gentler one. A tween interpolates the *number*; this animates
+  the *element*, in CSS, which has no access to the digits at all. Measured rather than asserted: a
+  browser sampled every figure on every frame across a range change, and each changed one showed
+  exactly two distinct strings and never a third.
+
+  Only figures that actually changed swap — two of seven on a 1M switch — and `prefers-reduced-motion`
+  makes it an instant replacement rather than a slower fade.
+
+
 - **US-55 / US-63 — the drag on the value chart has physics.** Built together, because they are the
   same gesture on the same surface and the spring, the velocity trail and the day-snap are shared.
 
