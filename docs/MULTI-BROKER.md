@@ -663,3 +663,33 @@ Name column with that in mind, and paste nothing whose value was not read first.
 US-36 stays **refined, not built**, and it has moved: phase 1 has begun and the portal looks like an
 ordinary session-backed web app rather than something an extension could not replay. That is
 encouraging and it is *not* R1 clearing. R1 clears on step 4 and nothing else.
+
+### 9f. An existing open-source IBKR dashboard — evaluated, 2026-08-18, not reusable
+
+An existing project was put forward as a way to avoid building this twice:
+`GameMaster301/IBKR-Web-Portfolio-Dashboard` (MIT, Python 3.12 + Plotly Dash, shipped as a Docker
+image). It is a competent piece of work and it is worth being explicit about why none of it can be
+lifted, so that nobody evaluates it a second time.
+
+**It does not use the web portal at all.** Grepping the whole source for `ibkr.com`,
+`interactivebrokers.com`, `/v1/api` and `portal.gateway` returns nothing. It talks to
+**IB Gateway or TWS** — Interactive Brokers' desktop applications — over the local TWS socket API
+(`ib_async`, `ib.connectAsync`, port 4002/4001 paper/live, 7497/7496 for TWS). Its `.env.example`
+configures a host, a port, a client id and a read-only flag; its `SETUP.txt` step 2 is "open IB
+Gateway and log in", and step 1 is "install Docker Desktop".
+
+That places it outside this project on three independent grounds, any one of which is sufficient:
+
+1. **Rule 9.** The user must run and log into a separate desktop application that holds the broker
+   session. That is the "required local gateway" branch of §9's own decision table, which was
+   pre-committed as out of scope before this project existed. Reading a session the browser already
+   holds is the whole of what the extension does.
+2. **MV3 cannot do it at any price.** The TWS API is a raw TCP socket protocol. An extension has
+   `fetch` and WebSocket; it has no sockets, and the CSP forbids the remote code that would be
+   needed to pretend otherwise. This is not a porting cost, it is an impossibility.
+3. **Nothing transfers even as knowledge.** The value we would want from prior art is R1's answer
+   and the portal's field names. This project touches neither: it never issues an HTTP request to
+   IBKR. `pf?SELECTED=…`, `hasCorporateActionMsg` and the rest of §9a are invisible to it.
+
+The licence (MIT) would have permitted copying with attribution. It is the architecture, not the
+licence, that decides. **US-36's gate is unchanged: R1, step 4, and nothing else.**
