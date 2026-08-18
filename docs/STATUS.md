@@ -3,8 +3,8 @@
 `docs/BACKLOG.md` is 2 000 lines of reasoning and evidence, which is the right place for *why* and
 a bad place to find out *where things stand*. This is the index.
 
-**Last updated at 0.46.0.** It had been stale since 0.21.0, which is fifteen releases — if it looks
-stale again, trust the CHANGELOG and fix this.
+**Last updated after the 0.47 build pass.** It had been stale since 0.21.0 once, which is fifteen
+releases — if it looks stale again, trust the CHANGELOG and fix this.
 
 ## Shipped and confirmed against a real account
 
@@ -65,6 +65,18 @@ person.** This is the gate that is open.
 | US-47+ | **The share sheet** — four shapes, light or dark, amounts off by default, and a name the sharer chooses from four sources. Download beside the clipboard | 0.46.0 |
 | US-35d | **Optimism Mode draws two different charts** rather than deforming the real one — *Belief in PROP* (conviction index, in points) and *What PROP still owes you* (upside remaining, in euros). `flipSeries` is gone | 0.46.0 |
 | US-17 | **A renamed DEGIRO field is now loud.** `pick()` tallies which candidate name carried each value; a load-bearing field absent on ≥95 % of rows raises a red banner naming it, and the bug report carries the per-field shares — which is also the measurement that lets `parse.js` stop guessing | 0.46.0 |
+| US-59 | **The card's small print is readable at the size it gets posted.** The ramp is a fraction of the card's width, so the four shapes are four crops of one design, and the floor is measured at the width a chat renders. It also exposed a second defect: the footer's joined line overran and truncated the reconciliation verdict to `DOES NOT rec…` | unreleased · this branch |
+| US-60 | **The popup speaks Dutch and carries the redesign.** Every string through `t()`, sync progress translated by phase, one hero and three facts at 320 px, one primary action | unreleased · this branch |
+| US-52 | **Paid in vs grown travels with the card**, from a `splitModel` both the card and the holdings table call. Moving it exposed a bar segment 400 % wide that only the table's clipping hid | unreleased · this branch |
+| US-54 | **A share button on every figures block, and a chartless score card.** The tile's own strings, so anonymize is inherited; the real figure even with Optimism Mode on | unreleased · this branch |
+| US-62 | **The chart readout says when a day's price was estimated.** Most of the story already existed via Chart.js; this is the honesty marker it was missing | unreleased · this branch |
+| US-55 · US-63 | **The drag on the value chart has physics** — velocity handoff, momentum projection, rubber-band, interruptible, reduced-motion aware. `src/ui/motion.js` is the one motion vocabulary | unreleased · this branch |
+| US-64 | **A section arrives instead of cutting** — transform and opacity only, interruptible, nothing locked out | unreleased · this branch |
+| US-65 | **A changed figure swaps, never counts up.** Measured: each changed figure showed exactly two strings across every frame | unreleased · this branch |
+| US-56 | **Three accessibility preferences, two of which had never been asked**, plus a press that is dragged away from stops looking pressed | unreleased · this branch |
+| US-58 | **The type scale is size-bucketed and measured** — `npm run type`, wired into `npm test` | unreleased · this branch |
+| US-57 | **The share sheet arrives as an object** — materialize on open, the same path backwards on close, and the four shapes as a strip you can flick | unreleased · this branch |
+| — | **Two defects found by the browser passes**: the chart readouts had no translations at all (the same gap US-60 found in the popup), and `npm run palette` identified the dark theme as the last `:root` block in the file | unreleased · this branch |
 | US-61 | **The Positions table fits its width.** Columns-as-data: the lowest-priority ones drop as the table narrows and fold into a per-row expand, the load-bearing four (Instrument, Value, Paid in vs grown, Result) never drop, and a **Columns** chooser hides the rest, remembered like the theme. Browser-verified desktop→phone, no sideways page scroll; display only, no resync | unreleased · on `main` |
 
 **What to look at first**, if you only look at one thing: the Notices tab after a sync. 0.36.0 made
@@ -88,8 +100,6 @@ F1–F5 shipped in 0.37.0, F6–F9 in 0.38.0. U1–U5 need a decision rather tha
 
 | Story | State | Waiting on |
 |---|---|---|
-| US-59 | **The card's small print is unreadable** at the 500–700 px a chat renders it. Type inside a card must be a fraction of the card, not of the page — and US-54's score card is mostly small print, so this goes first | Nothing. Defect, measured |
-| US-60 | **The popup has no translations at all** — no `data-i18n`, `applyStatic` never called, so a Dutch reader gets an English popup — and none of the redesign's hierarchy | Nothing. The Dutch half is a defect |
 | — | **A price series was rescaled by factor 4,369**, which is not a split ratio. Investigation: one factor across two regimes, or a vwd id that changed instrument. Do not tune the threshold | Nothing |
 | US-37 | **Trading 212 R1 — PASS, measured 2026-08-13.** Page 200/401, logged out 401, and the service worker `PASS_JSON` with only an `Accept` header — so no device identifier is required either | Nothing. **US-39–US-45 are unblocked** |
 | US-44 | **Trading 212 renders through the existing pipeline** — no separate dashboard | Gated on US-37 and the data gates. Addendum body not yet received |
@@ -101,17 +111,7 @@ F1–F5 shipped in 0.37.0, F6–F9 in 0.38.0. U1–U5 need a decision rather tha
 | US-23 | Sync and wipe, per broker | Deliberately deferred (rule 8) — a second broker existing |
 | US-24 | Combine, and filter | Same. The arithmetic is proven and tested; the UI is not built |
 | US-25 | Two accounts under one login | A spike, not a story. Cheap *after* US-22, which has landed |
-| US-52 | **Paid vs grown on the shareable card** — the composition bar beneath the hero pct, via a `splitModel` shared with the holdings row; amount-free, so it survives anonymize | Nothing. Small, and the split maths already exists in `splitCell` |
 | US-53 | **Paid vs grown on sell transactions** — refined to a decision, not a build. Per-sale profit is cost basis, which the project refused; recommendation is to decline or reframe as a labelled position figure | An owner decision between (a) position-to-date bar, (b) drop, (c) open cost basis as its own story |
-| US-54 | **A share button on each KPI block, and a chartless score card** — extends US-47's sheet with a tile picker; the tile is the model, so US-46 masking and the reconciliation verdict come for free | Nothing. The one seam is obtaining a tile figure under an explicit anonymize flag |
-| US-55 | **Grab the chart to set the range** — brush the value chart 1:1, velocity handoff to a spring, momentum-projected snap, rubber-band at the edges. **POC validated, ready to build**; prototype on `claude/apple-fluid-poc` | Nothing. Build to match the prototype |
-| US-56 | **Response and graceful degradation** — feedback on pointer-down everywhere, plus reduced-motion / reduced-transparency / prefers-contrast fallbacks, in one layer | Nothing. Guardrail: `npm run palette` stays green |
-| US-57 | **The share sheet as a material** — the card materializes (blur+scale spring), the four formats become a momentum strip. Motion only, no field changes | Nothing. Rides on US-47+/US-52/US-54 |
-| US-58 | **Type that changes shape with size** — size-bucketed tracking and leading, optical sizing, with a measured `npm run type` check. **POC validated, ready to build** | Nothing. Confirm the bundled font has an optical axis |
-| US-62 | **Scrub the value chart** — a crosshair + value/date readout that tracks 1:1, the nearest day's real figure never an interpolation. Recommended | Nothing. Reads the arrays the chart already has |
-| US-63 | **Momentum + rubber-band on the zoom** — release a US-12 zoom and it glides; drag past the ends and it resists. Recommended, build with US-55 | Nothing. Shares US-55's spring |
-| US-64 | **Sections arrive, they don't cut** — a spring cross-fade/slide between rail routes, transform/opacity only, reduced-motion aware. Polish | Nothing |
-| US-65 | **The honest number change** — a changed hero figure swaps (fade/slide), never a count-up: no interpolated value is ever rendered. Polish | Nothing |
 | US-03 (2nd half) | Expiry, strike, call/put from data rather than a name string | A real HAR |
 | US-07 | Options & margin dashboard — the margin half drops if it is not in the response | A real HAR |
 
