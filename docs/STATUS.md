@@ -112,7 +112,7 @@ F1–F5 shipped in 0.37.0, F6–F9 in 0.38.0. U1–U5 need a decision rather tha
 | US-63 | **Momentum + rubber-band on the zoom** — release a US-12 zoom and it glides; drag past the ends and it resists. Recommended, build with US-55 | Nothing. Shares US-55's spring |
 | US-64 | **Sections arrive, they don't cut** — a spring cross-fade/slide between rail routes, transform/opacity only, reduced-motion aware. Polish | Nothing |
 | US-65 | **The honest number change** — a changed hero figure swaps (fade/slide), never a count-up: no interpolated value is ever rendered. Polish | Nothing |
-| US-66 | **A logout button** — forget `userToken`, `intAccount`, `displayName` and disarm the periodic sync, so the token cannot come back within the hour. The cookie was never ours and stays untouched | Nothing. Owner request; clears `IDENTIFYING_META`, not a copied list |
+| US-66 | **Disconnect and freeze** — forget `userToken`, `intAccount`, `displayName` and disarm the periodic sync, while every figure stays on screen labelled with its as-of date. Explicitly *not* our wipe, which resyncs; the cookie was never ours and stays untouched | Nothing. Owner request, clarified in chat: *"ja wipe, maar dat de cijfers freezen"* |
 | US-03 (2nd half) | Expiry, strike, call/put from data rather than a name string | A real HAR |
 | US-07 | Options & margin dashboard — the margin half drops if it is not in the response | A real HAR |
 

@@ -4214,15 +4214,20 @@ rejected count-up wearing a different name, and it fabricates a value the accoun
 
 ---
 
-## US-66 — A logout button: throw the token away *(new, refined)*
+## US-66 — Disconnect and freeze: throw the token away, keep the numbers *(new, refined)*
 
-> *"Nu hoeft dat niet doordat je zelf al ben ingelogd op de giro website — kan je ook een logout
-> knop maken op je plugin. Dat je die token er weer afgooit."*
+> *"Kan je ook een logout knop maken op je plugin — dat je die token er weer afgooit."*
+> — *"Enkel een wipe bedoel je?"* — **"Ja wipe. Maar dat de cijfers freezen."**
 
-Asked in the same breath as the observation that the extension needs no login (rule 9, working as
-intended). The reader's point is the other direction: **nothing can un-remember the session.** Once
-a sync has run, the extension holds account state until somebody presses *Wipe & resync* — which is
-a data action with a resync attached, not a way to leave.
+The second half is the story. Read alone, the first line sounds like the wipe we already have; the
+follow-up says the opposite. **He wants the connection gone and the figures still on screen** — the
+account disconnected, nothing reaching out to DEGIRO any more, and the last synced history left
+standing as a frozen record rather than an empty page.
+
+That is not *Wipe & resync*, and the words collide badly enough to be worth pinning: our wipe empties
+the database and immediately rebuilds it from DEGIRO, which is the one thing this asks for the
+opposite of. A later session reading "wipe" in the chat log and pointing it at `wipeAll` would ship
+exactly the wrong feature.
 
 ### What is actually held, and what is not
 
@@ -4238,51 +4243,68 @@ So "throw the token away" is a real, bounded action: it is the three cached iden
 stored session id is clearing a thing that does not exist — say so in the story rather than letting
 the next session write it.
 
+Freezing costs nothing, and that is a consequence of rule 2 rather than luck: the raw stores are the
+truth, the derived cache is a pure function of them, and neither needs the network to render. A
+disconnected app is the demo path (`npm run demo`) with real data behind it.
+
 ### The trap that decides whether this is worth building
 
 **The alarm brings the token straight back.** `sw.js:36` arms a periodic sync; the next firing calls
 `resolveSession`, which re-reads `/pa/secure/client` and re-caches `userToken` and `intAccount`. A
 logout that only deletes rows is theatre with an hour's half-life. So the action has two halves that
-ship together: forget the identifiers, **and** disarm the periodic sync until the reader asks for one
-by pressing Sync. The next manual sync then behaves exactly like a first run — cookie, `client`,
-cache — with no new code path.
+ship together: forget the identifiers, **and** disarm the periodic sync. Reconnecting is the reader
+pressing Sync, which then behaves exactly like a first run — cookie, `client`, cache — with no new
+code path.
 
 ### The other traps
 
-1. **It cannot log you out of DEGIRO, and must not claim to.** Deleting DEGIRO's own `JSESSIONID`
-   would log out the reader's own trading tab, and acting on the broker's session is the mirror image
-   of rule 9. The button forgets what *we* hold; the confirm says in one line that you stay logged in
-   at DEGIRO, and logging out there happens there.
-2. **Measured against the constant, not against a hand-written list.** What goes is
-   `IDENTIFYING_META` (`store.js:323`) — the list that already exists for exactly this classification
-   — so a key added tomorrow is covered on the day it is added. Writing the four names out again
-   rebuilds the 0.10.0 export denylist and its next leak (rule 7).
-3. **The history is not identity, and *Wipe & resync* already exists.** Logout leaves the portfolio
-   cache alone and the confirm points at wipe for readers who want the numbers gone too. A second
-   thing that empties the database is a second thing to keep correct (rule 8).
-4. **Disconnected must be visible.** A reader who logged out and forgot must not read a stale total as
-   today's. The state says *not connected*, and no figure is presented as current.
-5. **It goes in the app's More menu, not the popup — for now.** US-60 is the popup's translations and
+1. **Frozen has to say when, everywhere the number is.** A figure with no date is a claim about today.
+   Every screen already holds the two dates it needs (`lastSyncAt`, `lastDataDate`); frozen mode makes
+   them non-optional rather than a line in the subtitle. This is the difference between a record and a
+   lie, and it is the whole reason the story is allowed to keep showing amounts at all.
+2. **The reconciliation verdict freezes with the rest, and must not read as verified today.** Rule 6's
+   green *"Reconciles to the cent"* is a statement about the moment `liveTotal` was fetched. Frozen, it
+   stays true *as of that date* and says so — it is not re-asserted, and it is not softened either. A
+   red verdict likewise stays red; disconnecting is not a way to make a failed reconciliation go away.
+3. **It cannot log you out of DEGIRO, and must not claim to.** Deleting DEGIRO's own `JSESSIONID` would
+   log out the reader's own trading tab, and acting on the broker's session is the mirror image of
+   rule 9. The button forgets what *we* hold; the confirm says in one line that you stay logged in at
+   DEGIRO, and logging out there happens there.
+4. **Measured against the constant, not against a hand-written list.** What goes is `IDENTIFYING_META`
+   (`store.js:323`) — the list that already exists for exactly this classification — so a key added
+   tomorrow is covered on the day it is added. Writing the four names out again rebuilds the 0.10.0
+   export denylist and its next leak (rule 7).
+5. **Nothing may reach the network while disconnected.** Not the alarm, not a chart that lazily fetches
+   a missing price series, not the connection check running on its own. Reconnect is the one path that
+   goes out, and it starts with a click.
+6. **`displayName` goes, so the account label must not depend on it.** The header names the account
+   from that key; frozen it has no name, and the fallback has to be a label rather than an empty
+   element or the string `null` (`datasource.js:212`).
+7. **It goes in the app's More menu, not the popup — for now.** US-60 is the popup's translations and
    hierarchy; a button added there first is a fifth hardcoded English string in a file whose defect is
-   that it has no `t()` at all. In the menu it is `data-i18n` from the first commit, in the danger
-   group beside *Wipe & resync…*. Whether the popup gets its own is decided after US-60, by whether
-   anyone reaches for it (rule 8).
+   that it has no `t()` at all. In the menu it is `data-i18n` from the first commit, beside
+   *Wipe & resync…* but **not styled as the same kind of action** — this one destroys no data. The
+   popup needs the frozen *state* visible all the same, because that is where a reader checks.
 
 ### Acceptance criteria
 
-- **AC1** A logout action in the More menu, translated in both languages, behind a confirm that states
-  what is forgotten, what stays, and that you remain logged in at DEGIRO.
+- **AC1** A disconnect action in the More menu, translated in both languages, behind a confirm that
+  states what is forgotten, that the figures stay and stop updating, and that you remain logged in at
+  DEGIRO.
 - **AC2** Afterwards no key in `IDENTIFYING_META` exists in `meta` — asserted against the exported
-  constant, so a key added later fails the test rather than surviving the logout.
-- **AC3** The periodic alarm is cleared and no sync runs until the reader presses Sync; that sync
-  re-resolves from the cookie exactly as a first run does, through no new code path.
-- **AC4** The UI says it is not connected, and presents no figure as current.
-- **AC5** DEGIRO's cookie is untouched — asserted, no `chrome.cookies.remove` anywhere — and no label
+  constant, so a key added later fails the test rather than surviving the disconnect.
+- **AC3** The periodic alarm is cleared and no request leaves the extension until the reader presses
+  Sync; that sync re-resolves from the cookie exactly as a first run does, through no new code path.
+- **AC4** Every section still renders its charts, tables and figures from the cache, with the as-of
+  date stated on screen, and the app says it is disconnected.
+- **AC5** The reconciliation verdict is shown as of its own date, unchanged in colour.
+- **AC6** DEGIRO's cookie is untouched — asserted, no `chrome.cookies.remove` anywhere — and no label
   claims otherwise.
-- **AC6** The portfolio history survives, and `engine.js` is unchanged.
+- **AC7** Nothing is deleted from the raw or derived stores, and `engine.js` is unchanged.
 
 ### Stop condition
 
-If it turns out a logout is only meaningful by invalidating the session at DEGIRO, stop and drop it:
-that is authenticating in reverse, and it belongs on DEGIRO's own site. The buildable story is
-forgetting what this machine holds.
+If frozen mode needs its own copy of the numbers — a snapshot written into a store and read back as an
+input — stop. That is rule 2, and it is unnecessary: the raw stores plus a pure recompute already are
+the frozen record. If instead it turns out a logout is only meaningful by invalidating the session at
+DEGIRO, drop the story: that is authenticating in reverse and it belongs on DEGIRO's own site.
