@@ -107,6 +107,21 @@ F1–F5 shipped in 0.37.0, F6–F9 in 0.38.0. U1–U5 need a decision rather tha
 | ~~U4~~ | **Done, 0.39.0.** Called estimated rather than measured, and counted | — |
 | ~~U5~~ | **Done, 0.39.0.** Each says what it counts | — |
 
+## Unmerged work sitting on branches
+
+Found in the 2026-08-18 branch audit (23 `claude/*` branches; the rest were merged or duplicated
+`main` and are being deleted). These five carry work `main` does not have. **A branch is not a
+backlog** — a story on a branch nobody can see is how US-66 and US-76 each got claimed three times;
+the numbering repair and the rule are in [BACKLOG.md](BACKLOG.md), *Refinement after 0.47.0*.
+
+| Branch | What it carries | State |
+|---|---|---|
+| `claude/paid-vs-grown-discrepancy-rk40yw` | **US-76 + US-77 built**: the card and its table row agreeing, and the card's sparkline keeping the days that matter. Code + tests, on top of 0.47.0 | Ready to merge |
+| `claude/v47-bug-2jcvd3` | Popup sparkline destroyed before repaint (a leak), on top of 0.47.0 | Ready to merge |
+| `claude/bug-report-pbvnjs` | A 0.46.1: *Today* uses DEGIRO's own live day result, not the ragged reconstructed edge. `parse.js` + `app.js` + tests | Stranded 27 commits behind — needs a rebase onto 0.47.0 and a re-versioning before it can land |
+| `claude/multi-broker-build` | US-45 built (parameterised session read) plus a 0.44.2 fix that `main` later got as US-50 | US-45 is real and unmerged; the rest is duplicate. Salvage the one commit |
+| `claude/apple-fluid-poc` | `docs/prototypes/apple-fluid.html` — the validated US-55…58 prototype the backlog already cites | Imported to `main` in the same commit as this table; branch can go |
+
 ## Refined, not built
 
 | Story | State | Waiting on |

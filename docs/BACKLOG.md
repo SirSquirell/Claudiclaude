@@ -3956,7 +3956,7 @@ cash rather than to any holding. DEGIRO lists `degiroCash` and `flatexCash` as s
 somebody knows which of those three fields is the whole balance. Picking one to make the check pass
 would be defeating the check.
 
-Reported again against 0.47.0, unchanged. Refined into **US-76** at the end of this file.
+Reported again against 0.47.0, unchanged. Refined into **US-81** at the end of this file.
 
 ---
 
@@ -4691,9 +4691,333 @@ The moment the data draws itself, this stopped being a story about arrival and b
 pretending to compute.
 
 
+
 ---
 
-## US-76 — Locate the five cents. Do not tune anything to hide them *(new, defect, refined)*
+# Refinement after 0.47.0 — the numbers collided, and this is the repair
+
+Four v0.47 reports were refined in parallel sessions, each on its own branch, and each session
+numbered its story against the `main` it could see. Three different stories ended up as **US-76**
+and three as **US-66**. This section is the repair: every pending story gets one number, here, on
+`main`.
+
+**The rule, so it cannot happen again: a story number is claimed by landing in this file on
+`main`, and nowhere else.** A branch that refines a story brings the text here first (or
+immediately after), rather than holding it. The next free number is stated at the end of this
+section — a session that cannot see other sessions' branches *can* see this line.
+
+## US-76 — The card and the row disagree about the same position *(built, on a branch)*
+
+Claimed with code: branch `claude/paid-vs-grown-discrepancy-rk40yw` carries the story text, the fix
+(`src/lib/snapshot.js`, `src/ui/app.js`) and its tests, on top of 0.47.0. The number stays with the
+built work; the text arrives when that branch merges. Not restated here — restating it is how two
+copies drift.
+
+## US-77 — The card's line was missing the days that mattered *(built, on a branch)*
+
+Same branch, same arrangement as US-76.
+
+---
+
+## US-78 — Three of the four shapes are off screen, and nothing says so *(new, defect + story, refined)*
+
+*Refined on `claude/v47-nav-aspect-ratio-v0wa42` as US-76; renumbered here — see the note above on how the numbers collided.*
+
+The **Shape** control in the share sheet is a strip four items long inside a window two items wide,
+with no arrows, no dots, no edge fade and no page indicator. The reader sees two shapes, no reason to
+believe there are more, and the one gesture that would reveal them — a horizontal drag — is announced
+only by `cursor: grab` (`styles.css:810`), which is invisible until the pointer is already over the
+control and does not exist at all on a touch screen. That is the same class of defect US-67 shipped a
+fix for: a hover affordance standing in for the usable state.
+
+Reported from the sheet as it ships in 0.47.0: *"this navigating feels horrible."*
+
+### The measurement
+
+Nothing here is estimated; every number is in the files.
+
+| Thing | Where | Value |
+|---|---|---|
+| Controls column | `styles.css:746` (`.share-body`) | `15rem` = 240 px |
+| Strip padding | `styles.css:811` | 3 px each side → 234 px of window |
+| Item width | `styles.css:833` (`.fmt`) | `min-width: 6.5rem` = 104 px |
+| Track gap | `styles.css:820` (`.fmt-track`) | 10 px |
+| Pitch | measured by `stepOf`, `app.js:879` | 114 px |
+| Items | `FORMATS`, `snapshot.js:127` | 4 — `1:1`, `4:5`, `9:16`, `16:9` |
+
+234 ÷ 114 = **two items and six pixels of nothing**. The repo already knew this and wrote it down
+rather than fixing it: `test/motion.test.js:481` reads *"at rest the window shows 1:1 and 4:5; tabbing
+to 9:16…"*. Half the control has never been visible.
+
+### Four mechanisms, and they compound
+
+1. **The first paint measures a hidden dialog.** `showShareSheet` calls `paintShareControls()` before
+   `openModal(dlg)` (`app.js:793` then `794`), so the strip is built and measured while the `<dialog>`
+   is still closed and therefore `display: none`. Every `offsetLeft` is 0, `stepOf` returns 0, and
+   `target = -index * 0` is 0. The default format is `'16:9'` (`app.js:120`) — the *last* item — so on
+   the first open the pressed shape is the one shape not on screen. Move the paint after the open, or
+   make the alignment re-measure once laid out.
+2. **Front-alignment has no end stop.** `target = -index * stepOf(track)` (`app.js:876`) puts the
+   chosen item at the left edge, which for the last item scrolls the track a full three steps and
+   leaves the window showing one shape and a void where items five and six would be. A carousel needs
+   a last-page clamp: `max(target, -(trackWidth − windowWidth))`.
+3. **The drag itself is unbounded.** `stripX.snap(stripX.x + e.movementX)` (`app.js:898`) accepts any
+   x; only the *landing* index is clamped (`app.js:917`). So the strip can be dragged completely empty
+   and only snaps back on release. The rubber-band this wants already exists in `motion.js` from
+   US-63 and is simply not called here.
+4. **The click/drag threshold is the one US-66 replaced.** `moved += Math.abs(e.movementX)`
+   (`app.js:893`) with `if (moved < 4) return` (`app.js:911`) counts *travel*, so a 2 px wobble back
+   and forth is a drag. US-66 settled this for the chart: 8 px of **distance**, from `config.js`. The
+   strip kept the old rule.
+
+### What was asked for
+
+> *"I want some smart tucked away buttons to slide through the options, and 1:1, 16:9, 4:3 should be
+> the 3 default options before you slide."*
+
+Three things, in order of what they cost:
+
+- **`4:3` does not exist yet.** `FORMATS` is `1:1 · 4:5 · 9:16 · 16:9`. Adding `{ id: '4:3', w: 960,
+  h: 720 }` is one line, and the comment above `FORMATS` (`snapshot.js:120`) already promises that is
+  all it is: *"Anything else is a fifth entry here and no change anywhere else."* This story is the
+  test of that claim. Short edge 720 px equals `16:9`'s, so the US-59 type floors
+  (`CARD_MIN_TYPE_PX` at `CARD_RENDER_MIN_PX`) hold without a new number.
+- **The three defaults must be the three that are visible**, which means both a reorder — `1:1`,
+  `16:9`, `4:3`, then `4:5` and `9:16` — and a window that actually fits three. It does not today:
+  three items at the current metrics need 332 px in a 234 px window. Either the item narrows to ~71 px
+  (label under the shape, or the shape's long edge down from 34 px to ~24 px) or the strip spans the
+  sheet's full width instead of sitting in the 15rem column. The build picks; AC2 is the outcome, not
+  the route.
+- **The tucked-away buttons.** Two chevrons that appear only when there is something past that edge
+  and page the strip by one window. They are navigation, not choice: the shapes keep `aria-pressed`
+  and the chevrons carry neither it nor a format id, or a screen reader is told there are seven
+  shapes.
+
+### The traps
+
+1. **Do not turn the strip into a scroll container.** `overflow-x: auto` with `scroll-snap` would fix
+   the geometry and break US-57: the spring writes `transform` per frame, and a scroll position plus a
+   transform is two mechanisms fighting over one x. The window stays `overflow: hidden` and the spring
+   stays the only thing that moves it.
+2. **Do not add a second spring.** Bounds, rubber-band and projection all come from `motion.js` —
+   US-69's point was one vocabulary, and a carousel with its own feel reads as a second product.
+3. **The keyboard path is already built and must not regress.** The `focusin` handler (`app.js:934`)
+   brings a tabbed-to shape into the window because a transform cannot be `scrollIntoView`d. Two new
+   chevrons are two new tab stops between the shapes and the theme control — they may not sit between
+   the shapes.
+4. **The reorder is the DOM order.** Reorder `FORMATS`, not the visual layout: a CSS `order` would
+   leave the tab order and the screen-reader order saying `4:5` comes second when it is fifth.
+   `formatById`'s unknown-id fallback is `FORMATS[0]`, which stays `1:1`.
+5. **`test/anon-brand-snapshot.test.js:385` asserts the length and the exact order** and changes with
+   this story, deliberately. Every other card test loops over `FORMATS`, so `4:3` inherits the ramp,
+   the floors and the footer checks for free — if it does not, that is the real finding and it is
+   about US-59, not about this control.
+6. **Five formats, not eight.** Only `4:3` was asked for. No `3:2`, no `21:9`, no custom size — rule 8,
+   and every unreached format is a crop nobody has looked at.
+7. **A defect fix, not a redesign of the sheet.** The theme and amounts controls, the preview and the
+   two export buttons are untouched.
+
+### Acceptance criteria
+
+- **AC1** `FORMATS` is five entries, ordered `1:1`, `16:9`, `4:3`, `4:5`, `9:16`; `4:3` is 960×720 and
+  a test checks its ratio like the other four.
+- **AC2** At rest the window shows the first three shapes **complete**, measured at the 15rem controls
+  column and at a 320 px viewport; no shape is clipped at either.
+- **AC3** A chevron appears at an edge only when there is something past it, pages the strip by one
+  window, and is visible without hover on a touch pointer. Neither chevron carries `aria-pressed` or a
+  format id.
+- **AC4** The chosen shape is always fully in the window, including on the *first* open of the sheet
+  with the default `16:9` — a test asserts the alignment is computed after the dialog is open, or that
+  a zero measurement is re-taken rather than used.
+- **AC5** The strip cannot be dragged or sprung past either end: the last page clamps, and an
+  over-drag rubber-bands through `motion.js` rather than emptying the window.
+- **AC6** Click and drag are told apart by pointer **distance** in pixels, from the same `config.js`
+  constant US-66 introduced, not by accumulated travel.
+- **AC7** Tab and Enter still reach and choose all five shapes, and a tabbed-to shape is still brought
+  into the window.
+- **AC8** Under `prefers-reduced-motion` the strip jumps and the chevrons still page it.
+- **AC9** `engine.js`, the snapshot renderer and the export are untouched; no resync.
+
+**Stop condition:** if fitting three shapes requires the sheet's layout to change — the controls column
+widening, the preview shrinking — stop and say so. That is a share-sheet layout story with a preview to
+re-check at four sizes, and this one is a picker that hides most of itself.
+
+---
+
+---
+
+## US-79 — Disconnect and freeze: throw the token away, keep the numbers *(new, refined)*
+
+*Refined on `claude/new-user-story-iu926r` as US-66; renumbered here — see the note above on how the numbers collided.*
+
+> *"Kan je ook een logout knop maken op je plugin — dat je die token er weer afgooit."*
+> — *"Enkel een wipe bedoel je?"* — **"Ja wipe. Maar dat de cijfers freezen."**
+
+The second half is the story. Read alone, the first line sounds like the wipe we already have; the
+follow-up says the opposite. **He wants the connection gone and the figures still on screen** — the
+account disconnected, nothing reaching out to DEGIRO any more, and the last synced history left
+standing as a frozen record rather than an empty page.
+
+That is not *Wipe & resync*, and the words collide badly enough to be worth pinning: our wipe empties
+the database and immediately rebuilds it from DEGIRO, which is the one thing this asks for the
+opposite of. A later session reading "wipe" in the chat log and pointing it at `wipeAll` would ship
+exactly the wrong feature.
+
+### What is actually held, and what is not
+
+| | Where | Cleared today by |
+|---|---|---|
+| `userToken` | `meta` (`session.js:70`) | `wipeAll` only, and it comes straight back |
+| `intAccount` | `meta` (`session.js:71`) | idem |
+| `displayName` | `meta` (`session.js:73`) | idem |
+| `JSESSIONID` | **nowhere** — read per request from the cookie jar | n/a |
+
+So "throw the token away" is a real, bounded action: it is the three cached identifiers, and it is
+**not** the session cookie, because that was never ours to hold. Any code that pretends to clear a
+stored session id is clearing a thing that does not exist — say so in the story rather than letting
+the next session write it.
+
+Freezing costs nothing, and that is a consequence of rule 2 rather than luck: the raw stores are the
+truth, the derived cache is a pure function of them, and neither needs the network to render. A
+disconnected app is the demo path (`npm run demo`) with real data behind it.
+
+### The trap that decides whether this is worth building
+
+**The alarm brings the token straight back.** `sw.js:36` arms a periodic sync; the next firing calls
+`resolveSession`, which re-reads `/pa/secure/client` and re-caches `userToken` and `intAccount`. A
+logout that only deletes rows is theatre with an hour's half-life. So the action has two halves that
+ship together: forget the identifiers, **and** disarm the periodic sync. Reconnecting is the reader
+pressing Sync, which then behaves exactly like a first run — cookie, `client`, cache — with no new
+code path.
+
+### The other traps
+
+1. **Frozen has to say when, everywhere the number is.** A figure with no date is a claim about today.
+   Every screen already holds the two dates it needs (`lastSyncAt`, `lastDataDate`); frozen mode makes
+   them non-optional rather than a line in the subtitle. This is the difference between a record and a
+   lie, and it is the whole reason the story is allowed to keep showing amounts at all.
+2. **The reconciliation verdict freezes with the rest, and must not read as verified today.** Rule 6's
+   green *"Reconciles to the cent"* is a statement about the moment `liveTotal` was fetched. Frozen, it
+   stays true *as of that date* and says so — it is not re-asserted, and it is not softened either. A
+   red verdict likewise stays red; disconnecting is not a way to make a failed reconciliation go away.
+3. **It cannot log you out of DEGIRO, and must not claim to.** Deleting DEGIRO's own `JSESSIONID` would
+   log out the reader's own trading tab, and acting on the broker's session is the mirror image of
+   rule 9. The button forgets what *we* hold; the confirm says in one line that you stay logged in at
+   DEGIRO, and logging out there happens there.
+4. **Measured against the constant, not against a hand-written list.** What goes is `IDENTIFYING_META`
+   (`store.js:323`) — the list that already exists for exactly this classification — so a key added
+   tomorrow is covered on the day it is added. Writing the four names out again rebuilds the 0.10.0
+   export denylist and its next leak (rule 7).
+5. **Nothing may reach the network while disconnected.** Not the alarm, not a chart that lazily fetches
+   a missing price series, not the connection check running on its own. Reconnect is the one path that
+   goes out, and it starts with a click.
+6. **`displayName` goes, so the account label must not depend on it.** The header names the account
+   from that key; frozen it has no name, and the fallback has to be a label rather than an empty
+   element or the string `null` (`datasource.js:212`).
+7. **It goes in the app's More menu, not the popup — for now.** US-60 is the popup's translations and
+   hierarchy; a button added there first is a fifth hardcoded English string in a file whose defect is
+   that it has no `t()` at all. In the menu it is `data-i18n` from the first commit, beside
+   *Wipe & resync…* but **not styled as the same kind of action** — this one destroys no data. The
+   popup needs the frozen *state* visible all the same, because that is where a reader checks.
+
+### An "i" on the button, because nobody will read a changelog first
+
+Asked for explicitly, with "keep it simple" attached. The pattern exists: the `.info` button plus
+`data-tip` that 0.26.0 put on every figure, one shared fixed-position tooltip, hover *and* focus.
+This is the same control on a different row.
+
+Three sentences, in this order, because that is the order the question is asked in:
+
+> **How it works.** The extension uses the DEGIRO session your own browser already has, and
+> remembers the account number DEGIRO hands back. It never sees a password.
+>
+> **Disconnect** forgets that account number and stops syncing by itself.
+>
+> **It does not** delete your history — the figures stay, frozen at the last sync — and it does not
+> log you out of DEGIRO.
+
+Two things to get right and nothing else:
+
+- **`wireTips` is delegated on `#tiles`** (`app.js:2258`). The menu is a different root, so it needs
+  a second root registered — not a generic tooltip system with one caller today (rule 8).
+- **Both languages, and the tip is prose, not a spec.** It goes through `t()` like every tile tip, so
+  `missing()` counts it. If it grows past those three sentences it has turned into documentation and
+  belongs in the README instead.
+
+### Acceptance criteria
+
+- **AC1** A disconnect action in the More menu, translated in both languages, behind a confirm that
+  states what is forgotten, that the figures stay and stop updating, and that you remain logged in at
+  DEGIRO.
+- **AC2** Afterwards no key in `IDENTIFYING_META` exists in `meta` — asserted against the exported
+  constant, so a key added later fails the test rather than surviving the disconnect.
+- **AC3** The periodic alarm is cleared and no request leaves the extension until the reader presses
+  Sync; that sync re-resolves from the cookie exactly as a first run does, through no new code path.
+- **AC4** Every section still renders its charts, tables and figures from the cache, with the as-of
+  date stated on screen, and the app says it is disconnected.
+- **AC5** The reconciliation verdict is shown as of its own date, unchanged in colour.
+- **AC6** DEGIRO's cookie is untouched — asserted, no `chrome.cookies.remove` anywhere — and no label
+  claims otherwise.
+- **AC7** Nothing is deleted from the raw or derived stores, and `engine.js` is unchanged.
+- **AC8** An `i` beside the action explains, in three sentences and in both languages, that the session is the browser's own, what disconnect forgets, and what it leaves alone. Reachable by hover *and* focus, like every other tip.
+
+### Stop condition
+
+If frozen mode needs its own copy of the numbers — a snapshot written into a store and read back as an
+input — stop. That is rule 2, and it is unnecessary: the raw stores plus a pure recompute already are
+the frozen record. If instead it turns out a logout is only meaningful by invalidating the session at
+DEGIRO, drop the story: that is authenticating in reverse and it belongs on DEGIRO's own site.
+
+---
+
+---
+
+## US-80 — The suite waits in real time for retries it could fake *(new, refined — optimisation)*
+
+*Refined on `claude/eager-cannon-islvb3` as US-66; renumbered here — see the note above on how the numbers collided.*
+
+`npm test` takes about 55 seconds for 434 tests, and one test — "the config endpoint failing
+degrades to the documented defaults" in `test/degiro.test.js` — accounts for roughly 31 of those
+seconds by itself. It is not doing 31 seconds of work: `throttledFetch`'s exponential backoff
+(`src/lib/degiro.js:60,105-107`) calls the real `setTimeout`, and this test drives it through its
+full retry budget, so the wall clock is spent asleep, not computing. A dozen more tests in the same
+file and in `test/session.test.js` cost one to seven real seconds each the same way.
+
+Node's own test runner ships `mock.timers` — a per-test fake clock that intercepts `setTimeout`
+without touching `src/lib/degiro.js` at all: the test advances the clock instead of the process
+sleeping through it. This is a test-only change; rule 5's queue and backoff logic does not move.
+
+**Grounded:** `sleep()` at `src/lib/degiro.js:60` is a plain `setTimeout` wrapper, the standard shape
+`mock.timers` is built to intercept. No dependency injection needed in the source.
+
+**The traps:**
+
+1. **Enable and disable the fake clock per test**, not once for the file — a global fake clock that
+   leaks into an unrelated test changes what that test measures without saying so.
+2. **`throttledFetch`'s own inter-request spacing test** ("requests are spaced out, and parallel
+   callers cannot defeat it") is asserting real elapsed time between calls; check whether it stays
+   meaningful under a fake clock or needs to stay real-time on purpose.
+3. **Advance the clock in the same steps the backoff actually takes** (`RATE.backoffBaseMs * 2 **
+   attempt`, capped at `RATE.backoffMaxMs`) rather than jumping straight to the end, so a test still
+   fails if a future change alters the schedule instead of just the number of retries.
+4. **Don't touch `src/lib/degiro.js`.** This is entirely inside `test/`.
+
+**Acceptance criteria:**
+
+- **AC1** `npm test` runs in single-digit seconds, not ~55.
+- **AC2** Every retry/backoff/timeout test still exercises the real code path in `degiro.js`,
+  unmodified.
+- **AC3** No test's *assertions* change — only how it waits.
+- **AC4** A test that should still fail on a schedule regression (wrong delay, wrong attempt count)
+  still does.
+
+**Stop condition:** if making a test pass under a fake clock requires changing what `degiro.js` does
+(injecting a clock, a delay function, a config flag), stop — the point was zero production-code
+change, and a hook added just for testability is the thing rule 8 exists to keep out.
+
+---
+
+## US-81 — Locate the five cents. Do not tune anything to hide them *(new, defect, refined)*
 
 > *"The total doesn't match my account total right now"* — 0.47.0, the owner's account, with the
 > banner reading **reconstructed € −0,05 · DEGIRO € 0,00 · off by € −0,05**.
@@ -4798,3 +5122,7 @@ If the locator lands and the residual turns out to be one line, that is a **sepa
 with the evidence attached. And if the locator ships and still cannot say where the five cents are,
 that is the finding: write down what it ruled out, because ruling out the ledger is most of the way
 to the answer.
+
+---
+
+**Next free number: US-82.**
