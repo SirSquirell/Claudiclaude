@@ -15,12 +15,17 @@
  * turned out to be the better design.
  */
 
-import { formatById, provenanceLine } from '../lib/snapshot.js';
+import { cardMetrics, formatById, provenanceLine } from '../lib/snapshot.js';
 import { drawMark, markWidth } from './brand.js';
 import { fmtPct, fmtSigned, tokens } from './theme.js';
 
-const PAD = 48;
+/**
+ * Two families, one ramp. The display face carries the figures and the name; the
+ * text face carries the lines that are read as sentences. Sizes never appear
+ * here — they come from `cardMetrics`, for the reason US-59 gives.
+ */
 const FONT = 'Inter Tight, Inter, system-ui, sans-serif';
+const FONT_TEXT = 'Inter, system-ui, sans-serif';
 
 /**
  * Drawn at 2× the declared size, so the card is sharp when pasted somewhere that
@@ -52,7 +57,7 @@ function clip(ctx, text, max) {
  * to read off. The zero line is drawn when zero falls inside the range, because
  * without it a series that only ever fell still looks like a rise.
  */
-function drawSpark(ctx, spark, { x, y, w, h, up, t }) {
+function drawSpark(ctx, spark, { x, y, w, h, up, t, u = 1 }) {
   if (!spark || spark.length < 2) return;
   const lo = Math.min(...spark);
   const hi = Math.max(...spark);
@@ -63,8 +68,10 @@ function drawSpark(ctx, spark, { x, y, w, h, up, t }) {
   if (lo < 0 && hi > 0) {
     ctx.save();
     ctx.strokeStyle = t.axis;
-    ctx.lineWidth = 1;
-    ctx.setLineDash([3, 3]);
+    // Scaled with the card for the same reason the type is (US-59): a hairline
+    // that survives at 1280 wide is gone at the 500 a chat renders.
+    ctx.lineWidth = 1.2 * u;
+    ctx.setLineDash([3.5 * u, 3.5 * u]);
     ctx.beginPath();
     ctx.moveTo(x, py(0));
     ctx.lineTo(x + w, py(0));
@@ -74,7 +81,7 @@ function drawSpark(ctx, spark, { x, y, w, h, up, t }) {
 
   ctx.save();
   ctx.strokeStyle = up ? t.pos : t.neg;
-  ctx.lineWidth = 2.5;
+  ctx.lineWidth = 3 * u;
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';
   ctx.beginPath();
@@ -94,6 +101,13 @@ export function drawSnapshot(model, t = tokens(), { format = '16:9' } = {}) {
   const { canvas, ctx } = makeCanvas(W, H);
   const up = (model.pct ?? 0) >= 0;
   /**
+   * Every size below is a multiple of the card's own width — US-59. There is no
+   * bare pixel value in this function, and the test suite measures that the
+   * smallest of them survives the scale a chat applies.
+   */
+  const m = cardMetrics(W);
+  const PAD = m.pad;
+  /**
    * Two layouts, not four.
    *
    * A landscape card has room beside the number and a portrait one does not, and
@@ -103,52 +117,98 @@ export function drawSnapshot(model, t = tokens(), { format = '16:9' } = {}) {
    * to read as a shape.
    */
   const wide = W / H >= 1.3;
-  const colW = wide ? W / 2 - PAD - 20 : W - PAD * 2;
+  const colW = wide ? W / 2 - PAD - m.markGap * 2 : W - PAD * 2;
 
   ctx.fillStyle = t.surface;
   ctx.fillRect(0, 0, W, H);
 
   // --- the brand ------------------------------------------------------------
-  const markH = 30;
+  const markH = m.markH;
   drawMark(ctx, { x: PAD, y: PAD, height: markH, ink: t.brandInk, accent: t.brandAccent });
   ctx.fillStyle = t.textSecondary;
-  ctx.font = `500 16px ${FONT}`;
+  ctx.font = `500 ${m.type.brand}px ${FONT}`;
   ctx.textBaseline = 'middle';
-  ctx.fillText('ASTERIA', PAD + markWidth(markH) + 14, PAD + markH / 2);
+  ctx.fillText('ASTERIA', PAD + markWidth(markH) + m.markGap, PAD + markH / 2);
   ctx.textBaseline = 'alphabetic';
 
   // --- what this is ---------------------------------------------------------
-  let y = PAD + markH + 60;
+  let y = PAD + markH + m.gapName;
   ctx.fillStyle = t.text;
-  ctx.font = `600 38px ${FONT}`;
+  ctx.font = `600 ${m.type.name}px ${FONT}`;
   ctx.fillText(clip(ctx, model.name, colW), PAD, y);
 
   if (model.symbol) {
-    y += 30;
+    y += m.gapSymbol;
     ctx.fillStyle = t.muted;
-    ctx.font = '400 19px Inter, system-ui, sans-serif';
+    ctx.font = `400 ${m.type.symbol}px ${FONT_TEXT}`;
     ctx.fillText(model.symbol, PAD, y);
   }
 
   // --- the number -----------------------------------------------------------
-  y += 80;
+  y += m.gapHero;
   ctx.fillStyle = up ? t.pos : t.neg;
-  ctx.font = `700 72px ${FONT}`;
+  ctx.font = `700 ${m.type.hero}px ${FONT}`;
   ctx.fillText(model.pct == null ? 'all gain' : fmtPct(model.pct), PAD, y);
 
-  y += 30;
+  y += m.gapCaption;
   ctx.fillStyle = t.textSecondary;
-  ctx.font = '400 18px Inter, system-ui, sans-serif';
+  ctx.font = `400 ${m.type.caption}px ${FONT_TEXT}`;
   ctx.fillText(model.pct == null ? 'more has come out than went in' : 'on the money put in', PAD, y);
 
   // The amount, only when US-46 is off. `model.amount` is already null when it
   // is on — this branch is a second lock on the same door, not the only one.
   if (model.amount != null) {
-    y += 44;
+    y += m.gapAmount;
     ctx.fillStyle = up ? t.pos : t.neg;
-    ctx.font = `600 27px ${FONT}`;
+    ctx.font = `600 ${m.type.amount}px ${FONT}`;
     ctx.fillText(fmtSigned(model.amount), PAD, y);
   }
+
+  // --- the footer, from the bottom up --------------------------------------
+  /**
+   * Three lines at most, stacked rather than concatenated, and this is US-59's
+   * second correction.
+   *
+   * They used to be two: the sharer on one line, and the period *joined to* the
+   * provenance on the other. At 500 px that joined line ran past the card and
+   * `clip()` did what it is there to do — it truncated the tail, which is where
+   * the reconciliation verdict is. So the worst case of the whole feature, a
+   * card from an account that does **not** reconcile, printed `DOES NOT rec…`.
+   * The one line that must never be the one that gets cut was the one being cut.
+   *
+   * Giving the period its own baseline leaves the verdict the full width. Two
+   * short lines rather than one long one is also simply how a card footer reads.
+   */
+  const failed = model.provenance?.reconciled === false;
+  const period = model.period?.from ? `${model.period.from} → ${model.period.to}` : '';
+  const footer = [];
+  if (model.owner) {
+    /**
+     * Two different sentences for two different claims, and the wording is the
+     * whole point of the `derived` flag. A name read out of the account may say
+     * the account is that person's; a name somebody typed may only say who is
+     * posting it. Rendering the typed one as the first would be the card
+     * asserting something no code here checked.
+     */
+    footer.push({
+      text: model.owner.derived ? `${model.owner.text}'s position` : `shared by ${model.owner.text}`,
+      size: m.type.owner,
+      weight: '500',
+      font: FONT,
+      fill: t.textSecondary,
+    });
+  }
+  if (period) footer.push({ text: period, size: m.type.provenance, weight: '400', font: FONT_TEXT, fill: t.muted });
+  // Allowed to be bad news, and now allowed the room to say it in full.
+  footer.push({
+    text: provenanceLine(model.provenance),
+    size: m.type.provenance,
+    weight: failed ? '600' : '400',
+    font: FONT_TEXT,
+    fill: failed ? t.neg : t.muted,
+  });
+
+  const footTop = H - PAD - (footer.length - 1) * m.footLine - m.footHead;
 
   // --- the shape ------------------------------------------------------------
   /**
@@ -157,9 +217,16 @@ export function drawSnapshot(model, t = tokens(), { format = '16:9' } = {}) {
    * story format has 700 more pixels of height and they all go here, where more
    * room means a bigger shape rather than more whitespace.
    */
-  const footTop = H - PAD - (model.owner ? 52 : 24);
   if (wide) {
-    drawSpark(ctx, model.spark, { x: W / 2 + 20, y: PAD + markH + 40, w: colW, h: footTop - PAD - markH - 80, up, t });
+    drawSpark(ctx, model.spark, {
+      x: W / 2 + m.markGap * 2,
+      y: PAD + markH + m.sparkTopWide,
+      w: colW,
+      h: footTop - PAD - markH - m.sparkTopWide * 2,
+      up,
+      t,
+      u: m.u,
+    });
   } else {
     /**
      * Capped, and this is the correction a 9:16 preview forced.
@@ -172,40 +239,21 @@ export function drawSnapshot(model, t = tokens(), { format = '16:9' } = {}) {
      * the leftover height becomes whitespace, centred between the block above
      * and the footer.
      */
-    const top = y + 48;
-    const room = Math.max(80, footTop - top - 40);
+    const top = y + m.gapSpark;
+    const room = Math.max(m.sparkFloor, footTop - top - m.sparkTopWide);
     const h = Math.min(room, colW * 0.52);
-    drawSpark(ctx, model.spark, { x: PAD, y: top + (room - h) / 2, w: colW, h, up, t });
+    drawSpark(ctx, model.spark, { x: PAD, y: top + (room - h) / 2, w: colW, h, up, t, u: m.u });
   }
 
-  // --- who is sharing it ----------------------------------------------------
-  /**
-   * Two different sentences for two different claims, and the wording is the
-   * whole point of the `derived` flag. A name read out of the account may say the
-   * account is that person's; a name somebody typed may only say who is posting
-   * it. Rendering the typed one as the first would be the card asserting
-   * something no code here checked.
-   */
-  if (model.owner) {
-    ctx.fillStyle = t.textSecondary;
-    ctx.font = `500 17px ${FONT}`;
+  footer.forEach((line, i) => {
+    ctx.fillStyle = line.fill;
+    ctx.font = `${line.weight} ${line.size}px ${line.font}`;
     ctx.fillText(
-      clip(ctx, model.owner.derived ? `${model.owner.text}'s position` : `shared by ${model.owner.text}`, W - PAD * 2),
+      clip(ctx, line.text, W - PAD * 2),
       PAD,
-      H - PAD - 26,
+      H - PAD - (footer.length - 1 - i) * m.footLine,
     );
-  }
-
-  // --- provenance, and it is allowed to be bad news -------------------------
-  const failed = model.provenance?.reconciled === false;
-  ctx.fillStyle = failed ? t.neg : t.muted;
-  ctx.font = `${failed ? '600' : '400'} 15px Inter, system-ui, sans-serif`;
-  const period = model.period?.from ? `${model.period.from} → ${model.period.to}` : '';
-  ctx.fillText(
-    clip(ctx, [period, provenanceLine(model.provenance)].filter(Boolean).join('  ·  '), W - PAD * 2),
-    PAD,
-    H - PAD,
-  );
+  });
 
   return canvas;
 }

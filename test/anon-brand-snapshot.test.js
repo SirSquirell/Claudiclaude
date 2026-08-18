@@ -5,8 +5,10 @@ import { readFileSync } from 'node:fs';
 import { MASK, hasDigits, maskEur, maskQty, maskSigned } from '../src/lib/anon.js';
 import { DOTS, DOT_R, LINE, MIN_LOCKUP_HEIGHT, STAR, STROKE_W, VIEWBOX, markWidth } from '../src/ui/brand.js';
 import {
-  FORMATS, PROVENANCE_FIELDS, SNAPSHOT_FIELDS, formatById, ownerLine, positionSpan,
-  provenanceLine, returnOnMoneyIn, snapshotModel, sparkline,
+  CARD_MIN_SHORT_EDGE_SHARE, CARD_MIN_TYPE_PX, CARD_RENDER_MIN_PX, FORMATS, PROVENANCE_FIELDS,
+  SNAPSHOT_FIELDS, cardMetrics,
+  formatById, onScreenPx, ownerLine, positionSpan, provenanceLine, returnOnMoneyIn, snapshotModel,
+  sparkline,
 } from '../src/lib/snapshot.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
@@ -403,4 +405,108 @@ test('the sparkline keeps both ends and never more than the cap', () => {
   assert.deepEqual(sparkline([1, 2, 3]), [1, 2, 3]);
   assert.deepEqual(sparkline([1, NaN, 3]), [1, 3], 'a gap is dropped, not drawn as zero');
   assert.deepEqual(sparkline(null), []);
+});
+
+// ===========================================================================
+// US-59 — the card's small print, measured rather than asserted
+// ===========================================================================
+
+test('every size on every format survives the width a chat renders it at', () => {
+  /**
+   * The defect, as a check. `15px` provenance on a 1280-wide card arrived on
+   * screen at 5,9 px once a chat scaled it to 500 — so the test is not "is the
+   * number bigger", it is "what does a reader actually see". If a later change
+   * drops a step of the ramp below the floor, this fails naming the step.
+   */
+  for (const f of FORMATS) {
+    const m = cardMetrics(f.w);
+    for (const [name, size] of Object.entries(m.type)) {
+      const seen = onScreenPx(size, f.w, CARD_RENDER_MIN_PX);
+      assert.ok(
+        seen >= CARD_MIN_TYPE_PX,
+        `${f.id}: "${name}" lands at ${seen.toFixed(1)}px, under the ${CARD_MIN_TYPE_PX}px floor`,
+      );
+    }
+  }
+});
+
+test('the same line is the same size on screen whatever format it is in', () => {
+  /**
+   * The second half of the defect, and the one nobody would have noticed: an
+   * absolute pixel size is 1,17 % of a landscape card and 1,85 % of a story, so
+   * two cards posted side by side had different small print. Expressing the ramp
+   * as a fraction of the width makes the four formats four crops of one design.
+   */
+  const seen = (id) => {
+    const f = formatById(id);
+    const m = cardMetrics(f.w);
+    return Object.fromEntries(
+      Object.entries(m.type).map(([k, v]) => [k, +onScreenPx(v, f.w).toFixed(6)]),
+    );
+  };
+  const ref = seen('16:9');
+  for (const f of FORMATS) assert.deepEqual(seen(f.id), ref, `${f.id} renders type at a different size`);
+});
+
+test('the ramp still has a hierarchy — lifting the floor did not flatten it', () => {
+  // Compressed, not collapsed. If the ramp is ever "fixed" by setting every step
+  // to the floor, the card stops having a hero and this says so.
+  const m = cardMetrics(1000);
+  assert.ok(m.type.hero > m.type.name * 1.5, 'the number no longer dominates the name');
+  assert.ok(m.type.name > m.type.amount, 'the name no longer outranks the amount');
+  assert.ok(m.type.amount > m.type.provenance, 'the amount no longer outranks the small print');
+});
+
+test('the renderer holds no pixel sizes of its own', () => {
+  /**
+   * The rule the fix rests on: a bare `px` in the drawing code is the defect
+   * coming back, one line at a time. Sizes come from `cardMetrics` or they do
+   * not exist. Template holes (`${m.type.x}px`) are what the ramp looks like in
+   * a canvas font string, so they are what is allowed.
+   */
+  const code = read('../src/ui/snapshot.js')
+    .replace(/\/\*\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '');
+  const bare = code.match(/[^{][0-9]+(\.[0-9]+)?px/g) ?? [];
+  assert.deepEqual(bare, [], `hard-coded type sizes in the card renderer: ${bare.join(', ')}`);
+});
+
+test('and the same sizes clear the floor stated the other way, against the short edge', () => {
+  /**
+   * The refinement expressed the floor as a share of the short edge; the ramp is
+   * expressed against the width, for the reason `cardMetrics` gives. Both are
+   * checked, because two floors from different reasoning catch a format that
+   * satisfies one of them by accident — and because a fifth format taller than
+   * it is wide would make them disagree, which is a thing to find out here.
+   */
+  for (const f of FORMATS) {
+    const shortEdge = Math.min(f.w, f.h);
+    const m = cardMetrics(f.w);
+    for (const [name, size] of Object.entries(m.type)) {
+      const share = size / shortEdge;
+      assert.ok(
+        share >= CARD_MIN_SHORT_EDGE_SHARE,
+        `${f.id}: "${name}" is ${(share * 100).toFixed(2)}% of the short edge, `
+        + `under ${(CARD_MIN_SHORT_EDGE_SHARE * 100).toFixed(1)}%`,
+      );
+    }
+  }
+});
+
+test('the footer lines cannot collide, at any format', () => {
+  /**
+   * AC3, as geometry rather than as a screenshot. The footer is up to three
+   * baselines with nothing between them, and the gap used to be smaller than the
+   * type sitting in it. Horizontal overrun is not checked here because `clip()`
+   * measures and truncates — this is the axis nothing else guards.
+   */
+  for (const f of FORMATS) {
+    const m = cardMetrics(f.w);
+    const tallest = Math.max(m.type.owner, m.type.provenance);
+    assert.ok(
+      m.footLine >= tallest * 1.15,
+      `${f.id}: ${m.footLine.toFixed(1)}px between footer baselines, for ${tallest.toFixed(1)}px type`,
+    );
+    assert.ok(m.footHead >= tallest * 0.8, `${f.id}: the footer has no headroom above it`);
+  }
 });

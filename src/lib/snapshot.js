@@ -291,3 +291,123 @@ export function provenanceLine(p = {}, { unknownText = 'not checked against the 
   if (p.version) bits.push(`v${p.version}`);
   return bits.join(' · ');
 }
+
+/**
+ * US-59 — how big the type on a card is, and why it is not a pixel size.
+ *
+ * The defect, measured: the provenance line was `15px` on a 1280-wide card. A
+ * chat renders that card at 500–700 px, which is a scale of 0,39–0,55, so the
+ * line that says whether the figure reconciled arrived on screen at **six
+ * pixels**. Nobody read it. The rest of the small print — the symbol, the
+ * caption under the hero number, the name of whoever shared it — was the same.
+ *
+ * Absolute pixels were wrong twice over. They are unreadable after the scale a
+ * chat applies, and they mean *different* sizes per format: `15px` is 1,17 % of
+ * a 1280-wide landscape card and 1,85 % of an 810-wide story, so the same line
+ * was a different size in two cards side by side.
+ *
+ * So the ramp is expressed in one unit — a thousandth of the card's width — and
+ * every size on the canvas is a multiple of it. Two consequences, and both are
+ * the point:
+ *
+ *  - **On-screen size no longer depends on the format.** At a rendered width of
+ *    `Wr`, a `k`-unit size lands at `k · Wr / 1000` px whatever the card's own
+ *    pixel dimensions are. The four formats become four crops of one design.
+ *  - **The floor is checkable.** `CARD_MIN_TYPE_PX` at `CARD_RENDER_MIN_PX` is a
+ *    measurement the test suite performs, not a comment. It is why the ramp is
+ *    compressed rather than merely enlarged: lifting the small print to the
+ *    floor while keeping the hero where it was is what makes it *fit*.
+ *
+ * ## Width, where the refinement said short edge
+ *
+ * Deliberate, and it is the one place this departs from what was written down.
+ * The refinement's own evidence is a width — *"a chat renders it at 500–700 px
+ * wide"* — and sizing on the short edge does not hold that constant: a 16:9
+ * card's short edge is 56 % of its width, so at one rendered width its type
+ * would come out half the size of the 9:16 beside it. Width is the dimension
+ * that actually binds, and it is the dimension the measurement was taken in.
+ *
+ * It costs nothing on the stated acceptance either. For three of the four
+ * formats the short edge *is* the width; on the fourth, 16:9, the width is the
+ * longer one, so a floor expressed against width clears the same floor
+ * expressed against the short edge with room to spare. The suite checks both,
+ * so if a fifth, taller-than-wide format is ever added the two stop agreeing
+ * loudly rather than quietly.
+ */
+
+/** The narrowest a card is rendered at once it leaves here. Measured in a chat. */
+export const CARD_RENDER_MIN_PX = 500;
+
+/**
+ * The smallest type that is still readable at that width. Below this a reader
+ * does not squint, they skip — and the line most often skipped was the one
+ * saying the numbers did not reconcile.
+ */
+export const CARD_MIN_TYPE_PX = 11;
+
+/**
+ * And the floor the refinement stated, in its own terms: no line under 2,4 % of
+ * the card's short edge. Kept as a second, independently-expressed check rather
+ * than folded into the one above — two floors derived from different reasoning
+ * catch a format that satisfies one by accident.
+ */
+export const CARD_MIN_SHORT_EDGE_SHARE = 0.024;
+
+/**
+ * The ramp, in thousandths of the card's width.
+ *
+ * Every entry is ≥ 24: 24/1000 × 500 = 12 px on screen, and 2,4 % of the short
+ * edge on every format in `FORMATS`, which are the two floors above. The
+ * hierarchy is carried by the gaps between the steps, not by making the bottom
+ * of the ramp small — a card is a small object read at a glance, and there is
+ * nothing on it that earns being hard to read.
+ */
+const RAMP = Object.freeze({
+  brand: 24, name: 36, symbol: 25, hero: 64, caption: 25, amount: 28, owner: 25, provenance: 24,
+});
+
+/**
+ * Spacing, in the same unit, so a card scales as one thing.
+ *
+ * These were the renderer's bare numbers; they are here beside the type because
+ * a ramp that moves without its leading is a layout that collides.
+ */
+const SPACE = Object.freeze({
+  pad: 37.5,
+  markH: 26,
+  markGap: 11,
+  gapName: 48,
+  gapSymbol: 30,
+  gapHero: 68,
+  gapCaption: 34,
+  gapAmount: 40,
+  gapSpark: 40,
+  sparkTopWide: 40,
+  sparkFloor: 62,
+  // Baseline to baseline in the footer stack. It has to clear the type sitting
+  // in it or the lines collide — which they did, at the old 22.
+  footLine: 32,
+  // Headroom between the topmost footer line and whatever is drawn above it.
+  footHead: 22,
+});
+
+/**
+ * Resolve the ramp and the spacing for a card of a given width.
+ *
+ * Pure, and the only thing the renderer is allowed to get a size from. A bare
+ * number in `src/ui/snapshot.js` is the defect coming back.
+ */
+export function cardMetrics(w) {
+  const u = w / 1000;
+  const scale = (spec) => Object.fromEntries(Object.entries(spec).map(([k, v]) => [k, v * u]));
+  return { u, type: scale(RAMP), ...scale(SPACE) };
+}
+
+/**
+ * What a size lands at on screen, once the card is rendered `renderedWidth` wide.
+ *
+ * Exists so the check in the test suite is the same arithmetic the renderer
+ * relies on rather than a second copy of it.
+ */
+export const onScreenPx = (sizeInCardPx, cardWidth, renderedWidth = CARD_RENDER_MIN_PX) =>
+  (sizeInCardPx / cardWidth) * renderedWidth;

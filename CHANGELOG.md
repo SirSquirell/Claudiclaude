@@ -18,6 +18,33 @@ plain increments — this is not a library and nothing depends on its API.
 
 ## [Unreleased]
 
+### Fixed
+
+- **US-59 — the small print on a shareable card is readable again.** The card is drawn at 900–1280 px
+  wide and a chat renders it at 500–700, so every size on it was scaled to roughly a half. The
+  provenance line — the one that says whether the figures reconciled against DEGIRO's own total — was
+  `15px` on a 1280-wide card, which arrives on screen at **six pixels**. So did the ticker, the
+  caption under the percentage, and the name of whoever shared it: a card whose whole claim is its
+  provenance was posting that claim in type nobody could read.
+
+  Absolute pixels were wrong a second way. `15px` is 1,17 % of a landscape card and 1,85 % of a
+  story, so the same line was a *different* size in two cards side by side. The ramp is now expressed
+  in thousandths of the card's own width, which makes on-screen size independent of the format — the
+  four shapes became four crops of one design — and makes the floor checkable: `test/` measures every
+  step of every format at the narrowest width a chat renders, and fails naming the step that falls
+  under it. The ramp was compressed rather than enlarged, so the hero percentage stayed where it was
+  while the lines under it came up to a readable size. The sparkline's stroke scales with the card
+  for the same reason a hairline does not survive being halved.
+
+  A second defect fell out of fixing the first. The footer joined the period to the provenance on
+  one line, and at 500 px that line ran past the card — so the truncation landed on the tail, which
+  is where the verdict is. A card from an account that does **not** reconcile printed
+  `DOES NOT rec…`: the one line that must never be the one cut off was the one being cut off. The
+  period now has its own baseline and the verdict has the full width.
+
+  **No resync is needed.** Nothing about what the card *says* changed — the field allowlist, the
+  masking and the reconciliation verdict are untouched. This is the size it is said at.
+
 ### Added
 
 - **US-61 — the Positions table fits the width it is given.** The merged holdings table (US-49)
