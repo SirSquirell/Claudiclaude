@@ -776,11 +776,19 @@ test('the sheet’s motion holds no opinion about the card’s contents', () => 
    * started editing what is written on it.
    */
   const app = read('../src/ui/app.js');
-  const fn = app.slice(app.indexOf('function materialize(dlg, open)'), app.indexOf('function closeShareSheet'));
+  const fn = app.slice(app.indexOf('function materialize(dlg, open)'), app.indexOf('function openModal(dlg)'));
   assert.ok(!/model|snapshotModel|scoreCardModel|figure|amount/.test(fn));
   // The close waits for the animation and swallows a cancellation, because a
-  // cancelled close means somebody re-opened it.
-  const close = app.slice(app.indexOf('function closeShareSheet'), app.indexOf('function showShareSheet'));
+  // cancelled close means somebody re-opened it. And it is `closeModal`, shared
+  // by every dialog rather than written for the sheet: US-57 gave the arrival to
+  // one of two identical-looking surfaces, which is the consistency rule broken
+  // by the change meant to improve things.
+  const close = app.slice(app.indexOf('function closeModal(dlg)'), app.indexOf('const closeShareSheet'));
   assert.match(close, /materialize\(dlg, false\)\s*\n\s*\.then\(\(\) => dlg\.close\(\)\)/);
   assert.match(close, /\.catch\(\(\) => \{\}\)/);
+  // Comments stripped: the prose explains the guard that lives inside
+  // `openModal`, and counting it would make this pass for the wrong reason.
+  const code = app.replace(/\/\*\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  assert.equal((code.match(/showModal\(\)/g) ?? []).length, 1, 'a dialog opens without going through openModal');
+  assert.match(app, /openModal\(box\)/, 'the diagnostics dialog no longer materializes');
 });

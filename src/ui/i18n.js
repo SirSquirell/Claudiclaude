@@ -468,6 +468,37 @@ const DICT = {
     'Share this figure': 'Deel dit cijfer',
     'Share a figure from this section': 'Deel een cijfer uit dit blok',
     'Which figure': 'Welk cijfer',
+
+    // --- the tile notes (US-60's gap, one surface further in) ---------------
+    // Never translated, and `missing()` never counted them because they never
+    // reached `t()`. Surfaced when US-54's score card became the first thing to
+    // put a note through the dictionary and `as of today` appeared in the count.
+    'all time': 'hele looptijd',
+    today: 'vandaag',
+    'as of {when}': 'per {when}',
+    'deposits minus withdrawals, to {when}': 'stortingen min opnames, tot {when}',
+    'This week {v}': 'Deze week {v}',
+    '{v} withheld · all time': '{v} ingehouden · hele looptijd',
+    'transaction and service costs · all time': 'transactie- en servicekosten · hele looptijd',
+    'margin and cash interest · all time': 'margin- en kasrente · hele looptijd',
+    'fees, withheld tax and interest paid · all time': 'kosten, ingehouden belasting en betaalde rente · hele looptijd',
+    'banked, from {n} closed positions': 'gerealiseerd, uit {n} gesloten posities',
+    'still riding on prices · all time': 'nog afhankelijk van koersen · hele looptijd',
+    '{n} instrument ever held': '{n} instrument ooit gehouden',
+    '{n} instruments ever held': '{n} instrumenten ooit gehouden',
+    '{a} of {b} days estimated': '{a} van {b} dagen geschat',
+    '{name} · of total value': '{name} · van de totale waarde',
+    'nothing held': 'niets in bezit',
+    '{pct} of the total': '{pct} van het totaal',
+    'of the total': 'van het totaal',
+    'nothing lost from a peak · {period}': 'niets verloren vanaf een piek · {period}',
+    '{up} of {n} months · whole history': '{up} van {n} maanden · hele historie',
+    'nothing gained · {period}': 'niets gewonnen · {period}',
+    'nothing lost · {period}': 'niets verloren · {period}',
+    '{name} · {period}': '{name} · {period}',
+    'no full month yet': 'nog geen volledige maand',
+    'Delete every stored response and re-download the full history from DEGIRO?':
+      'Alle opgeslagen antwoorden verwijderen en de volledige historie opnieuw ophalen bij DEGIRO?',
     "{name}'s portfolio": 'de portefeuille van {name}',
     'There is no figure to share for this period.': 'Er is geen cijfer om te delen voor deze periode.',
 

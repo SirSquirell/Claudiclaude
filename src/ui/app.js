@@ -536,9 +536,15 @@ function scoreModel() {
   if (!tile) return null;
 
   return scoreCardModel({
+    // The label is translated here and the note is not, and the asymmetry is
+    // the truth about where each is built: `buildTiles` composes a note out of
+    // figures and phrases and translates it as it goes, while the label is a
+    // bare key the page also translates at render. Passing the note through
+    // `t()` a second time looked harmless and was not — it fed an already-Dutch
+    // string to the dictionary, which counted it as an untranslated one.
     label: tr(tile.label),
     figure: tile.value,
-    caption: tile.note ? tr(tile.note) : null,
+    caption: tile.note || null,
     cls: tile.cls,
     period: { from: r.days[w.from] ?? null, to: r.days[w.to] ?? null },
     owner: ownerLine({
@@ -690,6 +696,11 @@ function openScoreSheet(section) {
  * still announces itself, which is comprehension, without the travel. Under
  * reduced transparency the blur drops out and the scale stays, because glass
  * with nothing behind it is only a slow fade.
+ *
+ * **Every modal, not one.** US-57 gave this to the share sheet and left the
+ * diagnostics dialog cutting in, which is the consistency rule broken by the
+ * change that was meant to improve things: two surfaces that look identical have
+ * to behave identically, or the reader learns nothing from either.
  */
 function materialize(dlg, open) {
   if (typeof dlg.animate !== 'function') return Promise.resolve();
@@ -710,8 +721,14 @@ function materialize(dlg, open) {
   return anim.finished;
 }
 
-function closeShareSheet() {
-  const dlg = $('#share-sheet');
+/** Open any modal the same way, so two identical-looking surfaces behave alike. */
+function openModal(dlg) {
+  if (!dlg) return;
+  if (!dlg.open) dlg.showModal();
+  materialize(dlg, true).catch(() => {});
+}
+
+function closeModal(dlg) {
   if (!dlg?.open) return;
   materialize(dlg, false)
     .then(() => dlg.close())
@@ -719,6 +736,8 @@ function closeShareSheet() {
     // one answer that is certainly wrong.
     .catch(() => {});
 }
+
+const closeShareSheet = () => closeModal($('#share-sheet'));
 
 function showShareSheet() {
   const dlg = $('#share-sheet');
@@ -759,8 +778,7 @@ function showShareSheet() {
   paintShareControls();
   paintShareName();
   paintSharePreview();
-  if (!dlg.open) dlg.showModal();
-  materialize(dlg, true).catch(() => {});
+  openModal(dlg);
 }
 
 /**
@@ -1681,13 +1699,18 @@ function wireActions() {
     render();
   });
 
+  // Escape leaves by the same path as the button, on this dialog as on the
+  // sheet: one way out that looks the same however it was taken.
+  $('#diagnostics').addEventListener('cancel', (e) => {
+    e.preventDefault();
+    closeModal($('#diagnostics'));
+  });
+
   $('#btn-copy-diag').addEventListener('click', async () => {
     if (await copy(state.diagnostics)) notice('ok', 'Report copied to the clipboard.');
   });
 
-  $('#btn-hide-diag').addEventListener('click', () => {
-    $('#diagnostics').close();
-  });
+  $('#btn-hide-diag').addEventListener('click', () => closeModal($('#diagnostics')));
 
   $('#btn-export').addEventListener('click', async (e) => {
     e.target.disabled = true;
@@ -1708,7 +1731,13 @@ function wireActions() {
       banner('info', 'Nothing stored in demo mode.');
       return;
     }
-    if (!confirm('Delete every stored response and re-download the full history from DEGIRO?')) return;
+    /**
+     * The one genuinely destructive, irreversible action on the page, so it is
+     * the one place a confirmation earns its place — and it was asking in English
+     * on a Dutch page. `confirm()` never reaches `t()` on its own, which is why
+     * `missing()` had never counted it.
+     */
+    if (!confirm(tr('Delete every stored response and re-download the full history from DEGIRO?'))) return;
     // One message: the worker waits for any running sync, wipes, then starts a
     // fresh one. Splitting it lets a wipe land in the middle of a sync. It is
     // followed exactly like a sync, because after the wipe that is what it is.
@@ -2497,11 +2526,15 @@ function buildTiles(r, from = 0, to = r.days.length - 1) {
   const weekPnl = r.pnl.slice(Math.max(0, last - 6), last + 1).reduce((a, b) => a + b, 0);
 
   const whole = from <= 0 && last >= r.days.length - 1;
-  const period = whole ? 'all time' : `${formatDay(r.days[from])} — ${formatDay(r.days[last])}`;
+  // US-60's gap, one surface further in: the tile *notes* had never reached
+  // `t()` at all, so `missing()` never counted them and the Dutch page carried
+  // English under every figure. Found because US-54's score card is the first
+  // thing that puts a note through the dictionary.
+  const period = whole ? tr('all time') : `${formatDay(r.days[from])} — ${formatDay(r.days[last])}`;
   const windowPnl = sumWindow(r.pnl, from, last);
   // 'as of 8 aug 2026' when that is today reads as a stale number. It is only
   // a date when the window genuinely ends in the past.
-  const asOf = last >= r.days.length - 1 ? 'today' : formatDay(r.days[last]);
+  const asOf = last >= r.days.length - 1 ? tr('today') : formatDay(r.days[last]);
 
   const held = r.byProduct.filter((p) => Math.abs(p.qty[last]) >= 1e-9);
   const biggest = held.reduce((a, p) => (a && a.values[last] >= p.values[last] ? a : p), null);
@@ -2548,12 +2581,12 @@ function buildTiles(r, from = 0, to = r.days.length - 1) {
     // A value is a position, not a period: it is what the account was worth on
     // the last day of the window, and saying "as of" is what stops that reading
     // as today's number when it is not.
-    { tabs: ['overview'], label: 'Total value', value: fmtEurCents(r.value[last]), note: `as of ${asOf}` },
+    { tabs: ['overview'], label: 'Total value', value: fmtEurCents(r.value[last]), note: tr('as of {when}', { when: asOf }) },
     {
       tabs: ['overview'],
       label: 'Money paid in',
       value: fmtEurCents(r.cumulativeDeposited[last]),
-      note: `deposits minus withdrawals, to ${asOf}`,
+      note: tr('deposits minus withdrawals, to {when}', { when: asOf }),
     },
     /**
      * The percentage under a euro result is read as "that much of what I put
@@ -2592,20 +2625,20 @@ function buildTiles(r, from = 0, to = r.days.length - 1) {
        * way every other return on the page is, so it cannot disagree with them.
        */
       value: `${fmtSigned(dayPnl)}  ${fmtPct(windowReturnPct(r, Math.max(0, last - 1), last))}`,
-      note: `This week ${fmtSigned(weekPnl)}`,
+      note: tr('This week {v}', { v: fmtSigned(weekPnl) }),
       cls: signClass(dayPnl),
     },
     {
       tabs: ['overview', 'income'],
       label: 'Dividend received',
       value: fmtEurCents(r.income.dividendGross + r.income.dividendTax),
-      note: `${fmtEurCents(Math.abs(r.income.dividendTax))} withheld · all time`,
+      note: tr('{v} withheld · all time', { v: fmtEurCents(Math.abs(r.income.dividendTax)) }),
     },
     {
       tabs: ['income'],
       label: 'Fees paid',
       value: fmtEurCents(Math.abs(r.income.fees)),
-      note: 'transaction and service costs · all time',
+      note: tr('transaction and service costs · all time'),
     },
     {
       // Deliberately its own tile rather than folded into "Fees paid": margin
@@ -2616,7 +2649,7 @@ function buildTiles(r, from = 0, to = r.days.length - 1) {
       tabs: ['income'],
       label: 'Interest',
       value: fmtSigned(r.income.interest),
-      note: 'margin and cash interest · all time',
+      note: tr('margin and cash interest · all time'),
       cls: signClass(r.income.interest),
     },
     {
@@ -2626,20 +2659,22 @@ function buildTiles(r, from = 0, to = r.days.length - 1) {
       tabs: ['income'],
       label: 'Total cost',
       value: fmtEurCents(costOfHolding(r)),
-      note: 'fees, withheld tax and interest paid · all time',
+      note: tr('fees, withheld tax and interest paid · all time'),
     },
     {
       tabs: ['perf'],
       label: 'Realised',
       value: fmtSigned(r.realised),
-      note: `banked, from ${r.byProduct.filter((p) => Math.abs(p.qty.at(-1)) < 1e-9).length} closed positions`,
+      note: tr('banked, from {n} closed positions', {
+        n: r.byProduct.filter((p) => Math.abs(p.qty.at(-1)) < 1e-9).length,
+      }),
       cls: signClass(r.realised),
     },
     {
       tabs: ['perf'],
       label: 'Unrealised',
       value: fmtSigned(r.unrealised),
-      note: 'still riding on prices · all time',
+      note: tr('still riding on prices · all time'),
       cls: signClass(r.unrealised),
     },
     drawdownTile(r, from, last, period),
@@ -2652,7 +2687,11 @@ function buildTiles(r, from = 0, to = r.days.length - 1) {
       tabs: ['holdings', 'comp'],
       label: 'Positions held',
       value: String(held.length),
-      note: `${r.byProduct.length} instrument${r.byProduct.length === 1 ? '' : 's'} ever held`,
+      // Singular and plural as separate keys, not an English `s` appended:
+      // Dutch does not build its plural that way.
+      note: tr(r.byProduct.length === 1 ? '{n} instrument ever held' : '{n} instruments ever held', {
+        n: r.byProduct.length,
+      }),
     },
     {
       // Concentration, said plainly. A portfolio where one name is 60 % of the
@@ -2660,13 +2699,17 @@ function buildTiles(r, from = 0, to = r.days.length - 1) {
       tabs: ['holdings', 'comp'],
       label: 'Largest position',
       value: r.value[last] > 0 && biggest ? pct((biggest.values[last] / r.value[last]) * 100) : '—',
-      note: biggest ? `${biggest.symbol || biggest.name} · of total value` : 'nothing held',
+      note: biggest
+        ? tr('{name} · of total value', { name: biggest.symbol || biggest.name })
+        : tr('nothing held'),
     },
     {
       tabs: ['holdings', 'comp'],
       label: 'Cash',
       value: fmtEurCents(r.cash[last]),
-      note: r.value[last] > 0 ? `${pct((r.cash[last] / r.value[last]) * 100)} of the total` : 'of the total',
+      note: r.value[last] > 0
+        ? tr('{pct} of the total', { pct: pct((r.cash[last] / r.value[last]) * 100) })
+        : tr('of the total'),
     },
     {
       // The honesty tile. A history reconstructed largely from stale prices is
@@ -2675,7 +2718,10 @@ function buildTiles(r, from = 0, to = r.days.length - 1) {
       tabs: ['overview', 'holdings'],
       label: 'Data coverage',
       value: `${(100 - (r.coverage.estimated / Math.max(1, r.coverage.days)) * 100).toFixed(1)}%`,
-      note: `${r.coverage.estimated.toLocaleString('nl-NL')} of ${r.coverage.days.toLocaleString('nl-NL')} days estimated`,
+      note: tr('{a} of {b} days estimated', {
+        a: r.coverage.estimated.toLocaleString('nl-NL'),
+        b: r.coverage.days.toLocaleString('nl-NL'),
+      }),
     },
   ];
 
@@ -2930,7 +2976,7 @@ function costOfHolding(r) {
 
 function drawdownTile(r, from, to, period) {
   const d = maxDrawdown(r, from, to);
-  if (!d.amount) return { tabs: ['perf'], label: 'Deepest fall', value: '—', note: `nothing lost from a peak · ${period}` };
+  if (!d.amount) return { tabs: ['perf'], label: 'Deepest fall', value: '—', note: tr('nothing lost from a peak · {period}', { period }) };
   return {
     tabs: ['perf', 'overview'],
     label: 'Deepest fall',
@@ -2944,13 +2990,13 @@ function drawdownTile(r, from, to, period) {
 
 function positiveMonthsTile(r) {
   const months = monthlyTable(r).years.flatMap((y) => y.months.filter(Boolean));
-  if (!months.length) return { tabs: ['perf'], label: 'Months in profit', value: '—', note: 'no full month yet' };
+  if (!months.length) return { tabs: ['perf'], label: 'Months in profit', value: '—', note: tr('no full month yet') };
   const up = months.filter((m) => m.pnl > 0).length;
   return {
     tabs: ['perf'],
     label: 'Months in profit',
     value: pct((up / months.length) * 100),
-    note: `${up} of ${months.length} months · whole history`,
+    note: tr('{up} of {n} months · whole history', { up, n: months.length }),
   };
 }
 
@@ -3545,7 +3591,7 @@ function bestWorst(r, which) {
   const months = monthlyTable(r).years.flatMap((y) =>
     y.months.map((m, i) => (m ? { pct: m.returnPct, label: `${MONTH_NAMES[i]} ${y.year}` } : null)),
   ).filter(Boolean);
-  if (!months.length) return { tabs: ['perf'], label: which === 'best' ? 'Best month' : 'Worst month', value: '—', note: 'no full month yet' };
+  if (!months.length) return { tabs: ['perf'], label: which === 'best' ? 'Best month' : 'Worst month', value: '—', note: tr('no full month yet') };
   months.sort((a, b) => b.pct - a.pct);
   const pick = which === 'best' ? months[0] : months.at(-1);
   return {
@@ -3586,10 +3632,10 @@ function bestWorstPosition(r, which, from, to, period) {
   // least-bad loser under "Biggest winner" would be a lie in green.
   const wrongWay = which === 'best' ? !(pick?.pnl > 0.005) : !(pick?.pnl < -0.005);
   if (wrongWay) {
-    return { tabs: ['perf'], label, value: '—', note: `nothing ${which === 'best' ? 'gained' : 'lost'} · ${period}` };
+    return { tabs: ['perf'], label, value: '—', note: tr(which === 'best' ? 'nothing gained · {period}' : 'nothing lost · {period}', { period }) };
   }
 
-  return { tabs: ['perf', 'holdings'], label, value: fmtSigned(pick.pnl), note: `${pick.name} · ${period}`, cls: signClass(pick.pnl) };
+  return { tabs: ['perf', 'holdings'], label, value: fmtSigned(pick.pnl), note: tr('{name} · {period}', { name: pick.name, period }), cls: signClass(pick.pnl) };
 }
 
 /**
@@ -4419,10 +4465,11 @@ function renderDiagnostics(report) {
    *
    * It is a once-a-month action whose output is a step table nobody needs beside
    * their charts, and `<dialog>` brings Escape, the focus trap and the backdrop
-   * without a line of JavaScript. `showModal()` throws if it is already open, so
-   * the guard is not decoration.
+   * without a line of JavaScript. Opening it goes through `openModal`, which
+   * holds the already-open guard — `showModal()` throws otherwise — and the
+   * arrival, so this dialog and the share sheet behave identically.
    */
-  if (!box.open) box.showModal();
+  openModal(box);
   /**
    * The title names the broker, read off the adapter's own `label` rather than
    * written here. That is what makes a second broker a data change instead of a

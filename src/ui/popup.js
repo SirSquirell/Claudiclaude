@@ -203,11 +203,35 @@ async function main() {
  * there — a seven-figure total sliced by `overflow: hidden` is a wrong number
  * shown silently, and this panel is 320 px wide.
  */
-const cell = (kind, label, value, cls = '') => `
+const lastValue = new Map();
+
+const cell = (kind, label, value, cls = '') => {
+  /**
+   * US-65's swap, on the popup's figures too.
+   *
+   * The popup is the surface most likely to be open across a sync — you press
+   * Sync in it and watch — and it was the one that acknowledged nothing: the
+   * figures were replaced outright, so a number that changed looked exactly like
+   * a repaint. The page got the swap and this did not, which is the same feature
+   * being half-present.
+   *
+   * The mechanism is the page's, not a copy of it: both spans hold complete
+   * formatted strings and the motion is the shared CSS, so nothing here can
+   * produce a figure between the old value and the new one.
+   */
+  const previous = lastValue.get(label);
+  const changed = previous !== undefined && previous !== value;
+  lastValue.set(label, value);
+  return `
   <div class="tile ${kind}">
     <div class="label">${esc(t(label))}</div>
-    <div class="value ${cls}" style="--len:${[...value].length}">${esc(value)}</div>
+    <div class="value ${cls}${changed ? ' swap' : ''}" style="--len:${[...value].length}">${
+      changed
+        ? `<span class="swap-in">${esc(value)}</span><span class="swap-out" aria-hidden="true">${esc(previous)}</span>`
+        : esc(value)
+    }</div>
   </div>`;
+};
 
 async function paint(r, status = {}) {
   const tk = tokens();

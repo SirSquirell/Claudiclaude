@@ -193,6 +193,33 @@ plain increments — this is not a library and nothing depends on its API.
 
 ### Fixed
 
+- **A 17px amount was tracked as display type.** `--kpi` is re-set in six contexts — a hero tile takes
+  it to 3.5rem, a fact and the all-figures grid to 1.0625rem, the popup to 0.9375rem — while the
+  tracking was written once, on the shared rule, at the display value. So the supporting figures on
+  every screen, and every figure in the popup, were set at `-0.025em`: display tracking on body-sized
+  text, which is the exact mistake US-58's buckets exist to prevent. Its check did not catch it
+  because it only ever asked whether *display* rules were negative. Tracking now travels with the
+  size, and `npm run type` fails when a context sets one without the other or when the two disagree.
+
+- **The tile notes had never been translated.** The line under every figure — *"as of today"*,
+  *"banked, from 3 closed positions"*, *"still riding on prices · all time"* — was English on the
+  Dutch page, and `missing()` had never counted a single one because none of them reached `t()`.
+  This is the same gap as the popup (US-60) and the chart readouts, one surface further in; it
+  surfaced because US-54's score card is the first thing that puts a note through the dictionary.
+
+- **The wipe confirmation asked in English.** The one genuinely irreversible action on the page, and
+  `confirm()` never reaches `t()` on its own, so nothing had counted it either.
+
+- **Only one of the two dialogs materialized.** US-57 gave the arrival to the share sheet and left
+  the diagnostics dialog cutting in — two surfaces that look identical behaving differently, which is
+  the consistency rule broken by the change meant to improve things. Both now open, close and take
+  Escape by the same path.
+
+- **The popup acknowledged nothing when a sync changed its figures.** It is the surface most likely
+  to be open across a sync — you press Sync in it and watch — and US-65's swap had reached only the
+  page. Its actions are also a comfortable 44px now rather than 38.
+
+
 - **`npm run palette` took the last `:root` block for the dark theme.** It is the check that keeps
   the categorical slots honest, and it identified the palette by position — so the moment US-56 added
   a `:root` under `prefers-contrast: more`, which redefines borders and nothing else, it died with

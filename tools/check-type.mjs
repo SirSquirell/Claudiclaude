@@ -119,6 +119,63 @@ for (const r of all) {
 }
 note(displaysChecked > 0, 'no display-sized rule was found, so this check has stopped matching the stylesheet');
 
+/**
+ * The other direction, which the first version of this check did not ask — and a
+ * browser found the defect it would have caught.
+ *
+ * `--kpi` is re-set in six contexts and the tracking was written once, on the
+ * shared rule, at the display value. So a 17px amount was set at -0.025em:
+ * display tracking on body-sized text, which is exactly the mistake bucketing
+ * exists to prevent. A check that only asks "is display negative" passes that
+ * happily.
+ *
+ * So: every context that sets `--kpi` must also state its bucket, and the size
+ * and the bucket have to agree. That pair is statically checkable where the
+ * computed value at the point of use is not.
+ */
+/**
+ * Three bands, and the boundaries are the arbitrary part so they are stated here
+ * rather than left implicit.
+ *
+ * `DISPLAY_REM` above is a *floor*: at 1.5rem and up, tracking has to be
+ * negative at all. Which negative is a second question, and its boundary is
+ * higher — 2.25rem (36px), because the page's own hero clamps to 38–56px and
+ * that is the size -0.025em was chosen against. A 28px figure in a 320px panel
+ * is a title, not a display: giving it the hero's tracking would be the same
+ * one-value-fits-all mistake in the other direction.
+ *
+ * Both boundaries were moved once, when this check disagreed with the
+ * stylesheet, and the *check* was wrong: 1.5rem is where negative starts, not
+ * where display starts.
+ */
+const TITLE_REM = 1.125;
+const DISPLAY_TRACK_REM = 2.25;
+const bucketOf = (rem) => (rem >= DISPLAY_TRACK_REM ? 'display' : rem >= TITLE_REM ? 'title' : 'body');
+
+/** The largest size a `clamp()`/`min()` can reach, which is the one to bucket by. */
+const biggest = (value) => {
+  const nums = [...String(resolve(value)).matchAll(/(-?[\d.]+)rem/g)].map((m) => Number(m[1]));
+  return nums.length ? Math.max(...nums) : NaN;
+};
+
+let pairsChecked = 0;
+for (const r of all) {
+  const kpi = /--kpi:\s*([^;]+);/.exec(r.body);
+  if (!kpi) continue;
+  const rem = biggest(kpi[1]);
+  if (!Number.isFinite(rem)) continue;
+  pairsChecked++;
+  const trackDecl = /--kpi-track:\s*var\((--track-[\w-]+)\);/.exec(r.body);
+  if (!note(!!trackDecl, `\`${r.selector}\` sets --kpi but not --kpi-track, so it inherits another size's tracking`)) continue;
+  const stated = trackDecl[1].replace('--track-', '');
+  const wanted = bucketOf(rem);
+  note(
+    stated === wanted,
+    `\`${r.selector}\` is ${rem}rem (${wanted}) but tracked as ${stated}`,
+  );
+}
+note(pairsChecked >= 4, 'the size/tracking pairing check has stopped finding the contexts that set --kpi');
+
 // --- report
 const lines = [
   'type scale (from src/ui/styles.css)',
@@ -127,7 +184,8 @@ const lines = [
   '',
   ...LEAD.map((n) => `  ${n.padEnd(18)} ${String(tokens.get(n)).padStart(8)}`),
   '',
-  `  display-sized rules checked: ${displaysChecked}`,
+  `  display-sized rules checked:      ${displaysChecked}`,
+  `  size/tracking pairs checked:      ${pairsChecked}`,
 ];
 console.log(lines.join('\n'));
 

@@ -488,3 +488,93 @@ test('the strip does not become a hole for anyone using a keyboard', () => {
   assert.match(app, /b\.className = 'fmt';/);
   assert.match(read('../src/ui/app.html'), /id="share-format" role="group"/);
 });
+
+// ===========================================================================
+// The Apple-design pass over the popup and the dialogs
+// ===========================================================================
+
+test('tracking travels with the size, so a context that resizes states its bucket', () => {
+  /**
+   * The defect a browser measurement found, and the one US-58's own check was
+   * blind to: `--kpi` is re-set in six contexts and the tracking was written
+   * once, on the shared rule, at the display value. A 17px amount in the app and
+   * a 13px one in the popup were both set at -0.025em — display tracking on
+   * body-sized text, which is exactly the mistake bucketing exists to prevent.
+   *
+   * The first version of the check only ever asked whether *display* rules were
+   * negative, so it passed happily. It now checks the pair, and the pair is what
+   * makes the invariant statically visible at all: the computed value at the
+   * point of use depends on which ancestor set the token.
+   */
+  assert.match(css, /letter-spacing: var\(--kpi-track\);/);
+  assert.ok(!/letter-spacing: var\(--track-display\);/.test(css), 'a shared rule pinned one bucket again');
+  const checker = read('../tools/check-type.mjs');
+  assert.match(checker, /sets --kpi but not --kpi-track/);
+  assert.match(checker, /but tracked as \$\{stated\}/);
+});
+
+test('the popup acknowledges a figure that changed, with the page’s mechanism', () => {
+  /**
+   * The popup is the surface most likely to be open across a sync — you press
+   * Sync in it and watch — and it was the one that acknowledged nothing. US-65
+   * gave the page the swap and left this half-present.
+   *
+   * The same two-span markup and the same shared CSS, so no code path here can
+   * produce a figure between the old value and the new one either.
+   */
+  const popup = read('../src/ui/popup.js');
+  assert.match(popup, /class="swap-in">\$\{esc\(value\)\}/);
+  assert.match(popup, /class="swap-out" aria-hidden="true">\$\{esc\(previous\)\}/);
+  assert.match(popup, /const changed = previous !== undefined && previous !== value;/);
+  assert.ok(!/@keyframes/.test(popup), 'the popup grew its own animation instead of the shared one');
+});
+
+test('the popup’s actions are a comfortable target', () => {
+  // 38px is fine for a mouse and under the 44px an unaided finger wants. Raised
+  // here rather than everywhere: the page's buttons sit in dense toolbars where
+  // 44px would push the controls apart, and this panel has two and room for them.
+  assert.match(css, /body\.popup \.actions button \{\s*\n\s*min-height: 2\.75rem;/);
+});
+
+test('the destructive confirmation asks in the reader’s language', () => {
+  /**
+   * The one genuinely irreversible action on the page, so the one place a
+   * confirmation earns its place — and it was asking in English on a Dutch page.
+   * `confirm()` never reaches `t()` on its own, which is why `missing()` had
+   * never counted it and no scan had caught it.
+   */
+  assert.match(app, /confirm\(tr\('Delete every stored response/);
+  const dict = read('../src/ui/i18n.js');
+  assert.match(dict, /'Delete every stored response and re-download the full history from DEGIRO\?':/);
+});
+
+test('a tile note is translated once, where it is built', () => {
+  /**
+   * Tile notes had never reached `t()` at all, so `missing()` never counted them
+   * and the Dutch page carried English under every figure. It surfaced because
+   * US-54's score card was the first thing to put a note through the dictionary
+   * — and then the fix produced its own defect: the card translated a note that
+   * `buildTiles` had already translated, feeding a Dutch string back in and
+   * having it counted as untranslated.
+   *
+   * So: notes are translated where they are composed, and the card takes them as
+   * they come. The label is the other way round, because it is a bare key.
+   */
+  const build = app.slice(app.indexOf('function buildTiles'), app.indexOf('function renderTiles'));
+  /**
+   * What counts as untranslated is *prose*, not any literal. One note is
+   * `${resultShare(…)} · ${period}` — two already-translated halves joined by a
+   * separator, and wrapping that would ask the dictionary for a key made out of
+   * a percentage. So the holes are stripped and whatever is left has to be
+   * punctuation.
+   */
+  const rawNotes = [...build.matchAll(/note:\s*(`[^`]*`|'[^']*')/g)]
+    .map((m) => m[1])
+    .filter((n) => /[A-Za-z]/.test(n.replace(/\$\{[^}]*\}/g, '')));
+  assert.deepEqual(rawNotes, [], `${rawNotes.length} tile note(s) carry prose the dictionary never sees`);
+  assert.deepEqual(rawNotes, [], `${rawNotes.length} tile note(s) never reach the dictionary`);
+
+  const score = app.slice(app.indexOf('function scoreModel'), app.indexOf('function shareTileChoices'));
+  assert.match(score, /caption: tile\.note \|\| null,/, 'the card is translating an already-translated note');
+  assert.match(score, /label: tr\(tile\.label\),/, 'the label is a bare key and does need translating');
+});
