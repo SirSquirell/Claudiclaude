@@ -1,0 +1,975 @@
+<title>Ronde twee — drie lenzen</title>
+<style>
+:root {
+  color-scheme: light;
+  --page: #fbfaf8;
+  --surface-1: #ffffff;
+  --surface-2: #f4f2ee;
+  --surface-3: #eae6e0;
+  --text-primary: #14181d;
+  --text-secondary: #5c6672;
+  --text-muted: #939ca7;
+  --border: #e9e6e0;
+  --border-strong: #d6d2ca;
+  --grid: #e9e6e0;
+  --pos: #0b5fc4;
+  --neg: #c02434;
+  --pos-soft: #e4edf9;
+  --neg-soft: #fae7e8;
+  --warning: #785000;
+  --critical: #9e1628;
+  --accent: #b8532f;
+  --series-1: #557cd4;
+  --series-2: #7b52ab;
+  --series-3: #00868b;
+  --shadow: 0 1px 2px rgba(20, 25, 30, 0.05);
+  --shadow-float: 0 12px 32px rgba(20, 25, 30, 0.13), 0 2px 6px rgba(20, 25, 30, 0.06);
+
+  --radius: 0.625rem;
+  --radius-sm: 0.375rem;
+  --radius-pill: 999px;
+  --rule: 1px;
+  --track: 0.07em;
+  --hint: 0.75rem;
+  --base: 0.9375rem;
+  --font: system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  /* De voorgestelde curve-tokens — deze pagina gebruikt ze zelf, zodat je ze
+     in werking ziet in plaats van als hex in een tabel. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --page: #0d1116;
+    --surface-1: #141920;
+    --surface-2: #1b222b;
+    --surface-3: #232b35;
+    --text-primary: #e8edf3;
+    --text-secondary: #98a3b0;
+    --text-muted: #6b7683;
+    --border: #232b35;
+    --border-strong: #333d49;
+    --grid: #232b35;
+    --pos: #63a6f6;
+    --neg: #f4737f;
+    --pos-soft: #16283d;
+    --neg-soft: #341c21;
+    --warning: #efbf68;
+    --critical: #ff9aa4;
+    --accent: #e08355;
+    --series-1: #4a86de;
+    --series-2: #a383d0;
+    --series-3: #41babc;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-float: 0 16px 40px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.4);
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --page: #0d1116;
+  --surface-1: #141920;
+  --surface-2: #1b222b;
+  --surface-3: #232b35;
+  --text-primary: #e8edf3;
+  --text-secondary: #98a3b0;
+  --text-muted: #6b7683;
+  --border: #232b35;
+  --border-strong: #333d49;
+  --grid: #232b35;
+  --pos: #63a6f6;
+  --neg: #f4737f;
+  --pos-soft: #16283d;
+  --neg-soft: #341c21;
+  --warning: #efbf68;
+  --critical: #ff9aa4;
+  --accent: #e08355;
+  --series-1: #4a86de;
+  --series-2: #a383d0;
+  --series-3: #41babc;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-float: 0 16px 40px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--text-primary);
+  font: var(--base)/1.55 var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap {
+  max-width: 62rem;
+  margin: 0 auto;
+  padding: clamp(1.25rem, 0.8rem + 2vw, 2.5rem) clamp(1rem, 0.6rem + 1.6vw, 2rem) 5rem;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1.25rem, 1rem + 1vw, 2rem);
+}
+
+.pagehead { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.eyebrow {
+  font-size: 0.6875rem;
+  letter-spacing: var(--track);
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 0 0 0.35rem;
+}
+h1 {
+  font-size: clamp(1.5rem, 1.15rem + 1.6vw, 2.125rem);
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+  margin: 0;
+  text-wrap: balance;
+}
+.lede { margin: 0.6rem 0 0; max-width: 42rem; color: var(--text-secondary); }
+
+/* --- lens-kop ----------------------------------------------------------- */
+
+.lens {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  border-top: 2px solid var(--text-primary);
+  padding-top: 0.6rem;
+  margin-top: 0.6rem;
+}
+.lens h2 { font-size: 1.25rem; margin: 0; letter-spacing: -0.015em; }
+.lens .from {
+  font-size: 0.6875rem;
+  letter-spacing: var(--track);
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+}
+.lens p { flex: 1 1 100%; margin: 0.2rem 0 0; color: var(--text-secondary); max-width: 46rem; }
+
+/* --- kaart -------------------------------------------------------------- */
+
+.card {
+  background: var(--surface-1);
+  border: var(--rule) solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: clamp(0.9rem, 0.65rem + 1vw, 1.375rem);
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  min-width: 0;
+}
+.card > header { display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap; }
+.card h3 { font-size: 1.0625rem; line-height: 1.25; letter-spacing: -0.01em; margin: 0; flex: 1 1 14rem; }
+.card p { margin: 0; color: var(--text-secondary); max-width: 46rem; }
+.card p.tight { font-size: var(--hint); }
+
+.tag {
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: var(--track);
+  text-transform: uppercase;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-pill);
+  border: var(--rule) solid var(--border);
+  white-space: nowrap;
+}
+.tag.a11y { color: var(--critical); background: var(--neg-soft); border-color: transparent; }
+.tag.klein { color: var(--text-secondary); background: var(--surface-2); border-color: transparent; }
+.tag.vraag { color: var(--warning); background: var(--surface-2); border-color: transparent; }
+
+.file, code {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 0.8em;
+  background: var(--surface-2);
+  border-radius: 4px;
+  padding: 0.05em 0.35em;
+  color: var(--text-primary);
+}
+
+.ab { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 0.75rem; }
+.pane {
+  border: var(--rule) solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  min-width: 0;
+}
+.pane.next { background: var(--surface-1); }
+.pane > h4 {
+  margin: 0;
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: var(--track);
+  text-transform: uppercase;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.pane > h4::before { content: ''; width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--text-muted); }
+.pane.next > h4::before { background: var(--accent); }
+
+.readout {
+  font-size: var(--hint);
+  color: var(--text-secondary);
+  border-top: var(--rule) solid var(--border);
+  padding-top: 0.4rem;
+  margin-top: auto;
+}
+.readout b { color: var(--text-primary); font-weight: 600; }
+
+button {
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  background: var(--surface-1);
+  border: var(--rule) solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 0.4rem 0.7rem;
+  cursor: pointer;
+  transition: background 120ms ease, transform 100ms var(--ease-out);
+}
+button:hover { background: var(--surface-3); }
+button:active { transform: scale(0.97); }
+button:focus-visible { outline: 2px solid var(--series-1); outline-offset: 2px; }
+.row { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+
+.seg { display: inline-flex; gap: 2px; background: var(--surface-3); border-radius: var(--radius-pill); padding: 3px; align-self: flex-start; }
+.seg button { border-color: transparent; background: transparent; border-radius: var(--radius-pill); padding: 0.25rem 0.7rem; font-size: var(--hint); color: var(--text-secondary); }
+.seg button[aria-pressed='true'] { background: var(--surface-1); color: var(--text-primary); border-color: var(--border); }
+
+/* --- mini-grafiek ------------------------------------------------------- */
+
+.chartbox {
+  background: var(--surface-1);
+  border: var(--rule) solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.4rem;
+  position: relative;
+}
+.chartbox svg { display: block; width: 100%; height: 7rem; overflow: visible; }
+.endlabel { font: 600 11px var(--font); fill: var(--text-primary); }
+.endlabel.hid { display: none; }
+.enddot.hid { display: none; }
+
+table.data { border-collapse: collapse; width: 100%; font-size: var(--hint); }
+table.data th {
+  text-align: left;
+  font-size: 0.625rem;
+  letter-spacing: var(--track);
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 600;
+  padding: 0 0.4rem 0.3rem;
+}
+table.data td { padding: 0.25rem 0.4rem; border-top: var(--rule) solid var(--border); font-variant-numeric: tabular-nums; }
+table.data td.num { text-align: right; }
+
+.sr-note {
+  font-size: var(--hint);
+  color: var(--text-secondary);
+  background: var(--surface-2);
+  border-left: 2px solid var(--series-1);
+  padding: 0.4rem 0.6rem;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+.sr-note b { color: var(--text-primary); }
+
+/* --- meldingen ---------------------------------------------------------- */
+
+.noticestack { display: flex; flex-direction: column; gap: 0.4rem; }
+.banner {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+  background: var(--pos-soft);
+  border-radius: var(--radius-sm);
+  padding: 0.4rem 0.6rem;
+  font-size: var(--hint);
+  color: var(--text-primary);
+}
+.banner .chip {
+  font-size: 0.5625rem;
+  font-weight: 600;
+  letter-spacing: var(--track);
+  text-transform: uppercase;
+  color: var(--pos);
+}
+/* Het voorstel: de rij groeit open in plaats van de pagina te laten springen. */
+.banner.anim {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 180ms var(--ease-out), opacity 180ms var(--ease-out), transform 180ms var(--ease-out);
+}
+.banner.anim > .inner { display: flex; gap: 0.5rem; align-items: baseline; overflow: hidden; }
+.banner.anim.entering { grid-template-rows: 0fr; opacity: 0; transform: translateY(-2px); padding-block: 0; }
+
+.fakecard {
+  background: var(--surface-1);
+  border: var(--rule) solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem;
+  font-size: var(--hint);
+  color: var(--text-muted);
+}
+
+/* --- thema-wissel ------------------------------------------------------- */
+
+.mini {
+  --m-page: #fbfaf8;
+  --m-surf: #ffffff;
+  --m-ink: #14181d;
+  --m-dim: #5c6672;
+  --m-line: #e9e6e0;
+  background: var(--m-page);
+  color: var(--m-ink);
+  border: var(--rule) solid var(--m-line);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.mini.dark {
+  --m-page: #0d1116;
+  --m-surf: #141920;
+  --m-ink: #e8edf3;
+  --m-dim: #98a3b0;
+  --m-line: #232b35;
+}
+.mini .bar { background: var(--m-surf); border: var(--rule) solid var(--m-line); border-radius: 4px; padding: 0.35rem 0.5rem; font-size: var(--hint); }
+.mini .num { font-size: 1.25rem; font-weight: 750; letter-spacing: -0.02em; }
+.mini .sub { color: var(--m-dim); font-size: var(--hint); }
+.mini.eased,
+.mini.eased .bar {
+  transition: background-color 220ms ease, color 220ms ease, border-color 220ms ease;
+}
+.mini.eased .sub { transition: color 220ms ease; }
+
+/* --- easing-strook ------------------------------------------------------ */
+
+.track {
+  position: relative;
+  height: 2rem;
+  background: var(--surface-2);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+.track .dot {
+  position: absolute;
+  top: 50%;
+  left: 4px;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-top: -0.75rem;
+  border-radius: 50%;
+  background: var(--series-1);
+  transform: translateX(0);
+}
+.track.go .dot { transform: translateX(var(--travel, 0px)); }
+.track.plain .dot { transition: transform 260ms ease-out; }
+.track.strong .dot { transition: transform 260ms var(--ease-out); }
+
+/* --- tabs --------------------------------------------------------------- */
+
+.tabsdemo { display: flex; gap: 2px; border-bottom: var(--rule) solid var(--border); }
+.tabsdemo button { border: 0; background: transparent; border-radius: 0; border-bottom: 2px solid transparent; padding: 0.4rem 0.6rem; color: var(--text-secondary); font-size: var(--hint); }
+.tabsdemo button[aria-selected='true'] { color: var(--text-primary); border-bottom-color: var(--accent); }
+.tabpane { font-size: var(--hint); color: var(--text-secondary); padding: 0.5rem 0; min-height: 4.5rem; }
+.tabpane .big { font-size: 1.375rem; font-weight: 750; color: var(--text-primary); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.tabpane.fade { transition: opacity 90ms ease-out; }
+.tabpane.fade.out { opacity: 0; }
+
+/* --- sticky hover ------------------------------------------------------- */
+
+.frown {
+  font-size: 1.125rem;
+  width: 2.25rem;
+  height: 2.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 150ms var(--ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .pane.next .frown:hover { transform: rotate(-15deg) scale(1.15); }
+}
+.pane.now .frown:hover { transform: rotate(-15deg) scale(1.15); }
+.frown.stuck { transform: rotate(-15deg) scale(1.15); }
+
+/* --- tabellen ----------------------------------------------------------- */
+
+table.review { border-collapse: collapse; width: 100%; font-size: var(--hint); }
+table.review th {
+  text-align: left;
+  font-size: 0.625rem;
+  letter-spacing: var(--track);
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 600;
+  padding: 0 0.5rem 0.35rem;
+  border-bottom: var(--rule) solid var(--border-strong);
+}
+table.review td { padding: 0.45rem 0.5rem; border-top: var(--rule) solid var(--border); vertical-align: top; color: var(--text-secondary); }
+table.review td:first-child { color: var(--text-primary); }
+.scrollx { overflow-x: auto; }
+
+.nope { background: var(--surface-2); border: var(--rule) dashed var(--border-strong); box-shadow: none; }
+.nope ul { margin: 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: 0.5rem; }
+.nope li { color: var(--text-secondary); }
+.nope li b { color: var(--text-primary); font-weight: 600; }
+
+footer.note { font-size: var(--hint); color: var(--text-muted); border-top: var(--rule) solid var(--border); padding-top: 0.8rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mini.eased, .mini.eased .bar, .banner.anim, .tabpane.fade { transition-duration: 1ms; }
+}
+</style>
+
+<div class="wrap">
+  <header class="pagehead">
+    <div>
+      <p class="eyebrow">Prototype · ronde twee · nog niets gebouwd</p>
+      <h1>Wat de andere lenzen zien</h1>
+      <p class="lede">
+        Drie skills over dezelfde UI gehaald: <span class="file">dataviz</span> over de grafieken,
+        <span class="file">find-animation-opportunities</span> met zijn poortje voor beweging, en Emil Kowalski's
+        review-tabel over de details. Alles wat de poort haalde staat hieronder als NU naast VOORSTEL.
+        Wat het niet haalde staat er ook — onderaan, met de reden.
+      </p>
+    </div>
+    <div class="seg" role="group" aria-label="Thema">
+      <button type="button" data-theme-set="light" aria-pressed="false">Licht</button>
+      <button type="button" data-theme-set="dark" aria-pressed="false">Donker</button>
+    </div>
+  </header>
+
+  <!-- =================== LENS 1 : DATAVIZ ============================== -->
+
+  <div class="lens">
+    <h2>De grafieken</h2>
+    <span class="from">skill: dataviz</span>
+    <p>
+      Dit is de lens met de minste opmerkingen, en dat is het nieuws: één y-as per plot, 2 px lijnen,
+      4 px afgeronde staafuiteinden, 2 px oppervlaktespleet tussen gestapelde banden in plaats van een rand,
+      legenda alleen vanaf twee reeksen, gemeten palet. Dat staat er allemaal al. Twee dingen ontbreken.
+    </p>
+  </div>
+
+  <section class="card">
+    <header>
+      <h3>Dertien canvassen zonder tekstalternatief</h3>
+      <span class="tag a11y">toegankelijkheid</span>
+    </header>
+    <p>
+      Elke grafiek is een <span class="file">&lt;canvas&gt;</span> zonder <span class="file">role</span>,
+      zonder <span class="file">aria-label</span> en zonder tabelvariant. Een schermlezer krijgt er letterlijk
+      niets uit — niet "een grafiek", niets. De positietabel bestaat al; de andere elf grafieken hebben geen twin.
+    </p>
+    <div class="ab">
+      <div class="pane now">
+        <h4>Nu</h4>
+        <div class="chartbox">
+          <svg viewBox="0 0 320 100" preserveAspectRatio="none" aria-hidden="true">
+            <path class="line" fill="none" stroke="var(--series-1)" stroke-width="2"></path>
+          </svg>
+        </div>
+        <p class="sr-note">Schermlezer hoort: <b>niets</b>.</p>
+        <p class="readout">Alleen af te lezen door met een muis te hoveren.</p>
+      </div>
+      <div class="pane next">
+        <h4>Voorstel</h4>
+        <div class="row">
+          <div class="seg" role="group" aria-label="Weergave">
+            <button type="button" data-view="chart" aria-pressed="true">Grafiek</button>
+            <button type="button" data-view="table" aria-pressed="false">Tabel</button>
+          </div>
+        </div>
+        <div class="chartbox" id="twin-chart">
+          <svg viewBox="0 0 320 100" preserveAspectRatio="none" aria-hidden="true">
+            <path class="line" fill="none" stroke="var(--series-1)" stroke-width="2"></path>
+          </svg>
+        </div>
+        <div id="twin-table" hidden>
+          <table class="data">
+            <thead><tr><th>Maand</th><th class="num">Waarde</th><th class="num">Δ</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p class="sr-note">Schermlezer hoort: <b>"Portefeuillewaarde, 1 jan 2026 tot 18 aug 2026, van € 31.400 naar € 37.502, hoogste € 38.910 op 4 juli."</b></p>
+        <p class="readout">Eén regel <span class="file">role="img"</span> + <span class="file">aria-label</span>, plus de tabelknop.</p>
+      </div>
+    </div>
+    <p class="tight">
+      De samenvatting is te genereren uit dezelfde reeks die de grafiek tekent — begin, eind, extremen, richting.
+      Geen nieuwe waarheid, dus geen risico op een cijfer dat afwijkt van de grafiek ernaast.
+    </p>
+  </section>
+
+  <section class="card">
+    <header>
+      <h3>Het laatste punt heeft geen label</h3>
+      <span class="tag klein">klein</span>
+    </header>
+    <p>
+      Waar een reeks eindigt is de vraag die de meeste mensen aan een lijn stellen, en dat staat nu alleen in de tooltip.
+      Bij de portefeuillewaarde vangt de tegel erboven dat op; bij het cumulatieve resultaat, ingelegd-versus-waarde en
+      dividend staat het cijfer nergens buiten de hover. Eén label op het eindpunt, niet op elk punt.
+    </p>
+    <div class="ab">
+      <div class="pane now">
+        <h4>Nu</h4>
+        <div class="chartbox">
+          <svg viewBox="0 0 320 100" aria-hidden="true">
+            <path class="line" fill="none" stroke="var(--series-2)" stroke-width="2"></path>
+          </svg>
+        </div>
+        <p class="readout">Eindwaarde: alleen bij hover.</p>
+      </div>
+      <div class="pane next">
+        <h4>Voorstel</h4>
+        <div class="chartbox">
+          <svg viewBox="0 0 320 100" aria-hidden="true">
+            <path class="line" fill="none" stroke="var(--series-2)" stroke-width="2"></path>
+            <circle class="enddot" r="3.5" fill="var(--series-2)" stroke="var(--surface-1)" stroke-width="2"></circle>
+            <text class="endlabel" text-anchor="end">€ 37.502</text>
+          </svg>
+        </div>
+        <p class="readout">Eén punt, één label, altijd leesbaar.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================== LENS 2 : BEWEGING ============================= -->
+
+  <div class="lens">
+    <h2>Beweging die er nog niet is</h2>
+    <span class="from">skill: find-animation-opportunities</span>
+    <p>
+      Deze skill is vooral een filter: alles wat een gebruiker tientallen keren per dag ziet valt af, en
+      "het staat leuk" is geen doel. Van tien kandidaten haalden er vier de poort. De afgevallen zes staan onderaan.
+    </p>
+  </div>
+
+  <section class="card">
+    <header>
+      <h3>Meldingen duwen de pagina omlaag</h3>
+      <span class="tag klein">bij elke sync</span>
+    </header>
+    <p>
+      Tijdens een sync worden banners in <span class="file">#notices</span> geschoven en aan het eind weer weggegooid.
+      Elke insert verspringt alles eronder in één frame — precies terwijl je naar de cijfers zit te kijken.
+      Doel: een sprong voorkomen, niet versieren. 180 ms, en de rij groeit open in plaats van te verschijnen.
+    </p>
+    <div class="ab">
+      <div class="pane now">
+        <h4>Nu</h4>
+        <button type="button" data-sync="now">Sync starten</button>
+        <div class="noticestack" data-stack="now"></div>
+        <div class="fakecard">Portefeuillewaarde · grafiek</div>
+        <p class="readout">Insert in één frame, alles eronder springt.</p>
+      </div>
+      <div class="pane next">
+        <h4>Voorstel</h4>
+        <button type="button" data-sync="next">Sync starten</button>
+        <div class="noticestack" data-stack="next"></div>
+        <div class="fakecard">Portefeuillewaarde · grafiek</div>
+        <p class="readout">180 ms open, 140 ms dicht.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <header>
+      <h3>De thema-wissel is een lichtflits</h3>
+      <span class="tag klein">zelden</span>
+    </header>
+    <p>
+      Licht naar donker gaat in één frame van bijna-wit naar bijna-zwart. Dat is de ene abrupte helderheidssprong
+      die je maar zelden ziet, en precies daarom mag hij geld kosten: 220 ms crossfade op de oppervlakken en de inkt.
+      Alleen de kleuren, geen beweging — dus ook onder <span class="file">reduced-motion</span> volstrekt in orde.
+    </p>
+    <div class="ab">
+      <div class="pane now">
+        <h4>Nu</h4>
+        <div class="mini" data-mini="now">
+          <div class="bar">Overzicht</div>
+          <div class="num">€ 37.502,18</div>
+          <div class="sub">+ € 1.240 deze maand</div>
+        </div>
+        <button type="button" data-flip="now">Wissel thema</button>
+        <p class="readout">Eén frame, van wit naar zwart.</p>
+      </div>
+      <div class="pane next">
+        <h4>Voorstel</h4>
+        <div class="mini eased" data-mini="next">
+          <div class="bar">Overzicht</div>
+          <div class="num">€ 37.502,18</div>
+          <div class="sub">+ € 1.240 deze maand</div>
+        </div>
+        <button type="button" data-flip="next">Wissel thema</button>
+        <p class="readout">220 ms, alleen kleur.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <header>
+      <h3>De sectiewissel is een harde swap</h3>
+      <span class="tag vraag">grensgeval</span>
+    </header>
+    <p>
+      <span class="file">section.hidden = section.dataset.tab !== state.tab</span> wisselt hele schermen zonder brug.
+      Dit valt in de categorie "tientallen keren per dag", en daar zegt de poort: weglaten óf bijna onmerkbaar.
+      Dus 90 ms, alleen opacity, geen verschuiving — als je het bewust probeert te zien, zie je het nauwelijks.
+      Dat is het hele punt; als het opvalt, is het te traag.
+    </p>
+    <div class="ab">
+      <div class="pane now">
+        <h4>Nu</h4>
+        <div class="tabsdemo" data-tabs="now">
+          <button type="button" aria-selected="true">Overzicht</button>
+          <button type="button" aria-selected="false">Posities</button>
+          <button type="button" aria-selected="false">Transacties</button>
+        </div>
+        <div class="tabpane" data-tabpane="now"></div>
+        <p class="readout">Instant, met een flits.</p>
+      </div>
+      <div class="pane next">
+        <h4>Voorstel</h4>
+        <div class="tabsdemo" data-tabs="next">
+          <button type="button" aria-selected="true">Overzicht</button>
+          <button type="button" aria-selected="false">Posities</button>
+          <button type="button" aria-selected="false">Transacties</button>
+        </div>
+        <div class="tabpane fade" data-tabpane="next"></div>
+        <p class="readout">90 ms opacity, geen beweging.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================== LENS 3 : DETAILS ============================== -->
+
+  <div class="lens">
+    <h2>De details</h2>
+    <span class="from">skill: emil-design-eng</span>
+    <p>
+      Twee dingen die je alleen op een telefoon merkt, en één token-voorstel dat de rest bij elkaar houdt.
+    </p>
+  </div>
+
+  <section class="card">
+    <header>
+      <h3>Hover-effecten blijven plakken op touch</h3>
+      <span class="tag klein">klein</span>
+    </header>
+    <p>
+      <span class="file">.frown-btn:hover { transform: rotate(-15deg) }</span> staat niet achter
+      <span class="file">@media (hover: hover) and (pointer: fine)</span>. Een tik op een touchscreen zet de
+      hover-staat aan en die blijft staan tot je ergens anders tikt: de knop staat dan scheef zonder reden.
+      Tik hieronder op beide knoppen — de simulatie doet wat een touchscreen doet.
+    </p>
+    <div class="ab">
+      <div class="pane now">
+        <h4>Nu</h4>
+        <button type="button" class="frown" data-sticky="now" title="Optimisme-modus">🙃</button>
+        <p class="readout">Tik: scheef, en blijft scheef.</p>
+      </div>
+      <div class="pane next">
+        <h4>Voorstel</h4>
+        <button type="button" class="frown" data-sticky="next" title="Optimisme-modus">🙃</button>
+        <p class="readout">Tik: niets. Rotatie alleen met een echte muis.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <header>
+      <h3>Er is geen gedeelde curve</h3>
+      <span class="tag klein">token</span>
+    </header>
+    <p>
+      Elke transitie in de app kiest zijn eigen easing: <span class="file">120ms ease</span>,
+      <span class="file">0.12s</span> zonder curve, <span class="file">100ms ease-out</span>,
+      <span class="file">0.15s ease</span>. Dat werkt, maar er is geen gedeelde stem — en de ingebouwde curves zijn slap.
+      Twee tokens naast de bestaande in <span class="file">:root</span>, en elke nieuwe transitie op deze twee pagina's
+      gebruikt ze al. Speel ze af en let op het begin van de beweging.
+    </p>
+    <div class="ab">
+      <div class="pane now">
+        <h4>Nu · <code>ease-out</code></h4>
+        <div class="track plain" id="tr-plain"><div class="dot"></div></div>
+        <p class="readout">De ingebouwde curve. Zelfde 260 ms.</p>
+      </div>
+      <div class="pane next">
+        <h4>Voorstel · <code>--ease-out</code></h4>
+        <div class="track strong" id="tr-strong"><div class="dot"></div></div>
+        <p class="readout"><code>cubic-bezier(0.23, 1, 0.32, 1)</code> — vertrekt harder, landt zachter.</p>
+      </div>
+    </div>
+    <div class="row"><button type="button" id="replay">Speel beide af</button></div>
+  </section>
+
+  <section class="card">
+    <header>
+      <h3>De rest van Emil's tabel</h3>
+      <span class="tag klein">nakijken</span>
+    </header>
+    <div class="scrollx">
+      <table class="review">
+        <thead><tr><th>Nu</th><th>Voorstel</th><th>Waarom</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>button.primary:hover { filter: brightness(1.15) }</code></td>
+            <td><code>background: color-mix(…)</code>, met transitie</td>
+            <td><code>filter</code> op een gevulde knop hertekent de hele laag en heeft hier geen transitie, dus hij klikt aan en uit.</td>
+          </tr>
+          <tr>
+            <td>Enter en exit even snel</td>
+            <td>Exit ~20% korter dan enter</td>
+            <td>Openen is een aankondiging, sluiten is een antwoord. In ronde 1 zit dit al in het menu (140 / 110).</td>
+          </tr>
+          <tr>
+            <td><code>.tile .info:hover</code>, <code>.gran &gt; button:hover</code></td>
+            <td>Achter <code>@media (hover: hover) and (pointer: fine)</code></td>
+            <td>Zelfde klasse als de 🙃-knop: op touch blijft de staat plakken.</td>
+          </tr>
+          <tr>
+            <td><code>@keyframes</code> in de optimisme-modus</td>
+            <td>Laten staan</td>
+            <td>Die animaties worden niet snel achter elkaar opnieuw getriggerd, dus interruptibiliteit speelt geen rol — en reduced-motion zet ze al uit.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- =================== AFGEVALLEN =================================== -->
+
+  <section class="card nope">
+    <header>
+      <h3>Afgevallen bij de poort</h3>
+    </header>
+    <ul>
+      <li><b>Lijnen die zichzelf tekenen bij het laden.</b> Functionele data die je zit te lezen. Beweging hindert hier, en <span class="file">animation: false</span> in <span class="file">charts.js</span> is een goede beslissing die zo blijft.</li>
+      <li><b>Overgang bij een bereik- of granulariteitswissel.</b> Tientallen keren per dag, en het resultaat is een nieuw cijfer. Een cijfer dat naar zijn nieuwe waarde toe beweegt is een cijfer dat even onwaar is.</li>
+      <li><b>Stagger over de zeven tegels.</b> Ze staan er bij elke render, elke dag. Stagger is decoratie en wordt hier vertraging.</li>
+      <li><b>Een spinner of voortgangsbalk bij de sync.</b> De knop toont al <code>Syncing 42%</code> en de melding noemt de stap — dat is meer informatie dan een draaiend rondje.</li>
+      <li><b>Textuurvulling voor kleurenblindheid en print.</b> Het palet is al gemeten CVD-schoon, er is een legenda én een tabel. Textuur zou een tweede oplossing zijn voor een opgelost probleem.</li>
+      <li><b>Springs en velocity-overdracht op de grafiek-drag.</b> De selectie volgt de vinger exact en stopt waar je loslaat; er is niets dat na moet slingeren. Momentum hoort bij dingen die je weggooit, niet bij een selectie.</li>
+    </ul>
+  </section>
+
+  <section class="card nope">
+    <header>
+      <h3>Twee dingen die goed staan en zo moeten blijven</h3>
+    </header>
+    <ul>
+      <li>
+        <b><code>tabular-nums</code> op de grote tegelcijfers.</b> De dataviz-regel zegt: proportionele cijfers op een
+        heldergetal, tabular alleen waar cijfers onder elkaar staan. Hier is het dragend — <span class="file">--fits</span>
+        rekent de maximale breedte uit als tekens × vaste glyphbreedte, en zonder gelijke breedte klopt die som niet meer.
+        Een regel die een gemeten bug terugbrengt, is geen verbetering.
+      </li>
+      <li>
+        <b>De taart met tot negen partjes.</b> Op papier te veel — maar het is een alternatieve weergave van een tabel
+        die er al is, met dezelfde lagen en dezelfde kleuren als de gestapelde grafiek. Het enige dat ik zou nakijken is
+        of het aantal partjes in de praktijk boven de zeven uitkomt; zo ja, is de vraag of de taart iets toevoegt
+        dat de tabel niet al zegt.
+      </li>
+    </ul>
+  </section>
+
+  <footer class="note">
+    Prototype, geen implementatie — niets hiervan staat in de branch. Ronde 1 (drag-drempel, hover-actie,
+    reduced-motion, overlays) staat in de vorige pagina; deze twee samen zijn de hele lijst.
+  </footer>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  const root = document.documentElement;
+  for (const b of document.querySelectorAll('[data-theme-set]')) {
+    b.addEventListener('click', () => {
+      const want = b.dataset.themeSet;
+      if (root.getAttribute('data-theme') === want) root.removeAttribute('data-theme');
+      else root.setAttribute('data-theme', want);
+      for (const o of document.querySelectorAll('[data-theme-set]')) {
+        o.setAttribute('aria-pressed', String(root.getAttribute('data-theme') === o.dataset.themeSet));
+      }
+    });
+  }
+
+  /* --- de reeks achter beide mini-grafieken --------------------------- */
+
+  const MONTHS = ['jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug'];
+  const VALUES = [31400, 32180, 31690, 33540, 34120, 36030, 38910, 37502];
+
+  const line = (vals, w, h, pad) => {
+    const lo = Math.min(...vals), hi = Math.max(...vals);
+    const span = Math.max(1e-6, hi - lo);
+    return vals.map((v, i) => {
+      const x = pad + (i / (vals.length - 1)) * (w - pad * 2);
+      const y = h - pad - ((v - lo) / span) * (h - pad * 2);
+      return `${i ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`;
+    }).join(' ');
+  };
+
+  for (const svg of document.querySelectorAll('.chartbox svg')) {
+    const path = svg.querySelector('path.line');
+    path.setAttribute('d', line(VALUES, 320, 100, 8));
+    const dot = svg.querySelector('.enddot');
+    if (dot) {
+      const lo = Math.min(...VALUES), hi = Math.max(...VALUES);
+      const x = 8 + (320 - 16);
+      const y = 100 - 8 - ((VALUES.at(-1) - lo) / (hi - lo)) * (100 - 16);
+      dot.setAttribute('cx', x);
+      dot.setAttribute('cy', y);
+      const label = svg.querySelector('.endlabel');
+      label.setAttribute('x', x - 6);
+      label.setAttribute('y', y - 8);
+    }
+  }
+
+  // De tabel-twin
+  const tbody = document.querySelector('#twin-table tbody');
+  const fmt = (n) => '€ ' + n.toLocaleString('nl-NL');
+  VALUES.forEach((v, i) => {
+    const d = i ? v - VALUES[i - 1] : null;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${MONTHS[i]}</td><td class="num">${fmt(v)}</td>` +
+      `<td class="num" style="color:${d == null ? 'var(--text-muted)' : d >= 0 ? 'var(--pos)' : 'var(--neg)'}">` +
+      `${d == null ? '—' : (d >= 0 ? '+' : '−') + fmt(Math.abs(d)).slice(2)}</td>`;
+    tbody.append(tr);
+  });
+
+  for (const b of document.querySelectorAll('[data-view]')) {
+    b.addEventListener('click', () => {
+      const table = b.dataset.view === 'table';
+      document.getElementById('twin-chart').hidden = table;
+      document.getElementById('twin-table').hidden = !table;
+      for (const o of document.querySelectorAll('[data-view]')) {
+        o.setAttribute('aria-pressed', String(o.dataset.view === b.dataset.view));
+      }
+    });
+  }
+
+  /* --- meldingen ------------------------------------------------------ */
+
+  const STEPS = ['Stap 1 van 7 · sessie gelezen', 'Stap 3 van 7 · transacties opgehaald', 'Stap 6 van 7 · koersen herbouwd'];
+  const running = { now: false, next: false };
+
+  const makeBanner = (text, animated) => {
+    const el = document.createElement('div');
+    el.className = animated ? 'banner anim entering' : 'banner';
+    el.innerHTML = animated
+      ? `<div class="inner"><span class="chip">info</span><span>${text}</span></div>`
+      : `<span class="chip">info</span><span>${text}</span>`;
+    return el;
+  };
+
+  for (const btn of document.querySelectorAll('[data-sync]')) {
+    const key = btn.dataset.sync;
+    const stack = document.querySelector(`[data-stack="${key}"]`);
+    btn.addEventListener('click', () => {
+      if (running[key]) return;
+      running[key] = true;
+      stack.innerHTML = '';
+      STEPS.forEach((text, i) => {
+        setTimeout(() => {
+          const el = makeBanner(text, key === 'next');
+          stack.append(el);
+          if (key === 'next') requestAnimationFrame(() => requestAnimationFrame(() => el.classList.remove('entering')));
+        }, i * 700);
+      });
+      setTimeout(() => {
+        for (const el of [...stack.children]) {
+          if (key === 'next') {
+            el.classList.add('entering');
+            setTimeout(() => el.remove(), 150);
+          } else {
+            el.remove();
+          }
+        }
+        running[key] = false;
+      }, STEPS.length * 700 + 900);
+    });
+  }
+
+  /* --- thema-wissel --------------------------------------------------- */
+
+  for (const b of document.querySelectorAll('[data-flip]')) {
+    b.addEventListener('click', () => {
+      document.querySelector(`[data-mini="${b.dataset.flip}"]`).classList.toggle('dark');
+    });
+  }
+
+  /* --- tabs ----------------------------------------------------------- */
+
+  const PANES = {
+    0: '<div class="big">€ 37.502,18</div>Portefeuillewaarde · 8 posities',
+    1: '<div class="big">11</div>Posities · 3 in de min',
+    2: '<div class="big">1.284</div>Transacties · sinds 2019',
+  };
+
+  for (const bar of document.querySelectorAll('[data-tabs]')) {
+    const key = bar.dataset.tabs;
+    const pane = document.querySelector(`[data-tabpane="${key}"]`);
+    pane.innerHTML = PANES[0];
+    const tabs = [...bar.querySelectorAll('button')];
+    tabs.forEach((tab, i) => {
+      tab.addEventListener('click', () => {
+        for (const t of tabs) t.setAttribute('aria-selected', String(t === tab));
+        if (key === 'now') { pane.innerHTML = PANES[i]; return; }
+        pane.classList.add('out');
+        setTimeout(() => {
+          pane.innerHTML = PANES[i];
+          requestAnimationFrame(() => pane.classList.remove('out'));
+        }, 90);
+      });
+    });
+  }
+
+  /* --- sticky hover --------------------------------------------------- */
+
+  for (const b of document.querySelectorAll('[data-sticky]')) {
+    b.addEventListener('click', () => {
+      // Wat een touchscreen doet: de hover-staat blijft na de tik staan.
+      if (b.dataset.sticky === 'now') b.classList.add('stuck');
+    });
+  }
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('[data-sticky="now"]')) {
+      for (const b of document.querySelectorAll('[data-sticky="now"]')) b.classList.remove('stuck');
+    }
+  });
+
+  /* --- easing --------------------------------------------------------- */
+
+  const tracks = [document.getElementById('tr-plain'), document.getElementById('tr-strong')];
+  const travel = () => Math.max(60, tracks[0].clientWidth - 32) + 'px';
+  document.getElementById('replay').addEventListener('click', () => {
+    for (const t of tracks) { t.classList.remove('go'); t.style.setProperty('--travel', '0px'); }
+    // Eén frame terug op nul, zodat beide vanaf hetzelfde punt vertrekken.
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      for (const t of tracks) { t.style.setProperty('--travel', travel()); t.classList.add('go'); }
+      setTimeout(() => {
+        for (const t of tracks) { t.style.setProperty('--travel', '0px'); }
+      }, 900);
+    }));
+  });
+})();
+</script>

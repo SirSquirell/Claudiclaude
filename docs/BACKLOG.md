@@ -4211,3 +4211,453 @@ digit.
 
 **Stop condition:** if any frame shows a number between the old value and the new, stop — that is the
 rejected count-up wearing a different name, and it fabricates a value the account never had.
+
+---
+
+## Stories out of the three-lens UI review *(US-66 … US-75)*
+
+> **Prototypes, all three clickable, `nu` beside `voorstel` on every point:**
+> `docs/prototypes/ui-review-1-apple.html` (the Apple pass),
+> `docs/prototypes/ui-review-2-lenses.html` (charts, the motion gate, the details),
+> `docs/prototypes/ui-review-3-arrival.html` (data landing, per card, plus the exact values
+> for US-70 and US-68). They carry the tokens out of `styles.css` on purpose, so nothing in
+> them looks better than the app it is about.
+
+Three skills were run over the delivered UI — `apple-design`, `dataviz` and
+`emil-design-eng` — plus the `find-animation-opportunities` gate, which rejects a candidate
+unless it survives frequency, purpose, speed and function. Ten stories survived. **What the
+review found already covered is recorded rather than duplicated:** press-on-`pointerdown` and
+the reduced-motion posture are US-56, the section transition is US-64, the count-up is US-65
+(already decided against, and the review reached the same conclusion independently), the share
+sheet's materialize is US-57, and the rubber-band at the ends of the zoom is US-63 AC2.
+
+Two findings are recorded as **deliberate non-changes**, because a later pass will otherwise
+"fix" them into defects that were already measured once:
+
+1. **`tabular-nums` on the KPI figures stays.** The dataviz rule says proportional figures on a
+   hero number. Here the equal glyph width is load-bearing: `--fits` (`styles.css`) derives the
+   maximum string width from *character count × a constant*, which is only true with tabular
+   figures, and the last time that maths was wrong the app shipped `€ 111.784,9` with a digit
+   sliced off. A rule that reintroduces a measured defect is not an improvement.
+2. **The `@keyframes` in Optimism Mode stay.** Emil's "transitions, not keyframes" is about
+   surfaces retriggered rapidly; these are not, and US-35's reduced-motion block already stops
+   them.
+
+The one Apple chapter the review deliberately did **not** act on is §12, materials and
+translucency: the redesign brief §8 took depth out on purpose, and there are figures scrolling
+under the rail. A `backdrop-filter` there would reverse a decision for an aesthetic.
+
+---
+
+## US-66 — The drag threshold is a span of days, not a distance *(new, defect, refined)*
+
+US-12's zoom decides "was that a click or a drag?" in **days**:
+
+```js
+if (Math.abs(new Date(end) - new Date(start)) < 2 * 86400000) return;   // app.js:1770
+```
+
+Two days is not a length of hand movement, it is a length of history, and the window changes what
+it measures on screen. On ALL over five years, two days is under a pixel — so a click that wobbles
+zooms the page. On a three-week window, two days is most of a centimetre — so a deliberate drag is
+thrown away and nothing happens. The same line is wrong in both directions.
+
+**Grounded:** `wireZoom` in `app.js` (`indexAt`, `pointerdown`/`move`/`up`), the `dragSelection`
+plugin in `charts.js`.
+
+**Second half of the same defect: the selection freezes when the pointer leaves the plot.**
+`indexAt` returns `null` outside `chartArea` (`app.js:1690`) and the paint stops, so dragging to
+the edge looks like a hang. Worth knowing before building: **the drawing side already clamps** —
+`charts.js:207` clamps `x1`/`x2` into `chartArea` and the readout box is clamped too. Only the
+handler refuses to produce an index. Clamping `frac` to `[0, 1]` is the whole fix, and it is also
+the ground US-63 AC2's rubber-band is built on.
+
+**Third: `#c-value` has no `touch-action`,** so on a touch screen the page scrolls during the
+gesture and the selection is half of what was drawn.
+
+**The traps:**
+
+1. **Pixels, and one number.** 8 px is the hysteresis §10 asks for. It goes in `config.js` with the
+   other tuning constants, not inline, because US-55 and US-63 will want the same number.
+2. **The live readout is already right.** The band, the dates, the day count and the result are
+   drawn every frame during the drag (`charts.js:225`) — that is §1's continuous feedback, it works,
+   and this story does not touch it.
+3. **A click must still read the tooltip.** Below the threshold the gesture is someone reading, and
+   the tooltip is re-enabled on release exactly as now.
+4. **Do not build the spring here.** Momentum and rubber-band are US-63; this story is the two
+   thresholds and one CSS property, so it can ship without waiting for the spring vocabulary.
+
+**Acceptance criteria:**
+
+- **AC1** The click/drag decision is a pointer distance in pixels (8 px, from `config.js`), not a
+  span of days, and a test covers a 40 px drag inside a three-week window (zooms) and a 3 px wobble
+  on ALL (does not).
+- **AC2** Dragging outside the plot keeps the selection tracking to the first or last day instead of
+  freezing.
+- **AC3** `#c-value` carries `touch-action: none`; a drag on a touch pointer does not scroll the page.
+- **AC4** The live readout during the drag is unchanged.
+- **AC5** `engine.js` is untouched.
+
+**Stop condition:** if the fix wants the spring, stop and build US-63 — this is a threshold defect and
+it must be shippable on its own.
+
+---
+
+## US-67 — Hover-only affordances on a pointer that has no hover *(new, defect, refined)*
+
+Three controls state themselves through `:hover` with nothing behind it:
+
+| Where | Now | On a touch pointer |
+|---|---|---|
+| `button.snap` (`styles.css:2073`) | `opacity: 0.45`, full at `tr:hover` | permanently half-visible — it reads as disabled while it works |
+| `.frown-btn:hover` | `transform: rotate(-15deg) scale(1.15)` | the tap sets hover and it *stays* rotated until you tap elsewhere |
+| `.tile .info:hover`, `.gran > button:hover` | surface change only | harmless, same class of bug |
+
+**Grounded:** `styles.css`. The fix is `@media (hover: hover) and (pointer: fine)` around the
+dimming and the transform, plus the un-hovered state being the *usable* one — a share button at 45%
+is not "quiet", it is a control claiming to be off.
+
+**The traps:**
+
+1. **The un-hovered state is the default, not the fallback.** Without a hover pointer the row action
+   is fully visible; the dimming is the enhancement, and writing it the other way round is how this
+   bug happened.
+2. **`:focus-visible` already works and must keep working** — that path is how a keyboard reaches the
+   action and it is the reason the control is reachable at all today.
+3. **This is US-56's layer.** One media query in the interaction layer, not a sprinkle per control,
+   or the next hover effect lands with the same defect.
+
+**Acceptance criteria:**
+
+- **AC1** With no hover pointer, `button.snap` renders at full opacity.
+- **AC2** The 🙃 rotation and every other decorative hover transform only apply under
+  `@media (hover: hover) and (pointer: fine)`.
+- **AC3** `:focus-visible` still reveals the row action.
+- **AC4** A test asserts the hover gate is present rather than assumed.
+
+**Stop condition:** none. This is four selectors.
+
+---
+
+## US-68 — Reduced motion is a sledgehammer, not a setting *(new, defect, refined — US-56 AC2)*
+
+```css
+* { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+```
+
+`styles.css:2307` kills every transition in the app, including the background and colour changes that
+are the *only* thing telling a reader their press registered. §14 and US-56 AC2 both say the same
+thing: reduced motion is *gentler* feedback, never *no* feedback.
+
+Today the damage is small because little moves. It stops being small the moment US-70, US-73, US-74
+or US-75 lands — every one of those degrades to a colour or opacity change, and the star selector
+deletes exactly that.
+
+**The replacement is written out in full** in `docs/prototypes/ui-review-3-arrival.html`: name what
+must not move (transforms), keep what must still answer (surface, colour, opacity), and let the four
+motion stories each state their own reduced form.
+
+**The traps:**
+
+1. **Longer than what it replaces, and that is the point.** The one-liner is short because it does not
+   think. Four named exceptions can be read and tested.
+2. **This is US-56 AC2 as a defect.** If US-56 is built first it absorbs this story; if this ships
+   first, US-56 AC2 is already met and says so.
+3. **Do not soften Optimism Mode's block.** US-35's `animation: none` there is correct and stays.
+
+**Acceptance criteria:**
+
+- **AC1** The `*` rule is gone; `prefers-reduced-motion: reduce` names the properties it stops.
+- **AC2** Under reduced motion a pressed control still changes surface colour.
+- **AC3** No `transform`-based motion plays under reduced motion.
+- **AC4** A test asserts the media query exists and that no `*`-scoped `!important` duration rule does.
+
+**Stop condition:** none.
+
+---
+
+## US-69 — Two curves and two durations, named once *(new, refined — foundation)*
+
+Every transition in the app picks its own easing: `120ms ease`, `0.12s` with no curve at all,
+`100ms ease-out`, `0.15s ease`. Nothing is wrong and nothing is shared, so the fifth one will be a
+fifth guess. Four tokens beside the existing ones in `:root`, and the built-in curves replaced —
+`ease-out` starts slowly at exactly the moment the reader is looking hardest.
+
+```css
+--ease-out: cubic-bezier(0.23, 1, 0.32, 1);   /* something arriving or leaving */
+--ease-in-out: cubic-bezier(0.77, 0, 0.175, 1); /* something moving across the screen */
+--t-press: 100ms;
+--t-surface: 140ms;                            /* open; close is ~110ms, deliberately shorter */
+```
+
+**The traps:**
+
+1. **A token with no caller is a token nobody maintains** (the note above `--kpi` in `styles.css` says
+   this already). So this ships *with* US-70 or not at all — two curves used by four surfaces, not four
+   tokens sitting in `:root` waiting for a purpose.
+2. **Exit shorter than enter.** Opening is an announcement, closing is an answer. One ratio, everywhere.
+3. **Springs are not in scope.** US-55/US-63 own the spring vocabulary for gestures; these are for
+   surfaces that appear and disappear.
+
+**Acceptance criteria:**
+
+- **AC1** The four tokens exist and every transition added by US-70/US-73/US-74/US-75 uses them.
+- **AC2** No new transition specifies a raw `cubic-bezier` or a bare `ease` inline.
+- **AC3** A test (or `npm run palette`'s sibling check) asserts each token has at least one caller.
+
+**Stop condition:** if it lands without a caller, delete it — rule 8.
+
+---
+
+## US-70 — The four overlays come from the control that opened them *(new, refined)*
+
+The overflow menu, the granularity menu, the column chooser and the diagnostics dialog all appear with
+`hidden = false` and vanish the same way: no path, no origin, no relation to the button that opened
+them. §7 (spatial consistency) is one line — a thing emerges from where it came from — and this is the
+most visible place in the app where it is missing. **The share sheet is not in scope: that is US-57.**
+
+**Grounded:** `app.js:939` / `:1001` (menus), the `.cols-pop` toggle, `showModal()` at `:571` and
+`renderDiagnostics`. Origins per surface, and the modals stay centred because they hang off nothing:
+
+| Surface | `transform-origin` | Open / close |
+|---|---|---|
+| `#more-menu` | `bottom left` — it hangs off the foot of the rail and opens upward | 140 / 110 ms |
+| `.gran .menu` | `top left` | 140 / 110 ms |
+| `.cols-pop` | `top right` — it is right-aligned under its button | 140 / 110 ms |
+| `.modal` (diagnostics) | `center` — no trigger to come from | 160 / 120 ms |
+
+**The traps:**
+
+1. **No timer, no `.closing` class.** The extension is Chromium-only, so `@starting-style` plus
+   `transition-behavior: allow-discrete` animates `display` and `::backdrop` from CSS. A JS class with
+   a `setTimeout` is a class that stays stuck when something interrupts it — §3's failure mode with a
+   different name. The exact block is in the round-3 prototype.
+2. **Never from `scale(0)`.** 0.96–0.97 with opacity; nothing in the world appears from nothing.
+3. **The backdrop fades with the sheet.** The grey layer is the largest thing on screen and it is the
+   part that currently snaps.
+4. **Escape and the focus trap are `<dialog>`'s** and stay `<dialog>`'s — this adds motion to
+   `showModal()`, it does not replace it.
+5. **`hidden` still means hidden** (the `!important` rule at the top of `styles.css`). The transition
+   must not leave a menu at `opacity: 0` while still hit-testable — that bug shipped three times in
+   this project in another form.
+
+**Acceptance criteria:**
+
+- **AC1** Each of the three popovers scales and fades from the origin in the table above; the
+  diagnostics dialog and its backdrop fade and scale from centre.
+- **AC2** Closing mirrors opening along the same path, and is shorter than opening.
+- **AC3** Implemented in CSS (`@starting-style` + `allow-discrete`); no timer decides when a surface
+  is gone.
+- **AC4** A closed overlay is not focusable and does not receive pointer events, asserted by test.
+- **AC5** Escape, the focus trap and the click-outside dismissal behave exactly as before.
+- **AC6** Under `prefers-reduced-motion` all four cross-fade with no scale (US-68's block).
+
+**Stop condition:** if `allow-discrete` cannot carry it and a JS timer is the only route, ship the
+opacity cross-fade alone and drop the scale — a stuck menu is worse than a menu with no path.
+
+---
+
+## US-71 — A chart a screen reader can read *(new, refined — the biggest gap the review found)*
+
+Thirteen `<canvas>` elements, no `role`, no `aria-label`, no table equivalent except the one the
+Positions card already has. A screen reader gets **nothing** — not a value, not even "a chart".
+dataviz's own rule is blunt about it: every chart has a table-view twin, and a tooltip is never the
+only way to read a value.
+
+**Grounded:** the canvases in `app.html`, the builders in `charts.js`, and the precedent already in
+the app — `renderHoldingsShare` toggles between the pie and the table for exactly this reason, and its
+hint text says so.
+
+**Two halves, both cheap:**
+
+1. **A generated summary.** `role="img"` plus an `aria-label` built from the same array the chart
+   draws: window, start value, end value, extreme and its date, direction. No new truth, so no risk of
+   a summary that disagrees with the picture beside it.
+2. **A table twin** on the charts that carry figures a reader would want, reusing the Positions
+   pattern and the existing view-toggle control.
+
+**The traps:**
+
+1. **US-46 governs both.** Amounts in the label and in the table mask when anonymize is on — a summary
+   sentence is a new place for an unmasked figure to escape, and the export leak in 0.10.0 is what that
+   costs.
+2. **The summary is derived, never stored** (rule 2). It is built at render from the arrays, so it
+   cannot drift from the chart.
+3. **Estimated stretches say so**, like US-62's readout and the holdings rows.
+4. **Not thirteen bespoke sentences.** One function per chart *shape* (series over time, bars per
+   month, part-of-whole), or the fourteenth chart ships without one.
+5. **`aria-live` is wrong here.** The summary is a description of a static image, not an announcement;
+   making it live means it shouts on every range change.
+
+**Acceptance criteria:**
+
+- **AC1** Every canvas carries `role="img"` and an `aria-label` generated from its own series.
+- **AC2** The charts carrying figures have a table twin reachable from the same control pattern as the
+  Positions share/table toggle.
+- **AC3** With US-46 on, amounts in labels and twins are masked; dates are not.
+- **AC4** A day on an estimated stretch is marked estimated in the twin.
+- **AC5** A test asserts every `<canvas>` in `app.html` has a label, so a new chart cannot ship without
+  one.
+- **AC6** `engine.js` unchanged.
+
+**Stop condition:** if a summary needs a number the series does not hold, stop — same rule as US-62.
+
+---
+
+## US-72 — The end of a line, without hovering *(new, refined — small)*
+
+Where a series ends is the question most people ask a line, and on four charts it lives only in the
+tooltip. The value chart is covered by the KPI tile above it; the cumulative result, invested-vs-value
+and dividend charts are not. dataviz's rule is *selective* direct labels — the endpoint, the extreme,
+the one series that matters — never a number on every point.
+
+**The traps:**
+
+1. **One label, not a series of them.** A value beside every point is the anti-pattern this replaces.
+2. **US-46 masks it** like every other amount on screen.
+3. **It must not collide.** Clamp inside the plot area the way the drag readout already does
+   (`charts.js:238`) rather than letting it run off the edge.
+4. **Text wears text tokens**, not the series colour — the dot beside it carries the identity.
+
+**Acceptance criteria:**
+
+- **AC1** The last point of the cumulative, invested-vs-value and dividend charts carries a dot and a
+  formatted label.
+- **AC2** No other point is labelled.
+- **AC3** The label masks under US-46 and stays inside the plot at every width.
+- **AC4** `npm run palette` still passes (the label is text on the chart surface).
+
+**Stop condition:** none.
+
+---
+
+## US-73 — A notice must not shove the page *(new, refined)*
+
+`notice()` appends a banner to `#notices` and `clearNotices()` empties it, so during a sync the page
+below jumps in one frame, twice per notice, while the reader is looking at the figures. Purpose:
+preventing a jarring change — the one entry on the gate's list that this is.
+
+**Grounded:** `notice`/`setNoticeText`/`clearNotices` in `app.js:3829`, and `startAndFollow`, which
+posts one progress banner, rewrites its text per step, then clears.
+
+**The traps:**
+
+1. **Rewriting text must not re-animate.** `setNoticeText` updates the same node every step; only
+   insertion and removal transition, or the banner flickers seven times per sync.
+2. **Grid rows, not `height: auto`.** `grid-template-rows: 0fr → 1fr` transitions without measuring
+   and without a reflow per frame.
+3. **An error is not a decoration.** A failure banner appears with the same 180 ms and no bounce; it
+   must never look playful, and it must never be *slower* to appear than the failure it reports.
+4. **`aria-live` behaviour is unchanged** — the notice is announced when it is added, not when the
+   transition ends.
+
+**Acceptance criteria:**
+
+- **AC1** A notice being added or removed transitions its own height and opacity; content below does
+  not jump.
+- **AC2** Text rewrites in place with no transition.
+- **AC3** Error and warning notices use the same timing as info ones.
+- **AC4** Screen-reader announcement is unchanged, asserted by test.
+- **AC5** Under `prefers-reduced-motion` the row still opens (that is layout, not vestibular motion)
+  but with no translate.
+
+**Stop condition:** none.
+
+---
+
+## US-74 — The theme change is a light switch *(new, refined — small)*
+
+Light to dark goes from near-white to near-black in one frame. §14 names abrupt brightness jumps
+specifically, and this is the app's only one. It is also rare — a handful of times ever — so it is
+exactly where a little cost is affordable: a 220 ms cross-fade on the surfaces and the ink.
+
+**Grounded:** `theme.js` sets `data-theme` on the root; the tokens are in `styles.css`.
+
+**The traps:**
+
+1. **Colour only, no movement.** So it survives `prefers-reduced-motion` untouched, and it is one of
+   the few transitions that should.
+2. **Name the properties.** `background-color`, `color`, `border-color` on the surfaces — not
+   `transition: all`, which would drag every unrelated property into it.
+3. **The charts are canvases and do not cross-fade.** They are redrawn on the theme change
+   (`theme.js` re-reads the tokens), so they will switch instantly while the page fades. Decide that
+   deliberately: either accept it, or fade the chart container too. A half-faded page around an
+   instantly-switched chart is worse than no transition.
+4. **Do not transition on first paint.** The class goes on after the initial render, or every load
+   starts with a fade from the wrong theme.
+
+**Acceptance criteria:**
+
+- **AC1** Switching theme cross-fades surfaces, text and borders over ~220 ms.
+- **AC2** No transform, and the transition survives `prefers-reduced-motion` deliberately.
+- **AC3** The first paint after load does not animate.
+- **AC4** The chart repaint and the page fade do not visibly disagree.
+
+**Stop condition:** if the canvases cannot be brought into line with the page, ship it without the
+fade — a page that fades around a chart that snaps draws attention to the seam.
+
+---
+
+## US-75 — Data arrives per card, and when it comes into view *(new, refined — the review's one addition)*
+
+The moment the data lands, the whole screen fills in one frame: `clearNotices()`, `refresh()`, done.
+This is the one place in the app where the delight budget is genuinely available — it happens once per
+sync, it is a rare high-emotion moment, and right now it says nothing at all. Every render-frequency
+animation was rejected precisely so this one could be afforded.
+
+**Two triggers, both real:**
+
+1. **On arrival.** Cards reveal in document order, 60 ms apart. Charts get a soft left-to-right mask
+   (520 ms hero, 360 ms the small ones); tiles, bars and cards rise 6 px and fade (260 ms); table rows
+   stagger 28 ms with a cap at ten, because ninety positions at 28 ms is two and a half seconds of
+   waiting for your own data.
+2. **On coming into view.** A card below the fold reveals when it scrolls in — once, then the observer
+   drops it. Without this, half the reveals happen off screen and are simply wasted. It is also the
+   next step of a pattern the app already has: `onScreen()` (`app.js:1419`) builds only the active
+   tab's charts, so charts out of view already do not exist.
+
+**The whole story is in `docs/prototypes/ui-review-3-arrival.html`,** including the
+alles-tegelijk/per-kaart switch that makes the difference visible, and the three hero variants with the
+recommendation (A, the soft wipe; not B, the pen-tip dot).
+
+**The traps:**
+
+1. **The mask runs over a finished drawing.** This is the design decision that makes the story
+   affordable: the reveal is CSS over a canvas Chart.js already drew, so **`animation: false` in
+   `charts.js` stays off** — that was measured for two-thousand-point series and is not reopened here.
+   A chart that animates its own data is a chart that appears to be computing while you watch, which
+   is the one impression this app must not give.
+2. **Once per arrival, never per render.** A range or granularity change redraws the same series and
+   gets nothing — that is US-64's territory for sections and pure latency here.
+3. **No value moves.** Rise and fade, on elements that already hold their final string. US-65 settles
+   this for figures and the same rule applies: no digit is interpolated, and bars fade rather than
+   growing from zero, because a bar growing from zero is a value climbing.
+4. **Nothing waits for it.** The page is interactive during the reveal; the mask is a layer over a
+   live screen.
+5. **The skeleton is for an empty account only.** On a *re*-sync there is already data on screen: it
+   holds at reduced opacity and is replaced. A skeleton there means the layout jumps twice per sync,
+   which is the defect US-73 is fixing next door.
+6. **Reduced motion turns the wipe into a cross-fade.** A mask travelling across a large surface is
+   exactly what §14 is about; the arrival stays, the travel goes.
+7. **One observer, disconnected on tab change.** Thirteen observers, or one that outlives its cards, is
+   a leak in a page that re-renders on every range change.
+
+**Acceptance criteria:**
+
+- **AC1** After a sync, cards reveal per card (60 ms apart) rather than all in one frame.
+- **AC2** Charts reveal with a mask over an already-drawn canvas; `animation: false` is still set in
+  `charts.js`, asserted by test.
+- **AC3** Tiles, bars and rows fade and rise; no numeric value is interpolated and no bar grows from
+  zero.
+- **AC4** A card below the fold reveals when it enters the viewport, once, and re-scrolling does not
+  replay it.
+- **AC5** A range, granularity or tab change does not replay any reveal.
+- **AC6** The page is interactive throughout; no input is blocked.
+- **AC7** A re-sync holds the previous render rather than showing a skeleton.
+- **AC8** Under `prefers-reduced-motion` the wipe is a cross-fade and the stagger is gone.
+- **AC9** The observer is disconnected and rebuilt with the render; a test asserts no observer outlives
+  its cards.
+
+**Stop condition:** if the reveal cannot be done without turning Chart.js's own animation on, stop.
+The moment the data draws itself, this stopped being a story about arrival and became a story about
+pretending to compute.

@@ -1,0 +1,935 @@
+<title>Vier UI-voorstellen</title>
+<style>
+/* Tokens overgenomen uit src/ui/styles.css, zodat het prototype er niet
+   mooier uitziet dan de app waar het over gaat. */
+:root {
+  color-scheme: light;
+  --page: #fbfaf8;
+  --surface-1: #ffffff;
+  --surface-2: #f4f2ee;
+  --surface-3: #eae6e0;
+  --rail: #f6f4f0;
+  --text-primary: #14181d;
+  --text-secondary: #5c6672;
+  --text-muted: #939ca7;
+  --border: #e9e6e0;
+  --border-strong: #d6d2ca;
+  --grid: #e9e6e0;
+  --pos: #0b5fc4;
+  --neg: #c02434;
+  --pos-soft: #e4edf9;
+  --neg-soft: #fae7e8;
+  --good: #0b5fc4;
+  --warning: #785000;
+  --critical: #9e1628;
+  --accent: #b8532f;
+  --series-1: #557cd4;
+  --shadow: 0 1px 2px rgba(20, 25, 30, 0.05);
+  --shadow-float: 0 12px 32px rgba(20, 25, 30, 0.13), 0 2px 6px rgba(20, 25, 30, 0.06);
+  --scrim: rgba(10, 14, 18, 0.45);
+
+  --radius: 0.625rem;
+  --radius-sm: 0.375rem;
+  --radius-pill: 999px;
+  --rule: 1px;
+  --track: 0.07em;
+  --hint: 0.75rem;
+  --base: 0.9375rem;
+  --font: system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --page: #0d1116;
+    --surface-1: #141920;
+    --surface-2: #1b222b;
+    --surface-3: #232b35;
+    --rail: #10151b;
+    --text-primary: #e8edf3;
+    --text-secondary: #98a3b0;
+    --text-muted: #6b7683;
+    --border: #232b35;
+    --border-strong: #333d49;
+    --grid: #232b35;
+    --pos: #63a6f6;
+    --neg: #f4737f;
+    --pos-soft: #16283d;
+    --neg-soft: #341c21;
+    --good: #63a6f6;
+    --warning: #efbf68;
+    --critical: #ff9aa4;
+    --accent: #e08355;
+    --series-1: #4a86de;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-float: 0 16px 40px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.4);
+    --scrim: rgba(0, 0, 0, 0.6);
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --page: #0d1116;
+  --surface-1: #141920;
+  --surface-2: #1b222b;
+  --surface-3: #232b35;
+  --rail: #10151b;
+  --text-primary: #e8edf3;
+  --text-secondary: #98a3b0;
+  --text-muted: #6b7683;
+  --border: #232b35;
+  --border-strong: #333d49;
+  --grid: #232b35;
+  --pos: #63a6f6;
+  --neg: #f4737f;
+  --pos-soft: #16283d;
+  --neg-soft: #341c21;
+  --good: #63a6f6;
+  --warning: #efbf68;
+  --critical: #ff9aa4;
+  --accent: #e08355;
+  --series-1: #4a86de;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-float: 0 16px 40px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.4);
+  --scrim: rgba(0, 0, 0, 0.6);
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--text-primary);
+  font: var(--base)/1.55 var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap {
+  max-width: 62rem;
+  margin: 0 auto;
+  padding: clamp(1.25rem, 0.8rem + 2vw, 2.5rem) clamp(1rem, 0.6rem + 1.6vw, 2rem) 5rem;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1.25rem, 1rem + 1vw, 2rem);
+}
+
+/* --- kop ---------------------------------------------------------------- */
+
+.pagehead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.eyebrow {
+  font-size: 0.6875rem;
+  letter-spacing: var(--track);
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 0 0 0.35rem;
+}
+
+h1 {
+  font-size: clamp(1.5rem, 1.15rem + 1.6vw, 2.125rem);
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+  margin: 0;
+  text-wrap: balance;
+}
+
+.lede {
+  margin: 0.6rem 0 0;
+  max-width: 42rem;
+  color: var(--text-secondary);
+}
+
+/* --- kaart -------------------------------------------------------------- */
+
+.card {
+  background: var(--surface-1);
+  border: var(--rule) solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: clamp(0.9rem, 0.65rem + 1vw, 1.375rem);
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+.card > header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.rank {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.6875rem;
+  letter-spacing: var(--track);
+  color: var(--text-muted);
+  border: var(--rule) solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  padding: 0.1rem 0.5rem;
+}
+
+.card h2 {
+  font-size: 1.0625rem;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  margin: 0;
+  flex: 1 1 14rem;
+}
+
+.chip {
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: var(--track);
+  text-transform: uppercase;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-pill);
+  border: var(--rule) solid var(--border);
+}
+.chip.defect { color: var(--critical); background: var(--neg-soft); border-color: transparent; }
+.chip.klein { color: var(--text-secondary); background: var(--surface-2); border-color: transparent; }
+.chip.werk { color: var(--warning); background: var(--surface-2); border-color: transparent; }
+
+.card p { margin: 0; color: var(--text-secondary); max-width: 46rem; }
+.card p code, .file {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 0.8em;
+  background: var(--surface-2);
+  border-radius: 4px;
+  padding: 0.05em 0.35em;
+  color: var(--text-primary);
+}
+
+/* --- de A/B-bank -------------------------------------------------------- */
+
+.ab {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 0.75rem;
+}
+
+.pane {
+  border: var(--rule) solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.pane > h3 {
+  margin: 0;
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: var(--track);
+  text-transform: uppercase;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.pane.now > h3::before,
+.pane.next > h3::before {
+  content: '';
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+.pane.next > h3::before { background: var(--accent); }
+.pane.next { background: var(--surface-1); }
+
+.readout {
+  font-size: var(--hint);
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  min-height: 2.6em;
+  border-top: var(--rule) solid var(--border);
+  padding-top: 0.4rem;
+  margin-top: auto;
+}
+.readout b { color: var(--text-primary); font-weight: 600; }
+
+/* --- knoppen, zoals in de app ------------------------------------------- */
+
+button {
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  background: var(--surface-1);
+  border: var(--rule) solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 0.4rem 0.7rem;
+  cursor: pointer;
+}
+button:hover { background: var(--surface-3); }
+button:focus-visible { outline: 2px solid var(--series-1); outline-offset: 2px; }
+
+.seg {
+  display: inline-flex;
+  gap: 2px;
+  background: var(--surface-3);
+  border-radius: var(--radius-pill);
+  padding: 3px;
+  align-self: flex-start;
+}
+.seg button {
+  border-color: transparent;
+  background: transparent;
+  border-radius: var(--radius-pill);
+  padding: 0.25rem 0.7rem;
+  font-size: var(--hint);
+  color: var(--text-secondary);
+}
+.seg button[aria-pressed='true'] {
+  background: var(--surface-1);
+  color: var(--text-primary);
+  border-color: var(--border);
+}
+
+.switchrow {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  font-size: var(--hint);
+  color: var(--text-secondary);
+}
+.switchrow label { display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer; }
+
+/* --- 1. overlays -------------------------------------------------------- */
+
+.menu-wrap { position: relative; align-self: flex-start; }
+
+.menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 40;
+  width: max-content;
+  min-width: 11rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  background: var(--surface-1);
+  border: var(--rule) solid var(--border-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-float);
+}
+.menu button {
+  text-align: left;
+  border: 0;
+  background: none;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.8125rem;
+}
+.menu button:hover { background: var(--surface-2); }
+.menu .danger { color: var(--critical); }
+.menu .sep { height: var(--rule); background: var(--border); margin: 4px 2px; }
+
+/* Het voorstel: uit de trigger groeien, en dezelfde weg terug. */
+.menu.anim {
+  transform-origin: top left;
+  transition: transform 140ms cubic-bezier(0.2, 0.8, 0.3, 1), opacity 140ms ease-out;
+}
+.menu.anim.closed { opacity: 0; transform: scale(0.96) translateY(-2px); }
+.menu.anim.closing {
+  transition: transform 110ms cubic-bezier(0.4, 0, 0.7, 0.2), opacity 110ms ease-in;
+}
+
+.fakemodal {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  z-index: 60;
+}
+.fakemodal .scrim { position: absolute; inset: 0; background: var(--scrim); }
+.fakemodal .sheet {
+  position: relative;
+  background: var(--surface-1);
+  border: var(--rule) solid var(--border-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-float);
+  padding: 0.9rem 1rem;
+  max-width: 18rem;
+  font-size: var(--hint);
+  color: var(--text-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.fakemodal .sheet strong { color: var(--text-primary); font-size: var(--base); }
+.fakemodal.anim .scrim { transition: opacity 160ms ease-out; }
+.fakemodal.anim .sheet { transition: transform 160ms cubic-bezier(0.2, 0.8, 0.3, 1), opacity 160ms ease-out; }
+.fakemodal.anim.closed .scrim { opacity: 0; }
+.fakemodal.anim.closed .sheet { opacity: 0; transform: scale(0.97); }
+
+.stage {
+  position: relative;
+  min-height: 10.5rem;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* --- 2. drag ------------------------------------------------------------ */
+
+.plot {
+  position: relative;
+  background: var(--surface-1);
+  border: var(--rule) solid var(--border);
+  border-radius: var(--radius-sm);
+  touch-action: none;
+  user-select: none;
+  cursor: crosshair;
+  overflow: hidden;
+}
+.plot svg { display: block; width: 100%; height: 7.5rem; }
+.plot .band {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: color-mix(in srgb, var(--series-1) 16%, transparent);
+  border-left: var(--rule) solid var(--series-1);
+  border-right: var(--rule) solid var(--series-1);
+  pointer-events: none;
+}
+.plot .edgehint {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--accent);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease-out;
+}
+.plot .edgehint.on { opacity: 0.8; }
+
+/* --- 3. tabel ----------------------------------------------------------- */
+
+table { border-collapse: collapse; width: 100%; font-size: var(--hint); }
+th {
+  text-align: left;
+  font-size: 0.625rem;
+  letter-spacing: var(--track);
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 600;
+  padding: 0 0.4rem 0.3rem;
+}
+td { padding: 0.3rem 0.4rem; border-top: var(--rule) solid var(--border); }
+td.num { text-align: right; font-variant-numeric: tabular-nums; }
+td.num.up { color: var(--pos); }
+td.num.down { color: var(--neg); }
+
+button.snap { padding: 0.1rem 0.45rem; font-size: 0.95em; opacity: 0.45; }
+.pane.now tr:hover button.snap, button.snap:focus-visible { opacity: 1; }
+/* Het voorstel: dimmen alleen waar hover bestaat. */
+@media (hover: hover) {
+  .pane.next tr:hover button.snap { opacity: 1; }
+}
+@media not all and (hover: hover) {
+  .pane.next button.snap { opacity: 1; }
+}
+/* De touch-simulatie doet hetzelfde zonder dat je van apparaat hoeft te wisselen. */
+.sim-touch .pane.now button.snap { opacity: 0.45 !important; }
+.sim-touch .pane.next button.snap { opacity: 1 !important; }
+
+/* --- 4. reduced motion -------------------------------------------------- */
+
+.rm-demo button {
+  transition: transform 100ms ease-out, background 120ms ease, color 120ms ease;
+}
+.rm-demo button:active { transform: scale(0.97); background: var(--surface-3); }
+
+/* NU: de sledgehammer — alles uit, ook de kleur. */
+.rm-on .pane.now .rm-demo button { transition-duration: 0.01ms !important; }
+.rm-on .pane.now .rm-demo button:active { transform: none; }
+/* VOORSTEL: beweging uit, kleurfeedback blijft. */
+.rm-on .pane.next .rm-demo button { transition: background 120ms ease, color 120ms ease; }
+.rm-on .pane.next .rm-demo button:active { transform: none; background: var(--surface-3); }
+
+/* --- niet doen ---------------------------------------------------------- */
+
+.nope {
+  background: var(--surface-2);
+  border: var(--rule) dashed var(--border-strong);
+  box-shadow: none;
+}
+.nope ul { margin: 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: 0.5rem; }
+.nope li { color: var(--text-secondary); }
+.nope li b { color: var(--text-primary); font-weight: 600; }
+
+footer.note {
+  font-size: var(--hint);
+  color: var(--text-muted);
+  border-top: var(--rule) solid var(--border);
+  padding-top: 0.8rem;
+}
+
+.themeswitch { display: flex; gap: 0.4rem; align-items: center; }
+</style>
+
+<div class="wrap">
+  <header class="pagehead">
+    <div>
+      <p class="eyebrow">Prototype · nog niets gebouwd</p>
+      <h1>Vier UI-voorstellen, om te bedienen</h1>
+      <p class="lede">
+        Elk voorstel staat hier twee keer: links zoals de app het nu doet, rechts zoals het zou worden.
+        Beide zijn echt. Klik ze allebei aan — het verschil zit in het gedrag, niet in het plaatje.
+        De tokens zijn die van <span class="file">src/ui/styles.css</span>, dus dit ziet er niet mooier uit dan de app zelf.
+      </p>
+    </div>
+    <div class="themeswitch seg" role="group" aria-label="Thema">
+      <button type="button" data-theme-set="light" aria-pressed="false">Licht</button>
+      <button type="button" data-theme-set="dark" aria-pressed="false">Donker</button>
+    </div>
+  </header>
+
+  <!-- 2 eerst: het is het enige echte defect -->
+  <section class="card">
+    <header>
+      <span class="rank">1</span>
+      <h2>De drempel van de drag-selectie is tijd, geen afstand</h2>
+      <span class="chip defect">defect</span>
+    </header>
+    <p>
+      Sleep over de grafiek. De commit-regel in <span class="file">app.js:1770</span> zegt: minder dan 2 dagen is een klik.
+      Wissel het venster en zie wat 2 dagen betekent: op 5 jaar is het minder dan een pixel, dus een trillende klik zoomt;
+      op 3 weken is het bijna een centimeter, dus een echte sleep wordt weggegooid. Sleep ook naar buiten de grafiek —
+      links bevriest de selectie, rechts blijft hij volgen tot de rand.
+    </p>
+    <div class="seg" role="group" aria-label="Venster" id="win-seg">
+      <button type="button" data-win="5j" aria-pressed="true">5 jaar</button>
+      <button type="button" data-win="3w" aria-pressed="false">3 weken</button>
+    </div>
+    <div class="ab" id="drag-ab">
+      <div class="pane now">
+        <h3>Nu</h3>
+        <div class="plot" data-mode="now">
+          <svg viewBox="0 0 600 150" preserveAspectRatio="none" aria-hidden="true"><path fill="none" stroke-width="2"></path></svg>
+          <div class="band" hidden></div>
+          <div class="edgehint" style="left:0"></div>
+        </div>
+        <p class="readout">Sleep of klik.</p>
+      </div>
+      <div class="pane next">
+        <h3>Voorstel</h3>
+        <div class="plot" data-mode="next">
+          <svg viewBox="0 0 600 150" preserveAspectRatio="none" aria-hidden="true"><path fill="none" stroke-width="2"></path></svg>
+          <div class="band" hidden></div>
+          <div class="edgehint" style="left:0"></div>
+        </div>
+        <p class="readout">Sleep of klik.</p>
+      </div>
+    </div>
+    <p>
+      Verandering: drempel van 2 dagen naar 8 pixels, index klemmen op de rand in plaats van <span class="file">null</span>,
+      en <span class="file">touch-action: none</span> op het canvas zodat de pagina niet meescrollt op een touchscreen.
+    </p>
+  </section>
+
+  <section class="card">
+    <header>
+      <span class="rank">2</span>
+      <h2>De actie op een tabelrij is alleen bij hover te zien</h2>
+      <span class="chip klein">klein</span>
+    </header>
+    <p>
+      De deelknop staat op 45% en wordt vol bij <span class="file">tr:hover</span> (<span class="file">styles.css:2073</span>).
+      Zonder hover-pointer blijft hij dus permanent halfzichtbaar — hij ziet eruit alsof hij uitstaat, terwijl hij werkt.
+      Zet de simulatie aan om dat te zien zonder van apparaat te wisselen.
+    </p>
+    <div class="switchrow">
+      <label><input type="checkbox" id="touch-sim"> Doe alsof dit een touchscreen is (geen hover)</label>
+    </div>
+    <div class="ab" id="tab-ab">
+      <div class="pane now">
+        <h3>Nu</h3>
+        <table>
+          <thead><tr><th>Positie</th><th>Waarde</th><th></th></tr></thead>
+          <tbody>
+            <tr><td>ASML</td><td class="num up">€ 12.480</td><td class="num"><button class="snap" type="button" title="Deel">↗</button></td></tr>
+            <tr><td>Shell</td><td class="num down">€ 3.905</td><td class="num"><button class="snap" type="button" title="Deel">↗</button></td></tr>
+            <tr><td>VWRL</td><td class="num up">€ 21.117</td><td class="num"><button class="snap" type="button" title="Deel">↗</button></td></tr>
+          </tbody>
+        </table>
+        <p class="readout">Zonder hover blijft de knop op 45%.</p>
+      </div>
+      <div class="pane next">
+        <h3>Voorstel</h3>
+        <table>
+          <thead><tr><th>Positie</th><th>Waarde</th><th></th></tr></thead>
+          <tbody>
+            <tr><td>ASML</td><td class="num up">€ 12.480</td><td class="num"><button class="snap" type="button" title="Deel">↗</button></td></tr>
+            <tr><td>Shell</td><td class="num down">€ 3.905</td><td class="num"><button class="snap" type="button" title="Deel">↗</button></td></tr>
+            <tr><td>VWRL</td><td class="num up">€ 21.117</td><td class="num"><button class="snap" type="button" title="Deel">↗</button></td></tr>
+          </tbody>
+        </table>
+        <p class="readout">Dimmen alleen binnen <span class="file">@media (hover: hover)</span>.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <header>
+      <span class="rank">3</span>
+      <h2>Reduced motion zet ook de kleurfeedback uit</h2>
+      <span class="chip klein">klein</span>
+    </header>
+    <p>
+      <span class="file">* { transition-duration: 0.01ms !important }</span> (<span class="file">styles.css:2307</span>)
+      haalt niet alleen de beweging weg, maar ook het inkleuren dat vertelt dát een knop je gehoord heeft.
+      Zet de schakelaar aan en houd beide knoppen ingedrukt: links is er niets meer, rechts is de beweging weg en de reactie nog heel.
+    </p>
+    <div class="switchrow">
+      <label><input type="checkbox" id="rm-sim"> Doe alsof <span class="file">prefers-reduced-motion: reduce</span> aan staat</label>
+    </div>
+    <div class="ab" id="rm-ab">
+      <div class="pane now">
+        <h3>Nu</h3>
+        <div class="rm-demo"><button type="button">Houd mij ingedrukt</button></div>
+        <p class="readout">Alles uit: geen krimp, geen kleur.</p>
+      </div>
+      <div class="pane next">
+        <h3>Voorstel</h3>
+        <div class="rm-demo"><button type="button">Houd mij ingedrukt</button></div>
+        <p class="readout">Beweging uit, oppervlak reageert nog.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <header>
+      <span class="rank">4</span>
+      <h2>Menu's en dialogen verschijnen uit het niets</h2>
+      <span class="chip werk">meeste werk</span>
+    </header>
+    <p>
+      Het menu, het granulariteitsmenu, de kolomkiezer en beide dialogen gaan aan met <span class="file">hidden = false</span>.
+      Ze knippen in beeld en zijn even abrupt weg. Rechts groeit hetzelfde menu uit de knop waar het bij hoort, en gaat het
+      dezelfde weg terug — en de grijze laag onder de dialoog komt niet meer in één frame op.
+    </p>
+    <div class="ab" id="menu-ab">
+      <div class="pane now">
+        <h3>Nu</h3>
+        <div class="stage">
+          <div class="menu-wrap">
+            <button type="button" data-menu="now">Meer ▾</button>
+            <div class="menu" data-menu-panel="now" hidden>
+              <button type="button">Verbinding testen</button>
+              <button type="button">Exporteren</button>
+              <div class="sep"></div>
+              <button type="button" class="danger">Alles wissen</button>
+            </div>
+          </div>
+          <button type="button" data-modal="now">Diagnose openen</button>
+          <div class="fakemodal" data-modal-panel="now" hidden>
+            <div class="scrim" data-close="now"></div>
+            <div class="sheet">
+              <strong>Verbinding testen</strong>
+              <span>Zeven stappen, geen sessie-id in beeld.</span>
+              <button type="button" data-close="now">Sluiten</button>
+            </div>
+          </div>
+        </div>
+        <p class="readout">Aan en uit in één frame.</p>
+      </div>
+      <div class="pane next">
+        <h3>Voorstel</h3>
+        <div class="stage">
+          <div class="menu-wrap">
+            <button type="button" data-menu="next">Meer ▾</button>
+            <div class="menu anim closed" data-menu-panel="next" hidden>
+              <button type="button">Verbinding testen</button>
+              <button type="button">Exporteren</button>
+              <div class="sep"></div>
+              <button type="button" class="danger">Alles wissen</button>
+            </div>
+          </div>
+          <button type="button" data-modal="next">Diagnose openen</button>
+          <div class="fakemodal anim closed" data-modal-panel="next" hidden>
+            <div class="scrim" data-close="next"></div>
+            <div class="sheet">
+              <strong>Verbinding testen</strong>
+              <span>Zeven stappen, geen sessie-id in beeld.</span>
+              <button type="button" data-close="next">Sluiten</button>
+            </div>
+          </div>
+        </div>
+        <p class="readout">140 ms uit de knop, gespiegeld bij sluiten.</p>
+      </div>
+    </div>
+    <p>
+      In de app opent het rail-menu omhoog, dus daar is de oorsprong <span class="file">bottom left</span> in plaats van
+      <span class="file">top left</span>. Dat is de hele regel: waar het vandaan komt, gaat het naartoe terug.
+    </p>
+  </section>
+
+  <section class="card nope">
+    <header>
+      <span class="rank">—</span>
+      <h2>Wat ik niet zou doen</h2>
+    </header>
+    <ul>
+      <li><b>Doorschijnende rail of chrome.</b> Brief §8 heeft diepte er bewust uit gehaald; er scrollen cijfers onder de rail langs. Een <span class="file">backdrop-filter</span> draait die beslissing terug voor esthetiek.</li>
+      <li><b>Tellende getallen bij een venster-wissel.</b> Dit is een app die claimt dat de cijfers kloppen. Ze moeten stilstaan.</li>
+      <li><b>Een schuivende pil in de segmented control.</b> Die is nu direct correct. Regel 8: niet bouwen wat niemand miste.</li>
+    </ul>
+  </section>
+
+  <footer class="note">
+    Prototype, geen implementatie — niets hiervan staat in de branch. De demo's animeren ook als je systeem reduced motion
+    aan heeft staan, omdat de beweging hier het onderwerp is; punt 3 laat zien hoe de app zelf zich dan hoort te gedragen.
+  </footer>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  /* --- thema -------------------------------------------------------- */
+  const root = document.documentElement;
+  for (const b of document.querySelectorAll('[data-theme-set]')) {
+    b.addEventListener('click', () => {
+      const want = b.dataset.themeSet;
+      const on = root.getAttribute('data-theme') === want;
+      if (on) root.removeAttribute('data-theme');
+      else root.setAttribute('data-theme', want);
+      for (const o of document.querySelectorAll('[data-theme-set]')) {
+        o.setAttribute('aria-pressed', String(root.getAttribute('data-theme') === o.dataset.themeSet));
+      }
+    });
+  }
+
+  /* --- 1. de drag ---------------------------------------------------- */
+
+  // Deterministische reeks, zodat de twee panelen exact dezelfde grafiek tonen.
+  const series = (n, seed) => {
+    const out = [];
+    let v = 100;
+    for (let i = 0; i < n; i++) {
+      const wob = Math.sin((i + seed) * 0.37) * 1.4 + Math.sin((i + seed) * 0.11) * 3.2;
+      v = v * 1.0006 + wob * 0.35;
+      out.push(v);
+    }
+    return out;
+  };
+
+  const isoBack = (days) => {
+    const ms = Date.UTC(2026, 7, 18) - days * 86400000;
+    return new Date(ms).toISOString().slice(0, 10);
+  };
+
+  const WINDOWS = {
+    '5j': { n: 1826, label: '5 jaar' },
+    '3w': { n: 21, label: '3 weken' },
+  };
+
+  let win = '5j';
+  const plots = [...document.querySelectorAll('.plot')];
+
+  const pathFor = (n) => {
+    const data = series(n, win === '5j' ? 3 : 41);
+    const lo = Math.min(...data), hi = Math.max(...data);
+    const span = Math.max(1e-6, hi - lo);
+    return data.map((y, i) => {
+      const px = (i / Math.max(1, n - 1)) * 600;
+      const py = 140 - ((y - lo) / span) * 130;
+      return `${i ? 'L' : 'M'}${px.toFixed(1)},${py.toFixed(1)}`;
+    }).join(' ');
+  };
+
+  const drawAll = () => {
+    const n = WINDOWS[win].n;
+    const d = pathFor(n);
+    for (const p of plots) {
+      const path = p.querySelector('path');
+      path.setAttribute('d', d);
+      path.setAttribute('stroke', getComputedStyle(p).getPropertyValue('--series-1').trim() || '#557cd4');
+      p.querySelector('.band').hidden = true;
+      p.parentElement.querySelector('.readout').innerHTML = 'Sleep of klik.';
+    }
+  };
+
+  for (const b of document.querySelectorAll('#win-seg button')) {
+    b.addEventListener('click', () => {
+      win = b.dataset.win;
+      for (const o of document.querySelectorAll('#win-seg button')) {
+        o.setAttribute('aria-pressed', String(o.dataset.win === win));
+      }
+      drawAll();
+    });
+  }
+
+  for (const plot of plots) {
+    const mode = plot.dataset.mode;         // 'now' | 'next'
+    const band = plot.querySelector('.band');
+    const edge = plot.querySelector('.edgehint');
+    const readout = plot.parentElement.querySelector('.readout');
+    let anchorIdx = null, anchorX = null, moved = false;
+
+    const n = () => WINDOWS[win].n;
+
+    // Nu: buiten de grafiek is er geen index en bevriest alles.
+    // Voorstel: klemmen op de rand, zodat de selectie blijft volgen.
+    const indexAt = (e) => {
+      const r = plot.getBoundingClientRect();
+      const x = e.clientX - r.left;
+      if (mode === 'now' && (x < 0 || x > r.width)) return null;
+      const frac = Math.min(1, Math.max(0, x / Math.max(1, r.width)));
+      return Math.round(frac * (n() - 1));
+    };
+
+    const paint = (a, b) => {
+      if (a == null || b == null) { band.hidden = true; return; }
+      const r = plot.getBoundingClientRect();
+      const px = (i) => (i / Math.max(1, n() - 1)) * r.width;
+      const l = Math.min(px(a), px(b)), w = Math.abs(px(a) - px(b));
+      band.hidden = false;
+      band.style.left = l + 'px';
+      band.style.width = Math.max(1, w) + 'px';
+    };
+
+    plot.addEventListener('pointerdown', (e) => {
+      anchorIdx = indexAt(e);
+      anchorX = e.clientX;
+      moved = false;
+      if (anchorIdx != null) plot.setPointerCapture(e.pointerId);
+    });
+
+    plot.addEventListener('pointermove', (e) => {
+      if (anchorIdx == null) return;
+      const r = plot.getBoundingClientRect();
+      const outside = e.clientX < r.left || e.clientX > r.right;
+      const here = indexAt(e);
+      if (mode === 'next') edge.classList.toggle('on', outside);
+      if (here == null) return;                    // 'now': bevriest
+      if (Math.abs(e.clientX - anchorX) > 3) moved = true;
+      paint(anchorIdx, here);
+    });
+
+    const end = (e) => {
+      edge.classList.remove('on');
+      if (anchorIdx == null) return;
+      const here = indexAt(e) ?? anchorIdx;
+      const a = Math.min(anchorIdx, here), b = Math.max(anchorIdx, here);
+      const dagen = b - a;
+      const px = Math.abs(e.clientX - anchorX);
+      anchorIdx = null;
+      band.hidden = true;
+
+      const range = `${isoBack(n() - 1 - a)} … ${isoBack(n() - 1 - b)}`;
+      const rond = (x) => Math.round(x);
+
+      if (mode === 'now') {
+        // De regel uit app.js: minder dan 2 dagen telt als klik.
+        if (dagen < 2) {
+          readout.innerHTML = moved
+            ? `Sleep van <b>${rond(px)} px</b> verworpen — ${dagen} dag${dagen === 1 ? '' : 'en'}, onder de drempel.`
+            : `Klik: tooltip lezen.`;
+        } else {
+          readout.innerHTML = `Gezoomd naar <b>${range}</b> — ${dagen} dagen, ${rond(px)} px.`;
+        }
+      } else {
+        // Het voorstel: 8 px hysterese.
+        if (px < 8) {
+          readout.innerHTML = `Klik (<b>${rond(px)} px</b>): tooltip lezen, geen zoom.`;
+        } else {
+          readout.innerHTML = `Gezoomd naar <b>${range}</b> — ${rond(px)} px, ${dagen} dagen.`;
+        }
+      }
+    };
+
+    plot.addEventListener('pointerup', end);
+    plot.addEventListener('pointercancel', () => { anchorIdx = null; band.hidden = true; edge.classList.remove('on'); });
+  }
+
+  drawAll();
+  window.addEventListener('resize', () => { for (const p of plots) p.querySelector('.band').hidden = true; });
+
+  /* --- 2. touch-simulatie -------------------------------------------- */
+  document.getElementById('touch-sim').addEventListener('change', (e) => {
+    document.getElementById('tab-ab').classList.toggle('sim-touch', e.target.checked);
+  });
+
+  /* --- 3. reduced-motion-simulatie ------------------------------------ */
+  document.getElementById('rm-sim').addEventListener('change', (e) => {
+    document.getElementById('rm-ab').classList.toggle('rm-on', e.target.checked);
+  });
+
+  /* --- 4. menu's en dialogen ------------------------------------------ */
+
+  const panel = (sel, key) => document.querySelector(`[${sel}="${key}"]`);
+
+  const openMenu = (key) => {
+    const m = panel('data-menu-panel', key);
+    m.hidden = false;
+    if (key === 'next') {
+      m.classList.remove('closing');
+      // Eén frame op de gesloten waarde, zodat de overgang ergens vandaan komt.
+      requestAnimationFrame(() => requestAnimationFrame(() => m.classList.remove('closed')));
+    }
+  };
+
+  const closeMenu = (key) => {
+    const m = panel('data-menu-panel', key);
+    if (m.hidden) return;
+    if (key === 'now') { m.hidden = true; return; }
+    m.classList.add('closing', 'closed');
+    setTimeout(() => { m.hidden = true; m.classList.remove('closing'); }, 115);
+  };
+
+  for (const b of document.querySelectorAll('[data-menu]')) {
+    b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const key = b.dataset.menu;
+      const m = panel('data-menu-panel', key);
+      if (!m.hidden && !m.classList.contains('closed')) closeMenu(key);
+      else openMenu(key);
+    });
+  }
+  document.addEventListener('click', () => { closeMenu('now'); closeMenu('next'); });
+  for (const m of document.querySelectorAll('[data-menu-panel]')) {
+    m.addEventListener('click', (e) => e.stopPropagation());
+  }
+
+  const openModal = (key) => {
+    const d = panel('data-modal-panel', key);
+    d.hidden = false;
+    if (key === 'next') requestAnimationFrame(() => requestAnimationFrame(() => d.classList.remove('closed')));
+  };
+  const closeModal = (key) => {
+    const d = panel('data-modal-panel', key);
+    if (key === 'now') { d.hidden = true; return; }
+    d.classList.add('closed');
+    setTimeout(() => { d.hidden = true; }, 165);
+  };
+
+  for (const b of document.querySelectorAll('[data-modal]')) {
+    b.addEventListener('click', (e) => { e.stopPropagation(); openModal(b.dataset.modal); });
+  }
+  for (const b of document.querySelectorAll('[data-close]')) {
+    b.addEventListener('click', (e) => { e.stopPropagation(); closeModal(b.dataset.close); });
+  }
+})();
+</script>
