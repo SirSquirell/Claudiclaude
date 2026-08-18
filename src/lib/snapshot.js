@@ -88,10 +88,21 @@ export function ownerLine({ source = 'first', fullName = null, username = null, 
  * shape — the only thing the sparkline claims to show — was squeezed into the
  * last inch. The line has to start at the buy.
  *
- * "The buy" is the first day the position was held, and the end is the last day
- * it was held, so a closed position stops at its sale instead of trailing a flat
- * line to today. Both are clipped to the window the reader selected: a 3-month
- * card for a five-year holding shows three months, not five years.
+ * "The buy" is the first day the position was held, and the end is **the day it
+ * closed** — not the last day it was still held. Both are clipped to the window
+ * the reader selected: a 3-month card for a five-year holding shows three months,
+ * not five years.
+ *
+ * That end is the correction from the discrepancy report, and it is a one-day
+ * difference that changed a number's sign on a real account. `qty` is the
+ * quantity at the *end* of a day, so the day a position is sold out it reads
+ * zero — while that is exactly the day the position's largest single P/L falls
+ * on: `pnl[i] = 0 - values[i - 1] - tradedIn[i]`, the move between the last
+ * close and the price it actually sold at. Ending at the last non-zero day
+ * dropped it, so a card said +€175,50 for a position whose row in the table said
+ * -€99,02. A day the position traded on is a day of its life, and it is in the
+ * span. The rule is therefore "held at the end of this day, *or* at the end of
+ * the day before".
  *
  * `null` only when the position was never open inside the window at all. A
  * position held for a single day *is* a span and is returned as one; whether one
@@ -102,16 +113,56 @@ export function positionSpan(qty, from = 0, to = (qty?.length ?? 1) - 1) {
   const q = qty ?? [];
   const lo = Math.max(0, from);
   const hi = Math.min(q.length - 1, to);
+  // A short is a position too, so it is `!== 0` and not `> 0`.
+  const held = (i) => i >= 0 && Math.abs(q[i] ?? 0) > 1e-9;
   let first = -1;
   let last = -1;
   for (let i = lo; i <= hi; i++) {
-    // A short is a position too, so it is `!== 0` and not `> 0`.
-    if (Math.abs(q[i] ?? 0) > 1e-9) {
+    // `held(i - 1)` is the closing day: flat now, held yesterday. It reaches
+    // back before `lo` on purpose — a window that opens on the sale day contains
+    // that sale, and the table's Result column counts it, so the card must too.
+    if (held(i) || held(i - 1)) {
       if (first < 0) first = i;
       last = i;
     }
   }
   return first < 0 ? null : { from: first, to: last };
+}
+
+/**
+ * The money that went *into* a position over a span — gross, not what is left in
+ * it.
+ *
+ * Every euro that ever went in, counted once, over the same days as the result
+ * that will be divided by it. `paidIn` is the running net, so the sum of its
+ * *rises* is what went in and its falls are what came back out. The day before
+ * the span is the baseline; before the series there is nothing.
+ *
+ * Why gross rather than the net still in it — the second half of the discrepancy
+ * report, and the half that survives even after the span is fixed. The net is a
+ * *stock*: a position sold out has none of your money left in it, so the net
+ * denominator is zero (or negative, when it sold above cost) and the card had no
+ * percentage left to show for anything closed. Worse, halfway between: sell half
+ * of a doubled position and the net falls while the result stays, so the same
+ * position reports a return that climbs as money is taken off the table. "For
+ * every euro I put in, this came back" is a question about the euros that went
+ * in, which is a *flow*, and this is that flow.
+ *
+ * The holdings table's "% of bought" column is the same question, so it now
+ * divides by this same function over the same window. Two figures on one screen
+ * that answered a question two ways is what the report was about; there is one
+ * way now.
+ */
+export function moneyInOver(paidIn, from = 0, to = (paidIn?.length ?? 1) - 1) {
+  const a = paidIn ?? [];
+  const lo = Math.max(0, from);
+  const hi = Math.min(a.length - 1, to);
+  let total = 0;
+  for (let i = lo; i <= hi; i++) {
+    const rise = (a[i] ?? 0) - (i > 0 ? a[i - 1] ?? 0 : 0);
+    if (rise > 0) total += rise;
+  }
+  return total;
 }
 
 /**
@@ -234,17 +285,64 @@ export function returnOnMoneyIn(result, paidIn) {
 }
 
 /**
- * Reduce a series to at most `max` points, keeping the first and the last.
+ * Reduce a series to at most `max` points, keeping the first, the last **and
+ * every extreme**.
  *
  * The sparkline is a shape, not a reading: no axis, no scale, so it discloses
  * the path and never a level. Downsampling here rather than in the drawing code
  * keeps the model the whole truth of what will be drawn.
+ *
+ * Which is exactly why it cannot be sampled every *n*-th day, and used to be.
+ * Stride sampling keeps whatever days it happens to land on, so the peak and the
+ * trough survive only by luck — measured over the demo account's ten positions
+ * it threw away **5 % to 14 % of the range**, and on a six-year holding the line
+ * drew a best moment €2 300 below the real one. The line is then normalised to
+ * its own extent (`drawSpark`), so the drop is invisible: a shallower shape,
+ * drawn confidently, at full height. A crash that lasted a fortnight inside a
+ * five-year position could disappear entirely.
+ *
+ * Min/max decimation instead — the waveform convention. The interior is cut into
+ * buckets and each contributes its lowest and its highest day, in the order they
+ * happened, so:
+ *
+ *  - the global peak and trough are always drawn, because they are the extreme
+ *    of whichever bucket holds them;
+ *  - no wiggle is invented: every point is a real day's value, never averaged or
+ *    interpolated;
+ *  - and a monotone run stays monotone, because min-then-max of a rising bucket
+ *    is its first and last day.
+ *
+ * The cost is that spacing is no longer uniform in time. For a shape with no
+ * x-axis that is the cheaper of the two prices, and it is the one the rest of
+ * this file already pays: the card shows a path, and the honest version of a
+ * path is one that still contains its worst day.
  */
 export function sparkline(series, max = 48) {
   const xs = (series ?? []).filter((v) => Number.isFinite(v));
   if (xs.length <= max) return xs;
-  const stride = (xs.length - 1) / (max - 1);
-  return Array.from({ length: max }, (_, i) => xs[Math.round(i * stride)]);
+  // Two points per bucket, plus the first and the last, which are kept whatever
+  // they are: the last is the position's result, and a card whose line ends
+  // somewhere other than its own figure is the defect one story up.
+  const buckets = Math.floor((max - 2) / 2);
+  const out = [xs[0]];
+  const step = (xs.length - 2) / buckets;
+  for (let b = 0; b < buckets; b++) {
+    const lo = 1 + Math.floor(b * step);
+    const hi = Math.min(xs.length - 2, Math.floor(1 + (b + 1) * step) - 1);
+    if (hi < lo) continue;
+    let min = lo;
+    let max2 = lo;
+    for (let i = lo; i <= hi; i++) {
+      if (xs[i] < xs[min]) min = i;
+      if (xs[i] > xs[max2]) max2 = i;
+    }
+    // In the order they happened. Reversing them would draw a fall as a rise.
+    const [a, c] = min <= max2 ? [min, max2] : [max2, min];
+    out.push(xs[a]);
+    if (c !== a) out.push(xs[c]);
+  }
+  out.push(xs[xs.length - 1]);
+  return out;
 }
 
 /**
@@ -298,6 +396,7 @@ export function snapshotModel({
 
   let result = 0;
   let moneyIn = 0;
+  let netIn = 0;
   const series = [];
   if (span) {
     let running = 0;
@@ -306,9 +405,14 @@ export function snapshotModel({
       series.push(running);
     }
     result = running;
-    // Over the same days, so numerator and denominator agree. The day before the
-    // position opened is the baseline; before the series it is zero.
-    moneyIn = (paidIn[span.to] ?? 0) - (span.from > 0 ? paidIn[span.from - 1] ?? 0 : 0);
+    // Over the same days, so numerator and denominator agree. Gross — see
+    // `moneyInOver` for why the net still in it is the wrong denominator, and why
+    // this is the same function the holdings row divides by.
+    moneyIn = moneyInOver(paidIn, span.from, span.to);
+    // The net, which is a different number and answers a different question: what
+    // is *still* in it. Only the bar uses this, because only the bar splits a
+    // value into parts that have to add up to it.
+    netIn = (paidIn[span.to] ?? 0) - (span.from > 0 ? paidIn[span.from - 1] ?? 0 : 0);
   }
 
   const { pct, basis } = returnOnMoneyIn(result, moneyIn);
@@ -322,19 +426,27 @@ export function snapshotModel({
     // The only field US-46 controls, and the only one that can carry a figure.
     amount: anonymized ? null : result,
     /**
-     * US-52. The same two numbers the percentage above is made of, read the
-     * other way round — the pct answers *"for every euro in, how much came
-     * back"*, the split answers *"of what this is worth, how much is mine"*.
+     * US-52. The pct answers *"for every euro in, how much came back"*; the bar
+     * answers *"of what this is worth, how much is mine"*.
      *
-     * Measured over `span` for free, because `moneyIn` and `result` already are
-     * (US-50). So a windowed card's bar is windowed like everything else on it,
-     * and an all-time card reproduces the holdings row's bar to the digit — the
-     * span ends on the last day, which is where `splitCell` reads.
+     * Measured over `span`, so a windowed card's bar is windowed like everything
+     * else on it, and an all-time card reproduces the holdings row's bar to the
+     * digit — the span ends on the last day, which is where `splitCell` reads.
+     *
+     * **Only while the position is open**, which is the third half of the
+     * discrepancy report. The bar splits a *stock* — a value you are holding — and
+     * a closed position is not worth anything, so there is nothing to split. It
+     * drew one anyway: a position sold out at a loss came back from `splitModel`
+     * as "100% of what you paid in is gone" on a sale that lost 20 %, because the
+     * net left in it and the loss happened to be the same size. The holdings row
+     * has always printed a dash here for anything closed (`app.js`, `cellFor
+     * .split`); the card now agrees with it rather than inventing a bar for a
+     * position that no longer exists.
      *
      * Not governed by `anonymized`: there is no amount in it. That is the point
      * of putting this on a public card rather than the euros beside it.
      */
-    split: span ? splitModel(moneyIn, result) : null,
+    split: span && Math.abs(qty[span.to] ?? 0) > 1e-9 ? splitModel(netIn, result) : null,
     spark: drawable ? sparkline(series) : [],
     /**
      * Normalised here rather than trusted from the caller, so the only two

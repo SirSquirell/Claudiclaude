@@ -7,9 +7,10 @@ import { DOTS, DOT_R, LINE, MIN_LOCKUP_HEIGHT, STAR, STROKE_W, VIEWBOX, markWidt
 import {
   CARD_MIN_SHORT_EDGE_SHARE, CARD_MIN_TYPE_PX, CARD_RENDER_MIN_PX, FORMATS, PROVENANCE_FIELDS,
   SCORECARD_FIELDS, SNAPSHOT_FIELDS, cardMetrics, scoreCardModel, splitModel,
-  formatById, onScreenPx, ownerLine, positionSpan, provenanceLine, returnOnMoneyIn, snapshotModel,
-  sparkline,
+  formatById, moneyInOver, onScreenPx, ownerLine, positionSpan, provenanceLine, returnOnMoneyIn,
+  snapshotModel, sparkline,
 } from '../src/lib/snapshot.js';
+import { computePortfolio } from '../src/lib/engine.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 
@@ -304,25 +305,115 @@ test('US-50 — the spark starts at the buy and ends at the sale', () => {
    * and the shape was squeezed into the last inch.
    */
   const qty = [0, 0, 0, 5, 5, 5, 0, 0];
-  assert.deepEqual(positionSpan(qty), { from: 3, to: 5 }, 'the flat run before the buy is not part of the position');
+  assert.deepEqual(positionSpan(qty), { from: 3, to: 6 }, 'the flat run before the buy is not part of the position');
+
+  /**
+   * Day 6 is the sale: quantity is the figure at the *end* of a day, so the day
+   * a position is sold out reads zero — and it is the day the sale's own P/L
+   * falls on. The span ends there, not at day 5. This assertion is the whole of
+   * the discrepancy report: ending at day 5 dropped the largest single day of a
+   * closed position and printed a card that disagreed with its own table row.
+   */
+  assert.deepEqual(positionSpan(qty, 4, 6), { from: 4, to: 6 }, 'clipped at the front, still ends at the sale');
+  assert.deepEqual(positionSpan(qty, 6, 7), { from: 6, to: 6 }, 'a window opening on the sale day contains the sale');
 
   // Clipped to the reader's window, both ends. A 3-month card for a five-year
   // holding shows three months.
-  assert.deepEqual(positionSpan(qty, 4, 6), { from: 4, to: 5 });
+  assert.deepEqual(positionSpan(qty, 3, 4), { from: 3, to: 4 });
   assert.deepEqual(positionSpan([1, 1, 1], 0, 2), { from: 0, to: 2 }, 'still held today runs to the window end');
 
-  // A short is a position too.
-  assert.deepEqual(positionSpan([0, -3, -3, 0]), { from: 1, to: 2 });
+  // A short is a position too, and closing one is a closing day like any other.
+  assert.deepEqual(positionSpan([0, -3, -3, 0]), { from: 1, to: 3 });
 
   // Never open in the window: no span, and the caller draws nothing rather than
   // inventing one.
   assert.equal(positionSpan([0, 0, 0]), null);
-  assert.equal(positionSpan(qty, 6, 7), null);
+  assert.equal(positionSpan(qty, 7, 7), null);
   assert.equal(positionSpan(null), null);
 
-  // One day held is a span. Whether one point can be drawn is the renderer's
-  // problem, and deciding it here would make this function about drawing.
-  assert.deepEqual(positionSpan([0, 4, 0]), { from: 1, to: 1 });
+  // One day held, then sold: two days. Whether a line can be drawn across them
+  // is the renderer's problem, and deciding it here would make this function
+  // about drawing.
+  assert.deepEqual(positionSpan([0, 4, 0]), { from: 1, to: 2 });
+});
+
+test('the card and the holdings row report the same result for a closed position', () => {
+  /**
+   * The defect as reported: one screenshot, a holdings row showing a loss and the
+   * card shared from that same row showing a gain — a different sign for the same
+   * position on the same day. The reported figures are in the changelog and in
+   * `docs/BACKLOG.md`; no value out of a real account enters `test/` (rule 7),
+   * and this scenario is built from scratch below.
+   *
+   * Three faults, all in this one assertion:
+   *
+   *  1. `positionSpan` ended on the last day the position was *held*, so the
+   *     sale day — where a closed position books the move between its last close
+   *     and the price it sold at — was outside the card's span and outside its
+   *     total. The table's Result column sums the whole window and kept it.
+   *  2. The percentage divided by the money *still* in it. Sold out, that is
+   *     zero or negative, so the denominator was whatever `paidIn` happened to
+   *     read on the day before the sale rather than what went in.
+   *  3. A paid-in-vs-grown bar was drawn for a position worth nothing.
+   *
+   * Built through the engine rather than from hand-written arrays, because the
+   * fault was in the relationship between `qty`, `pnl` and `paidIn` — three
+   * arrays a test that invents them can quietly make agree.
+   */
+  const r = computePortfolio({
+    products: { 1: { id: '1', name: 'TEST', symbol: 'TST', currency: 'EUR', vwdId: '900' } },
+    prices: { 900: { start: '2024-01-01', stepDays: 1, points: [
+      { offsetDays: 0, close: 100 }, { offsetDays: 1, close: 100 }, { offsetDays: 2, close: 110 },
+      { offsetDays: 3, close: 110 }, { offsetDays: 4, close: 120 },
+    ] } },
+    today: '2024-01-05',
+    cashRows: [
+      { date: '2024-01-01', description: 'iDEAL Deposit', change: 1000, currency: 'EUR', category: 'DEPOSIT' },
+      { date: '2024-01-02', description: 'Koop 5 @ 100', change: -500, currency: 'EUR', category: 'TRADE' },
+      { date: '2024-01-05', description: 'Verkoop 5 @ 120', change: 600, currency: 'EUR', category: 'TRADE' },
+    ],
+    transactions: [
+      { date: '2024-01-02', productId: '1', quantity: 5, price: 100, currency: 'EUR', fee: 0, totalBase: -500 },
+      { date: '2024-01-05', productId: '1', quantity: -5, price: 120, currency: 'EUR', fee: 0, totalBase: 600 },
+    ],
+  });
+  const p = r.byProduct[0];
+  const to = r.days.length - 1;
+
+  // What the table prints: the window's result, and it is the whole result —
+  // bought at 100, sold at 120, five of them.
+  const rowResult = p.pnl.reduce((a, b) => a + b, 0);
+  assert.equal(rowResult, 100);
+  assert.equal(p.pnl.at(-1), 50, 'a fifth of it is on the sale day, which is where qty already reads zero');
+
+  const m = snapshotModel({ name: p.name, days: r.days, qty: p.qty, pnl: p.pnl, paidIn: p.paidIn });
+  assert.equal(m.amount, rowResult, 'the card and the row agree, to the cent');
+  assert.equal(m.period.to, '2024-01-05', 'and the card says the sale day, not the day before it');
+
+  // The percentage the row prints, from the same function, over the same days.
+  assert.equal(moneyInOver(p.paidIn, 0, to), 500);
+  assert.equal(m.pct, (rowResult / moneyInOver(p.paidIn, 0, to)) * 100);
+  assert.equal(m.pct, 20);
+
+  // And no bar, because there is no position left to split. The row has always
+  // printed a dash here; the card now does the same rather than splitting zero.
+  assert.equal(m.split, null);
+});
+
+test('money in is what went in, not what is left in', () => {
+  // Buy 500, buy 300, sell 400 back out: 800 went in. The net still in it is
+  // 400, and dividing a result by that reports a return that grows every time
+  // money is taken off the table.
+  const paidIn = [0, 500, 500, 800, 400, 400];
+  assert.equal(moneyInOver(paidIn), 800);
+
+  // Over a window, and the day before it is the baseline: the second buy only.
+  assert.equal(moneyInOver(paidIn, 3, 5), 300);
+  // A window with nothing but a sale in it took no money in at all. The caller
+  // has no denominator and says so rather than printing a percentage of nothing.
+  assert.equal(moneyInOver(paidIn, 4, 5), 0);
+  assert.equal(moneyInOver([]), 0);
+  assert.equal(moneyInOver(null), 0);
 });
 
 test('the account name reaches the card and nothing else', () => {
@@ -399,12 +490,53 @@ test('the four formats are four distinct shapes, and an unknown one falls back',
 
 test('the sparkline keeps both ends and never more than the cap', () => {
   const s = sparkline(Array.from({ length: 900 }, (_, i) => i), 48);
-  assert.equal(s.length, 48);
+  assert.ok(s.length <= 48, `${s.length} points drawn where 48 is the cap`);
   assert.equal(s[0], 0);
   assert.equal(s.at(-1), 899);
+  // A rising series comes back rising. Min-then-max per bucket is what keeps it
+  // that way; taking them in index order rather than value order would draw a
+  // staircase on a straight line.
+  assert.deepEqual(s, [...s].sort((a, b) => a - b), 'a monotone series stays monotone');
   assert.deepEqual(sparkline([1, 2, 3]), [1, 2, 3]);
   assert.deepEqual(sparkline([1, NaN, 3]), [1, 3], 'a gap is dropped, not drawn as zero');
   assert.deepEqual(sparkline(null), []);
+});
+
+test('US-77 — the sparkline draws the worst day, whatever day it falls on', () => {
+  /**
+   * The second half of the discrepancy report: *"ook de charting gaat niet
+   * goed"*. It sampled every n-th day, so the peak and the trough survived only
+   * if the stride happened to land on them — and because `drawSpark` normalises
+   * the line to its own extent, losing them is invisible. You get a shallower
+   * shape, drawn confidently, at full height.
+   *
+   * Measured over the demo account's ten positions before the fix: 5 % to 14 %
+   * of each position's range gone. This is that measurement as an assertion, on
+   * a series built so the crash sits between two sampling points.
+   */
+  const days = Array.from({ length: 900 }, (_, i) => Math.sin(i / 40) * 100);
+  // A one-day crash and a one-day spike, deliberately off any round stride.
+  days[437] = -5000;
+  days[691] = 9000;
+
+  const drawn = sparkline(days, 48);
+  assert.ok(drawn.length <= 48, 'still inside the point budget');
+  assert.ok(drawn.includes(-5000), 'the worst day is on the card');
+  assert.ok(drawn.includes(9000), 'and so is the best one');
+
+  // Every point is a real day, never an average of two: a sparkline that
+  // interpolates is drawing a day that did not happen.
+  for (const v of drawn) assert.ok(days.includes(v), `${v} is not a day in the series`);
+
+  // And the ends are still the ends — the last point is the position's result,
+  // which is the figure printed above it (US-76).
+  assert.equal(drawn[0], days[0]);
+  assert.equal(drawn.at(-1), days.at(-1));
+
+  // The old behaviour, for the record: this stride never lands on 437 or 691.
+  const stride = (days.length - 1) / 47;
+  const byStride = Array.from({ length: 48 }, (_, i) => days[Math.round(i * stride)]);
+  assert.ok(!byStride.includes(-5000) && !byStride.includes(9000), 'which is the defect');
 });
 
 // ===========================================================================

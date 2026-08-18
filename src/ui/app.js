@@ -44,7 +44,7 @@ import { isSameRun } from '../lib/sync.js';
 import { ADAPTERS, connected as connectedBrokers } from '../lib/brokers/index.js';
 import { LANGS, applyStatic, getLang, missing as missingTranslations, setLang, t as tr } from './i18n.js';
 import { THEMES, alpha, applyAnonymize, applyTheme, fmtEurCents, fmtPct, fmtPrice, fmtQty, fmtSigned, getAnonymize, getTheme, onThemeChange, setAnonymize, setTheme, tokens, withAnonymize } from './theme.js';
-import { FORMATS, ownerLine, positionSpan, scoreCardModel, snapshotModel, splitModel } from '../lib/snapshot.js';
+import { FORMATS, moneyInOver, ownerLine, positionSpan, scoreCardModel, snapshotModel, splitModel } from '../lib/snapshot.js';
 import { HOLDINGS_COLUMNS, baseHidden, droppableByPriority, optionalColumns } from './columns.js';
 import { brokerMarkSvg, lockupSvg, markSvg } from './brand.js';
 import { copySnapshot, downloadSnapshot, drawScoreCard, drawSnapshot, tokensForTheme } from './snapshot.js';
@@ -4306,9 +4306,19 @@ function renderHoldings(r, composition, compColours, t, from, to) {
     result: (p) => resultInner(sumWindow(p.pnl, from, to)),
     dividend: (p) => (Math.abs(p.dividend ?? 0) > 0.005 ? esc(fmtEurCents(p.dividend)) : dash),
     pctBought: (p) => {
-      // Result over money ever put in, gross. Honest and needing no cost-basis
-      // convention — which is why the header names its denominator.
-      const v = (p.bought ?? 0) > 0 ? (sumWindow(p.pnl, from, to) / p.bought) * 100 : null;
+      /**
+       * Result over money put in, gross. Honest and needing no cost-basis
+       * convention — which is why the header names its denominator.
+       *
+       * Over the *window*, both halves of it. It used to divide the window's
+       * result by `p.bought`, which is all-time: select 1Y on a position bought
+       * six years ago and this was one year of result over six years of buying.
+       * That is US-50's defect, which was fixed on the card and left standing
+       * here, and it is why the card and the row printed two percentages. Both
+       * now call `moneyInOver` over the same days as their own numerator.
+       */
+      const inOver = moneyInOver(p.paidIn, from, to);
+      const v = inOver > 0.005 ? (sumWindow(p.pnl, from, to) / inOver) * 100 : null;
       return v == null ? dash : `<span class="${signClass(v)}">${esc(fmtPct(v))}</span>`;
     },
     share: (p) => (open(p) ? `${((p.current / total) * 100).toFixed(1)}%` : dash),
