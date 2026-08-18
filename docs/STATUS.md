@@ -124,12 +124,21 @@ the numbering repair and the rule are in [BACKLOG.md](BACKLOG.md), *Refinement a
 
 ## Refined, not built
 
+Complete as of the 2026-08-18 consolidation — every open story number appears either here, in
+*Unmerged work* above, or in *Parked*.
+
 | Story | State | Waiting on |
 |---|---|---|
+| US-81 | **Locate the five cents** — the −0,05 reconciliation gap on the owner's emptied account. A locator, not a fix: name the anchor, size the gap when DEGIRO's total is 0, attribute the residual across cash categories | Nothing — and it decides whether the gap is our ledger or DEGIRO's `totalCash` field |
+| US-78 | The share sheet's shape strip shows one of its four shapes | Nothing |
+| US-79 | Disconnect and freeze: throw the token away, keep the numbers | Nothing |
+| US-80 | The test suite spends ~31 s of its 55 s asleep in real `setTimeout` backoffs — `mock.timers` fakes the clock without touching `degiro.js` | Nothing |
+| US-35b (tiles) | The replacement Optimism tiles ("847 days of unwavering belief") — the charts half went via US-35c/US-35d, the tiles were never built | A decision that the joke is still wanted |
+| US-26 | Instrument coverage declared per broker — verified / assumed, as a vocabulary | More relevant once a second broker lands |
 | — | **A price series was rescaled by factor 4,369**, which is not a split ratio. Investigation: one factor across two regimes, or a vwd id that changed instrument. Do not tune the threshold | Nothing |
 | US-37 | **Trading 212 R1 — PASS, measured 2026-08-13.** Page 200/401, logged out 401, and the service worker `PASS_JSON` with only an `Accept` header — so no device identifier is required either | Nothing. **US-39–US-45 are unblocked** |
 | US-44 | **Trading 212 renders through the existing pipeline** — no separate dashboard | Gated on US-37 and the data gates. Addendum body not yet received |
-| US-45 | Parameterise the session read (`session.js:19`) — renumbered twice | Deferred until R1 clears — rule 8 |
+| US-45 | Parameterise the session read — R1 has cleared, and an implementation already exists on `claude/multi-broker-build` (see *Unmerged work* above) | Salvaging that commit |
 | US-39–43 | Multi-broker delivery sequence from an external brief | All gated on US-37 |
 | US-34 | **Trading 212 — the spike is finished.** R1 through R5 are all answered: the price history is public and needs no account (daily candles to 2017), and R1 passed on 2026-08-12/13. Nothing in this row is open | Nothing. What is left is the *build* — US-39–US-45 — and the account **payload shapes**, which are still marked `hypothesis` in `tools/trading212-r1/spike.js` because no one has seen them in a Network tab |
 | US-36 | **Interactive Brokers — phase 1 has begun.** One DevTools capture shows an ordinary session-backed portal: its own bundle, a 25 kB portfolio payload, a repeating `tickle` keep-alive and a `202` long-poll. See [MULTI-BROKER.md §9](MULTI-BROKER.md) | **The decisive test**: one portfolio request re-run with `credentials: 'include'` and with `'omit'`, both statuses. That decides R1 and nothing else does |

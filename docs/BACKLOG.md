@@ -2223,7 +2223,7 @@ the product:
 
 ---
 
-## US-35b — Optimism Mode, phase two *(refined)*
+## US-35b — Optimism Mode, phase two *(half open — the charts half is superseded by US-35c/US-35d; the replacement tiles were never built)*
 
 0.39.0 shipped the switch, the stamp, the flipped tiles and the confetti. Two things were asked for
 after seeing it work, and one of them needs a decision before it is built.
@@ -2273,7 +2273,7 @@ winning account is not a joke, it is a wrong page.
 
 ---
 
-## US-35c — Invert the *performance*, not the levels *(refined, for 0.42)*
+## US-35c — Invert the *performance*, not the levels *(built, 0.42.0 — superseded by US-35d in 0.46.0)*
 
 0.41.0 reflects the value series about its own midpoint. Rejected on sight, and correctly:
 
@@ -2644,7 +2644,7 @@ in that picture too.** Built in any other order they contradict each other.
 
 ---
 
-## US-46 — Anonymize: hide the amounts, keep the percentages *(new, refined)*
+## US-46 — Anonymize: hide the amounts, keep the percentages *(built, 0.44.0)*
 
 > *"een hide toggle die heet anonimize, die dus alle getallen blurt en enkel percentages laat zien
 > zodat iemand kan flexen met de gains"*
@@ -2735,7 +2735,7 @@ computation path, which rule 1 forbids.
 
 ---
 
-## US-47 — A shareable snapshot per position, on the clipboard *(new, refined)*
+## US-47 — A shareable snapshot per position, on the clipboard *(built, 0.44.0 — extended through 0.47.0)*
 
 > *"een share to discord button per positie waarbij we een certified snapshot maken in de vorm van
 > een shot oid die meteen op het klembord wordt gezet"*
@@ -2822,7 +2822,7 @@ recorded** — never widened at the call site. That is how the 0.10.0 export lea
 
 ---
 
-## US-48 — A watermark behind the tables and the charts *(new, refined — blocked on an asset)*
+## US-48 — A watermark behind the tables and the charts *(built, 0.44.0)*
 
 > *"achter alle tabellen en grafieken een watermerk … een half transparent pngtje … links boven de
 > grafieken ofzo"*
@@ -2905,7 +2905,7 @@ comes out of it must be the fixed one.
 
 ---
 
-## US-49 — One table for a position, not two *(new, refined)*
+## US-49 — One table for a position, not two *(built, 0.46.0)*
 
 > *"can this overview be combined must include the paid in vs grown charts from the holdings, and
 > the total dividends recieved from the profit and loss per product"*
@@ -3291,7 +3291,7 @@ already about; US-53 is hard because it asks to split a flow.
 
 ---
 
-## US-52 — Paid vs grown on the shareable card *(new, refined — extends US-47)*
+## US-52 — Paid vs grown on the shareable card *(built, 0.47.0)*
 
 > *"I also want paid vs grown in the shareable things."*
 
@@ -3384,7 +3384,7 @@ wrong card — the card's split is a composition of the position's value, never 
 
 ---
 
-## US-53 — Paid vs grown on sell transactions *(new, refined — a decision, not a build)*
+## US-53 — Paid vs grown on sell transactions *(decided — option b, no split on a sell row; in [Unreleased])*
 
 > *"and I want the paid vs grown also in all sell transactions."*
 
@@ -3487,7 +3487,7 @@ be trusted.
 
 ---
 
-## US-54 — A share button on the block, and a score card instead of a chart *(new, refined — extends US-47)*
+## US-54 — A share button on the block, and a score card instead of a chart *(built, 0.47.0)*
 
 > *"nog beter zou zijn als je dat hele blok een share button geeft waarbij je daarna kan kiezen
 > welke tegel je gebruikt. Make those shared objects be a score card, they don't per se need a
@@ -3616,7 +3616,7 @@ promise (vendor policy, rule 9's neighbourhood) would reject.
 
 ---
 
-## US-55 — Grab the chart to set the range *(refined — POC validated, ready to build)*
+## US-55 — Grab the chart to set the range *(built, 0.47.0 — with US-63, as src/ui/motion.js)*
 
 > **Prototype:** `claude/apple-fluid-poc` · `docs/prototypes/apple-fluid.html`. The owner confirmed
 > the feel; build to match it. The spring, the momentum projection, the rubber-band and the
@@ -3679,7 +3679,7 @@ it has stopped being a rendering concern.
 
 ---
 
-## US-56 — Response and graceful degradation, everywhere *(new, refined)*
+## US-56 — Response and graceful degradation, everywhere *(built, 0.47.0)*
 
 The lowest-risk, highest-trust item: a craft pass that makes the whole page feel *responsive* and
 degrade honestly. Two Apple needs at once — **response** (§1) and **accessibility** (§14) — and it
@@ -3727,7 +3727,7 @@ with the broker is the failure this project exists not to ship.
 
 ---
 
-## US-57 — The share sheet as a material *(new, refined — extends US-47+/US-54)*
+## US-57 — The share sheet as a material *(built, 0.47.0)*
 
 Motion only, on the sheet US-47+ built and US-52/US-54 fill with content. It changes **no field and
 moves no value**; it makes the sheet *feel* like a real object arriving.
@@ -3767,7 +3767,7 @@ to US-47/US-52/US-54, and this story is the glass, not what is written on it.
 
 ---
 
-## US-58 — Type that changes shape with size *(refined — POC validated, ready to build)*
+## US-58 — Type that changes shape with size *(built, 0.47.0 — npm run type)*
 
 > **Prototype:** `claude/apple-fluid-poc` · `docs/prototypes/apple-fluid.html`. The size slider there
 > shows the tracking tightening and the leading pulling in as the figure grows — build to match.
@@ -3829,7 +3829,7 @@ what is left, plus one investigation whose shape is not yet known.
 
 ---
 
-## US-59 — The card's small print is unreadable at the size it gets posted *(new, defect, refined)*
+## US-59 — The card's small print is unreadable at the size it gets posted *(built, 0.47.0)*
 
 > *"This tiny tekst is barely readable"* — pointing at the preview in the share sheet.
 
@@ -3872,7 +3872,7 @@ drop.
 
 ---
 
-## US-60 — The popup was never redesigned, and it speaks no Dutch *(new, defect, refined)*
+## US-60 — The popup was never redesigned, and it speaks no Dutch *(built, 0.47.0)*
 
 Noticed from a screenshot the owner sent mid-sync. The popup shares `styles.css`, so it inherited
 0.46.0's tokens and *looks* plausible — which is exactly why two real problems went unnoticed
@@ -4092,7 +4092,7 @@ neighbourhood).
 
 ---
 
-## US-62 — Scrub the value chart *(new, refined)*
+## US-62 — Scrub the value chart *(built, 0.47.0)*
 
 The value chart draws the line but never says the number under your finger. US-12 already reads a
 drag on it (to zoom); this reads a **point** — a crosshair that tracks the pointer 1:1 with a readout
@@ -4137,7 +4137,7 @@ days — stop. That is an invented number, and this project's whole claim is tha
 
 ---
 
-## US-63 — Momentum and rubber-band on the zoom *(new, refined — extends US-12)*
+## US-63 — Momentum and rubber-band on the zoom *(built, 0.47.0)*
 
 US-12 zooms by dragging across the value chart, and it stops dead at the release point and at the
 edges. Two Apple touches: release a zoom/pan and it **glides to rest** with a critically-damped
@@ -4170,7 +4170,7 @@ the engine it has stopped being a rendering concern.
 
 ---
 
-## US-64 — Sections arrive, they do not cut *(new, refined — polish)*
+## US-64 — Sections arrive, they do not cut *(built, 0.47.0)*
 
 The left-rail routes (US-16) swap sections instantly. Apple §7 (spatial consistency) and §3: a
 section change **cross-fades and slides a short distance** with a critically-damped spring — anchored,
@@ -4203,7 +4203,7 @@ warns against, and a route transition is not worth a reflow every time.
 
 ---
 
-## US-65 — The honest number change *(new, refined — the count-up, done right)*
+## US-65 — The honest number change *(built, 0.47.0)*
 
 When the range changes, the hero figures jump. The obvious Apple move is a **count-up tween**, and it
 stays **rejected**: an interpolated frame shows a value that was never true, which is the one thing
@@ -4277,7 +4277,7 @@ under the rail. A `backdrop-filter` there would reverse a decision for an aesthe
 
 ---
 
-## US-66 — The drag threshold is a span of days, not a distance *(new, defect, refined)*
+## US-66 — The drag threshold is a span of days, not a distance *(built, 0.47.0)*
 
 US-12's zoom decides "was that a click or a drag?" in **days**:
 
@@ -4331,7 +4331,7 @@ it must be shippable on its own.
 
 ---
 
-## US-67 — Hover-only affordances on a pointer that has no hover *(new, defect, refined)*
+## US-67 — Hover-only affordances on a pointer that has no hover *(built, 0.47.0)*
 
 Three controls state themselves through `:hover` with nothing behind it:
 
@@ -4367,7 +4367,7 @@ is not "quiet", it is a control claiming to be off.
 
 ---
 
-## US-68 — Reduced motion is a sledgehammer, not a setting *(new, defect, refined — US-56 AC2)*
+## US-68 — Reduced motion is a sledgehammer, not a setting *(built, 0.47.0)*
 
 ```css
 * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
@@ -4404,7 +4404,7 @@ motion stories each state their own reduced form.
 
 ---
 
-## US-69 — Two curves and two durations, named once *(new, refined — foundation)*
+## US-69 — Two curves and two durations, named once *(built, 0.47.0)*
 
 Every transition in the app picks its own easing: `120ms ease`, `0.12s` with no curve at all,
 `100ms ease-out`, `0.15s ease`. Nothing is wrong and nothing is shared, so the fifth one will be a
@@ -4437,7 +4437,7 @@ fifth guess. Four tokens beside the existing ones in `:root`, and the built-in c
 
 ---
 
-## US-70 — The four overlays come from the control that opened them *(new, refined)*
+## US-70 — The four overlays come from the control that opened them *(built, 0.47.0)*
 
 The overflow menu, the granularity menu, the column chooser and the diagnostics dialog all appear with
 `hidden = false` and vanish the same way: no path, no origin, no relation to the button that opened
@@ -4485,7 +4485,7 @@ opacity cross-fade alone and drop the scale — a stuck menu is worse than a men
 
 ---
 
-## US-71 — A chart a screen reader can read *(new, refined — the biggest gap the review found)*
+## US-71 — A chart a screen reader can read *(built, 0.47.0)*
 
 Thirteen `<canvas>` elements, no `role`, no `aria-label`, no table equivalent except the one the
 Positions card already has. A screen reader gets **nothing** — not a value, not even "a chart".
@@ -4532,7 +4532,7 @@ hint text says so.
 
 ---
 
-## US-72 — The end of a line, without hovering *(new, refined — small)*
+## US-72 — The end of a line, without hovering *(built, 0.47.0)*
 
 Where a series ends is the question most people ask a line, and on four charts it lives only in the
 tooltip. The value chart is covered by the KPI tile above it; the cumulative result, invested-vs-value
@@ -4559,7 +4559,7 @@ the one series that matters — never a number on every point.
 
 ---
 
-## US-73 — A notice must not shove the page *(new, refined)*
+## US-73 — A notice must not shove the page *(built, 0.47.0)*
 
 `notice()` appends a banner to `#notices` and `clearNotices()` empties it, so during a sync the page
 below jumps in one frame, twice per notice, while the reader is looking at the figures. Purpose:
@@ -4593,7 +4593,7 @@ posts one progress banner, rewrites its text per step, then clears.
 
 ---
 
-## US-74 — The theme change is a light switch *(new, refined — small)*
+## US-74 — The theme change is a light switch *(built, 0.47.0)*
 
 Light to dark goes from near-white to near-black in one frame. §14 names abrupt brightness jumps
 specifically, and this is the app's only one. It is also rare — a handful of times ever — so it is
@@ -4626,7 +4626,7 @@ fade — a page that fades around a chart that snaps draws attention to the seam
 
 ---
 
-## US-75 — Data arrives per card, and when it comes into view *(new, refined — the review's one addition)*
+## US-75 — Data arrives per card, and when it comes into view *(built, 0.47.0)*
 
 The moment the data lands, the whole screen fills in one frame: `clearNotices()`, `refresh()`, done.
 This is the one place in the app where the delight budget is genuinely available — it happens once per
