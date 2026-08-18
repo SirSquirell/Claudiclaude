@@ -6,7 +6,7 @@ import { MASK, hasDigits, maskEur, maskQty, maskSigned } from '../src/lib/anon.j
 import { DOTS, DOT_R, LINE, MIN_LOCKUP_HEIGHT, STAR, STROKE_W, VIEWBOX, markWidth } from '../src/ui/brand.js';
 import {
   CARD_MIN_SHORT_EDGE_SHARE, CARD_MIN_TYPE_PX, CARD_RENDER_MIN_PX, FORMATS, PROVENANCE_FIELDS,
-  SNAPSHOT_FIELDS, cardMetrics, splitModel,
+  SCORECARD_FIELDS, SNAPSHOT_FIELDS, cardMetrics, scoreCardModel, splitModel,
   formatById, onScreenPx, ownerLine, positionSpan, provenanceLine, returnOnMoneyIn, snapshotModel,
   sparkline,
 } from '../src/lib/snapshot.js';
@@ -625,4 +625,120 @@ test('the holdings table holds no split arithmetic of its own any more', () => {
   assert.ok(fn.includes('splitModel('), 'splitInner no longer calls the shared function');
   assert.ok(!/keptPct\s*=/.test(fn), 'splitInner is computing percentages again');
   assert.ok(!/Math\.round/.test(fn), 'splitInner is rounding a percentage again');
+});
+
+// ===========================================================================
+// US-54 — the score card
+// ===========================================================================
+
+const tile = {
+  label: 'Total value',
+  figure: '€ 115.940,77',
+  caption: 'as of today',
+  cls: 'up',
+  period: { from: '2021-01-04', to: '2026-08-13' },
+  broker: 'DEGIRO',
+  asOf: '2026-08-13',
+  reconciled: true,
+  version: '0.47.0',
+};
+
+test('AC4 — only allowlisted fields reach the score card', () => {
+  const m = scoreCardModel({ ...tile, accountId: 7654321, iban: 'NL91ABNA0417164300', displayName: 'A Person' }); // leak-check: ok
+  assert.deepEqual(Object.keys(m).sort(), [...SCORECARD_FIELDS].sort());
+  const json = JSON.stringify(m);
+  assert.ok(!json.includes('7654321'), 'no identifier'); // leak-check: ok
+  assert.ok(!json.includes('NL91'), 'no account number');
+  assert.ok(!json.includes('A Person'), 'no name');
+
+  // Same shape as the position card's, one level down: a poisoned provenance
+  // cannot smuggle a key through the nested allowlist either.
+  const p = scoreCardModel({ ...tile, broker: 'DEGIRO', provenance: { secret: 'x' } });
+  assert.deepEqual(Object.keys(p.provenance).sort(), ['asOf', 'broker', 'reconciled', 'version']);
+});
+
+test('AC2 — the score card carries no series at all', () => {
+  /**
+   * The whole point of the story: *"they don't per se need a chart"*. If a
+   * sparkline ever reappears in this model it is because someone reached for
+   * the position card's drawer, and the two have different subjects.
+   */
+  const m = scoreCardModel(tile);
+  assert.ok(!('spark' in m), 'a series reached the score card');
+  assert.ok(!SCORECARD_FIELDS.includes('spark'));
+  for (const v of Object.values(m)) assert.ok(!Array.isArray(v), 'a series reached the score card under another name');
+});
+
+test('AC3 — the card takes the page’s own strings and formats nothing', () => {
+  /**
+   * The safety argument, as a check. Every amount on the page goes through the
+   * formatters, which is where US-46's mask lives — so a card drawn from a
+   * tile's own strings cannot show more than the page does, and this module
+   * needs no masking logic of its own. A masked figure arrives masked.
+   */
+  const masked = scoreCardModel({ ...tile, figure: '€ •••' });
+  assert.equal(masked.figure, '€ •••');
+  assert.ok(!/\d/.test(masked.figure), 'the mask was undone somewhere in here');
+
+  // And a number handed in instead of a string is not silently formatted into
+  // one that could disagree with the page.
+  assert.equal(scoreCardModel({ ...tile, figure: 115940.77 }).figure, '115940.77');
+
+  const src = read('../src/lib/snapshot.js');
+  const fn = src.slice(src.indexOf('export function scoreCardModel'));
+  assert.ok(!/Intl|toLocaleString|toFixed/.test(fn), 'the score card model has started formatting figures');
+});
+
+test('AC5 — the verdict is tri-state here too, and never a pass by default', () => {
+  // It matters more on this card than on a position's: this can be the account's
+  // headline number, so the verdict is the whole trust claim.
+  assert.equal(scoreCardModel({ ...tile, reconciled: undefined }).provenance.reconciled, null);
+  assert.equal(scoreCardModel({ ...tile, reconciled: 'yes' }).provenance.reconciled, null);
+  assert.equal(scoreCardModel({ ...tile, reconciled: false }).provenance.reconciled, false);
+  assert.match(provenanceLine(scoreCardModel({ ...tile, reconciled: false }).provenance), /DOES NOT reconcile/);
+  assert.match(provenanceLine(scoreCardModel({ ...tile, reconciled: undefined }).provenance), /not checked/);
+});
+
+test('the tone is an enum, not whatever class the page happened to have', () => {
+  assert.equal(scoreCardModel({ ...tile, cls: 'up' }).tone, 'up');
+  assert.equal(scoreCardModel({ ...tile, cls: 'down' }).tone, 'down');
+  assert.equal(scoreCardModel({ ...tile, cls: undefined }).tone, 'neutral');
+  // A caller cannot choose what gets painted by handing over a string.
+  assert.equal(scoreCardModel({ ...tile, cls: 'up flipped' }).tone, 'neutral');
+});
+
+test('AC6 — the share path reads the real tiles, never the cheerful ones', () => {
+  /**
+   * The one thing easy to get wrong, because the obvious implementation shares
+   * what is rendered. `renderTiles` replaces the figures with joke versions when
+   * Optimism Mode is on, so a card built from the rendered list would put "847
+   * days of unwavering belief" next to a reconciliation verdict — a gag wearing
+   * a trust badge.
+   *
+   * The quarantine is structural: `buildTiles` produces the real list and knows
+   * nothing about the mode, `renderTiles` applies the joke one level down, and
+   * the share path calls `buildTiles`. This asserts that wiring, which is the
+   * thing a later refactor would break.
+   */
+  const src = read('../src/ui/app.js');
+  const build = src.slice(src.indexOf('function buildTiles'), src.indexOf('function renderTiles'));
+  assert.ok(!/frown\.|cheerful/.test(build), 'buildTiles can now see Optimism Mode');
+
+  const score = src.slice(src.indexOf('function scoreModel'), src.indexOf('function shareTileChoices'));
+  assert.ok(/buildTiles\(/.test(score), 'the share path no longer builds its own tiles');
+  assert.ok(!/frown\.|cheerful|shown/.test(score), 'the share path can see the cheerful list');
+  // And it asks for the figure at the sheet's mask setting, not the page's.
+  assert.ok(/withAnonymize\(!state\.share\.amounts/.test(score), 'the card follows the page instead of the sheet');
+});
+
+test('the score card and the position card do not share a drawer by accident', () => {
+  /**
+   * Which layout is drawn comes from the caller's `kind`, never from sniffing
+   * which keys the model has. A card that guesses its layout is one renamed
+   * field away from drawing the wrong one, on the path that reaches a clipboard.
+   */
+  const ui = read('../src/ui/snapshot.js');
+  assert.ok(/opts\?\.kind === 'score' \? drawScoreCard : drawSnapshot/.test(ui));
+  const app = read('../src/ui/app.js');
+  assert.ok(/kind: score \? 'score' : 'position'/.test(app), 'the export path no longer says which card it is');
 });

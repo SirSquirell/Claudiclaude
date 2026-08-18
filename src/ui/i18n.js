@@ -463,6 +463,13 @@ const DICT = {
     'shared by {name}': 'gedeeld door {name}',
     'reconciled to the cent': 'sluit tot op de cent',
     'not checked against the broker': 'niet gecontroleerd bij de broker',
+
+    // US-54 — the score card
+    'Share this figure': 'Deel dit cijfer',
+    'Share a figure from this section': 'Deel een cijfer uit dit blok',
+    'Which figure': 'Welk cijfer',
+    "{name}'s portfolio": 'de portefeuille van {name}',
+    'There is no figure to share for this period.': 'Er is geen cijfer om te delen voor deze periode.',
     'no money in to compare against': 'geen inleg om mee te vergelijken',
     'Total matches what DEGIRO reports': 'Totaal komt overeen met wat DEGIRO meldt',
     'No projection is drawn, because the growth rate measured from your history is {rate}% a year. That is not what a market does \u2014 it is what an account looks like when deposits and the trades they paid for are recorded a day apart, which distorts the early months. Set the rates yourself above to see a projection anyway.':

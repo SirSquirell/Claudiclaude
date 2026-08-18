@@ -511,6 +511,14 @@
               <span class="field-label" data-i18n>Amounts</span>
               <div class="group" id="share-amounts" role="group"></div>
             </div>
+            <!-- US-54: only a score card has more than one possible subject, so the
+                 picker is hidden on a position card rather than offered with one
+                 option. -->
+            <div class="field" id="share-tile-field" hidden>
+              <label class="field-label" for="share-tile" data-i18n>Which figure</label>
+              <select id="share-tile"></select>
+            </div>
+
             <div class="field">
               <label class="field-label" for="share-name" data-i18n>Name on the card</label>
               <select id="share-name"></select>

@@ -20,6 +20,30 @@ plain increments — this is not a library and nothing depends on its API.
 
 ### Added
 
+- **US-54 — a share button on each figures block, and a card with no chart.** The share sheet used
+  to open only from a holdings row. Every KPI section now carries one button; the sheet gains a
+  picker for *which* figure, and draws a score card — the label, the figure, its caption, provenance
+  at the foot — with the sparkline's room given back to the number.
+
+  One button per section rather than one per tile: nineteen figures would be nineteen buttons, and
+  which one to post is a decision better made beside the preview that shows it. Everything else is
+  US-47's: the four shapes, light or dark, amounts off by default, the name you choose, the
+  clipboard and the download. No second export path and no second provenance builder.
+
+  The card takes the tile's **own already-formatted strings**, so it cannot show more than the page
+  does and needs no masking logic of its own — US-46 is inherited by construction. The one piece of
+  plumbing this adds is `withAnonymize`, because the sheet's amount toggle is independent of the
+  page's and the figure has to be obtainable at the *sheet's* setting.
+
+  Provenance matters more here than on a position card, not less: this can be the account's headline
+  number, so the reconciliation verdict is the whole trust claim and an unchecked one still never
+  renders as a pass.
+
+  **With Optimism Mode on the card carries the real figure**, never the joke. That is structural
+  rather than promised: the share path reads the tile list before the substitution happens, and a
+  test fails if either half can see the other. A gag figure next to a reconciliation verdict is the
+  one thing this feature must not produce.
+
 - **US-52 — paid in vs grown travels with the shareable card.** The card already carried the
   relationship as its hero percentage (*"for every euro in, this came back"*). It now also carries
   the composition bar the holdings table draws — *"64 % paid in · 36 % grown"* — which answers the

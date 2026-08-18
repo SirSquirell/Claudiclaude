@@ -42,11 +42,11 @@ let demoVersion = null;
 import { isSameRun } from '../lib/sync.js';
 import { ADAPTERS, connected as connectedBrokers } from '../lib/brokers/index.js';
 import { LANGS, applyStatic, getLang, missing as missingTranslations, setLang, t as tr } from './i18n.js';
-import { THEMES, alpha, applyAnonymize, applyTheme, fmtEurCents, fmtPct, fmtPrice, fmtQty, fmtSigned, getAnonymize, getTheme, onThemeChange, setAnonymize, setTheme, tokens } from './theme.js';
-import { FORMATS, ownerLine, positionSpan, snapshotModel, splitModel } from '../lib/snapshot.js';
+import { THEMES, alpha, applyAnonymize, applyTheme, fmtEurCents, fmtPct, fmtPrice, fmtQty, fmtSigned, getAnonymize, getTheme, onThemeChange, setAnonymize, setTheme, tokens, withAnonymize } from './theme.js';
+import { FORMATS, ownerLine, positionSpan, scoreCardModel, snapshotModel, splitModel } from '../lib/snapshot.js';
 import { HOLDINGS_COLUMNS, baseHidden, droppableByPriority, optionalColumns } from './columns.js';
 import { brokerMarkSvg, lockupSvg, markSvg } from './brand.js';
-import { copySnapshot, downloadSnapshot, drawSnapshot, tokensForTheme } from './snapshot.js';
+import { copySnapshot, downloadSnapshot, drawScoreCard, drawSnapshot, tokensForTheme } from './snapshot.js';
 import { inExtension, load, send, wantsDemo } from './datasource.js';
 
 const RANGES = ['1M', '3M', '6M', 'YTD', '1Y', 'ALL'];
@@ -104,7 +104,23 @@ const state = {
    * `amounts` starts at `false` — a card leaves the machine, so the private
    * default is the right one even when the page is showing figures.
    */
-  share: { productId: null, format: '16:9', theme: null, amounts: false, nameSource: 'first', handle: '' },
+  /**
+   * `kind` decides which card the sheet is showing. `position` is US-47's, keyed
+   * by `productId`; `score` is US-54's, keyed by the section and the tile's
+   * label. Everything else — shape, theme, amounts, the name — is shared,
+   * because those are choices about *posting* rather than about the subject.
+   */
+  share: {
+    kind: 'position',
+    productId: null,
+    section: null,
+    tileLabel: null,
+    format: '16:9',
+    theme: null,
+    amounts: false,
+    nameSource: 'first',
+    handle: '',
+  },
 };
 
 /**
@@ -400,12 +416,24 @@ function cumulativeWindow(pnl, from, to) {
  */
 function wireSnapshots() {
   const table = $('#holdings');
-  if (!table || table.dataset.snapWired) return;
-  table.dataset.snapWired = '1';
-  table.addEventListener('click', (e) => {
-    const btn = e.target.closest?.('button[data-snap]');
-    if (btn) openShareSheet(btn.dataset.snap);
-  });
+  if (table && !table.dataset.snapWired) {
+    table.dataset.snapWired = '1';
+    table.addEventListener('click', (e) => {
+      const btn = e.target.closest?.('button[data-snap]');
+      if (btn) openShareSheet(btn.dataset.snap);
+    });
+  }
+
+  // US-54's block button, delegated for the same reason: `#tiles` is rebuilt on
+  // every render and every tab change.
+  const tiles = $('#tiles');
+  if (tiles && !tiles.dataset.snapWired) {
+    tiles.dataset.snapWired = '1';
+    tiles.addEventListener('click', (e) => {
+      const btn = e.target.closest?.('button[data-score]');
+      if (btn) openScoreSheet(btn.dataset.score);
+    });
+  }
 }
 
 /**
@@ -470,6 +498,67 @@ function shareModel() {
   });
 }
 
+/**
+ * US-54. The score card's model for whatever the sheet is set to.
+ *
+ * Three things worth stating, because each is a way this could have gone wrong:
+ *
+ * **It rebuilds the tiles rather than reading the page.** The sheet's amount
+ * toggle is independent of the page's — a card is a different audience, and it
+ * defaults to hidden — so the figure has to be obtainable at the *sheet's*
+ * setting. `withAnonymize` asks the formatters again with the mask flipped, and
+ * the tile's `value` and `note` come back masked or not accordingly. Nothing
+ * here formats anything, so US-46 is inherited rather than re-implemented.
+ *
+ * **It reads `buildTiles`, never the rendered ones.** With Optimism Mode on the
+ * page shows joke figures, and a share button that grabbed what is on screen
+ * would put "847 days of unwavering belief" on a card that also carries a
+ * reconciliation verdict — a gag wearing a trust badge. `buildTiles` has never
+ * heard of the cheerful list, so this is structural rather than a promise.
+ *
+ * **The period is the window's, and it is stated.** A score card can be the
+ * account's headline number, so *which* period it is a headline for is not
+ * decoration.
+ */
+function scoreModel() {
+  const w = lastWindow;
+  const r = w?.result;
+  if (!r) return null;
+
+  const tiles = withAnonymize(!state.share.amounts, () => buildTiles(r, w.from, w.to));
+  const inSection = tiles.filter((t) => t.tabs.includes(state.share.section));
+  const tile = inSection.find((t) => t.label === state.share.tileLabel) ?? inSection[0];
+  if (!tile) return null;
+
+  return scoreCardModel({
+    label: tr(tile.label),
+    figure: tile.value,
+    caption: tile.note ? tr(tile.note) : null,
+    cls: tile.cls,
+    period: { from: r.days[w.from] ?? null, to: r.days[w.to] ?? null },
+    owner: ownerLine({
+      source: state.share.nameSource,
+      fullName: state.data?.accountName ?? '',
+      username: state.data?.accountName ?? '',
+      handle: state.share.handle,
+    }),
+    // Tri-state, and it matters more here than on a position card: this can be
+    // the account's headline figure, so the verdict is the whole trust claim.
+    reconciled: r.reconciliation ? r.reconciliation.ok === true : null,
+    asOf: r.days[w.to] ?? null,
+    version: inExtension ? chrome.runtime.getManifest().version : demoVersion,
+  });
+}
+
+/** Which tiles the picker offers: every tile in the section, in the page's order. */
+function shareTileChoices() {
+  const w = lastWindow;
+  if (!w?.result) return [];
+  return buildTiles(w.result, w.from, w.to)
+    .filter((t) => t.tabs.includes(state.share.section))
+    .map((t) => ({ key: t.label, label: tr(t.label) }));
+}
+
 /** What the sheet's four name options are, and what each one promises. */
 const NAME_SOURCES = [
   { key: 'first', label: 'First name' },
@@ -482,15 +571,19 @@ const NAME_SOURCES = [
 function paintSharePreview() {
   const host = $('#share-preview');
   if (!host) return;
-  const model = shareModel();
+  const score = state.share.kind === 'score';
+  const model = score ? scoreModel() : shareModel();
   if (!model) {
     const p = document.createElement('p');
     p.className = 'hint';
-    p.textContent = tr('This position is not inside the selected period.');
+    p.textContent = tr(score
+      ? 'There is no figure to share for this period.'
+      : 'This position is not inside the selected period.');
     host.replaceChildren(p);
     return;
   }
-  host.replaceChildren(drawSnapshot(model, tokensForTheme(state.share.theme), { format: state.share.format }));
+  const draw = score ? drawScoreCard : drawSnapshot;
+  host.replaceChildren(draw(model, tokensForTheme(state.share.theme), { format: state.share.format }));
 }
 
 /** The name row: which sources are offered, and what each one warns about. */
@@ -541,9 +634,36 @@ function paintShareName() {
  * phone.
  */
 function openShareSheet(productId) {
+  state.share.kind = 'position';
+  state.share.productId = productId;
+  showShareSheet();
+}
+
+/**
+ * US-54. The same sheet, scoped to a section's figures instead of a position.
+ *
+ * One button per section rather than one per tile: nineteen figures would be
+ * nineteen buttons, and the choice of *which* figure belongs in the sheet beside
+ * the preview that shows it, not in the page beside a number.
+ */
+function openScoreSheet(section) {
+  state.share.kind = 'score';
+  state.share.section = section;
+  // Default to the section's hero, which is the first tile in it — the same
+  // ordering the page uses to decide which figure leads the block.
+  const first = shareTileChoices()[0];
+  if (!state.share.tileLabel || !shareTileChoices().some((c) => c.key === state.share.tileLabel)) {
+    state.share.tileLabel = first?.key ?? null;
+  }
+  // A landscape banner suits a position's sparkline; a single figure reads
+  // better square. Only the first time — after that it is whatever was picked.
+  if (!state.share.pickedFormat) state.share.format = '1:1';
+  showShareSheet();
+}
+
+function showShareSheet() {
   const dlg = $('#share-sheet');
   if (!dlg) return;
-  state.share.productId = productId;
   // Follow the page the first time, then remember what was picked.
   state.share.theme ??= getTheme() === 'auto'
     ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
@@ -560,21 +680,58 @@ function openShareSheet(productId) {
       paintShareName();
       paintSharePreview();
     });
+    $('#share-tile').addEventListener('change', (e) => {
+      state.share.tileLabel = e.target.value;
+      paintSharePreview();
+    });
     $('#btn-share-close').addEventListener('click', () => dlg.close());
     $('#btn-share-copy').addEventListener('click', () => runShare(copySnapshot, tr('Image copied. Paste it wherever you like.')));
     $('#btn-share-download').addEventListener('click', () => runShare(downloadSnapshot, tr('Image saved.')));
   }
 
+  $('#share-title').textContent = tr(state.share.kind === 'score' ? 'Share this figure' : 'Share this position');
+  paintShareTile();
   paintShareControls();
   paintShareName();
   paintSharePreview();
   if (!dlg.open) dlg.showModal();
 }
 
+/**
+ * The tile picker. Present only on a score card, because a position card has
+ * exactly one subject and a select with one option is a control that lies about
+ * having a choice.
+ */
+function paintShareTile() {
+  const field = $('#share-tile-field');
+  const sel = $('#share-tile');
+  if (!field || !sel) return;
+  const score = state.share.kind === 'score';
+  field.hidden = !score;
+  if (!score) return;
+
+  const choices = shareTileChoices();
+  sel.replaceChildren(...choices.map((c) => {
+    const o = document.createElement('option');
+    o.value = c.key;
+    o.textContent = c.label;
+    return o;
+  }));
+  sel.value = state.share.tileLabel ?? choices[0]?.key ?? '';
+}
+
 /** The three segmented controls, rebuilt whenever one of them changes. */
 function paintShareControls() {
   buildChoice('#share-format', FORMATS.map((f) => ({ key: f.id, label: f.id })),
-    () => state.share.format, (k) => { state.share.format = k; paintShareControls(); paintSharePreview(); });
+    () => state.share.format,
+    (k) => {
+      state.share.format = k;
+      // Once a shape has been chosen it stops being overridden by the per-kind
+      // default — a control that resets itself is a control the reader fights.
+      state.share.pickedFormat = true;
+      paintShareControls();
+      paintSharePreview();
+    });
   buildChoice('#share-theme', [{ key: 'light', label: tr('Light') }, { key: 'dark', label: tr('Dark') }],
     () => state.share.theme, (k) => { state.share.theme = k; paintShareControls(); paintSharePreview(); });
   buildChoice('#share-amounts', [{ key: 'off', label: tr('Hidden') }, { key: 'on', label: tr('Shown') }],
@@ -590,9 +747,17 @@ function paintShareControls() {
  * and the sheet stays open either way so a second attempt costs one click.
  */
 async function runShare(fn, okText) {
-  const model = shareModel();
+  const score = state.share.kind === 'score';
+  const model = score ? scoreModel() : shareModel();
   if (!model) return;
-  const out = await fn(model, { format: state.share.format, theme: state.share.theme });
+  // `kind` rather than letting the drawer sniff the model: a card that guesses
+  // its layout from which keys are present is one renamed field from drawing
+  // the wrong one, and this is the path that reaches the clipboard.
+  const out = await fn(model, {
+    format: state.share.format,
+    theme: state.share.theme,
+    kind: score ? 'score' : 'position',
+  });
   if (out.ok) notice('ok', okText);
   else notice('error', `${tr('Could not export the image')}: ${out.error}`);
 }
@@ -1958,7 +2123,22 @@ function destroyCharts() {
  * inside the window would otherwise inflate the denominator and flatter the
  * return. No new notion of return enters the codebase.
  */
-function renderTiles(r, from = 0, to = r.days.length - 1) {
+/**
+ * The figures themselves, separated from putting them on screen.
+ *
+ * US-54 split this out. A shared score card is drawn from a tile — its own
+ * already-formatted `value` and `note` strings, so anonymize is inherited by
+ * construction rather than re-implemented — and the sheet's amount toggle is
+ * independent of the page's, so the share path has to be able to ask for the
+ * list *again* with the mask set the other way. It cannot read what is on
+ * screen.
+ *
+ * Which is also the structural half of the Optimism Mode quarantine: this
+ * function has never heard of the cheerful tiles, so the share path cannot
+ * accidentally pick one up. The joke is applied in `renderTiles`, one level
+ * down, and only there.
+ */
+function buildTiles(r, from = 0, to = r.days.length - 1) {
   const last = Math.min(to, r.days.length - 1);
   const dayPnl = r.pnl[last];
   const weekPnl = r.pnl.slice(Math.max(0, last - 6), last + 1).reduce((a, b) => a + b, 0);
@@ -2146,6 +2326,16 @@ function renderTiles(r, from = 0, to = r.days.length - 1) {
     },
   ];
 
+  return tiles;
+}
+
+/**
+ * Put them on screen: one hero, three facts, the rest behind a disclosure — and
+ * the Optimism Mode substitution, which happens here and nowhere earlier.
+ */
+function renderTiles(r, from = 0, to = r.days.length - 1) {
+  const tiles = buildTiles(r, from, to);
+
   /**
    * Optimism Mode, applied at the last possible moment.
    *
@@ -2200,10 +2390,27 @@ function renderTiles(r, from = 0, to = r.days.length - 1) {
   const [hero, ...others] = mine;
   const facts = others.slice(0, 3);
   const rest = others.slice(3);
+  /**
+   * US-54. One share button on the block, not one per figure. Nineteen figures
+   * would be nineteen buttons; which figure is chosen in the sheet, beside the
+   * preview that shows it.
+   *
+   * It stays put while Optimism Mode is on, and the card it opens carries the
+   * **real** number — `scoreModel` reads `buildTiles`, which has never heard of
+   * the cheerful list. That is deliberate rather than convenient: this card also
+   * carries a reconciliation verdict, and a gag figure wearing a trust badge is
+   * the one thing this feature must not produce. The picker listing the real
+   * labels while the block shows joke ones is the honest mismatch.
+   */
+  const shareBtn = `<button type="button" class="snap block-share" data-score="${esc(state.tab)}"
+      title="${esc(tr('Share a figure from this section'))}"
+      aria-label="${esc(tr('Share a figure from this section'))}">⧉</button>`;
+
   $('#tiles').innerHTML = mine.length
     ? `<div class="hero-row">
         ${hero ? cell(hero, 'is-hero') : ''}
         <div class="facts">${facts.map((t) => cell(t, 'is-fact')).join('')}</div>
+        ${shareBtn}
       </div>` +
       (rest.length
         ? `<details class="allfigures" open>

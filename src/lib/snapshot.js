@@ -475,6 +475,17 @@ const SPACE = Object.freeze({
   gapSplit: 34,
   splitBarH: 12,
   gapSplitWords: 30,
+  // US-54's chartless card. The spark's room goes to the figure, so the hero is
+  // larger here than on a position card and the block is centred in what is
+  // left between the mark and the footer.
+  scoreLabel: 26,
+  scoreFigure: 104,
+  scoreCaption: 26,
+  // Baseline to baseline from the label to the figure. It has to clear the
+  // figure's cap height (about ¾ of 104) or the label lands inside the digits —
+  // which it did, at 84.
+  gapScoreFigure: 108,
+  gapScoreCaption: 46,
   gapSpark: 40,
   sparkTopWide: 40,
   sparkFloor: 62,
@@ -505,3 +516,80 @@ export function cardMetrics(w) {
  */
 export const onScreenPx = (sizeInCardPx, cardWidth, renderedWidth = CARD_RENDER_MIN_PX) =>
   (sizeInCardPx / cardWidth) * renderedWidth;
+
+// ===========================================================================
+// US-54 — a score card: one figure, no chart
+// ===========================================================================
+
+/**
+ * Everything a score card may carry. Same rule as `SNAPSHOT_FIELDS`, one story
+ * later: an allowlist, because under a denylist the field added tomorrow ships
+ * by default (CLAUDE.md rule 7).
+ *
+ * Note what is *not* here: no series, no quantity, no product id. A score card
+ * is a figure and the words around it — the sparkline is what the position card
+ * has and this one deliberately does not.
+ */
+export const SCORECARD_FIELDS = Object.freeze([
+  'label', 'figure', 'caption', 'tone', 'period', 'provenance', 'owner',
+]);
+
+/**
+ * Build a score card's model from a tile.
+ *
+ * The figure and the caption arrive as **strings the page already formatted**,
+ * and that is the whole safety argument rather than an implementation detail.
+ * Every amount on the page goes through `theme.js`'s formatters, which is where
+ * US-46's mask lives — so a card drawn from a tile's own strings cannot show
+ * more than the page does, and this module needs no masking logic of its own to
+ * be sure of it. Handing it a number instead would put the decision back here,
+ * where it would be a second implementation of the one rule.
+ *
+ * The caller is responsible for asking for the tile at the right mask setting —
+ * the sheet's toggle, not the page's. That is `withAnonymize` in `theme.js`, and
+ * it is the only plumbing this story adds.
+ */
+export function scoreCardModel({
+  label,
+  figure,
+  caption = null,
+  cls = null,
+  period = null,
+  owner = null,
+  broker = 'DEGIRO',
+  asOf = null,
+  reconciled = null,
+  version = null,
+} = {}) {
+  const model = {
+    label: String(label ?? '—'),
+    figure: String(figure ?? '—'),
+    caption: caption == null ? null : String(caption),
+    /**
+     * Normalised to an enum rather than passed through. `cls` is a CSS class on
+     * the page and a colour on the canvas, and a caller handing over an
+     * arbitrary string would be choosing what gets painted — which is exactly
+     * the kind of decision the allowlist exists to keep out of the renderer.
+     */
+    tone: cls === 'up' ? 'up' : cls === 'down' ? 'down' : 'neutral',
+    period: period?.from ? { from: String(period.from), to: String(period.to ?? period.from) } : { from: null, to: null },
+    owner: owner?.text ? { text: String(owner.text), derived: owner.derived === true } : null,
+    /**
+     * Provenance matters *more* here than on a position card, not less. A score
+     * card can be the account's headline number, so the reconciliation verdict
+     * is the whole trust claim — and a clean-looking Result card from an account
+     * forty thousand euro out is precisely the lie rule 6 exists to prevent.
+     * Tri-state, and an unchecked verdict never renders as a pass.
+     */
+    provenance: pick({
+      broker: String(broker),
+      asOf,
+      reconciled: reconciled === true ? true : reconciled === false ? false : null,
+      version,
+    }, PROVENANCE_FIELDS),
+  };
+
+  // Built, then filtered — the same order as `snapshotModel`, so a key added to
+  // the object above is dropped here rather than discovered in a screenshot.
+  return pick(model, SCORECARD_FIELDS);
+}

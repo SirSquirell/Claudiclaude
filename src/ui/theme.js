@@ -158,6 +158,35 @@ export function setAnonymize(on) {
   return anonymized;
 }
 
+/**
+ * Run `fn` with the mask forced on or off, then put it back.
+ *
+ * US-54's one piece of plumbing. The share sheet has its own amount toggle,
+ * defaulting to hidden because a card is a different audience from a screen — so
+ * it needs a tile's figure *as the sheet is set*, not as the page happens to be
+ * set. The figures are strings the formatters already produced, and the
+ * formatters read this module variable, so the only way to ask for the other
+ * version is to ask them again with it flipped.
+ *
+ * Synchronous and restored in a `finally`, which is what makes it safe: nothing
+ * can paint between the flip and the restore, exactly as `tokensForTheme` flips
+ * the theme attribute to read the other palette. Do not make it async — an
+ * `await` inside would leak the flipped state into whatever ran meanwhile, and
+ * that state decides whether an amount is shown.
+ *
+ * It deliberately does not touch storage or the DOM attribute: this is a read of
+ * the other version, not a change of preference.
+ */
+export function withAnonymize(on, fn) {
+  const before = anonymized;
+  anonymized = on === true;
+  try {
+    return fn();
+  } finally {
+    anonymized = before;
+  }
+}
+
 /** Put the state on `<html>`, so the stylesheet can style a mask without any
  *  element needing to know what it contains. */
 export function applyAnonymize() {

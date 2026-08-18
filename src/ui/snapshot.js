@@ -353,7 +353,11 @@ export function tokensForTheme(theme) {
 /** Draw and encode. Split out because the download path needs the same bytes. */
 async function snapshotBlob(model, opts) {
   try {
-    const canvas = drawSnapshot(model, tokensForTheme(opts?.theme), opts);
+    // US-54: which drawer, decided by the caller rather than sniffed off the
+    // model. A card that guesses its own layout from which keys are present is
+    // one renamed field away from drawing the wrong one.
+    const draw = opts?.kind === 'score' ? drawScoreCard : drawSnapshot;
+    const canvas = draw(model, tokensForTheme(opts?.theme), opts);
     const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
     return blob ? { ok: true, blob } : { ok: false, error: 'the image could not be encoded' };
   } catch (err) {
@@ -380,9 +384,118 @@ export async function downloadSnapshot(model, opts) {
   const url = URL.createObjectURL(made.blob);
   const a = document.createElement('a');
   a.href = url;
-  const slug = String(model.symbol || model.name || 'position').replace(/[^\w-]+/g, '-').slice(0, 40);
+  const slug = String(model.symbol || model.name || model.label || 'card').replace(/[^\w-]+/g, '-').slice(0, 40);
   a.download = `asteria-${slug}-${opts?.format?.replace(':', 'x') ?? 'card'}.png`;
   a.click();
   requestAnimationFrame(() => URL.revokeObjectURL(url));
   return { ok: true };
+}
+
+/**
+ * US-54 — the score card. One figure, the words around it, and no chart.
+ *
+ * A sibling of `drawSnapshot` rather than a mode of it: the two share the
+ * brand, the footer and the metrics, and differ in the whole middle. Folding
+ * them together would be one function with a boolean and two layouts, which is
+ * the shape that grows a third.
+ *
+ * It holds no decisions, same as `drawSnapshot`: everything it can say is in the
+ * model, behind `SCORECARD_FIELDS`, so what a PNG contains stays asserted
+ * through the model and never through the pixels.
+ */
+export function drawScoreCard(model, t = tokens(), { format = '1:1' } = {}) {
+  const { w: W, h: H } = formatById(format);
+  const { canvas, ctx } = makeCanvas(W, H);
+  const m = cardMetrics(W);
+  const PAD = m.pad;
+  const colW = W - PAD * 2;
+
+  ctx.fillStyle = t.surface;
+  ctx.fillRect(0, 0, W, H);
+
+  // --- the brand ------------------------------------------------------------
+  const markH = m.markH;
+  drawMark(ctx, { x: PAD, y: PAD, height: markH, ink: t.brandInk, accent: t.brandAccent });
+  ctx.fillStyle = t.textSecondary;
+  ctx.font = `500 ${m.type.brand}px ${FONT}`;
+  ctx.textBaseline = 'middle';
+  ctx.fillText('ASTERIA', PAD + markWidth(markH) + m.markGap, PAD + markH / 2);
+  ctx.textBaseline = 'alphabetic';
+
+  // --- the footer, measured first so the block above knows its room ---------
+  const failed = model.provenance?.reconciled === false;
+  const period = model.period?.from ? `${model.period.from} → ${model.period.to}` : '';
+  const footer = [];
+  if (model.owner) {
+    /**
+     * "…'s portfolio", not "…'s position". The wording is a claim about what the
+     * figure is *of*, and this card's subject is the account — Total value,
+     * Result, Dividend received. Reusing the position card's sentence would have
+     * the card describing itself wrongly, which is the same class of error as
+     * presenting a typed name as the broker's.
+     */
+    footer.push({
+      text: tr(model.owner.derived ? "{name}'s portfolio" : 'shared by {name}', { name: model.owner.text }),
+      size: m.type.owner,
+      weight: '500',
+      font: FONT,
+      fill: t.textSecondary,
+    });
+  }
+  if (period) footer.push({ text: period, size: m.type.provenance, weight: '400', font: FONT_TEXT, fill: t.muted });
+  footer.push({
+    text: provenanceLine(model.provenance, { translate: tr }),
+    size: m.type.provenance,
+    weight: failed ? '600' : '400',
+    font: FONT_TEXT,
+    fill: failed ? t.neg : t.muted,
+  });
+  const footTop = H - PAD - (footer.length - 1) * m.footLine - m.footHead;
+
+  /**
+   * The block is centred in what is left, which is what makes one layout serve a
+   * 16:9 and a 9:16 here as well: a story format's extra height becomes space
+   * around the figure rather than a stretched anything. There is no shape on
+   * this card whose proportions could be distorted, so unlike the sparkline it
+   * genuinely does not care how tall the crop is.
+   */
+  const top = PAD + markH + m.sparkTopWide;
+  const blockH = m.scoreLabel + m.gapScoreFigure + (model.caption ? m.gapScoreCaption : 0);
+  const labelY = top + Math.max(0, (footTop - top - blockH) / 2) + m.scoreLabel;
+  let y = labelY + m.gapScoreFigure;
+
+  ctx.fillStyle = t.textSecondary;
+  ctx.font = `600 ${m.scoreLabel}px ${FONT}`;
+  ctx.fillText(clip(ctx, model.label, colW), PAD, labelY);
+
+  // The figure carries the tone, the same up/down the tile carries on the page.
+  ctx.fillStyle = model.tone === 'up' ? t.pos : model.tone === 'down' ? t.neg : t.text;
+  ctx.font = `700 ${m.scoreFigure}px ${FONT}`;
+  /**
+   * Shrunk to fit rather than clipped. A seven-figure total is the case this
+   * card exists for, and `clip()` would take digits off the end of it — a wrong
+   * number, silently, which is the one thing this project must not do. Same
+   * decision the page's `--len` rule makes, arrived at the same way.
+   */
+  let size = m.scoreFigure;
+  while (size > m.type.caption && ctx.measureText(model.figure).width > colW) {
+    size -= 1;
+    ctx.font = `700 ${size}px ${FONT}`;
+  }
+  ctx.fillText(model.figure, PAD, y);
+
+  if (model.caption) {
+    y += m.gapScoreCaption;
+    ctx.fillStyle = t.muted;
+    ctx.font = `400 ${m.scoreCaption}px ${FONT_TEXT}`;
+    ctx.fillText(clip(ctx, model.caption, colW), PAD, y);
+  }
+
+  footer.forEach((line, i) => {
+    ctx.fillStyle = line.fill;
+    ctx.font = `${line.weight} ${line.size}px ${line.font}`;
+    ctx.fillText(clip(ctx, line.text, colW), PAD, H - PAD - (footer.length - 1 - i) * m.footLine);
+  });
+
+  return canvas;
 }

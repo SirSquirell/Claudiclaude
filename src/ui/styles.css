@@ -2124,6 +2124,15 @@ td .chip {
 
 /* The share action on a holdings row. Quiet until the row is hovered: it is an
    action on one line of a long table, not a call to action. */
+/* US-54: the block's share button sits at the end of the hero row, pushed to
+   the far edge so it does not read as a fourth fact. Always visible, unlike the
+   row buttons that appear on hover — a block has no row to hover. */
+.hero-row .block-share {
+  margin-left: auto;
+  align-self: flex-start;
+  opacity: 1;
+}
+
 button.snap {
   padding: 2px 8px;
   font-size: 0.95em;
