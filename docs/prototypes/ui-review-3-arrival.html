@@ -1,0 +1,996 @@
+<title>De aankomst</title>
+<style>
+@property --reveal {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: 0%;
+}
+
+:root {
+  color-scheme: light;
+  --page: #fbfaf8;
+  --surface-1: #ffffff;
+  --surface-2: #f4f2ee;
+  --surface-3: #eae6e0;
+  --text-primary: #14181d;
+  --text-secondary: #5c6672;
+  --text-muted: #939ca7;
+  --border: #e9e6e0;
+  --border-strong: #d6d2ca;
+  --grid: #e9e6e0;
+  --pos: #0b5fc4;
+  --neg: #c02434;
+  --pos-soft: #e4edf9;
+  --neg-soft: #fae7e8;
+  --warning: #785000;
+  --critical: #9e1628;
+  --accent: #b8532f;
+  --series-1: #557cd4;
+  --series-2: #7b52ab;
+  --series-cash: #8a8880;
+  --shadow: 0 1px 2px rgba(20, 25, 30, 0.05);
+
+  --radius: 0.625rem;
+  --radius-sm: 0.375rem;
+  --radius-pill: 999px;
+  --rule: 1px;
+  --track: 0.07em;
+  --hint: 0.75rem;
+  --base: 0.9375rem;
+  --font: system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --page: #0d1116;
+    --surface-1: #141920;
+    --surface-2: #1b222b;
+    --surface-3: #232b35;
+    --text-primary: #e8edf3;
+    --text-secondary: #98a3b0;
+    --text-muted: #6b7683;
+    --border: #232b35;
+    --border-strong: #333d49;
+    --grid: #232b35;
+    --pos: #63a6f6;
+    --neg: #f4737f;
+    --pos-soft: #16283d;
+    --neg-soft: #341c21;
+    --warning: #efbf68;
+    --critical: #ff9aa4;
+    --accent: #e08355;
+    --series-1: #4a86de;
+    --series-2: #a383d0;
+    --series-cash: #7b8798;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --page: #0d1116;
+  --surface-1: #141920;
+  --surface-2: #1b222b;
+  --surface-3: #232b35;
+  --text-primary: #e8edf3;
+  --text-secondary: #98a3b0;
+  --text-muted: #6b7683;
+  --border: #232b35;
+  --border-strong: #333d49;
+  --grid: #232b35;
+  --pos: #63a6f6;
+  --neg: #f4737f;
+  --pos-soft: #16283d;
+  --neg-soft: #341c21;
+  --warning: #efbf68;
+  --critical: #ff9aa4;
+  --accent: #e08355;
+  --series-1: #4a86de;
+  --series-2: #a383d0;
+  --series-cash: #7b8798;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--text-primary);
+  font: var(--base)/1.55 var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap {
+  max-width: 62rem;
+  margin: 0 auto;
+  padding: clamp(1.25rem, 0.8rem + 2vw, 2.5rem) clamp(1rem, 0.6rem + 1.6vw, 2rem) 5rem;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1.25rem, 1rem + 1vw, 2rem);
+}
+
+.pagehead { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.eyebrow { font-size: 0.6875rem; letter-spacing: var(--track); text-transform: uppercase; color: var(--text-muted); margin: 0 0 0.35rem; }
+h1 { font-size: clamp(1.5rem, 1.15rem + 1.6vw, 2.125rem); line-height: 1.1; letter-spacing: -0.025em; margin: 0; text-wrap: balance; }
+.lede { margin: 0.6rem 0 0; max-width: 42rem; color: var(--text-secondary); }
+
+.lens {
+  display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap;
+  border-top: 2px solid var(--text-primary); padding-top: 0.6rem; margin-top: 0.6rem;
+}
+.lens h2 { font-size: 1.25rem; margin: 0; letter-spacing: -0.015em; }
+.lens .from { font-size: 0.6875rem; letter-spacing: var(--track); text-transform: uppercase; color: var(--text-muted); font-family: ui-monospace, 'SF Mono', Menlo, monospace; }
+.lens p { flex: 1 1 100%; margin: 0.2rem 0 0; color: var(--text-secondary); max-width: 46rem; }
+
+.card {
+  background: var(--surface-1);
+  border: var(--rule) solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: clamp(0.9rem, 0.65rem + 1vw, 1.375rem);
+  display: flex; flex-direction: column; gap: 0.85rem; min-width: 0;
+}
+.card > header { display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap; }
+.card h3 { font-size: 1.0625rem; line-height: 1.25; letter-spacing: -0.01em; margin: 0; flex: 1 1 14rem; }
+.card p { margin: 0; color: var(--text-secondary); max-width: 46rem; }
+.card p.tight { font-size: var(--hint); }
+
+.tag { font-size: 0.625rem; font-weight: 600; letter-spacing: var(--track); text-transform: uppercase; padding: 0.15rem 0.5rem; border-radius: var(--radius-pill); border: var(--rule) solid var(--border); white-space: nowrap; }
+.tag.ja { color: var(--pos); background: var(--pos-soft); border-color: transparent; }
+.tag.grens { color: var(--warning); background: var(--surface-2); border-color: transparent; }
+.tag.code { color: var(--text-secondary); background: var(--surface-2); border-color: transparent; }
+
+.file, code { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 0.8em; background: var(--surface-2); border-radius: 4px; padding: 0.05em 0.35em; color: var(--text-primary); }
+pre {
+  margin: 0; overflow-x: auto; background: var(--surface-2);
+  border: var(--rule) solid var(--border); border-radius: var(--radius-sm);
+  padding: 0.7rem 0.8rem; font-size: 0.75rem; line-height: 1.6;
+}
+pre code { background: none; padding: 0; font-size: 1em; }
+pre .c { color: var(--text-muted); }
+
+.ab { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 0.75rem; }
+.pane { border: var(--rule) solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); padding: 0.75rem; display: flex; flex-direction: column; gap: 0.6rem; min-width: 0; }
+.pane.next { background: var(--surface-1); }
+.pane > h4 { margin: 0; font-size: 0.625rem; font-weight: 600; letter-spacing: var(--track); text-transform: uppercase; color: var(--text-muted); display: flex; align-items: center; gap: 0.4rem; }
+.pane > h4::before { content: ''; width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--text-muted); }
+.pane.next > h4::before { background: var(--accent); }
+.readout { font-size: var(--hint); color: var(--text-secondary); border-top: var(--rule) solid var(--border); padding-top: 0.4rem; margin-top: auto; }
+.readout b { color: var(--text-primary); font-weight: 600; }
+
+button {
+  font: inherit; font-size: 0.8125rem; font-weight: 500;
+  color: var(--text-primary); background: var(--surface-1);
+  border: var(--rule) solid var(--border-strong); border-radius: var(--radius-sm);
+  padding: 0.4rem 0.7rem; cursor: pointer;
+  transition: background 120ms ease, transform 100ms var(--ease-out);
+}
+button:hover { background: var(--surface-3); }
+button:active { transform: scale(0.97); }
+button:focus-visible { outline: 2px solid var(--series-1); outline-offset: 2px; }
+button[disabled] { opacity: 0.5; cursor: default; }
+.row { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+
+.seg { display: inline-flex; gap: 2px; background: var(--surface-3); border-radius: var(--radius-pill); padding: 3px; align-self: flex-start; flex-wrap: wrap; }
+.seg button { border-color: transparent; background: transparent; border-radius: var(--radius-pill); padding: 0.25rem 0.7rem; font-size: var(--hint); color: var(--text-secondary); }
+.seg button[aria-pressed='true'] { background: var(--surface-1); color: var(--text-primary); border-color: var(--border); }
+
+/* --- de nep-app --------------------------------------------------------- */
+
+.app { display: flex; flex-direction: column; gap: 0.5rem; }
+.tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; }
+.tile {
+  background: var(--surface-1); box-shadow: 0 0 0 var(--rule) var(--border);
+  padding: 0.45rem 0.5rem; min-width: 0;
+}
+.tile .lab { font-size: 0.5625rem; font-weight: 600; letter-spacing: var(--track); text-transform: uppercase; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tile .val { font-size: 0.9375rem; font-weight: 750; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tile .val.up { color: var(--pos); }
+
+.chartbox { background: var(--surface-1); border: var(--rule) solid var(--border); border-radius: var(--radius-sm); padding: 0.3rem; position: relative; }
+.chartbox svg { display: block; width: 100%; height: 6rem; }
+.chartbox.small svg { height: 3.25rem; }
+.plotwrap { position: relative; }
+
+/* Het skelet: één blok, geen flikkerende placeholders. */
+.skel {
+  background: var(--surface-2);
+  border: var(--rule) solid var(--border);
+  border-radius: var(--radius-sm);
+  height: 6.6rem;
+  position: relative;
+  overflow: hidden;
+}
+.skel.small { height: 3.85rem; }
+.skel.tile { height: 2.35rem; border-radius: 0; }
+.skel::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--surface-1) 70%, transparent), transparent);
+  transform: translateX(-100%);
+  animation: sweep 1.4s linear infinite;
+}
+@keyframes sweep { to { transform: translateX(100%); } }
+
+/* --- de kaartenstroom --------------------------------------------------- */
+
+.feed { display: flex; flex-direction: column; gap: 0.5rem; }
+.scrollpane {
+  max-height: 22rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--surface-2);
+  border: var(--rule) solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.scrollpane::after {
+  content: '';
+  display: block;
+  min-height: 0.5rem;
+}
+.cardlet {
+  background: var(--surface-1);
+  border: var(--rule) solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.55rem 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  min-width: 0;
+}
+.cardlet > h5 {
+  margin: 0;
+  font-size: 0.5625rem;
+  font-weight: 600;
+  letter-spacing: var(--track);
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.cardlet .body { min-height: 3.5rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cardlet.waiting > h5 { color: var(--text-muted); }
+.cardlet .stamp {
+  font-size: 0.5625rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  font-family: ui-monospace, Menlo, monospace;
+}
+.cardlet > h5 { display: flex; justify-content: space-between; gap: 0.5rem; align-items: baseline; }
+
+.bars { display: flex; align-items: flex-end; gap: 3px; height: 3.5rem; }
+.bars i { flex: 1 1 0; background: var(--series-1); border-radius: 3px 3px 0 0; min-width: 2px; }
+.bars i.neg { background: var(--neg); }
+
+/* --- de aankomst -------------------------------------------------------- */
+
+/* Variant A — de zachte veeg. Het masker loopt over een grafiek die al
+   compleet getekend is; er wordt niets gerekend terwijl je kijkt. */
+.reveal {
+  --reveal: 0%;
+  /* De zachte rand zit in de gradient zelf: 7% zwart-naar-niets, zodat de
+     kop van de lijn opkomt in plaats van te worden afgesneden. */
+  -webkit-mask-image: linear-gradient(90deg, #000 0 calc(var(--reveal) - 7%), transparent var(--reveal));
+  mask-image: linear-gradient(90deg, #000 0 calc(var(--reveal) - 7%), transparent var(--reveal));
+  transition: --reveal 520ms var(--ease-out);
+}
+.reveal.done { --reveal: 100%; }
+
+/* Variant B — dezelfde veeg, met een punt op de kop van de lijn. */
+.pen {
+  position: absolute; top: 0; left: 0;
+  width: 0.5rem; height: 0.5rem; margin: -0.25rem 0 0 -0.25rem;
+  border-radius: 50%; background: var(--series-1);
+  box-shadow: 0 0 0 2px var(--surface-1);
+  opacity: 0;
+}
+.pen.run { animation: pen 520ms var(--ease-out) forwards; }
+@keyframes pen {
+  0% { opacity: 1; offset-distance: 0%; }
+  85% { opacity: 1; }
+  100% { opacity: 0; offset-distance: 100%; }
+}
+
+/* Variant C — alleen opkomen. Wat de kleine grafieken en de tegels doen. */
+.rise { opacity: 0; transform: translateY(6px); transition: opacity 260ms var(--ease-out), transform 260ms var(--ease-out); }
+.rise.done { opacity: 1; transform: none; }
+
+/* De tabel vult zich, rij voor rij, met een dak op de vertraging. */
+table.data { border-collapse: collapse; width: 100%; font-size: var(--hint); }
+table.data th { text-align: left; font-size: 0.5625rem; letter-spacing: var(--track); text-transform: uppercase; color: var(--text-muted); font-weight: 600; padding: 0 0.4rem 0.25rem; }
+table.data td { padding: 0.22rem 0.4rem; border-top: var(--rule) solid var(--border); font-variant-numeric: tabular-nums; }
+table.data td.num { text-align: right; }
+table.data td.num.up { color: var(--pos); }
+table.data td.num.down { color: var(--neg); }
+table.data tr.row { opacity: 0; transform: translateY(4px); transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out); }
+table.data tr.row.done { opacity: 1; transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  /* Gedempter, niet weg: de veeg wordt een crossfade, de stagger verdwijnt. */
+  .reveal { transition: opacity 200ms ease; -webkit-mask-image: none; mask-image: none; opacity: 0; }
+  .reveal.done { opacity: 1; }
+  .rise { transform: none; }
+  .rise.done { transform: none; }
+  table.data tr.row { transform: none; transition: opacity 150ms ease; }
+  .pen.run { animation: none; }
+  .skel::after { animation: none; }
+}
+
+table.spec { border-collapse: collapse; width: 100%; font-size: var(--hint); }
+table.spec th { text-align: left; font-size: 0.625rem; letter-spacing: var(--track); text-transform: uppercase; color: var(--text-muted); font-weight: 600; padding: 0 0.5rem 0.35rem; border-bottom: var(--rule) solid var(--border-strong); }
+table.spec td { padding: 0.45rem 0.5rem; border-top: var(--rule) solid var(--border); vertical-align: top; color: var(--text-secondary); }
+table.spec td:first-child { color: var(--text-primary); white-space: nowrap; }
+.scrollx { overflow-x: auto; }
+
+.nope { background: var(--surface-2); border: var(--rule) dashed var(--border-strong); box-shadow: none; }
+.nope ul { margin: 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: 0.5rem; }
+.nope li { color: var(--text-secondary); }
+.nope li b { color: var(--text-primary); font-weight: 600; }
+
+footer.note { font-size: var(--hint); color: var(--text-muted); border-top: var(--rule) solid var(--border); padding-top: 0.8rem; }
+</style>
+
+<div class="wrap">
+  <header class="pagehead">
+    <div>
+      <p class="eyebrow">Prototype · ronde drie · nog niets gebouwd</p>
+      <h1>De aankomst</h1>
+      <p class="lede">
+        Het moment waarop de data binnen is en het scherm zich vult. Dat is nu één frame: leeg, en dan alles.
+        Hieronder wat het zou kunnen zijn, met de grens er meteen naast — want dezelfde animatie die hier klopt,
+        is bij elke bereikwissel precies de vertraging die ik in ronde 2 heb afgewezen.
+        Daaronder de verfijning van ronde 1: de exacte waarden, in code.
+      </p>
+    </div>
+    <div class="seg" role="group" aria-label="Thema">
+      <button type="button" data-theme-set="light" aria-pressed="false">Licht</button>
+      <button type="button" data-theme-set="dark" aria-pressed="false">Donker</button>
+    </div>
+  </header>
+
+  <div class="lens">
+    <h2>Het moment zelf</h2>
+    <span class="from">na een sync · één keer per aankomst</span>
+    <p>
+      Start beide kanten. Links is wat er nu gebeurt: de banner verdwijnt, <span class="file">refresh()</span> loopt,
+      en alles staat er in één frame. Rechts komt hetzelfde materiaal aan in een orde die vertelt wat er gebeurde —
+      eerst de vorm van het geheel, dan de details, dan de regels.
+    </p>
+  </div>
+
+  <section class="card">
+    <header>
+      <h3>Elke kaart komt apart aan</h3>
+      <span class="tag ja">haalt de poort</span>
+    </header>
+    <p>
+      Dit was in de vorige versie niet te zien: daar landde alles in één klap, dus leek de aankomst één ding.
+      Het zijn losse kaarten. Elke kaart heeft zijn eigen skelet, zijn eigen veeg en zijn eigen inhoud die opkomt —
+      de tijdstempel rechtsboven elke kaart zegt wanneer die kaart landde, gerekend vanaf de eerste.
+      Zet hem op "alles tegelijk" en het verschil is meteen duidelijk.
+    </p>
+    <div class="seg" role="group" aria-label="Aankomst" id="mode-seg">
+      <button type="button" data-mode="together" aria-pressed="false">Alles tegelijk</button>
+      <button type="button" data-mode="percard" aria-pressed="true">Per kaart · 60 ms</button>
+    </div>
+    <div class="row">
+      <button type="button" id="arrive-run">Sync starten</button>
+      <span class="readout" style="border:0;padding:0;margin:0" id="arrive-note">Nog niets geladen.</span>
+    </div>
+    <div class="feed" id="feed-arrive"></div>
+    <p class="tight">
+      Binnen een kaart heeft elk soort inhoud zijn eigen gedrag: <b>grafieken vegen</b> (520 ms voor de grote,
+      360 ms voor de kleine), <b>tegels en staven komen op</b> (260 ms, 40 ms na elkaar), en <b>tabelrijen vullen zich</b>
+      (28 ms per rij, dak op tien). Geen enkel cijfer verandert onderweg van waarde.
+    </p>
+  </section>
+
+  <section class="card">
+    <header>
+      <h3>En de kaarten die nog niet in beeld zijn</h3>
+      <span class="tag grens">mechanisme</span>
+    </header>
+    <p>
+      Zes kaarten passen niet op één scherm — de echte app heeft er dertien. Als ze allemaal bij de aankomst hun
+      veeg doen, gebeurt de helft daarvan buiten beeld en heb je er niets aan. Dus: een kaart komt aan wanneer
+      hij <em>in beeld komt</em>, één keer, en daarna nooit meer. Scroll in het venster hieronder.
+    </p>
+    <div class="scrollpane" id="feed-scroll"></div>
+    <div class="row">
+      <button type="button" id="scroll-reset">Opnieuw</button>
+      <span class="readout" style="border:0;padding:0;margin:0" id="scroll-note">Scroll naar beneden.</span>
+    </div>
+    <p class="tight">
+      Eén <span class="file">IntersectionObserver</span> met <span class="file">{ threshold: 0.25 }</span> die zichzelf
+      per kaart afmeldt. Dat past ook bij hoe de app nu al werkt: <span class="file">onScreen()</span> in
+      <span class="file">app.js:1419</span> bouwt alleen de grafieken van het tabblad waar je op staat, dus grafieken
+      buiten beeld bestaan daar al niet. Dit is dezelfde gedachte, één niveau fijner.
+    </p>
+  </section>
+
+  <section class="card">
+    <header>
+      <h3>Drie varianten voor de eerste grafiek</h3>
+      <span class="tag grens">kiezen</span>
+    </header>
+    <p>
+      Alleen de hero — de portefeuillewaarde. Kies een variant en speel hem af.
+    </p>
+    <div class="seg" role="group" aria-label="Variant" id="variant-seg">
+      <button type="button" data-var="a" aria-pressed="true">A · zachte veeg</button>
+      <button type="button" data-var="b" aria-pressed="false">B · veeg met punt</button>
+      <button type="button" data-var="c" aria-pressed="false">C · alleen opkomen</button>
+    </div>
+    <div class="chartbox" id="variant-box">
+      <div class="plotwrap">
+        <svg viewBox="0 0 600 110" preserveAspectRatio="none" aria-hidden="true">
+          <path id="vline" fill="none" stroke="var(--series-1)" stroke-width="2"></path>
+        </svg>
+        <div class="pen" id="vpen"></div>
+      </div>
+    </div>
+    <div class="row">
+      <button type="button" id="variant-play">Afspelen</button>
+      <span class="readout" style="border:0;padding:0;margin:0" id="variant-note"></span>
+    </div>
+    <div class="scrollx">
+      <table class="spec">
+        <thead><tr><th>Variant</th><th>Wat het is</th><th>Mijn oordeel</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>A · zachte veeg</td>
+            <td>Een masker met een zachte rand loopt in 520 ms over de afgemaakte lijn, <code>--ease-out</code>.</td>
+            <td><b>Dit is de aanrader.</b> Het leest als "de reeks komt binnen" en niet als "de reeks wordt bedacht". Kost één CSS-regel en een klasse, en de grafiek eronder wordt met geen vinger aangeraakt.</td>
+          </tr>
+          <tr>
+            <td>B · veeg met punt</td>
+            <td>Zelfde veeg, met een stip op de kop van de lijn die met de rand meeloopt.</td>
+            <td>Leuk, één keer. Maar de stip is een pen, en een pen suggereert dat hier geschreven wordt terwijl je kijkt — de ene suggestie die deze app niet wil wekken. Bovendien moet hij het pad kennen, dus hij moet mee-onderhouden worden bij elke wijziging aan de grafiek. Ik zou hem niet bouwen.</td>
+          </tr>
+          <tr>
+            <td>C · alleen opkomen</td>
+            <td>Opacity plus 6 px omhoog, 260 ms.</td>
+            <td>Dit is wat <em>al het andere</em> moet doen: de zes kleine grafieken, de tegels, de kaarten. Twaalf gelijktijdige vegen is geen aankomst meer, dat is een screensaver. Eén veeg voor de hero, opkomen voor de rest.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card">
+    <header>
+      <h3>De tabel die zich vult</h3>
+      <span class="tag ja">haalt de poort, met een dak</span>
+    </header>
+    <p>
+      28 ms tussen rijen, en na tien rijen stopt de vertraging — de rest komt in één keer.
+      Zonder dat dak duurt een tabel van negentig posities twee en een halve seconde en zit je te wachten
+      op je eigen data. Speel beide af en let op de onderkant.
+    </p>
+    <div class="ab">
+      <div class="pane now">
+        <h4>Zonder dak · 28 ms × alles</h4>
+        <table class="data" data-tab="uncapped">
+          <thead><tr><th>Positie</th><th class="num">Waarde</th><th class="num">Resultaat</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <p class="readout" data-time="uncapped">—</p>
+      </div>
+      <div class="pane next">
+        <h4>Met dak · 10 × 28 ms, dan klaar</h4>
+        <table class="data" data-tab="capped">
+          <thead><tr><th>Positie</th><th class="num">Waarde</th><th class="num">Resultaat</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <p class="readout" data-time="capped">—</p>
+      </div>
+    </div>
+    <div class="row"><button type="button" id="table-play">Vul beide tabellen</button></div>
+  </section>
+
+  <section class="card nope">
+    <header><h3>De grens — wat dit niet mag worden</h3></header>
+    <ul>
+      <li><b>Eén keer per aankomst, niet per render.</b> De trigger is "er is nieuwe data binnengekomen", dus na een sync en bij de eerste keer openen. Een bereik- of granulariteitswissel hertekent dezelfde reeks en krijgt niets — daar is het pure vertraging, tientallen keren per dag.</li>
+      <li><b>Nooit een cijfer dat omhoog telt.</b> Een tegel die van € 0 naar € 37.502 kruipt laat een reeks getallen zien die geen van alle waar zijn. In een app die zijn eindtotaal tegen dat van DEGIRO afrekent tot op de cent is dat de verkeerde grap. De tegel komt op met de waarde er al in.</li>
+      <li><b>Niets mag wachten op de animatie.</b> Klikken tijdens de veeg werkt gewoon; de veeg is een laag over een scherm dat al leeft. Als de animatie ergens de interactie tegenhoudt, is hij verkeerd gebouwd.</li>
+      <li><b>Geen skelet dat flikkert.</b> Bij een <em>herhaalde</em> sync staat er al data: die blijft staan op verlaagde opacity, en het skelet komt alleen bij de eerste keer, als er werkelijk niets is. Anders springt de lay-out twee keer per sync.</li>
+      <li><b>Onder <code>reduced-motion</code> wordt de veeg een crossfade.</b> Een masker dat over het scherm loopt is beweging over een groot vlak, en dat is precies waar die voorkeur voor bestaat. De aankomst blijft, de beweging gaat eruit.</li>
+    </ul>
+  </section>
+
+  <!-- ================= VERFIJNING VAN RONDE 1 ========================= -->
+
+  <div class="lens">
+    <h2>Verfijnd: ronde 1 in exacte waarden</h2>
+    <span class="from">skill: apple-design</span>
+    <p>
+      Ronde 1 zei wát er moest gebeuren. Dit is hoe — met de curve-tokens uit ronde 2 als basis, zodat het
+      vier keer dezelfde stem is en niet vier keer een eigen keuze.
+    </p>
+  </div>
+
+  <section class="card">
+    <header>
+      <h3>De tokens waar de rest op rust</h3>
+      <span class="tag code">styles.css · <code>:root</code></span>
+    </header>
+    <p>
+      Vier regels bij de bestaande tokens. Twee curves, twee duren; alles hieronder verwijst hiernaar,
+      dus een latere smaakwijziging is één plek.
+    </p>
+<pre><code>/* Beweging. Twee curves, omdat er twee soorten zijn: iets dat
+   aankomt of vertrekt (ease-out), en iets dat over het scherm
+   beweegt (ease-in-out). De ingebouwde varianten zijn te slap —
+   `ease-out` vertrekt te traag op precies het moment dat de
+   lezer kijkt. */
+--ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+--ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+--t-press: 100ms;   /* de druk: te voelen, niet te zien       */
+--t-surface: 140ms; /* menu, popover: open. Dicht is 110ms.   */</code></pre>
+  </section>
+
+  <section class="card">
+    <header>
+      <h3>1 · De overlays, per oppervlak</h3>
+      <span class="tag code">4 plekken</span>
+    </header>
+    <p>
+      De oorsprong is niet één waarde: elk paneel groeit uit zijn eigen knop. De dialogen zijn de uitzondering —
+      die hangen aan niets en blijven gecentreerd, dus die schalen vanuit het midden.
+    </p>
+    <div class="scrollx">
+      <table class="spec">
+        <thead><tr><th>Oppervlak</th><th><code>transform-origin</code></th><th>Open / dicht</th></tr></thead>
+        <tbody>
+          <tr><td>Rail-menu <span class="file">#more-menu</span></td><td><code>bottom left</code> — hij hangt aan de voet van de rail en opent omhoog</td><td>140 / 110 ms</td></tr>
+          <tr><td>Granulariteit <span class="file">.gran .menu</span></td><td><code>top left</code></td><td>140 / 110 ms</td></tr>
+          <tr><td>Kolomkiezer <span class="file">.cols-pop</span></td><td><code>top right</code> — hij staat rechts uitgelijnd onder zijn knop</td><td>140 / 110 ms</td></tr>
+          <tr><td>Dialogen <span class="file">.modal</span>, <span class="file">.share-sheet</span></td><td><code>center</code> — geen trigger om vandaan te komen</td><td>160 / 120 ms</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tight">
+      En de implementatie kan zonder JavaScript-klassen, omdat de extensie alleen op Chromium loopt:
+      <span class="file">@starting-style</span> voor de intree en <span class="file">transition-behavior: allow-discrete</span>
+      zodat <span class="file">display</span> en <span class="file">::backdrop</span> meedoen. Dat is de hele dialoog —
+      geen timer, geen <span class="file">.closing</span>-klasse die kan blijven hangen als er iets tussenkomt.
+    </p>
+<pre><code>.modal, .modal::backdrop {
+  transition: opacity 160ms var(--ease-out),
+              transform 160ms var(--ease-out),
+              overlay 160ms allow-discrete,
+              display 160ms allow-discrete;
+}
+.modal { opacity: 1; transform: scale(1); }
+.modal::backdrop { opacity: 1; }
+
+/* dicht — en dus ook het startpunt van open */
+.modal:not([open]), .modal:not([open])::backdrop { opacity: 0; }
+.modal:not([open]) { transform: scale(0.97); }
+
+@starting-style {
+  .modal[open] { opacity: 0; transform: scale(0.97); }
+  .modal[open]::backdrop { opacity: 0; }
+}</code></pre>
+  </section>
+
+  <section class="card">
+    <header>
+      <h3>2 · De drag-selectie, precies</h3>
+      <span class="tag code">app.js · charts.js</span>
+    </header>
+    <p>
+      Eén observatie die de patch scherper maakt dan in ronde 1: het tekenen klemt al.
+      <span class="file">charts.js:207</span> perst <span class="file">x1</span> en <span class="file">x2</span>
+      binnen <span class="file">chartArea</span>, en het leeslint eronder is óók al geklemd. Het is dus alleen de
+      <em>handler</em> die weigert een index te geven zodra je buiten de grafiek komt — de tekenkant kan het allang.
+    </p>
+    <div class="scrollx">
+      <table class="spec">
+        <thead><tr><th>Waar</th><th>Nu</th><th>Wordt</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="file">app.js:1690</span><br><code>indexAt</code></td>
+            <td><code>if (x &lt; area.left || x &gt; area.right) return null</code></td>
+            <td>Klemmen: <code>frac</code> op <code>[0, 1]</code>, altijd een index. De rand is het antwoord, niet de stilte.</td>
+          </tr>
+          <tr>
+            <td><span class="file">app.js:1770</span><br>commit</td>
+            <td><code>&lt; 2 dagen</code> telt als klik</td>
+            <td><code>Math.abs(e.clientX − anchorX) &lt; 8</code> telt als klik. Pixels, want de drempel gaat over de hand en niet over de reeks.</td>
+          </tr>
+          <tr>
+            <td><span class="file">styles.css</span><br><span class="file">#c-value</span></td>
+            <td>geen <code>touch-action</code></td>
+            <td><code>touch-action: none</code> — anders scrollt de pagina mee en krijg je een halve selectie.</td>
+          </tr>
+          <tr>
+            <td><span class="file">app.js</span><br><code>pointerdown</code></td>
+            <td>capture alleen als er een index is</td>
+            <td>Ongewijzigd, en dat is goed: nu de index altijd bestaat, is de capture altijd gezet.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tight">
+      Wat níet verandert: het leeslint tijdens de sleep. Dat toont al datum, aantal dagen en resultaat, live, en dat
+      is precies de doorlopende terugkoppeling die Apple's regel vraagt. Er is hier niets bij te verzinnen.
+    </p>
+  </section>
+
+  <section class="card">
+    <header>
+      <h3>4 · <code>reduced-motion</code>, gericht in plaats van totaal</h3>
+      <span class="tag code">styles.css:2299</span>
+    </header>
+    <p>
+      De sterrenselector eruit, en in plaats daarvan noemen wat er weg moet: verplaatsing.
+      Kleur, oppervlak en opacity blijven — dat is wat vertelt dat een knop je gehoord heeft.
+    </p>
+<pre><code>@media (prefers-reduced-motion: reduce) {
+  /* Beweging weg. Niet de reactie. */
+  button:active,
+  .rail-nav button:active,
+  .menu button:active { transform: none; }
+
+  /* De oppervlakken die de druk aangeven blijven staan. */
+  .rail-nav button:active,
+  button.primary:active { background: var(--surface-3); }
+
+  /* Overlays komen op zonder te groeien. */
+  .menu, .cols-pop, .modal { transition: opacity 120ms ease; }
+  .menu.closed, .cols-pop.closed { transform: none; }
+
+  /* De aankomst wordt een crossfade — zie boven. */
+  .chart-box.arriving { transition: opacity 200ms ease; mask-image: none; }
+
+  /* En de grap staat al uit. */
+  .frown [class*='frown-'] { animation: none; }
+}</code></pre>
+    <p class="tight">
+      Dit is langer dan de regel die het vervangt, en dat is het punt: <span class="file">* { transition-duration: 0.01ms }</span>
+      is kort omdat het niet nadenkt. Vier benoemde uitzonderingen zijn te lezen, en te testen.
+    </p>
+  </section>
+
+  <footer class="note">
+    Prototype, geen implementatie — niets hiervan staat in de branch. Ronde 1 en 2 blijven staan zoals ze waren;
+    deze pagina vervangt geen van beide, hij maakt punt 1, 2 en 4 uitvoerbaar en voegt de aankomst toe.
+  </footer>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  const root = document.documentElement;
+  for (const b of document.querySelectorAll('[data-theme-set]')) {
+    b.addEventListener('click', () => {
+      const want = b.dataset.themeSet;
+      if (root.getAttribute('data-theme') === want) root.removeAttribute('data-theme');
+      else root.setAttribute('data-theme', want);
+      for (const o of document.querySelectorAll('[data-theme-set]')) {
+        o.setAttribute('aria-pressed', String(root.getAttribute('data-theme') === o.dataset.themeSet));
+      }
+    });
+  }
+
+  const nf = (n) => n.toLocaleString('nl-NL', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+
+  /* Eén deterministische reeks, gedeeld door alle demo's op deze pagina. */
+  const seriesPath = (n, w, h, seed) => {
+    let v = 100;
+    const vals = [];
+    for (let i = 0; i < n; i++) {
+      v = v * 1.0009 + Math.sin((i + seed) * 0.29) * 1.1 + Math.sin((i + seed) * 0.07) * 2.6;
+      vals.push(v);
+    }
+    const lo = Math.min(...vals), hi = Math.max(...vals);
+    const span = Math.max(1e-6, hi - lo);
+    return vals.map((y, i) => {
+      const x = (i / (n - 1)) * w;
+      const py = h - 6 - ((y - lo) / span) * (h - 14);
+      return `${i ? 'L' : 'M'}${x.toFixed(1)},${py.toFixed(1)}`;
+    }).join(' ');
+  };
+
+  const HOLDINGS = [
+    ['ASML', 12480, 3120], ['VWRL', 21117, 4980], ['Shell', 3905, -412],
+    ['ASM International', 8740, 1655], ['Adyen', 5210, -890], ['Prosus', 2980, 214],
+    ['IWDA', 15320, 2760], ['Besi', 4110, -305], ['Wolters Kluwer', 6650, 980],
+    ['Ahold Delhaize', 3320, 145], ['Unilever', 5480, 620], ['NN Group', 2410, -180],
+    ['Aegon', 1890, 96], ['KPN', 2260, 310], ['Philips', 1740, -220],
+  ];
+
+  const TILES = [
+    ['Waarde', '€ 37.502', true], ['Resultaat', '+ € 6.184', true], ['Ingelegd', '€ 31.318', false],
+  ];
+
+  /* --- de kaarten ----------------------------------------------------- */
+
+  const KINDS = [
+    { key: 'hero', title: 'Portefeuillewaarde' },
+    { key: 'tiles', title: 'Kerncijfers' },
+    { key: 'bars', title: 'Resultaat per maand' },
+    { key: 'small2', title: 'Opbouw en valuta' },
+    { key: 'table', title: 'Posities' },
+    { key: 'bars', title: 'Stortingen en opnames' },
+  ];
+
+  const BARS = [4, 9, -3, 12, 7, -6, 15, 11, 5, -2, 8, 13];
+
+  /** Bouw één kaart. `animated` bepaalt of de inhoud opkomt of er meteen staat. */
+  const makeCard = ({ key, title }, index, animated) => {
+    const card = document.createElement('div');
+    card.className = 'cardlet waiting';
+    card.innerHTML = `<h5><span>${title}</span><span class="stamp">—</span></h5><div class="body"></div>`;
+    const body = card.querySelector('.body');
+    const stamp = card.querySelector('.stamp');
+
+    // Het skelet: één blok per kaart, geen losse flikkerende vormen.
+    const skel = document.createElement('div');
+    skel.className = 'skel' + (key === 'hero' ? '' : ' small');
+    body.append(skel);
+
+    /** Vul de kaart met echte inhoud. Retourneert de reveal-functie. */
+    const fill = () => {
+      body.innerHTML = '';
+      const steps = [];
+
+      if (key === 'hero' || key === 'small2') {
+        const many = key === 'small2' ? 2 : 1;
+        const wrap = document.createElement('div');
+        wrap.style.cssText = many > 1 ? 'display:grid;grid-template-columns:1fr 1fr;gap:0.4rem' : '';
+        for (let i = 0; i < many; i++) {
+          const box = document.createElement('div');
+          box.className = 'chartbox' + (many > 1 ? ' small' : '');
+          const h = many > 1 ? 52 : 96;
+          box.innerHTML = `<div class="plotwrap"><svg viewBox="0 0 600 ${h}" preserveAspectRatio="none" aria-hidden="true">` +
+            `<path fill="none" stroke="var(--series-${i ? 2 : 1})" stroke-width="2" ` +
+            `d="${seriesPath(many > 1 ? 90 : 180, 600, h, index * 7 + i * 23 + 3)}"></path></svg></div>`;
+          const plot = box.firstElementChild;
+          if (animated) {
+            plot.classList.add('reveal');
+            plot.style.transitionDuration = many > 1 ? '360ms' : '520ms';
+            steps.push({ el: plot, at: i * 60 });
+          }
+          wrap.append(box);
+        }
+        body.append(wrap);
+      }
+
+      if (key === 'tiles') {
+        const t = document.createElement('div');
+        t.className = 'tiles';
+        TILES.forEach(([lab, val, up], i) => {
+          const tile = document.createElement('div');
+          tile.className = 'tile' + (animated ? ' rise' : '');
+          tile.innerHTML = `<div class="lab">${lab}</div><div class="val${up ? ' up' : ''}">${val}</div>`;
+          t.append(tile);
+          if (animated) steps.push({ el: tile, at: i * 40 });
+        });
+        body.append(t);
+      }
+
+      if (key === 'bars') {
+        const b = document.createElement('div');
+        b.className = 'bars';
+        const max = Math.max(...BARS.map(Math.abs));
+        BARS.forEach((v, i) => {
+          const bar = document.createElement('i');
+          bar.style.height = (Math.abs(v) / max) * 100 + '%';
+          if (v < 0) bar.classList.add('neg');
+          if (animated) {
+            bar.classList.add('rise');
+            steps.push({ el: bar, at: Math.min(i, 8) * 22 });
+          }
+          b.append(bar);
+        });
+        body.append(b);
+      }
+
+      if (key === 'table') {
+        const wrap = document.createElement('div');
+        wrap.innerHTML = '<table class="data"><thead><tr><th>Positie</th><th class="num">Waarde</th>' +
+          '<th class="num">Resultaat</th></tr></thead><tbody></tbody></table>';
+        const tb = wrap.querySelector('tbody');
+        HOLDINGS.slice(0, 7).forEach(([name, val, res], i) => {
+          const tr = document.createElement('tr');
+          if (animated) tr.className = 'row';
+          tr.innerHTML = `<td>${name}</td><td class="num">€ ${nf(val)}</td>` +
+            `<td class="num ${res >= 0 ? 'up' : 'down'}">${res >= 0 ? '+' : '−'} € ${nf(Math.abs(res))}</td>`;
+          tb.append(tr);
+          if (animated) steps.push({ el: tr, at: Math.min(i, 10) * 28 });
+        });
+        body.append(wrap);
+      }
+
+      card.classList.remove('waiting');
+      if (!animated) { steps.length = 0; return; }
+
+      // Twee frames op de begintoestand, zodat de overgang ergens vandaan komt.
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        for (const { el, at } of steps) setTimeout(() => el.classList.add('done'), at);
+      }));
+    };
+
+    return { card, fill, stamp };
+  };
+
+  /* --- demo 1: de aankomst, tegelijk of per kaart ---------------------- */
+
+  let mode = 'percard';
+  const feed = document.getElementById('feed-arrive');
+  const arriveNote = document.getElementById('arrive-note');
+  const runBtn = document.getElementById('arrive-run');
+  let timers = [];
+
+  const buildFeed = () => {
+    for (const t of timers) clearTimeout(t);
+    timers = [];
+    feed.innerHTML = '';
+    return KINDS.slice(0, 5).map((k, i) => {
+      const c = makeCard(k, i, true);
+      feed.append(c.card);
+      return c;
+    });
+  };
+
+  let cards = buildFeed();
+
+  runBtn.addEventListener('click', () => {
+    runBtn.disabled = true;
+    cards = buildFeed();
+    arriveNote.textContent = 'Ophalen…';
+    const gap = mode === 'percard' ? 60 : 0;
+    timers.push(setTimeout(() => {
+      const t0 = performance.now();
+      cards.forEach((c, i) => {
+        timers.push(setTimeout(() => {
+          c.fill();
+          c.stamp.textContent = '+' + Math.round(performance.now() - t0) + ' ms';
+        }, i * gap));
+      });
+      arriveNote.innerHTML = mode === 'percard'
+        ? `Vijf kaarten, <b>${(cards.length - 1) * gap} ms</b> tussen de eerste en de laatste.`
+        : 'Vijf kaarten, <b>alles op hetzelfde frame</b>.';
+      runBtn.disabled = false;
+    }, 1200));
+  });
+
+  for (const b of document.querySelectorAll('#mode-seg button')) {
+    b.addEventListener('click', () => {
+      mode = b.dataset.mode;
+      for (const o of document.querySelectorAll('#mode-seg button')) {
+        o.setAttribute('aria-pressed', String(o.dataset.mode === mode));
+      }
+      runBtn.click();
+    });
+  }
+
+  /* --- demo 2: aankomen bij in beeld komen ---------------------------- */
+
+  const pane = document.getElementById('feed-scroll');
+  const scrollNote = document.getElementById('scroll-note');
+  let observer = null;
+
+  const buildScroll = () => {
+    if (observer) observer.disconnect();
+    pane.innerHTML = '';
+    pane.scrollTop = 0;
+    let landed = 0;
+    const total = KINDS.length;
+
+    const made = KINDS.map((k, i) => {
+      const c = makeCard(k, i + 11, true);
+      pane.append(c.card);
+      return c;
+    });
+
+    observer = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        const c = made.find((m) => m.card === entry.target);
+        if (!c) continue;
+        // Eén keer per kaart. Daarna afmelden, zodat terugscrollen niets herhaalt.
+        observer.unobserve(entry.target);
+        c.fill();
+        landed++;
+        c.stamp.textContent = 'in beeld';
+        scrollNote.innerHTML = `<b>${landed} van ${total}</b> kaarten geland.`;
+      }
+    }, { root: pane, threshold: 0.25 });
+
+    for (const c of made) observer.observe(c.card);
+    scrollNote.textContent = 'Scroll naar beneden.';
+  };
+
+  buildScroll();
+  document.getElementById('scroll-reset').addEventListener('click', buildScroll);
+
+  /* --- de drie varianten ---------------------------------------------- */
+
+  const vline = document.getElementById('vline');
+  const vpen = document.getElementById('vpen');
+  const vwrap = document.getElementById('variant-box').firstElementChild;
+  const vnote = document.getElementById('variant-note');
+  const D = seriesPath(180, 600, 110, 3);
+  vline.setAttribute('d', D);
+  vpen.style.offsetPath = `path("${D}")`;
+  vpen.style.offsetRotate = '0deg';
+
+  let variant = 'a';
+  const NOTES = {
+    a: 'Masker met zachte rand, 520 ms, --ease-out. De lijn was al klaar.',
+    b: 'Zelfde veeg. De stip volgt het pad met offset-path.',
+    c: 'Opacity + 6 px, 260 ms. Geen veeg.',
+  };
+
+  const playVariant = () => {
+    vwrap.classList.remove('reveal', 'rise', 'done');
+    vpen.classList.remove('run');
+    void vwrap.offsetWidth;
+    if (variant === 'c') vwrap.classList.add('rise');
+    else vwrap.classList.add('reveal');
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      vwrap.classList.add('done');
+      if (variant === 'b') vpen.classList.add('run');
+    }));
+    vnote.textContent = NOTES[variant];
+  };
+
+  for (const b of document.querySelectorAll('#variant-seg button')) {
+    b.addEventListener('click', () => {
+      variant = b.dataset.var;
+      for (const o of document.querySelectorAll('#variant-seg button')) {
+        o.setAttribute('aria-pressed', String(o.dataset.var === variant));
+      }
+      playVariant();
+    });
+  }
+  document.getElementById('variant-play').addEventListener('click', playVariant);
+  playVariant();
+
+  /* --- de tabel, met en zonder dak ------------------------------------ */
+
+  const fillTable = (mode) => {
+    const table = document.querySelector(`[data-tab="${mode}"]`);
+    const tb = table.querySelector('tbody');
+    const note = document.querySelector(`[data-time="${mode}"]`);
+    tb.innerHTML = '';
+    const rows = HOLDINGS.map(([name, val, res]) => {
+      const tr = document.createElement('tr');
+      tr.className = 'row';
+      tr.innerHTML = `<td>${name}</td><td class="num">€ ${nf(val)}</td>` +
+        `<td class="num ${res >= 0 ? 'up' : 'down'}">${res >= 0 ? '+' : '−'} € ${nf(Math.abs(res))}</td>`;
+      tb.append(tr);
+      return tr;
+    });
+    const step = 28;
+    const last = mode === 'capped' ? Math.min(rows.length - 1, 9) : rows.length - 1;
+    rows.forEach((tr, i) => {
+      const delay = mode === 'capped' ? Math.min(i, 10) * step : i * step;
+      setTimeout(() => tr.classList.add('done'), delay);
+    });
+    const total = (mode === 'capped' ? Math.min(rows.length - 1, 10) : rows.length - 1) * step + 200;
+    note.innerHTML = `${rows.length} rijen · laatste rij compleet na <b>${total} ms</b>` +
+      (mode === 'capped' ? ` (dak op rij ${last + 1})` : '');
+  };
+
+  document.getElementById('table-play').addEventListener('click', () => {
+    fillTable('uncapped');
+    fillTable('capped');
+  });
+  fillTable('uncapped');
+  fillTable('capped');
+})();
+</script>
