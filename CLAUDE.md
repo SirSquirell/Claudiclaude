@@ -80,6 +80,23 @@ architecture that §1 and §3 of the spec already settled.
    an export, or stolen from IndexedDB — and a wrong authentication attempt is the one action a
    broker answers by locking the account rather than by returning an error (see rule 5).
 
+## Branches: `main`, `poc`, and nothing else
+
+Decided by the owner on 2026-08-18, after an audit found **23 live `claude/*` branches**. Twenty-two
+of them turned out to be merged, duplicated or stranded — and because each parallel session numbered
+its story against the `main` it could see, three different stories claimed US-66 and three claimed
+US-76, while a real fix (Today's live day result) sat unmerged on a branch for a day and drifted 27
+commits behind. A branch nobody can see is where work goes to be done twice.
+
+- **Work lands on `main`.** Stories, fixes, refinements: commit there, push there, same day.
+- **A POC lives on the one `poc` branch** until it is promoted into `main` (as code, or as a file
+  under `docs/prototypes/`) or dropped. It is a scratchpad, never a backlog: nothing is *finished*
+  on `poc`.
+- **Do not create task or session branches.** If a session is forced onto one by its tooling, treat
+  it as transport: land the work on `main` the same day and consider the branch disposable.
+- **A story number is claimed by landing in `docs/BACKLOG.md` on `main`** — the next free number is
+  stated at the end of that file. A number used anywhere else is not claimed.
+
 ## Two changelogs, both updated in the release commit
 
 `CHANGELOG.md` is written for whoever is deciding whether to resync: what was wrong and what it

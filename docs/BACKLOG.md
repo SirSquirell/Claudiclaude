@@ -2531,7 +2531,7 @@ rule 8.
 
 ---
 
-## US-45 — Parameterise the session read *(small, and only if US-37 says yes)*
+## US-45 — Parameterise the session read *(built — US-37 said yes; salvaged to main 2026-08-18)*
 
 > Renumbered twice on 2026-08-11: US-38 → US-44 → US-45. An external brief claimed US-38 for
 > onboarding contracts and then US-44 for the addendum below. Two stories under one number is worse

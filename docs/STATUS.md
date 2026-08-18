@@ -131,18 +131,13 @@ F1–F5 shipped in 0.37.0, F6–F9 in 0.38.0. U1–U5 need a decision rather tha
 
 ## Unmerged work sitting on branches
 
-Found in the 2026-08-18 branch audit (23 `claude/*` branches; the rest were merged or duplicated
-`main` and are being deleted). These five carry work `main` does not have. **A branch is not a
-backlog** — a story on a branch nobody can see is how US-66 and US-76 each got claimed three times;
-the numbering repair and the rule are in [BACKLOG.md](BACKLOG.md), *Refinement after 0.47.0*.
-
-| Branch | What it carries | State |
-|---|---|---|
-| `claude/paid-vs-grown-discrepancy-rk40yw` | **US-76 + US-77 built**: the card and its table row agreeing, and the card's sparkline keeping the days that matter. Code + tests, on top of 0.47.0 | Ready to merge |
-| `claude/v47-bug-2jcvd3` | Popup sparkline destroyed before repaint (a leak), on top of 0.47.0 | Ready to merge |
-| `claude/bug-report-pbvnjs` | A 0.46.1: *Today* uses DEGIRO's own live day result, not the ragged reconstructed edge. `parse.js` + `app.js` + tests | Stranded 27 commits behind — needs a rebase onto 0.47.0 and a re-versioning before it can land |
-| `claude/multi-broker-build` | US-45 built (parameterised session read) plus a 0.44.2 fix that `main` later got as US-50 | US-45 is real and unmerged; the rest is duplicate. Salvage the one commit |
-| `claude/apple-fluid-poc` | `docs/prototypes/apple-fluid.html` — the validated US-55…58 prototype the backlog already cites | Imported to `main` in the same commit as this table; branch can go |
+**Resolved on 2026-08-18, same day it was written.** Everything the branch audit found came to
+`main`: US-76 + US-77 merged, the popup sparkline leak merged, US-45 cherry-picked, the Today
+live-day-result fix rebased on (was stranded as a 0.46.1), and the apple-fluid prototype imported.
+The policy that keeps it this way is in [CLAUDE.md](../CLAUDE.md): **work lands on `main`; a POC
+lives on the one `poc` branch until it is promoted or dropped.** The 22 stale `claude/*` branches
+are contained in `main` or superseded by it and are waiting on a one-time delete in GitHub's UI —
+this environment's git proxy refuses branch deletion.
 
 ## Refined, not built
 
@@ -160,7 +155,6 @@ Complete as of the 2026-08-18 consolidation — every open story number appears 
 | — | **A price series was rescaled by factor 4,369**, which is not a split ratio. Investigation: one factor across two regimes, or a vwd id that changed instrument. Do not tune the threshold | Nothing |
 | US-37 | **Trading 212 R1 — PASS, measured 2026-08-13.** Page 200/401, logged out 401, and the service worker `PASS_JSON` with only an `Accept` header — so no device identifier is required either | Nothing. **US-39–US-45 are unblocked** |
 | US-44 | **Trading 212 renders through the existing pipeline** — no separate dashboard | Gated on US-37 and the data gates. Addendum body not yet received |
-| US-45 | Parameterise the session read — R1 has cleared, and an implementation already exists on `claude/multi-broker-build` (see *Unmerged work* above) | Salvaging that commit |
 | US-39–43 | Multi-broker delivery sequence from an external brief | All gated on US-37 |
 | US-34 | **Trading 212 — the spike is finished.** R1 through R5 are all answered: the price history is public and needs no account (daily candles to 2017), and R1 passed on 2026-08-12/13. Nothing in this row is open | Nothing. What is left is the *build* — US-39–US-45 — and the account **payload shapes**, which are still marked `hypothesis` in `tools/trading212-r1/spike.js` because no one has seen them in a Network tab |
 | US-36 | **Interactive Brokers — phase 1 has begun.** One DevTools capture shows an ordinary session-backed portal: its own bundle, a 25 kB portfolio payload, a repeating `tickle` keep-alive and a `202` long-poll. See [MULTI-BROKER.md §9](MULTI-BROKER.md) | **The decisive test**: one portfolio request re-run with `credentials: 'include'` and with `'omit'`, both statuses. That decides R1 and nothing else does |
