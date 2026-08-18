@@ -680,7 +680,7 @@ test('US-69 — the curves and durations are named once, and every one has a cal
    * one thing the story's own stop condition forbids.
    */
   assert.ok(!root.includes('--ease-in-out:'), 'a curve was defined with nothing to curve');
-  for (const token of ['--ease-out', '--t-press', '--t-surface', '--t-surface-out']) {
+  for (const token of ['--ease-out', '--t-press', '--t-surface', '--t-surface-out', '--t-notice', '--t-theme']) {
     assert.ok(root.includes(`${token}:`), `${token} is not defined`);
     const callers = (css.match(new RegExp(`var\\(${token}\\)`, 'g')) ?? []).length;
     assert.ok(callers > 0, `${token} has no caller — rule 8 says delete it`);
@@ -741,4 +741,116 @@ test('US-70 — the backdrop fades with the sheet it belongs to', () => {
   // It is unreachable from script, so it fades from CSS on the same curve.
   assert.match(css, /\.modal::backdrop \{[\s\S]*?transition:/);
   assert.match(css, /@starting-style \{\s*\n\s*\.modal::backdrop \{\s*\n\s*opacity: 0;/);
+});
+
+// ===========================================================================
+// US-72 / US-73 / US-74 / US-75 — the rest of the UI review
+// ===========================================================================
+
+test('US-72 — one label at the end of the line, and only one', () => {
+  /**
+   * *Where does it end* is the question most people ask a line, and on three
+   * charts it lived only in the tooltip — which means nowhere on a touch screen
+   * and nowhere at all in a screenshot. A number beside every point is the
+   * anti-pattern this replaces; the endpoint is the one point that earns a
+   * direct label, and the value chart is deliberately not in the list because
+   * the KPI tile above it already says that figure.
+   */
+  const charts = read('../src/ui/charts.js');
+  const plugin = charts.slice(charts.indexOf('const endLabel = {'), charts.indexOf('Chart.register('));
+  assert.match(plugin, /points\[points\.length - 1\]/, 'it no longer labels the last point');
+  assert.ok(!/for \(const p of points\)|points\.forEach/.test(plugin), 'it labels more than one point');
+  // Clamped inside the plot, the way the drag readout already is — the point it
+  // belongs to is *at* the right edge, so running off it is the default failure.
+  assert.match(plugin, /Math\.min\(last\.x \+ 8, right - width - 2\)/);
+  // Text in the text token; the dot carries the identity.
+  assert.match(plugin, /ctx\.fillStyle = opts\.text/);
+  for (const fn of ['cumulativeChart', 'investedVsValueChart', 'dividendChart']) {
+    const at = charts.indexOf(`export function ${fn}(`);
+    assert.match(charts.slice(at, at + 1600), /plugins\.endLabel = \{/, `${fn} has no endpoint label`);
+  }
+  assert.ok(!/opts\.plugins\.endLabel/.test(charts.slice(charts.indexOf('export function valueChart('), charts.indexOf('export function pnlChart('))),
+    'the value chart repeats the figure its own KPI tile carries');
+});
+
+test('US-73 — a notice opens its own row, and rewriting its text does not reopen it', () => {
+  /**
+   * `#notices` was appended to and emptied outright, so during a sync the
+   * figures below jumped in one frame, twice per notice, while the reader was
+   * looking at them. Browser-measured: opening runs 0 → 41 → 59 → 62px and the
+   * content below travels 263 → 212 → 202 → 200 instead of jumping.
+   *
+   * The rewrite is the other half: `startAndFollow` rewrites the same banner
+   * once per step, and a row that reopened seven times per sync would be worse
+   * than the jump. Measured at the same height with zero running animations.
+   */
+  assert.match(css, /\.banner-slot \{[\s\S]*?grid-template-rows: 0fr;/);
+  assert.match(css, /\.banner-slot\.open \{\s*\n\s*grid-template-rows: 1fr;/);
+  // `height: auto` cannot be transitioned and a `max-height` guess is wrong the
+  // moment a message wraps, which is why the wrapper exists at all.
+  assert.match(css, /\.banner-clip \{\s*\n\s*overflow: hidden;/);
+  const fn = app.slice(app.indexOf('function setNoticeText'), app.indexOf('function clearNotices'));
+  assert.ok(!/classList|slot|open/.test(fn), 'rewriting the text touches the row again');
+  // AC4: the announcement behaviour is unchanged — this story adds no aria-live
+  // and removes none.
+  assert.ok(!/aria-live/.test(app.slice(app.indexOf('function notice('), app.indexOf('function clearNotices'))));
+});
+
+test('US-74 — the theme cross-fades, and the first paint does not', () => {
+  /**
+   * Light to dark went from near-white to near-black in one frame, which is the
+   * app's only abrupt brightness jump and the thing §14 names. It is also rare —
+   * a handful of times ever — which is where a little cost is affordable.
+   *
+   * The class is added by `setTheme` and nowhere else, which is AC3: a permanent
+   * transition would fade the *first* paint in from the stylesheet's default, so
+   * every load would open by dissolving out of the wrong theme.
+   */
+  const theme = read('../src/ui/theme.js');
+  assert.match(theme, /function crossFade\(\)/);
+  assert.match(theme, /crossFade\(\);\s*\n\s*applyTheme\(value\);/);
+  assert.ok(!/crossFade\(\)/.test(theme.slice(theme.indexOf('export function applyTheme'))), 'the boot path fades');
+  assert.match(css, /:root\[data-theme-fade\] body/);
+  // Named properties, never `all` — `all` would drag a gesture-driven property
+  // into a 220ms ease.
+  const block = css.slice(css.indexOf(':root[data-theme-fade] body'));
+  assert.ok(!/transition:\s*all/.test(block.slice(0, 600)));
+  // AC4: the canvases cannot cross-fade, so they fade *in* on the new theme over
+  // the same duration — the stop condition said ship without the fade rather
+  // than accept the seam, and this closes it instead.
+  assert.match(css, /:root\[data-theme-fade\] canvas \{\s*\n\s*animation: theme-repaint/);
+  // AC2: deliberately alive under reduced motion, and named there so the
+  // allowlist does not silence it.
+  assert.match(css, /:root\[data-theme-fade\] canvas \{\s*\n\s*animation-name: theme-repaint !important;/);
+});
+
+test('US-75 — the arrival happens once, over a drawing that is already finished', () => {
+  /**
+   * The one place the delight budget is available: once per sync, a rare
+   * high-emotion moment, and every render-frequency animation was rejected so
+   * this one could be afforded.
+   *
+   * Two things make it affordable rather than expensive. It runs from `refresh`,
+   * which is the data landing — not from `render`, which a range change, a tab
+   * switch and a theme flip all call. And the chart's reveal is a CSS mask over
+   * a canvas Chart.js has already painted, so `animation: false` stays off and a
+   * two-thousand-point series costs what it costs today.
+   */
+  const motion = read('../src/ui/motion.js');
+  assert.match(motion, /export function revealOnArrival/);
+  assert.match(app, /requestAnimationFrame\(\(\) => revealOnArrival\(\)\);/);
+  const renderFn = app.slice(app.indexOf('function render()'), app.indexOf('function render()') + 900);
+  assert.ok(!/revealOnArrival/.test(renderFn), 'the reveal fires on every render');
+  assert.match(read('../src/ui/charts.js'), /animation: false,/, 'the chart animates its own data again');
+  // Once per card, then the observer drops it — otherwise half the reveals
+  // happen off screen and are wasted.
+  assert.match(motion, /io\.unobserve\(entry\.target\)/);
+  assert.match(motion, /if \(card\.dataset\.arrived\) return;/);
+  // The row stagger is capped: ninety positions at 28ms is two and a half
+  // seconds of waiting for your own data.
+  assert.match(motion, /Math\.min\(i, 10\)/);
+  // Nothing interpolates a value: the elements hold their final string and rise.
+  assert.match(css, /@keyframes card-arrive \{\s*\n\s*from \{ opacity: 0; transform: translateY\(6px\); \}/);
+  // Reduced motion keeps the arrival and drops the travel.
+  assert.match(css, /\.card\.arriving canvas \{\s*\n\s*animation-name: card-fade !important;/);
 });

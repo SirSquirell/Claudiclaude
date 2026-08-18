@@ -48,7 +48,7 @@ import { FORMATS, ownerLine, positionSpan, scoreCardModel, snapshotModel, splitM
 import { HOLDINGS_COLUMNS, baseHidden, droppableByPriority, optionalColumns } from './columns.js';
 import { brokerMarkSvg, lockupSvg, markSvg } from './brand.js';
 import { copySnapshot, downloadSnapshot, drawScoreCard, drawSnapshot, tokensForTheme } from './snapshot.js';
-import { Spring, prefersReducedMotion, project, rubber, velocityFrom, wirePressFeedback } from './motion.js';
+import { Spring, prefersReducedMotion, project, rubber, revealOnArrival, velocityFrom, wirePressFeedback } from './motion.js';
 import { inExtension, load, send, wantsDemo } from './datasource.js';
 
 const RANGES = ['1M', '3M', '6M', 'YTD', '1Y', 'ALL'];
@@ -251,13 +251,23 @@ async function init() {
 }
 
 async function refresh() {
-  $('#subtitle').textContent = 'Loading…';
+  $('#subtitle').textContent = tr('Loading…');
   try {
     state.data = await load();
   } catch (err) {
     return showFatal(err);
   }
   render();
+  /**
+   * US-75. Once, when data has actually arrived — not on a range change, not on
+   * a tab switch, not on a theme flip. All three of those call `render()` and
+   * none of them is news; a page that flourishes every time you press 3M is a
+   * page you stop reading.
+   *
+   * After the render, so the cards exist to be revealed, and on a frame of its
+   * own so the reveal starts from a laid-out page rather than from mid-layout.
+   */
+  requestAnimationFrame(() => revealOnArrival());
 }
 
 // ---------------------------------------------------------------------------
@@ -1979,7 +1989,13 @@ function render() {
   if (!cheerful) noteBaseline('#value-baseline', state.charts.value, r, from);
 
   const agg = aggregatePnl(r.days, r.pnl, gran, from, to);
-  if (onScreen('#c-pnl')) state.charts.pnl = pnlChart($('#c-pnl'), agg, t);
+  if (onScreen('#c-pnl')) {
+    state.charts.pnl = pnlChart($('#c-pnl'), agg, t);
+    chartTwin('c-pnl', {
+      columns: [{ label: 'Period' }, { label: 'Result', num: true }],
+      rows: agg.starts.map((d, i) => [d, fmtSigned(agg.pnl[i])]),
+    });
+  }
   if (onScreen('#c-cum')) renderCumulative(r, gran, from, to, agg, t, ends);
 
   // One composition and one set of colours, used three times: the stacked chart,
@@ -1995,7 +2011,14 @@ function render() {
     t,
   );
 
-  if (onScreen('#c-deposits')) state.charts.deposits = depositChart($('#c-deposits'), monthlyFlows(r, from, to), t);
+  if (onScreen('#c-deposits')) {
+    const flows = monthlyFlows(r, from, to);
+    state.charts.deposits = depositChart($('#c-deposits'), flows, t);
+    chartTwin('c-deposits', {
+      columns: [{ label: 'Month' }, { label: 'In and out', num: true }],
+      rows: flows.labels.map((m, i) => [m, fmtSigned(flows.amounts[i])]),
+    });
+  }
 
   if (onScreen('#c-movers')) state.charts.movers = moversChart($('#c-movers'), moversData(r, from, to), t);
   if (onScreen('#c-cash')) {
@@ -2017,6 +2040,10 @@ function render() {
   dividendCard.hidden = r.dividendsByMonth.length === 0;
   if (!dividendCard.hidden && onScreen('#c-dividends')) {
     state.charts.dividends = dividendChart($('#c-dividends'), r.dividendsByMonth, t);
+    chartTwin('c-dividends', {
+      columns: [{ label: 'Month' }, { label: 'Received (net)', num: true }, { label: 'Withholding tax', num: true }],
+      rows: r.dividendsByMonth.map((x) => [x.month, fmtEurCents(x.net), fmtEurCents(Math.abs(x.tax ?? 0))]),
+    });
   }
 
   const months = monthlyTable(r);
@@ -2413,6 +2440,68 @@ function renderOptimismCharts(r, ends, atEnds, cheerful, t) {
   }
 }
 
+/**
+ * US-71 (second half) — the table twin.
+ *
+ * dataviz's rule, and the one the Positions card has followed since 0.46.0:
+ * **every chart has a table view, and a tooltip is never the only way to read a
+ * value.** A tooltip needs a pointer and a hover; a screen reader has neither,
+ * and neither does anybody reading a screenshot.
+ *
+ * One helper rather than a twin per chart, and the toggle is built here rather
+ * than in the markup so a chart that gains a twin needs no HTML — the same
+ * reason `columns.js` holds the Positions columns as data.
+ *
+ * The figures come through the page's own formatters, so US-46 masks them and
+ * this function needs no rule of its own; the dates do not mask, because US-46
+ * hides what you have and not when.
+ */
+function chartTwin(canvasId, { columns, rows }) {
+  const box = $(`#${canvasId}`)?.closest('.chart-box');
+  if (!box) return;
+
+  let twin = box.parentElement.querySelector(`[data-twin="${canvasId}"]`);
+  let toggle = box.parentElement.querySelector(`[data-twin-toggle="${canvasId}"]`);
+  if (!twin) {
+    twin = document.createElement('div');
+    twin.className = 'table-scroll chart-twin';
+    twin.dataset.twin = canvasId;
+    twin.hidden = true;
+    twin.innerHTML = '<table><thead></thead><tbody></tbody></table>';
+    box.after(twin);
+
+    toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'twin-toggle';
+    toggle.dataset.twinToggle = canvasId;
+    toggle.setAttribute('aria-controls', `${canvasId}`);
+    toggle.addEventListener('click', () => {
+      // One source of truth for which of the two is up, read back after the
+      // flip. Deriving the label from a local `showTable` got it inverted: the
+      // button offered "show as a table" while the table was already on screen.
+      box.hidden = !box.hidden;
+      twin.hidden = !box.hidden;
+      paintTwinToggle(toggle, !box.hidden);
+    });
+    twin.after(toggle);
+  }
+  paintTwinToggle(toggle, !box.hidden);
+
+  const head = twin.querySelector('thead');
+  const body = twin.querySelector('tbody');
+  head.innerHTML = `<tr>${columns.map((c) => `<th${c.num ? ' class="num"' : ''}>${esc(tr(c.label))}</th>`).join('')}</tr>`;
+  body.innerHTML = rows
+    .map((r) => `<tr>${r.map((cell, i) => `<td${columns[i]?.num ? ' class="num"' : ''}>${esc(cell)}</td>`).join('')}</tr>`)
+    .join('');
+}
+
+/** The label states what pressing it does, not what is on screen now. */
+function paintTwinToggle(toggle, chartVisible) {
+  if (!toggle) return;
+  toggle.textContent = chartVisible ? tr('Show as a table') : tr('Show as a chart');
+  toggle.setAttribute('aria-expanded', String(!chartVisible));
+}
+
 /** Say what is selected, and offer the way back. A zoom you cannot leave is a trap. */
 function renderZoomState(r, from, to) {
   const box = $('#zoom-state');
@@ -2475,11 +2564,19 @@ function renderCumulative(r, gran, from, to, agg, t, ends) {
    * one — which is what lets the estimated flags be carried across without the
    * engine growing an output for a rendering concern (US-62's stop condition).
    */
-  state.charts.cum = cumulativeChart(
-    $('#c-cum'),
-    { ...agg, estimated: sumInBuckets(r.estimated ?? [], ends, from).map((n) => n > 0) },
-    t,
-  );
+  const cumEstimated = sumInBuckets(r.estimated ?? [], ends, from).map((n) => n > 0);
+  state.charts.cum = cumulativeChart($('#c-cum'), { ...agg, estimated: cumEstimated }, t);
+  chartTwin('c-cum', {
+    columns: [{ label: 'Period' }, { label: 'Result', num: true }, { label: 'Added up', num: true }, { label: 'Prices' }],
+    rows: agg.starts.map((d, i) => [
+      d,
+      fmtSigned(agg.pnl[i]),
+      fmtSigned(agg.cumulative[i]),
+      // AC4. The same honesty the readout carries, in the channel a reader who
+      // cannot see the chart is actually using.
+      cumEstimated[i] ? tr('estimated') : tr('measured'),
+    ]),
+  });
   $('#cum-hint').textContent = canCandle
     ? 'The same numbers, added up over the selected range.'
     : 'The same numbers, added up over the selected range. Pressing Candles will switch “Results per” to Week: ' +
@@ -4477,18 +4574,70 @@ function renderFooter(r, data) {
  * survive the re-render that follows it. Putting both in one container is how
  * the earlier build managed to print an error and erase it in the same tick.
  */
+/**
+ * US-73 — a notice opens its own row instead of shoving the page.
+ *
+ * `#notices` used to be appended to and emptied outright, so during a sync the
+ * figures below jumped in one frame, **twice per notice**, while the reader was
+ * looking at them. A sync posts one progress banner and clears it, so that is
+ * two jumps every time, on the screen you are watching.
+ *
+ * The row is a grid whose single track goes `0fr → 1fr`. That transitions
+ * without measuring anything and without a reflow per frame, which is the whole
+ * reason for the extra wrapper: `height: auto` cannot be transitioned, and
+ * `max-height` guesses a number that is wrong for a two-line message.
+ */
 function notice(kind, message, link) {
+  const slot = document.createElement('div');
+  slot.className = 'banner-slot';
+  const clip = document.createElement('div');
+  clip.className = 'banner-clip';
   const el = makeBanner(kind, message, link);
-  $('#notices').append(el);
+  clip.append(el);
+  slot.append(clip);
+  $('#notices').append(slot);
+  // Opened on the next frame, because a class applied in the same frame as the
+  // insert is the state the element was born in — there is nothing to transition
+  // from.
+  requestAnimationFrame(() => slot.classList.add('open'));
   return el;
 }
 
+/**
+ * Rewriting the text must **not** re-animate: `startAndFollow` rewrites the same
+ * banner once per step, and a banner that re-opened seven times per sync would
+ * be worse than the jump this story is removing. Only the inner text node is
+ * touched, so the row's own state never changes.
+ */
 function setNoticeText(el, message) {
   if (el?.lastElementChild) el.lastElementChild.textContent = message;
 }
 
 function clearNotices() {
-  $('#notices').innerHTML = '';
+  const host = $('#notices');
+  if (!host) return;
+  for (const slot of [...host.children]) {
+    if (!slot.classList?.contains('banner-slot')) {
+      slot.remove();
+      continue;
+    }
+    slot.classList.remove('open');
+    /**
+     * Removed when the row has finished closing, and `transitionend` rather than
+     * a timer — one row, one property, so it fires once. The guard is for the
+     * case where the transition never runs at all (a reduced-motion setting, a
+     * backgrounded tab): `getAnimations` is empty and the node goes immediately
+     * rather than lingering as an invisible row.
+     */
+    const done = () => slot.remove();
+    if (!slot.getAnimations?.().length && !getComputedStyle(slot).transitionDuration.startsWith('0s')) {
+      slot.addEventListener('transitionend', done, { once: true });
+      // A row that never transitions still has to go.
+      setTimeout(done, 400);
+    } else {
+      done();
+    }
+  }
 }
 
 function renderDiagnostics(report) {

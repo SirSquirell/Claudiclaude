@@ -252,3 +252,70 @@ export function wirePressFeedback(root = document) {
     root.addEventListener(kind, release, true);
   }
 }
+
+/**
+ * US-75 — the data arrives, and the page says so once.
+ *
+ * The moment a sync lands, the whole screen used to fill in a single frame. This
+ * is the one place in this app where the delight budget is genuinely available:
+ * it happens once per sync, it is a rare high-emotion moment, and every
+ * render-frequency animation was rejected precisely so this one could be
+ * afforded.
+ *
+ * Four rules, and each is a trap the refinement names:
+ *
+ *  - **Once per arrival, never per render.** A range or granularity change
+ *    redraws the same series and gets nothing — there is no news in it, and a
+ *    page that flourishes every time you press 3M is a page you stop reading.
+ *  - **The reveal runs over a finished drawing.** It is a CSS mask over a canvas
+ *    Chart.js has already painted, which is what keeps `animation: false` off in
+ *    `charts.js` — measured for two-thousand-point series, and not reopened
+ *    here. A chart that animates its own data looks like it is computing while
+ *    you watch, which is the one impression this app must never give.
+ *  - **No value moves.** Elements rise and fade holding their final string. A bar
+ *    growing from zero is a value climbing, so bars fade instead — the same rule
+ *    US-65 settles for figures.
+ *  - **Nothing waits for it.** The page is interactive throughout; this only adds
+ *    a class.
+ *
+ * Cards below the fold reveal when they scroll in, once, and the observer drops
+ * them — otherwise half the reveals happen off screen and are simply wasted.
+ */
+export function revealOnArrival(root = document) {
+  const cards = [...root.querySelectorAll('.card')].filter((c) => !c.dataset.arrived);
+  if (!cards.length) return;
+
+  const arrive = (card, index) => {
+    if (card.dataset.arrived) return;
+    card.dataset.arrived = '1';
+    // The stagger is capped: ninety table rows at 28 ms is two and a half
+    // seconds of waiting for your own data, which is not delight.
+    card.style.setProperty('--arrive-i', String(Math.min(index, 8)));
+    card.classList.add('arriving');
+    const rows = card.querySelectorAll('tbody tr');
+    rows.forEach((tr, i) => tr.style.setProperty('--arrive-i', String(Math.min(i, 10))));
+    // The class is only needed while the animation runs; leaving it on would
+    // make a later stylesheet change replay it.
+    setTimeout(() => card.classList.remove('arriving'), 1200);
+  };
+
+  /**
+   * Visible now, or when it scrolls in. `IntersectionObserver` is the same idea
+   * `onScreen()` already applies one level up — a chart on a hidden tab is not
+   * built at all — so this is the next step of a pattern the app has rather than
+   * a new one.
+   */
+  if (typeof IntersectionObserver !== 'function') {
+    cards.forEach(arrive);
+    return;
+  }
+  let shown = 0;
+  const io = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting) continue;
+      arrive(entry.target, shown++);
+      io.unobserve(entry.target);
+    }
+  }, { rootMargin: '0px 0px -10% 0px' });
+  for (const card of cards) io.observe(card);
+}

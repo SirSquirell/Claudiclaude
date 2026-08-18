@@ -20,6 +20,39 @@ plain increments — this is not a library and nothing depends on its API.
 
 ### Added
 
+- **US-71 (second half) — the figure-carrying charts have a table twin.** Result per period, the
+  cumulative result, deposits and dividends each carry a *Show as a table* link that swaps the canvas
+  for the same numbers as rows. A tooltip needs a pointer and a hover; a screen reader has neither,
+  and neither does anybody reading a screenshot. The cumulative twin also states, per period, whether
+  its prices were measured or estimated.
+
+- **US-72 — the end of the line, without hovering for it.** The cumulative, invested-vs-value and
+  dividend charts carry a dot and one label at their last point, clamped inside the plot. One label,
+  not a number beside every point — and not on the value chart, whose KPI tile already says that
+  figure.
+
+- **US-73 — a notice opens its own row instead of shoving the page.** `#notices` was appended to and
+  emptied outright, so during a sync the figures below jumped in one frame, twice per notice, while
+  you were reading them. The row now grows and collapses; rewriting a progress banner's text does not
+  reopen it, which matters because a sync rewrites the same banner seven times.
+
+- **US-74 — the theme change is a cross-fade.** Light to dark went from near-white to near-black in a
+  single frame, the app's one abrupt brightness jump. It is 220 ms of colour now — and deliberately
+  alive under `prefers-reduced-motion`, because there is no travel in it and the jump is the thing
+  being softened. The canvases cannot cross-fade, so they fade *in* on the new theme over the same
+  duration rather than snapping inside a page that does not.
+
+- **US-75 — the data arrives, and the page says so.** The moment a sync landed, the whole screen
+  filled in one frame. Cards now rise and fade in document order, charts reveal behind a soft
+  left-to-right mask, table rows stagger with a cap, and a card below the fold waits until you scroll
+  to it. Once per sync and never per render: a page that flourishes every time you press 3M is a page
+  you stop reading.
+
+  The reveal is a mask over a drawing Chart.js has already finished, which is what keeps
+  `animation: false` off — a chart that animates its own data looks like it is computing while you
+  watch. Nothing waits for it, and no value moves: every element holds its final string.
+
+
 - **US-71 (first half) — every chart says what it shows.** Thirteen canvases carried no `role`, no
   label and no table equivalent, so a screen reader got **nothing** — not a value, not even *"a
   chart"*. Each now carries `role="img"` and a sentence generated from the same array it draws:

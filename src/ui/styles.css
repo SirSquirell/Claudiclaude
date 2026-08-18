@@ -206,6 +206,15 @@
   --t-press: 100ms;
   --t-surface: 140ms;
   --t-surface-out: 110ms;
+  /*
+   * Two more, each named by the story that needed it and each with exactly one
+   * caller. A duration written at its call site is a duration the next author
+   * copies, which is how the four unrelated easings this replaced got here — so
+   * "one caller" is not an argument for inlining it, it is the reason to name
+   * it. The check in `npm test` deletes any of these that stops having one.
+   */
+  --t-notice: 180ms;
+  --t-theme: 220ms;
 
   /* Deliberately a pixel: a hairline that scales stops being a hairline. */
   --rule: 1px;
@@ -1304,6 +1313,36 @@ label.check {
 
 /* --- banners ------------------------------------------------------------ */
 
+/*
+ * US-73. The row a notice lives in, so adding or removing one does not shove
+ * everything below it.
+ *
+ * `grid-template-rows: 0fr → 1fr` is the one way to transition to a height
+ * nobody has measured: `height: auto` cannot be transitioned at all, and a
+ * `max-height` guess is wrong the moment a message wraps to two lines.
+ *
+ * The margin lives on the banner *inside* the clip, not on the slot, or a
+ * collapsed row would still occupy sixteen pixels of nothing.
+ */
+.banner-slot {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows var(--t-notice) var(--ease-out),
+    opacity var(--t-notice) var(--ease-out);
+}
+
+.banner-slot.open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.banner-clip {
+  overflow: hidden;
+  min-height: 0;
+}
+
 .banner {
   border-radius: var(--radius);
   padding: 12px 14px;
@@ -1654,6 +1693,127 @@ button.month-pick[aria-pressed='true'] {
 
 .muted {
   color: var(--text-muted);
+}
+
+/*
+ * US-71's table twin, and the control that reaches it.
+ *
+ * A quiet link rather than a segmented control: it is a second way to read the
+ * same figures, not a choice the reader has to make before the chart means
+ * anything. It sits under the chart, where the thing it switches is.
+ */
+.twin-toggle {
+  margin-top: 8px;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: var(--text-secondary);
+  font-size: var(--hint);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.twin-toggle:hover {
+  background: none;
+  color: var(--text-primary);
+}
+
+.chart-twin table {
+  width: 100%;
+}
+
+/* --- US-75: data arrives per card ---------------------------------------- */
+
+/*
+ * A card rises six pixels and fades, holding its final content the whole way —
+ * nothing here interpolates a value, and nothing waits for it: the class is a
+ * layer over a live, interactive screen.
+ */
+.card.arriving {
+  animation: card-arrive 260ms var(--ease-out) both;
+  animation-delay: calc(var(--arrive-i, 0) * 60ms);
+}
+
+@keyframes card-arrive {
+  from { opacity: 0; transform: translateY(6px); }
+}
+
+/*
+ * The chart's reveal is a **mask over a drawing Chart.js has already finished**.
+ * That is the decision that makes this story affordable: `animation: false`
+ * stays off in `charts.js`, so nothing re-computes, and a two-thousand-point
+ * series costs exactly what it costs today.
+ */
+.card.arriving canvas {
+  animation: chart-wipe 360ms var(--ease-out) both;
+  animation-delay: calc(var(--arrive-i, 0) * 60ms + 60ms);
+}
+
+/* The hero chart is bigger, so its wipe is slower — the same speed across a
+   wider surface reads as faster, not as equal. */
+.card.arriving .chart-box.tall canvas,
+.card.arriving #c-value {
+  animation-duration: 520ms;
+}
+
+@keyframes chart-wipe {
+  from { clip-path: inset(0 100% 0 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+
+/* Rows stagger, capped at ten: ninety positions at 28 ms is two and a half
+   seconds of waiting for your own data. */
+.card.arriving tbody tr {
+  animation: card-arrive 220ms var(--ease-out) both;
+  animation-delay: calc(var(--arrive-i, 0) * 28ms + 80ms);
+}
+
+/* --- US-74: the theme change is a light switch --------------------------- */
+
+/*
+ * Only while `data-theme-fade` is on the root, which `setTheme` puts there and
+ * takes off again. A permanent transition would fade the *first* paint in from
+ * the stylesheet's default, so every load would open by dissolving out of the
+ * wrong theme.
+ *
+ * The properties are named rather than `all`: `all` would drag every unrelated
+ * property into a 220 ms ease, including ones a gesture is driving.
+ *
+ * It is not inside a reduced-motion guard, deliberately. There is no travel in
+ * it — it is colour — and an abrupt brightness jump is exactly what §14 asks to
+ * be softened rather than removed.
+ */
+:root[data-theme-fade] body,
+:root[data-theme-fade] .card,
+:root[data-theme-fade] .rail,
+:root[data-theme-fade] .tile,
+:root[data-theme-fade] .modal,
+:root[data-theme-fade] table,
+:root[data-theme-fade] th,
+:root[data-theme-fade] td,
+:root[data-theme-fade] button,
+:root[data-theme-fade] select,
+:root[data-theme-fade] input {
+  transition:
+    background-color var(--t-theme) var(--ease-out),
+    color var(--t-theme) var(--ease-out),
+    border-color var(--t-theme) var(--ease-out);
+}
+
+/*
+ * The canvases are the seam. They do not cross-fade — Chart.js repaints them
+ * from the new tokens in one go — so a page fading around a chart that snapped
+ * would draw attention to exactly the thing this is smoothing. They fade *in*
+ * on the new theme instead, over the same 220 ms, which is a cross-fade for a
+ * surface that cannot have one. The stop condition said ship without the fade
+ * rather than accept the seam; this closes it instead.
+ */
+:root[data-theme-fade] canvas {
+  animation: theme-repaint var(--t-theme) var(--ease-out);
+}
+
+@keyframes theme-repaint {
+  from { opacity: 0; }
 }
 
 /* --- popup -------------------------------------------------------------- */
@@ -2851,6 +3011,48 @@ button.primary:active:not(.press-cancelled) {
   .menu button:active {
     transform: none;
   }
+
+  /*
+   * US-74's exception, named here because this is where the four motion stories
+   * state their reduced forms.
+   *
+   * The theme cross-fade deliberately survives reduced motion: it is colour with
+   * no travel, and an abrupt brightness jump is the thing §14 asks to be
+   * *softened* rather than removed. The page fades either way — so if the
+   * allowlist above silenced the canvas's fade, the chart would snap inside a
+   * page that did not, which is the seam US-74 exists to close.
+   */
+  :root[data-theme-fade] canvas {
+    animation-name: theme-repaint !important;
+  }
+
+  /*
+   * US-73's reduced form. The row still opens — that is layout settling, not
+   * vestibular motion, and the point of the story is that the page below stops
+   * jumping. Only the travel would have gone, and there is none here.
+   */
+  .banner-slot {
+    transition-property: grid-template-rows, opacity !important;
+  }
+
+  /*
+   * US-75's reduced form. The arrival stays — knowing your data landed is
+   * comprehension — and the travel goes: no rise, and the chart's wipe becomes a
+   * cross-fade, because a mask crossing a large surface is exactly what §14 is
+   * about.
+   */
+  .card.arriving,
+  .card.arriving tbody tr {
+    animation-name: card-fade !important;
+  }
+
+  .card.arriving canvas {
+    animation-name: card-fade !important;
+  }
+}
+
+@keyframes card-fade {
+  from { opacity: 0; }
 }
 
 /* The three filters of the merged positions table, on one row above it. */

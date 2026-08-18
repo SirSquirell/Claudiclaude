@@ -236,8 +236,38 @@ export function setTheme(pref) {
   } catch {
     /* the attribute below still applies for this page's lifetime */
   }
+  crossFade();
   applyTheme(value);
   return value;
+}
+
+/**
+ * US-74 — the theme change is the app's one abrupt brightness jump.
+ *
+ * Near-white to near-black in a single frame, and §14 names that specifically.
+ * It is also *rare* — a handful of times ever — which is exactly where a little
+ * cost is affordable, and why this is the one transition that deliberately
+ * survives `prefers-reduced-motion`: it is colour with no travel, and the thing
+ * it protects against is the jump itself.
+ *
+ * A class rather than a permanent transition on every surface, for AC3: without
+ * it the first paint fades in from whatever the stylesheet's default was, so
+ * every load would open with the wrong theme dissolving. It is only ever added
+ * here, by a deliberate switch.
+ *
+ * Removed on a timer and this is the one place that is right: nothing waits for
+ * it, nothing is stuck if it never fires, and the alternative — `transitionend`
+ * — fires once per property per element, which is hundreds of events for one
+ * fade.
+ */
+const FADE_MS = 220;
+let fadeTimer = null;
+
+function crossFade() {
+  const root = document.documentElement;
+  root.dataset.themeFade = 'on';
+  clearTimeout(fadeTimer);
+  fadeTimer = setTimeout(() => delete root.dataset.themeFade, FADE_MS + 60);
 }
 
 /** Put the preference on `<html>`, where the stylesheet is waiting for it. */

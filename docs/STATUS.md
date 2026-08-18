@@ -77,6 +77,16 @@ person.** This is the gate that is open.
 | US-58 | **The type scale is size-bucketed and measured** — `npm run type`, wired into `npm test` | unreleased · this branch |
 | US-57 | **The share sheet arrives as an object** — materialize on open, the same path backwards on close, and the four shapes as a strip you can flick | unreleased · this branch |
 | — | **Two defects found by the browser passes**: the chart readouts had no translations at all (the same gap US-60 found in the popup), and `npm run palette` identified the dark theme as the last `:root` block in the file | unreleased · this branch |
+| US-66 | **Click and drag are told apart by the hand, not the history.** Eight pixels of travel, checked before the momentum — a twitch carries a velocity, and the projection turned it into a throw. Plus the `touch-action` the canvas never had | unreleased · this branch |
+| US-67 | **A hover affordance is an enhancement, not the usable state.** The row share button no longer sits at 45 % forever on a touch pointer, and the 🙃 tap no longer leaves the button rotated | unreleased · this branch |
+| US-68 | **Reduced motion names what stops.** A property allowlist instead of forcing every duration to zero, which had also silenced the colour change that says a press registered | unreleased · this branch |
+| US-69 | **Two durations and one curve, named once.** The second curve the story asked for is deliberately *not* defined — nothing in this build travels across the screen, and a token with no caller is deleted | unreleased · this branch |
+| US-70 | **The overlays come from the control that opened them**, closing shorter than opening, with `@starting-style` and `allow-discrete` so no timer decides when a surface is gone | unreleased · this branch |
+| US-71 | **A chart a screen reader can read.** Every canvas carries `role="img"` and a sentence generated from its own series, in three shapes rather than thirteen; the four figure-carrying charts have a table twin | unreleased · this branch |
+| US-72 | **The end of a line, without hovering** — one endpoint dot and label, clamped inside the plot | unreleased · this branch |
+| US-73 | **A notice opens its own row** instead of shoving the figures below it, twice per notice, while you are reading them | unreleased · this branch |
+| US-74 | **The theme change is a cross-fade**, and the canvases fade in on the new theme rather than snapping inside a page that does not | unreleased · this branch |
+| US-75 | **Data arrives per card**, once per sync and never per render, as a mask over a drawing Chart.js already finished | unreleased · this branch |
 | US-61 | **The Positions table fits its width.** Columns-as-data: the lowest-priority ones drop as the table narrows and fold into a per-row expand, the load-bearing four (Instrument, Value, Paid in vs grown, Result) never drop, and a **Columns** chooser hides the rest, remembered like the theme. Browser-verified desktop→phone, no sideways page scroll; display only, no resync | unreleased · on `main` |
 
 **What to look at first**, if you only look at one thing: the Notices tab after a sync. 0.36.0 made
@@ -112,16 +122,6 @@ F1–F5 shipped in 0.37.0, F6–F9 in 0.38.0. U1–U5 need a decision rather tha
 | US-24 | Combine, and filter | Same. The arithmetic is proven and tested; the UI is not built |
 | US-25 | Two accounts under one login | A spike, not a story. Cheap *after* US-22, which has landed |
 | US-53 | **Paid vs grown on sell transactions** — refined to a decision, not a build. Per-sale profit is cost basis, which the project refused; recommendation is to decline or reframe as a labelled position figure | An owner decision between (a) position-to-date bar, (b) drop, (c) open cost basis as its own story |
-| US-66 | **The drag threshold is days, not pixels** — 2 days is under a pixel on ALL (a wobble zooms) and most of a centimetre on a 3-week window (a real drag is thrown away); the selection also freezes outside the plot, and `#c-value` has no `touch-action`. Defect | Nothing. Two thresholds and one CSS property; the drawing side already clamps |
-| US-67 | **Hover-only affordances on a touch pointer** — the row share button sits at 45% forever, and the 🙃 tap leaves the button rotated. Defect | Nothing. Four selectors behind `@media (hover: hover)` |
-| US-68 | **Reduced motion is a sledgehammer** — `* { transition-duration: 0.01ms !important }` also deletes the colour change that says a press registered. This is US-56 AC2 as a defect | Nothing. Absorbed by US-56 if that ships first |
-| US-69 | **Two curves and two durations, named once** — four tokens replacing five ad-hoc easings. Foundation; ships with US-70 or not at all (rule 8) | Nothing |
-| US-70 | **The four overlays come from their trigger** — menu, granularity, column chooser and diagnostics dialog, origin-anchored, `@starting-style` + `allow-discrete` so no timer decides when a surface is gone. The share sheet is US-57 | US-69's tokens |
-| US-71 | **A chart a screen reader can read** — 13 canvases with no role, no label and no table twin; a generated summary per chart shape plus twins on the figure-carrying charts. **The biggest gap the review found** | Nothing. US-46 masking is the guardrail |
-| US-72 | **The end of a line, without hovering** — one endpoint dot and label on the cumulative, invested-vs-value and dividend charts. Small | Nothing |
-| US-73 | **A notice must not shove the page** — banners are inserted and cleared in one frame during a sync, twice per notice, while you are reading the figures | Nothing |
-| US-74 | **The theme change is a light switch** — near-white to near-black in one frame; a 220 ms colour cross-fade. Small, and the one transition that should survive reduced motion | A decision on the canvases, which repaint instantly |
-| US-75 | **Data arrives per card, and when it comes into view** — the one place the delight budget is available: a mask over an already-drawn canvas (so `animation: false` stays), rise-and-fade elsewhere, capped row stagger, and an observer for the cards below the fold | Nothing. Prototype: `docs/prototypes/ui-review-3-arrival.html` |
 | US-03 (2nd half) | Expiry, strike, call/put from data rather than a name string | A real HAR |
 | US-07 | Options & margin dashboard — the margin half drops if it is not in the response | A real HAR |
 

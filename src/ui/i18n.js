@@ -468,6 +468,16 @@ const DICT = {
     'Share this figure': 'Deel dit cijfer',
     'Share a figure from this section': 'Deel een cijfer uit dit blok',
     'Which figure': 'Welk cijfer',
+    // US-71's table twin
+    'Show as a table': 'Toon als tabel',
+    'Show as a chart': 'Toon als grafiek',
+    Period: 'Periode',
+    'Added up': 'Opgeteld',
+    Prices: 'Koersen',
+    estimated: 'geschat',
+    measured: 'gemeten',
+    'In and out': 'Erin en eruit',
+    Month: 'Maand',
 
     // --- US-71: what a chart says to someone who cannot see it -------------
     // These are `aria-label` sentences, so they are read aloud rather than

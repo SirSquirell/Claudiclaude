@@ -384,7 +384,65 @@ const a11yLabel = {
   },
 };
 
-Chart.register(a11yLabel, crosshair, cashflowMarkers, dragSelection, tradeMarkers, watermark);
+/**
+ * US-72 — where the line ends, without hovering for it.
+ *
+ * *Where does it end* is the question most people ask a line, and on three
+ * charts it lived only in the tooltip — which means it lived nowhere for anyone
+ * on a touch screen, and nowhere at all for anyone reading a screenshot.
+ *
+ * **One label, not a series of them.** A number beside every point is the
+ * anti-pattern this replaces; the endpoint is the one point that earns a direct
+ * label. The value chart is deliberately not in the list — the KPI tile directly
+ * above it already carries that figure, and saying it twice is noise.
+ *
+ * The text wears the text token rather than the series colour: the dot beside it
+ * carries the identity, and coloured text on a chart surface is a contrast
+ * problem the palette check would have to re-answer for every series.
+ */
+const endLabel = {
+  id: 'endLabel',
+  afterDatasetsDraw(chart, _args, opts) {
+    if (!opts?.format) return;
+    const meta = chart.getDatasetMeta(opts.dataset ?? 0);
+    const points = meta?.data ?? [];
+    if (points.length < 2) return;
+    const last = points[points.length - 1];
+    const raw = chart.data.datasets[opts.dataset ?? 0]?.data?.[points.length - 1];
+    if (!Number.isFinite(typeof raw === 'object' ? raw?.y : raw)) return;
+
+    const text = opts.format(typeof raw === 'object' ? raw.y : raw);
+    const { left, right, top, bottom } = chart.chartArea;
+    const ctx = chart.ctx;
+    ctx.save();
+    ctx.fillStyle = opts.dot ?? '#888';
+    ctx.beginPath();
+    ctx.arc(last.x, last.y, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.font = '600 12px system-ui, sans-serif';
+    ctx.fillStyle = opts.text ?? '#000';
+    ctx.textBaseline = 'middle';
+    /**
+     * Clamped inside the plot, the way the drag readout already is. A label that
+     * runs off the right edge is the failure this shape has by default: the
+     * point it belongs to is *at* that edge.
+     */
+    const width = ctx.measureText(text).width;
+    const x = Math.min(last.x + 8, right - width - 2);
+    const y = Math.min(Math.max(top + 8, last.y), bottom - 8);
+    // A backing plate, because the label lands on top of the line it describes.
+    ctx.globalAlpha = 0.82;
+    ctx.fillStyle = opts.plate ?? '#fff';
+    ctx.fillRect(x - 4, y - 9, width + 8, 18);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = opts.text ?? '#000';
+    ctx.fillText(text, x, y);
+    ctx.restore();
+  },
+};
+
+Chart.register(a11yLabel, endLabel, crosshair, cashflowMarkers, dragSelection, tradeMarkers, watermark);
 
 /**
  * Stride-sample a set of parallel arrays down to at most `max` points, always
@@ -562,6 +620,7 @@ export function cumulativeChart(ctx, { labels, cumulative, starts, estimated }, 
   opts.plugins.a11yLabel = {
     text: describeSeries({ title: tr('Result, added up'), days: starts ?? labels, values: cumulative, fmt: fmtSigned, estimated }),
   };
+  opts.plugins.endLabel = { format: fmtSigned, dot: t.series[0], text: t.text, plate: t.surface };
   opts.plugins.crosshair = { color: t.axis };
   opts.plugins.tooltip.callbacks = {
     title: (items) => starts[items[0].dataIndex] ?? labels[items[0].dataIndex],
@@ -657,6 +716,9 @@ export function investedVsValueChart(ctx, { days, value, cumulativeDeposited }, 
     text: `${describeSeries({ title: tr('Portfolio value'), days, values: value, fmt: fmtEurCents })} `
       + describeSeries({ title: tr('Money paid in (net)'), days, values: cumulativeDeposited, fmt: fmtEurCents }),
   };
+  // The value line, not the paid-in one: two labels on top of each other at the
+  // right edge is the collision this story's third trap is about.
+  opts.plugins.endLabel = { format: fmtEurCents, dot: t.series[0], text: t.text, plate: t.surface };
   opts.plugins.legend.display = true;
   opts.plugins.crosshair = { color: t.axis };
   opts.scales.x.ticks.callback = dayTickFormatter(days);
@@ -742,6 +804,7 @@ export function dividendChart(ctx, rows, t) {
   opts.plugins.a11yLabel = {
     text: describeBars({ title: tr('Dividend per month'), labels: rows.map((x) => x.month), values: rows.map((x) => x.net), fmt: fmtEurCents }),
   };
+  opts.plugins.endLabel = { format: fmtEurCents, dot: t.series[0], text: t.text, plate: t.surface };
   opts.plugins.legend.display = true;
   opts.scales.y.stacked = true;
   opts.scales.x.stacked = true;

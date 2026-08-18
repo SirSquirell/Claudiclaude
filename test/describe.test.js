@@ -137,3 +137,42 @@ test('the label is a description, never an announcement', () => {
   // than being silently unlabelled.
   assert.match(plugin, /opts\?\.text \|\| 'Chart'/);
 });
+
+test('AC2 — the figure-carrying charts have a table twin, from one helper', () => {
+  /**
+   * dataviz's rule, and the one the Positions card has followed since 0.46.0:
+   * every chart has a table view, and a tooltip is never the only way to read a
+   * value. A tooltip needs a pointer and a hover; a screen reader has neither,
+   * and neither does anybody reading a screenshot.
+   *
+   * One helper rather than a twin per chart, and the toggle is built in JS
+   * rather than in the markup, so a chart that gains a twin needs no HTML — the
+   * same reasoning `columns.js` applies to the Positions columns.
+   */
+  const app = read('../src/ui/app.js');
+  assert.match(app, /function chartTwin\(canvasId, \{ columns, rows \}\)/);
+  for (const id of ['c-cum', 'c-pnl', 'c-deposits', 'c-dividends']) {
+    assert.match(app, new RegExp(`chartTwin\\('${id}'`), `${id} has no table twin`);
+  }
+  // Figures go through the page's formatters, so US-46 masks them here too and
+  // the helper needs no rule of its own. Browser-checked with anonymize on:
+  // `€ -•••` in the cells, the dates intact.
+  const fn = app.slice(app.indexOf('function chartTwin('), app.indexOf('function paintTwinToggle'));
+  assert.ok(!/Intl|toLocaleString/.test(fn), 'the twin formats money itself');
+
+  // AC4: the cumulative twin says which periods were priced from a stale quote.
+  assert.match(app, /cumEstimated\[i\] \? tr\('estimated'\) : tr\('measured'\)/);
+});
+
+test('the twin toggle says what pressing it does, not what is on screen', () => {
+  /**
+   * It got this backwards once: the label was derived from a local flag rather
+   * than read back off the element after the flip, so the button offered *show
+   * as a table* while the table was already up. One source of truth, read after.
+   */
+  const app = read('../src/ui/app.js');
+  const click = app.slice(app.indexOf("toggle.addEventListener('click'"), app.indexOf('twin.after(toggle)'));
+  assert.match(click, /box\.hidden = !box\.hidden;/);
+  assert.match(click, /paintTwinToggle\(toggle, !box\.hidden\)/);
+  assert.ok(!/const showTable/.test(click), 'the label is derived from a local flag again');
+});
