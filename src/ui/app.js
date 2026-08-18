@@ -1706,6 +1706,13 @@ function render() {
       // Re-indexed onto the buckets the chart actually draws, and merged where
       // a week or a month collapses several trading days into one point.
       trades: tradesInBuckets(r.tradeEvents ?? [], ends, from),
+      /**
+       * US-62. Aligned to the points actually drawn: at Day that is the day's own
+       * flag, and at Week or Month it is true when *any* day folded into that
+       * point was estimated. Marking only the bucket's last day would let a month
+       * of stale prices pass as measured because its final day happened to quote.
+       */
+      estimated: sumInBuckets(r.estimated ?? [], ends, from).map((n) => n > 0),
       includeCash: state.includeCash,
     },
     t,
@@ -2064,7 +2071,17 @@ function renderCumulative(r, gran, from, to, agg, t) {
     return;
   }
 
-  state.charts.cum = cumulativeChart($('#c-cum'), agg, t);
+  /**
+   * `bucketEnds` and `aggregatePnl` bucket the same range at the same
+   * granularity with the same key functions, so the two lists line up one for
+   * one — which is what lets the estimated flags be carried across without the
+   * engine growing an output for a rendering concern (US-62's stop condition).
+   */
+  state.charts.cum = cumulativeChart(
+    $('#c-cum'),
+    { ...agg, estimated: sumInBuckets(r.estimated ?? [], ends, from).map((n) => n > 0) },
+    t,
+  );
   $('#cum-hint').textContent = canCandle
     ? 'The same numbers, added up over the selected range.'
     : 'The same numbers, added up over the selected range. Pressing Candles will switch “Results per” to Week: ' +

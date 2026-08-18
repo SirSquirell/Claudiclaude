@@ -20,6 +20,21 @@ plain increments — this is not a library and nothing depends on its API.
 
 ### Added
 
+- **US-62 — the chart says when a day's price was estimated.** Hovering the value chart or the
+  cumulative-result chart already drew a crosshair and a readout of the date and the figure, and
+  that readout is always a day the series actually holds — Chart.js resolves the pointer to a data
+  point, so no number between two days can ever be shown. What it did not say is when that day had
+  **no quote** and was valued at the last price the instrument traded at. The holdings row has said
+  `est.` about exactly this since 0.46.0; the chart, which is where the number is actually read, said
+  nothing.
+
+  At Week or Month the marker is true when *any* day folded into that point was estimated — reading
+  only the bucket's last day would let a month of stale prices pass as measured because its final day
+  happened to quote.
+
+  Nothing was added to the engine for it: the flags have been on the result since the coverage tile,
+  and the bucketing is the page's own.
+
 - **US-54 — a share button on each figures block, and a card with no chart.** The share sheet used
   to open only from a holdings row. Every KPI section now carries one button; the sheet gains a
   picker for *which* figure, and draws a score card — the label, the figure, its caption, provenance

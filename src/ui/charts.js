@@ -369,7 +369,24 @@ function downsample(labels, seriesList, max) {
 // 1. Portfolio value including cash
 // ---------------------------------------------------------------------------
 
-export function valueChart(ctx, { days, value, positionsValue, netExternal, pnl, trades, includeCash }, t) {
+/**
+ * US-62 — the readout under the pointer, and what it is allowed to claim.
+ *
+ * The crosshair and the readout were already here: Chart.js's `index` mode with
+ * `intersect: false` snaps to the nearest **data point**, so the figure is always
+ * a day the series actually holds and never a number between two days. That is
+ * the story's first trap answered by the interaction layer rather than by code,
+ * and it is why this story added a line rather than a subsystem.
+ *
+ * What was missing is the honesty marker. A day with no quote is valued at the
+ * last price the instrument traded at — the holdings row says `est.` about
+ * exactly this, and the chart, which is where the number is actually read, said
+ * nothing. `estimated` is per *drawn point*, so at Week or Month it is true when
+ * anything inside that bucket was estimated.
+ */
+export const estimatedNote = (flags, i) => (flags?.[i] ? 'No quote that day — held at the last price it traded at.' : null);
+
+export function valueChart(ctx, { days, value, positionsValue, netExternal, pnl, trades, estimated, includeCash }, t) {
   const series = includeCash ? value : positionsValue;
   const marks = [];
   for (let i = 0; i < days.length; i++) {
@@ -408,6 +425,8 @@ export function valueChart(ctx, { days, value, positionsValue, netExternal, pnl,
       if (Math.abs(netExternal[i]) > 0.005) {
         lines.push(`${netExternal[i] > 0 ? 'Deposit' : 'Withdrawal'}: ${fmtSigned(netExternal[i])}`);
       }
+      const est = estimatedNote(estimated, i);
+      if (est) lines.push(est);
       const traded = tradeByIndex.get(i);
       if (traded) {
         const what = [
@@ -485,12 +504,13 @@ export function pnlChart(ctx, { labels, pnl, starts }, t) {
 // 3. Cumulative result — its own chart, so nothing needs a second y-axis
 // ---------------------------------------------------------------------------
 
-export function cumulativeChart(ctx, { labels, cumulative, starts }, t) {
+export function cumulativeChart(ctx, { labels, cumulative, starts, estimated }, t) {
   const opts = baseOptions(t);
   opts.plugins.crosshair = { color: t.axis };
   opts.plugins.tooltip.callbacks = {
     title: (items) => starts[items[0].dataIndex] ?? labels[items[0].dataIndex],
     label: (item) => `Cumulative: ${fmtSigned(item.parsed.y)}`,
+    afterBody: (items) => [estimatedNote(estimated, items[0].dataIndex)].filter(Boolean),
   };
   opts.scales.y.grid.color = (c) => (c.tick.value === 0 ? t.axis : t.grid);
 
