@@ -693,3 +693,41 @@ That places it outside this project on three independent grounds, any one of whi
 
 The licence (MIT) would have permitted copying with attribution. It is the architecture, not the
 licence, that decides. **US-36's gate is unchanged: R1, step 4, and nothing else.**
+
+### 9g. A sweep of public IBKR prior art, 2026-08-18 — three routes, all closed
+
+After §9f, the wider question was asked: is there *any* open-source project that already does for
+IBKR what this extension does for DEGIRO? A sweep of GitHub and the surrounding web found no such
+thing, and the shape of the negative result is more useful than the search itself.
+
+**Every public IBKR integration takes one of three routes, and this project can take none of them.**
+
+| Route | Examples found | Why it is closed here |
+|---|---|---|
+| TWS socket API | `ib_async` consumers, `stoqey/ib`, §9f's dashboard | Raw TCP; MV3 has no sockets. Needs IB Gateway/TWS running and logged in — rule 9. |
+| Client Portal Gateway | `EasyIB`, `areed1192/interactive-broker-python-api`, `tomlister/ibclient`, `sactyr/ibkrcp`, `rbjorklin/ibkr-client-portal`, `Voyz/IBeam` | A Java gateway on localhost that the user logs into separately. Rule 9's "required local gateway" branch, pre-committed as out of scope. |
+| OAuth 1.0a / stored API token | `art1c0/ibkr-client`, `nsirons/ibkr_web_client` | Rule 9's "stored credential" branch. The brief already says: *close the story*. |
+
+**Only two genuine browser extensions turned up, and neither is prior art.**
+
+- `ctubio/ibkr-portfolio-groups-and-colors` — MV3, `host_permissions` on
+  `https://www.interactivebrokers.ie/portal/*`, one content script. Its single `content.js`
+  (1228 lines) was read: grepping it for `fetch`, `XMLHttpRequest`, `credentials`, `EventSource`
+  and `WebSocket` returns **one** hit, a `window.open` to a quote page. It is pure DOM
+  manipulation — it recolours cells and reads its sparklines off the rendered table. Zero network
+  calls, therefore zero evidence about the endpoints.
+- `antonpinchuk/ibkr-hotkey-trader` — its extension talks to `http://127.0.0.1:8496`, a local
+  server of its own. Local gateway again, wearing an extension's coat.
+
+**What this does and does not license us to conclude.** It is an absence of evidence, not evidence
+of absence. Nobody publicly replays the logged-in portal session, but the population that would
+have tried is small: the people writing IBKR tooling want to *trade* from Python on a server, and
+for them the gateway is the obvious and supported answer. That they never needed the browser's own
+session says nothing about whether it works.
+
+So the conclusion is narrow and it is the same one as §9e and §9f: **there is nothing to copy, and
+R1 step 4 is still the only thing that can answer the question.** One test in a logged-in tab
+outranks the whole sweep above.
+
+The one true precedent for this architecture remains DEGIRO's own — `JSESSIONID` read from a tab
+the browser already holds, which is what `session.js` does today.
