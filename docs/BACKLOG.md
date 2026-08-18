@@ -4211,3 +4211,78 @@ digit.
 
 **Stop condition:** if any frame shows a number between the old value and the new, stop — that is the
 rejected count-up wearing a different name, and it fabricates a value the account never had.
+
+---
+
+## US-66 — A logout button: throw the token away *(new, refined)*
+
+> *"Nu hoeft dat niet doordat je zelf al ben ingelogd op de giro website — kan je ook een logout
+> knop maken op je plugin. Dat je die token er weer afgooit."*
+
+Asked in the same breath as the observation that the extension needs no login (rule 9, working as
+intended). The reader's point is the other direction: **nothing can un-remember the session.** Once
+a sync has run, the extension holds account state until somebody presses *Wipe & resync* — which is
+a data action with a resync attached, not a way to leave.
+
+### What is actually held, and what is not
+
+| | Where | Cleared today by |
+|---|---|---|
+| `userToken` | `meta` (`session.js:70`) | `wipeAll` only, and it comes straight back |
+| `intAccount` | `meta` (`session.js:71`) | idem |
+| `displayName` | `meta` (`session.js:73`) | idem |
+| `JSESSIONID` | **nowhere** — read per request from the cookie jar | n/a |
+
+So "throw the token away" is a real, bounded action: it is the three cached identifiers, and it is
+**not** the session cookie, because that was never ours to hold. Any code that pretends to clear a
+stored session id is clearing a thing that does not exist — say so in the story rather than letting
+the next session write it.
+
+### The trap that decides whether this is worth building
+
+**The alarm brings the token straight back.** `sw.js:36` arms a periodic sync; the next firing calls
+`resolveSession`, which re-reads `/pa/secure/client` and re-caches `userToken` and `intAccount`. A
+logout that only deletes rows is theatre with an hour's half-life. So the action has two halves that
+ship together: forget the identifiers, **and** disarm the periodic sync until the reader asks for one
+by pressing Sync. The next manual sync then behaves exactly like a first run — cookie, `client`,
+cache — with no new code path.
+
+### The other traps
+
+1. **It cannot log you out of DEGIRO, and must not claim to.** Deleting DEGIRO's own `JSESSIONID`
+   would log out the reader's own trading tab, and acting on the broker's session is the mirror image
+   of rule 9. The button forgets what *we* hold; the confirm says in one line that you stay logged in
+   at DEGIRO, and logging out there happens there.
+2. **Measured against the constant, not against a hand-written list.** What goes is
+   `IDENTIFYING_META` (`store.js:323`) — the list that already exists for exactly this classification
+   — so a key added tomorrow is covered on the day it is added. Writing the four names out again
+   rebuilds the 0.10.0 export denylist and its next leak (rule 7).
+3. **The history is not identity, and *Wipe & resync* already exists.** Logout leaves the portfolio
+   cache alone and the confirm points at wipe for readers who want the numbers gone too. A second
+   thing that empties the database is a second thing to keep correct (rule 8).
+4. **Disconnected must be visible.** A reader who logged out and forgot must not read a stale total as
+   today's. The state says *not connected*, and no figure is presented as current.
+5. **It goes in the app's More menu, not the popup — for now.** US-60 is the popup's translations and
+   hierarchy; a button added there first is a fifth hardcoded English string in a file whose defect is
+   that it has no `t()` at all. In the menu it is `data-i18n` from the first commit, in the danger
+   group beside *Wipe & resync…*. Whether the popup gets its own is decided after US-60, by whether
+   anyone reaches for it (rule 8).
+
+### Acceptance criteria
+
+- **AC1** A logout action in the More menu, translated in both languages, behind a confirm that states
+  what is forgotten, what stays, and that you remain logged in at DEGIRO.
+- **AC2** Afterwards no key in `IDENTIFYING_META` exists in `meta` — asserted against the exported
+  constant, so a key added later fails the test rather than surviving the logout.
+- **AC3** The periodic alarm is cleared and no sync runs until the reader presses Sync; that sync
+  re-resolves from the cookie exactly as a first run does, through no new code path.
+- **AC4** The UI says it is not connected, and presents no figure as current.
+- **AC5** DEGIRO's cookie is untouched — asserted, no `chrome.cookies.remove` anywhere — and no label
+  claims otherwise.
+- **AC6** The portfolio history survives, and `engine.js` is unchanged.
+
+### Stop condition
+
+If it turns out a logout is only meaningful by invalidating the session at DEGIRO, stop and drop it:
+that is authenticating in reverse, and it belongs on DEGIRO's own site. The buildable story is
+forgetting what this machine holds.
