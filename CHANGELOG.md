@@ -20,6 +20,24 @@ plain increments — this is not a library and nothing depends on its API.
 
 ### Added
 
+- **US-69 / US-70 — the overlays come from the control that opened them.** The overflow menu, the
+  granularity menu, the column chooser and the diagnostics backdrop all appeared and vanished with no
+  path and no origin. Each now scales and fades from the corner it hangs off — the rail menu from the
+  foot of the rail, the granularity from under its label, the column chooser from its button's corner
+  — and closing mirrors opening along the same path, a little shorter, because opening is an
+  announcement and closing is an answer.
+
+  No timer decides when a surface is gone: `@starting-style` and `allow-discrete` do it from CSS, so
+  there is no class left stuck when something interrupts. A closed overlay is still `display: none`
+  rather than a transparent one that takes clicks — that has shipped here before in another form.
+
+  Underneath: two durations and one curve, named once. Every transition used to pick its own — `120ms
+  ease`, `0.12s` with no curve at all, `100ms ease-out`, `0.15s ease` — none wrong, none shared, so
+  the fifth would have been a fifth guess. The refinement asked for a second curve as well; nothing in
+  this build travels across the screen, so it is not defined, and a test fails if a token lands
+  without a caller.
+
+
 - **US-57 — the share sheet arrives as an object.** Motion only: it moves no value and adds no field,
   and a test pins both allowlists literally so that stays true.
 

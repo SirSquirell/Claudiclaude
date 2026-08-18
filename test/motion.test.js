@@ -659,3 +659,86 @@ test('US-68 — reduced motion names what stops, and forces only that', () => {
   // nothing transforms.
   assert.match(block, /button:active,[\s\S]{0,120}transform: none;/);
 });
+
+// ===========================================================================
+// US-69 / US-70 — two curves, and four surfaces that come from somewhere
+// ===========================================================================
+
+test('US-69 — the curves and durations are named once, and every one has a caller', () => {
+  /**
+   * Four tokens, and AC3 is the interesting one: *a token with no caller is a
+   * token nobody maintains*, which is the note already sitting above `--kpi` in
+   * this stylesheet. So this counts callers rather than declarations — a token
+   * that lands unused is deleted, not kept warm.
+   */
+  const root = css.slice(css.indexOf(':root {'), css.indexOf('@media (prefers-color-scheme: dark)'));
+  /**
+   * `--ease-in-out` is deliberately **not** here. The refinement asked for it —
+   * a curve for something moving across the screen — and nothing in this build
+   * does: the overlays scale from an origin, a section rises in place, a figure
+   * swaps, and the chart's edge is a spring. Defining it would have been the
+   * one thing the story's own stop condition forbids.
+   */
+  assert.ok(!root.includes('--ease-in-out:'), 'a curve was defined with nothing to curve');
+  for (const token of ['--ease-out', '--t-press', '--t-surface', '--t-surface-out']) {
+    assert.ok(root.includes(`${token}:`), `${token} is not defined`);
+    const callers = (css.match(new RegExp(`var\\(${token}\\)`, 'g')) ?? []).length;
+    assert.ok(callers > 0, `${token} has no caller — rule 8 says delete it`);
+  }
+});
+
+test('US-69 — no transition guesses its own curve any more', () => {
+  /**
+   * The defect was not that any one easing was wrong; it was that four of them
+   * were unrelated, so the fifth would have been a fifth guess. `ease-out` in
+   * particular is the wrong built-in for something arriving — it starts slowly,
+   * at the moment the reader is looking hardest at it.
+   */
+  const live = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  const raw = [...live.matchAll(/transition:[^;]*;/g)]
+    .map((m) => m[0])
+    .filter((t) => /\b(ease|ease-in|ease-out|ease-in-out|linear)\b|cubic-bezier|\d+m?s/.test(t.replace(/var\(--[\w-]+\)/g, '')));
+  assert.deepEqual(raw, [], `${raw.length} transition(s) still name their own curve or duration`);
+});
+
+test('US-70 — each overlay comes from the control that opened it', () => {
+  // §7 in one line: a thing emerges from where it came from. Browser-measured
+  // mid-flight at opacity 0.76 and scale 0.9927, with the origin resolving to
+  // the foot of the rail.
+  assert.match(css, /\.menu \{[\s\S]*?transform-origin: bottom left;/);
+  assert.match(css, /\.gran \.menu \{[\s\S]*?transform-origin: top left;/);
+  assert.match(css, /\.cols-pop \{[\s\S]*?transform-origin: top right;/);
+  // Never from nothing — 0.97, not zero. Comments stripped, because the rule
+  // that sets it says `scale(0)` in its own prose explaining why it does not.
+  const live = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.ok(!/scale\(0\)/.test(live), 'an overlay appears from nothing');
+  assert.match(live, /transform: scale\(0\.97\);/);
+});
+
+test('US-70 — no timer decides when a surface is gone', () => {
+  /**
+   * `@starting-style` gives a from-state to an element that has just become
+   * rendered, and `allow-discrete` holds `display` back long enough for the fade
+   * out to finish. A JS class plus a `setTimeout` is the alternative, and it is a
+   * class that stays stuck when something interrupts it.
+   *
+   * The doubt worth recording: `[hidden] { display: none !important }` looked
+   * like it would defeat `allow-discrete`. It does not — importance decides the
+   * value, transitions run after the cascade — and a browser confirmed it: at
+   * 45 ms into the close the element is `hidden` and still `display: flex`.
+   */
+  assert.match(css, /@starting-style \{/);
+  assert.match(css, /display var\(--t-surface\) allow-discrete/);
+  assert.ok(!/setTimeout[^)]*(menu|cols-pop|closing)/i.test(app), 'a timer decides when an overlay is gone');
+  // And `hidden` still means hidden at the end of it — a closed overlay that is
+  // merely transparent still takes clicks, and that has shipped here before.
+  assert.match(css, /\[hidden\] \{\s*\n\s*display: none !important;/);
+});
+
+test('US-70 — the backdrop fades with the sheet it belongs to', () => {
+  // The grey layer is the largest thing on screen and it was the part that
+  // snapped: the dialog materialized over a backdrop that had already arrived.
+  // It is unreachable from script, so it fades from CSS on the same curve.
+  assert.match(css, /\.modal::backdrop \{[\s\S]*?transition:/);
+  assert.match(css, /@starting-style \{\s*\n\s*\.modal::backdrop \{\s*\n\s*opacity: 0;/);
+});

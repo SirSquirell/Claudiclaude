@@ -179,6 +179,34 @@
    */
   --kpi-track: var(--track-title);
   --kpi-lead: var(--lead-display);
+  /*
+   * US-69 — two curves and two durations, named once.
+   *
+   * Every transition in the app used to pick its own: `120ms ease`, `0.12s` with
+   * no curve at all, `100ms ease-out`, `0.15s ease`. None of them was wrong and
+   * none of them was shared, so the fifth would have been a fifth guess.
+   *
+   * `ease-out` in particular is the wrong built-in for something arriving: it
+   * starts slowly, at exactly the moment the reader is looking hardest at it.
+   *
+   * **Exit is shorter than enter, everywhere.** Opening is an announcement and
+   * closing is an answer, and an answer that takes as long as the question reads
+   * as the interface being reluctant.
+   */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  /*
+   * The refinement asked for a second curve, `--ease-in-out`, for *something
+   * moving across the screen*. Nothing here does: the overlays scale from an
+   * origin, a section rises a few pixels, a figure swaps in place, and the
+   * chart's edge is a spring rather than a transition. So it is not defined —
+   * a token with no caller is a token nobody maintains, which is rule 8 and is
+   * also this story's own stop condition. It goes in with the first surface
+   * that actually travels.
+   */
+  --t-press: 100ms;
+  --t-surface: 140ms;
+  --t-surface-out: 110ms;
+
   /* Deliberately a pixel: a hairline that scales stops being a hairline. */
   --rule: 1px;
   --font: system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -361,7 +389,7 @@ body {
   letter-spacing: 0;
   text-transform: none;
   color: var(--text-secondary);
-  transition: background 120ms ease, color 120ms ease;
+  transition: background var(--t-press) var(--ease-out), color var(--t-press) var(--ease-out);
 }
 
 .rail-nav button:hover {
@@ -469,6 +497,53 @@ button.primary:hover {
   border: var(--rule) solid var(--border-strong);
   border-radius: var(--radius);
   box-shadow: var(--shadow-float);
+  /*
+   * US-70. It hangs off the foot of the rail and opens upward, so that is where
+   * it comes from. Never `scale(0)` — nothing in the world appears from nothing,
+   * and 0.97 is enough to read as a direction without reading as a zoom.
+   */
+  transform-origin: bottom left;
+  /*
+   * The duration is read off the state being transitioned *to*, so opening
+   * takes it from here and closing takes it from the `[hidden]` rule below —
+   * which is how enter and exit get different lengths out of one mechanism.
+   */
+  transition:
+    opacity var(--t-surface) var(--ease-out),
+    transform var(--t-surface) var(--ease-out),
+    display var(--t-surface) allow-discrete;
+  opacity: 1;
+  transform: none;
+}
+
+/*
+ * The arrival, and the exit, without a timer.
+ *
+ * `@starting-style` gives the browser a from-state for an element that has just
+ * become rendered, and `allow-discrete` holds `display` back long enough for the
+ * fade out to finish. A JS class plus a `setTimeout` is the alternative, and it
+ * is a class that stays stuck when something interrupts it — the same failure
+ * §3 names, under a different name. `hidden` still means `display: none` at the
+ * end of it, so a closed menu is never a transparent one that still takes
+ * clicks; that bug has shipped three times in this project in another form.
+ */
+@starting-style {
+  .menu,
+  .cols-pop {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+
+.menu[hidden],
+.cols-pop[hidden] {
+  opacity: 0;
+  transform: scale(0.97);
+  /* Shorter than the way in: opening is an announcement, closing is an answer. */
+  transition:
+    opacity var(--t-surface-out) var(--ease-out),
+    transform var(--t-surface-out) var(--ease-out),
+    display var(--t-surface-out) allow-discrete;
 }
 
 .menu button[role='menuitem'] {
@@ -587,6 +662,8 @@ button.primary:hover {
   bottom: auto;
   top: calc(100% + 6px);
   min-width: 13rem;
+  /* It drops from under its label rather than rising from the rail's foot. */
+  transform-origin: top left;
 }
 
 /* A granularity the window cannot carry says why instead of looking broken. */
@@ -618,6 +695,31 @@ button.primary:hover {
 
 .modal::backdrop {
   background: rgba(10, 14, 18, 0.45);
+  /*
+   * US-70 trap 3. The grey layer is the largest thing on screen and it was the
+   * part that snapped: the sheet materialized over a backdrop that had already
+   * arrived. `materialize()` animates the dialog; the backdrop is not reachable
+   * from script, so it fades from CSS on the same curve.
+   */
+  transition:
+    opacity var(--t-surface) var(--ease-out),
+    display var(--t-surface) allow-discrete,
+    overlay var(--t-surface) allow-discrete;
+  opacity: 1;
+}
+
+@starting-style {
+  .modal::backdrop {
+    opacity: 0;
+  }
+}
+
+.modal:not([open])::backdrop {
+  opacity: 0;
+  transition:
+    opacity var(--t-surface-out) var(--ease-out),
+    display var(--t-surface-out) allow-discrete,
+    overlay var(--t-surface-out) allow-discrete;
 }
 
 /* --- the share sheet ------------------------------------------------------ */
@@ -892,7 +994,7 @@ button {
   border-radius: var(--radius-pill);
   padding: 9px 16px;
   cursor: pointer;
-  transition: background 0.12s, border-color 0.12s;
+  transition: background var(--t-press) var(--ease-out), border-color var(--t-press) var(--ease-out);
 }
 
 button:hover {
@@ -1965,7 +2067,7 @@ td.act {
   content: '\203A'; /* › */
   font-size: 0.95rem;
   line-height: 1;
-  transition: transform 0.15s ease;
+  transition: transform var(--t-surface) var(--ease-out);
 }
 .expander[aria-expanded='true']::before {
   transform: rotate(90deg);
@@ -2008,6 +2110,14 @@ tr.pos-detail > .detail-cell {
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
+  /* Right-aligned under its button, so it opens from that corner. */
+  transform-origin: top right;
+  transition:
+    opacity var(--t-surface) var(--ease-out),
+    transform var(--t-surface) var(--ease-out),
+    display var(--t-surface) allow-discrete;
+  opacity: 1;
+  transform: none;
   z-index: 20;
   display: grid;
   gap: 2px;
@@ -2115,7 +2225,7 @@ td .chip {
   line-height: 1;
   padding: 0.3rem 0.55rem;
   filter: grayscale(0.6);
-  transition: filter 150ms, transform 150ms;
+  transition: filter var(--t-surface) var(--ease-out), transform var(--t-surface) var(--ease-out);
 }
 
 /*
@@ -2588,7 +2698,7 @@ button:active:not(.press-cancelled),
 .rail-nav button:active:not(.press-cancelled),
 .menu button:active:not(.press-cancelled) {
   transform: scale(0.97);
-  transition: transform 100ms ease-out;
+  transition: transform var(--t-press) var(--ease-out);
 }
 
 /* A full-width rail item scaling reads as a wobble; it takes the surface
@@ -2731,7 +2841,7 @@ button.primary:active:not(.press-cancelled) {
      * reduced motion. A denylist of the three rules that do that would ship the
      * next one with the same defect.
      */
-    transition-property: background-color, border-color, color, box-shadow, opacity, fill, stroke !important;
+    transition-property: background-color, border-color, color, box-shadow, opacity, fill, stroke, display, overlay !important;
     animation-name: none !important;
     scroll-behavior: auto;
   }
