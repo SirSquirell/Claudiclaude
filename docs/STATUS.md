@@ -120,6 +120,7 @@ the numbering repair and the rule are in [BACKLOG.md](BACKLOG.md), *Refinement a
 | `claude/v47-bug-2jcvd3` | Popup sparkline destroyed before repaint (a leak), on top of 0.47.0 | Ready to merge |
 | `claude/bug-report-pbvnjs` | A 0.46.1: *Today* uses DEGIRO's own live day result, not the ragged reconstructed edge. `parse.js` + `app.js` + tests | Stranded 27 commits behind — needs a rebase onto 0.47.0 and a re-versioning before it can land |
 | `claude/multi-broker-build` | US-45 built (parameterised session read) plus a 0.44.2 fix that `main` later got as US-50 | US-45 is real and unmerged; the rest is duplicate. Salvage the one commit |
+| `claude/v47-nav-aspect-ratio-v0wa42` | The US-78 refinement, which `main` already has verbatim. Nothing else — no code | Landed; branch can go |
 | `claude/apple-fluid-poc` | `docs/prototypes/apple-fluid.html` — the validated US-55…58 prototype the backlog already cites | Imported to `main` in the same commit as this table; branch can go |
 
 ## Refined, not built
@@ -130,7 +131,7 @@ Complete as of the 2026-08-18 consolidation — every open story number appears 
 | Story | State | Waiting on |
 |---|---|---|
 | US-81 | **Locate the five cents** — the −0,05 reconciliation gap on the owner's emptied account. A locator, not a fix: name the anchor, size the gap when DEGIRO's total is 0, attribute the residual across cash categories | Nothing — and it decides whether the gap is our ledger or DEGIRO's `totalCash` field |
-| US-78 | The share sheet's shape strip shows one of its four shapes | Nothing |
+| US-78 | **The share sheet's shape strip shows two of its four shapes** — a 234 px window over a 114 px pitch — and one once the last shape is chosen, because front-alignment has no end stop. Adds `4:3`, reorders so `1:1 · 16:9 · 4:3` are the three visible defaults, and gives the strip end stops, a rubber-band and two paging chevrons | Nothing — every number is in the files |
 | US-79 | Disconnect and freeze: throw the token away, keep the numbers | Nothing |
 | US-80 | The test suite spends ~31 s of its 55 s asleep in real `setTimeout` backoffs — `mock.timers` fakes the clock without touching `degiro.js` | Nothing |
 | US-35b (tiles) | The replacement Optimism tiles ("847 days of unwavering belief") — the charts half went via US-35c/US-35d, the tiles were never built | A decision that the joke is still wanted |

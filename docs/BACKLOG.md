@@ -4721,7 +4721,9 @@ Same branch, same arrangement as US-76.
 
 ## US-78 — Three of the four shapes are off screen, and nothing says so *(new, defect + story, refined)*
 
-*Refined on `claude/v47-nav-aspect-ratio-v0wa42` as US-76; renumbered here — see the note above on how the numbers collided.*
+*Refined on `claude/v47-nav-aspect-ratio-v0wa42` as US-76; renumbered here — see the note above on how
+the numbers collided. The text below is that branch's, unchanged; the branch itself now carries nothing
+but this repair and can be deleted once it merges.*
 
 The **Shape** control in the share sheet is a strip four items long inside a window two items wide,
 with no arrows, no dots, no edge fade and no page indicator. The reader sees two shapes, no reason to
@@ -4841,8 +4843,6 @@ Three things, in order of what they cost:
 **Stop condition:** if fitting three shapes requires the sheet's layout to change — the controls column
 widening, the preview shrinking — stop and say so. That is a share-sheet layout story with a preview to
 re-check at four sizes, and this one is a picker that hides most of itself.
-
----
 
 ---
 
