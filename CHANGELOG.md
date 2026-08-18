@@ -16,7 +16,21 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
-## [Unreleased]
+## [0.48.0] — 2026-08-18
+
+Nine stories and four defects. The through-line is **what the screen is allowed to imply**: a figure may
+not read as today's when it is frozen, a control may not hide three of its four options, a card and its
+own table row may not disagree about the same position, and a check that cannot state the size of its own
+discrepancy is not a check.
+
+**One resync, once** — press **Sync now** after updating. Not because anything stored was wrong, but
+because *Today* now uses the day result DEGIRO states per position and that field was never captured
+before; until the first sync it falls back to the old reconstructed figure. Everything else is recomputed
+from the raw responses already on disk, as always.
+
+`src/lib/engine.js`'s computation path was not changed by any of this: US-81 adds two fields to what the
+reconciliation *reports* about itself and moves no number on any screen, and the rest is the interface,
+the parser's one new field, the tests and the fixtures.
 
 ### Fixed
 
@@ -59,6 +73,37 @@ plain increments — this is not a library and nothing depends on its API.
   **No resync needed.** Nothing stored changed — these are all derived figures, recomputed from the raw
   responses already on disk. Open positions that have never been partly sold show the same numbers as
   before; closed and partly-sold ones are corrected.
+
+- **The popup showed "Canvas is already in use" instead of a fresh sparkline.** `paint` runs more
+  than once in a single opening — once with the cached result when the panel opens, again when a
+  sync you started from it returns — and Chart.js refuses a canvas it already owns. The second
+  paint threw, so the status line carried *"Chart with ID '0' must be destroyed before the canvas
+  with ID 'spark' can be reused"* and the shape on screen stayed the one from before the sync.
+  Nothing was miscomputed: the figures beside it were the new ones, only the picture was stale and
+  the error text was in the way of the status. The popup now holds its chart and destroys it before
+  drawing the next, which is what the full page has done since it had two charts.
+
+- **"Today" was a partial figure at the ragged edge of the price data.** The tile showed the
+  reconstructed change on the last calendar day — `value[today] − value[yesterday]`, with any
+  deposit removed. That reconstruction runs on vwd daily closes, and those closes arrive at
+  different times *per instrument*: one feed already carries today's close while another is still
+  on Friday's. On such a day the last-day change counts a move for the holdings that updated and
+  **zero for the rest** — a number that is neither today's change nor the zero a real non-trading
+  day gives. On a tester's account, with 4 of 12 US holdings freshly quoted and 8 still on the
+  previous close, Today read **−0.58 %** while DEGIRO showed **−2.5 %**. (The reconciliation banner
+  already flagged the €845 gap this same lag produces in the total; the tile did not.)
+
+  Today now prefers **DEGIRO's own day result** — the sum of the per-position `todayPlBase` values
+  `/update` states, which DEGIRO computes against every position's live price and therefore has no
+  such hole. The percentage is that result over the previous close (now-total minus the day
+  result). When the live figure is not available it falls back to the old reconstructed change, so
+  a day with no trading still reads zero. The tooltip says which it is and notes the figure can
+  still move while the market is open. `parseUpdate` gained `todayPl`; `test/parse.test.js` covers
+  the sum, the absent-field (`null`, never a fabricated `0`) and the currency-map cases.
+
+  **A resync is needed for the live figure** — one press of **Sync now**. `todayPlBase` was never
+  captured before, so it only appears on the first sync after updating; until then Today falls
+  back to its old reconstructed value. Nothing in the stored history changed.
 
 ### Added
 
@@ -138,41 +183,6 @@ plain increments — this is not a library and nothing depends on its API.
   FIFO, an average cost or a per-sale realized gain.
 
   The transactions hint is translated with it — it was still English prose under a Dutch table.
-
-### Fixed
-
-- **The popup showed "Canvas is already in use" instead of a fresh sparkline.** `paint` runs more
-  than once in a single opening — once with the cached result when the panel opens, again when a
-  sync you started from it returns — and Chart.js refuses a canvas it already owns. The second
-  paint threw, so the status line carried *"Chart with ID '0' must be destroyed before the canvas
-  with ID 'spark' can be reused"* and the shape on screen stayed the one from before the sync.
-  Nothing was miscomputed: the figures beside it were the new ones, only the picture was stale and
-  the error text was in the way of the status. The popup now holds its chart and destroys it before
-  drawing the next, which is what the full page has done since it had two charts.
-
-### Fixed
-
-- **"Today" was a partial figure at the ragged edge of the price data.** The tile showed the
-  reconstructed change on the last calendar day — `value[today] − value[yesterday]`, with any
-  deposit removed. That reconstruction runs on vwd daily closes, and those closes arrive at
-  different times *per instrument*: one feed already carries today's close while another is still
-  on Friday's. On such a day the last-day change counts a move for the holdings that updated and
-  **zero for the rest** — a number that is neither today's change nor the zero a real non-trading
-  day gives. On a tester's account, with 4 of 12 US holdings freshly quoted and 8 still on the
-  previous close, Today read **−0.58 %** while DEGIRO showed **−2.5 %**. (The reconciliation banner
-  already flagged the €845 gap this same lag produces in the total; the tile did not.)
-
-  Today now prefers **DEGIRO's own day result** — the sum of the per-position `todayPlBase` values
-  `/update` states, which DEGIRO computes against every position's live price and therefore has no
-  such hole. The percentage is that result over the previous close (now-total minus the day
-  result). When the live figure is not available it falls back to the old reconstructed change, so
-  a day with no trading still reads zero. The tooltip says which it is and notes the figure can
-  still move while the market is open. `parseUpdate` gained `todayPl`; `test/parse.test.js` covers
-  the sum, the absent-field (`null`, never a fabricated `0`) and the currency-map cases.
-
-  **A resync is needed for the live figure** — one press of **Sync now**. `todayPlBase` was never
-  captured before, so it only appears on the first sync after updating; until then Today falls
-  back to its old reconstructed value. Nothing in the stored history changed.
 
 ### Changed
 

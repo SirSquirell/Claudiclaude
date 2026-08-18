@@ -1,121 +1,115 @@
-# Wat er nieuw is — 0.47.0
+# Wat er nieuw is — 0.48.0
 
 Wat er verandert ten opzichte van de vorige versie, in gewone taal. Alleen deze release: de
 volledige geschiedenis staat in [CHANGELOG.md](CHANGELOG.md), installeren doe je met
 [INSTALL.md](INSTALL.md).
 
-> **Hoef je te resyncen voor deze versie? Nee.** Er is geen opgeslagen gegeven veranderd en geen
-> berekening aangepast — de rekenkern is in deze release niet aangeraakt. Wat er anders is, is hoe je
-> de cijfers ziet, hoort en bereikt. Kom je van een véél oudere versie, druk dan één keer op
-> **Wissen & opnieuw synchroniseren**: in eerdere releases zaten correcties die je opgeslagen cijfers
-> wél raakten, en die staan per versie in [CHANGELOG.md](CHANGELOG.md).
+> **Hoef je te resyncen voor deze versie? Eén keer, ja.** Druk één keer op **Nu synchroniseren**.
+> Niet omdat er iets fout stond in je opgeslagen historie, maar omdat *Vandaag* nu het dagresultaat
+> gebruikt dat DEGIRO zelf opgeeft, en dat veld is nooit eerder opgeslagen. Tot die ene synchronisatie
+> valt *Vandaag* terug op de oude, gereconstrueerde waarde. Al je andere cijfers zijn ongewijzigd en
+> worden zoals altijd opnieuw berekend uit de antwoorden die al op je computer staan.
 
 ---
 
-## De extensie spreekt nu overal Nederlands
+## Verbinding verbreken, zonder je cijfers kwijt te raken
 
-Dit is de grootste correctie van deze release, en hij zat op drie plekken tegelijk.
+Nieuw in het **Meer**-menu: **Verbinding verbreken…**. Dat vergeet het rekeningnummer dat DEGIRO
+teruggeeft, stopt met zelf synchroniseren op de achtergrond — en laat je hele historie staan, bevroren
+zoals die er bij de laatste synchronisatie uitzag.
 
-**De popup had geen enkele vertaling.** Koos je Nederlands, dan kreeg je een Nederlandse pagina en
-een Engelse popup. Ook de voortgang tijdens het synchroniseren staat er nu in het Nederlands —
-"Transacties ophalen…", "Koersen ophalen…".
+Drie dingen die het uitdrukkelijk *niet* doet:
 
-**De grafieken ook niet.** Wijs een punt in een grafiek aan en er stond *Value*, *Day change*,
-*Cumulative*, *Withholding tax*. Tweeëntwintig plekken, allemaal om.
+- **Het verwijdert niets.** Geen transactie, geen geldstroom, geen koers. Elk getal wordt opnieuw
+  berekend uit de ruwe antwoorden die al op schijf staan, en daarom kost bevriezen niets.
+- **Het logt je niet uit bij DEGIRO**, en dat zou ook niet kunnen: deze extensie heeft je
+  DEGIRO-sessie nooit vastgehouden. Ze leest per verzoek het koekje dat je browser zelf al heeft en
+  slaat het nergens op. Wil je daar ook uitloggen, doe dat dan bij DEGIRO.
+- **Het doet niet alsof de cijfers van vandaag zijn.** Bovenaan elk tabblad, in de zijbalk en in de
+  popup staat dat de rekening losgekoppeld is en op welke datum de cijfers stilstaan. Ook het
+  aansluitoordeel is nu gedateerd — en houdt zijn kleur: stond het in het rood, dan blijft het rood.
+  Verbinding verbreken is geen manier om een niet-kloppend totaal weg te laten gaan.
 
-**En de regel onder elk cijfer evenmin.** "as of today", "banked, from 3 closed positions", "still
-riding on prices · all time" — Engels onder elk getal op een Nederlandse pagina.
+Opnieuw verbinden is één keer **Nu synchroniseren**. Dat gedraagt zich precies als de eerste keer:
+koekje lezen, aan DEGIRO vragen om welke rekening het gaat, verder. Er komt nergens een inlogformulier
+bij — deze extensie vraagt nooit om een wachtwoord, pincode of code, en dat blijft zo.
 
-De bevestiging bij **Wissen & opnieuw synchroniseren** vroeg ook in het Engels of je alles mocht
-weggooien. Dat is de enige onomkeerbare knop in de extensie, dus die vraag hoor je te kunnen lezen.
+Naast de knop staat een **i** die in drie zinnen uitlegt hoe het werkt, wat er vergeten wordt en wat
+er blijft staan.
 
-## Elke grafiek vertelt nu wat hij laat zien
+## De vormkiezer bij het delen liet drie van de vier vormen niet zien
 
-Dertien grafieken hadden geen naam, geen omschrijving en geen tabel. Wie een schermlezer gebruikt
-kreeg **niets** — geen waarde, niet eens "een grafiek". Elke grafiek beschrijft zichzelf nu uit
-dezelfde reeks die hij tekent: waar het begon, waar het eindigde, welke kant dat op is, en het hoogste
-of laagste punt onderweg.
+Bij **Deel deze positie** stonden vier vormen in een venster dat er twee breed was, met niets op het
+scherm dat verraadde dat de andere twee bestonden. Nu zie je er drie — **1:1 · 16:9 · 4:3** — met een
+pijltje aan de kant waar er meer staat. **4:3** is nieuw, voor een dia of een document.
 
-Bij de vier grafieken met bedragen staat er nu ook **Toon als tabel**: dezelfde cijfers als rijen. Een
-tooltip vraagt om een muis en om hoveren, en dat heeft niet iedereen — en op een schermafbeelding
-werkt hij helemaal niet.
+Er zaten vier fouten in tegelijk, en één maakte de knop bijna onbruikbaar:
 
-Bij het resultaat per periode zegt de tabel er per regel bij of de koersen **gemeten** of **geschat**
-waren.
+1. **Op een vorm tikken selecteerde hem niet.** Alleen een *veeg* veranderde de vorm. Nu is tikken
+   gewoon tikken.
+2. **De gekozen vorm kon buiten beeld staan** als je het venster opendeed.
+3. **De strook kon leeg getrokken worden**, en de laatste vorm schoof voorbij het einde.
+4. **Een trilling van twee pixels gold als slepen**, waardoor een klik verdween.
 
-## Grijp de grafiek
+Slepen verandert nu ook niets meer aan je kaart: slepen is kijken, klikken is kiezen. Aan de
+geëxporteerde afbeelding zelf is niets veranderd — dezelfde tekening, dezelfde maten, één vorm meer.
 
-Slepen over de waardegrafiek volgt nu je vinger één op één, en wat er daarna gebeurt is nieuw. Laat je
-los terwijl je nog beweegt, dan **gooit** de flick het venster verder dan waar je losliet. Sleep je
-voorbij het begin of het eind van je historie, dan **veert** het tegen in plaats van dood te blokkeren.
-Pak je de rand terug terwijl hij nog uitloopt, dan gaat hij verder vanaf waar hij op dat moment stáát.
+## De gedeelde kaart en de tabelregel gaven verschillende getallen
 
-Daar zat ook een echte fout in. De extensie besliste "was dat een klik of een sleep?" in **dagen** —
-twee dagen. Op vijf jaar historie is dat minder dan een pixel, dus een trilling van je hand zoomde de
-pagina in. Op een venster van drie weken is het bijna een centimeter, dus een bewuste sleep deed
-niets. Dat is nu een afstand in pixels, zoals het hoort.
+Gemeld vanaf een screenshot: de tabelregel las **−€ 99,02 · −1,57 %**, de kaart die je uit die regel
+deelde **+€ 175,50 · +2,79 %** — zelfde instrument, zelfde dag. Drie fouten, allemaal op posities die
+je hebt verkocht:
 
-En op een touchscreen scrollde de pagina onder je vinger weg tijdens het slepen, waardoor je de helft
-van je selectie kwijt was.
+- **De lijn van de kaart stopte een dag te vroeg**, precies op de dag van de verkoop. Dat is de dag
+  waarop het verschil tussen de laatste slotkoers en de prijs waarvoor je écht verkocht wordt geboekt —
+  bij deze positie het hele verschil van € 274,52, en de reden dat het teken omklapte.
+- **Het percentage deelde door wat er nog ín zat** in plaats van door wat je erin gestopt hebt.
+  Verkocht je de helft, dan liep het percentage op terwijl er niets gebeurde. Dat corrigeert ook de
+  kolom **% van inleg**, die het resultaat van je gekozen periode deelde door je inleg over álle jaren.
+- **Er werd een "inleg vs. gegroeid"-balk getekend bij posities die niet meer bestaan** — *"100% van
+  je inleg is verdwenen"* bij een verkoop met 20 % verlies. Daar staat nu, net als in de tabel, een
+  streepje.
 
-## De grafiek zegt wanneer een koers geschat is
+**En de lijn op die kaart miste de dagen die er het meest toe deden.** Om een historie in 48 punten te
+tekenen werd elke *n*-de dag genomen, dus je hoogste en je diepste dag haalden het alleen bij geluk:
+gemeten over de tien posities van de demo verdween **5 % tot 14 %** van het bereik. Onzichtbaar ook,
+want de lijn wordt op zijn eigen hoogte geschaald — je zag een net zo overtuigende, vlakkere vorm. De
+kaart houdt nu per stukje de laagste en de hoogste dag, in de volgorde waarin ze gebeurden.
 
-Wijs een dag aan en je ziet de datum en het bedrag — dat was er al, en het is altijd een dag die
-echt in de reeks zit, nooit een getal ertussenin. Wat er niet bij stond: of die dag **geen koers**
-had en gewaardeerd is tegen de laatste koers waarop het instrument handelde. De positietabel zei dat
-al met `est.`; de grafiek, waar je het getal daadwerkelijk leest, zei niets.
+Hiervoor is **geen resync** nodig: dit zijn afgeleide cijfers.
 
-En het eind van de lijn heeft nu een stip met het bedrag erbij, dus daar hoef je niet meer voor te
-hoveren.
+## "Vandaag" is nu het dagresultaat van DEGIRO zelf
 
-## Delen: een kaart per cijfer, en leesbare kleine letters
+De tegel rekende de laatste dag zelf uit, uit dagelijkse slotkoersen — en die komen per instrument op
+een ander moment binnen. Op zo'n dag telde *Vandaag* de beweging van de fondsen die al bijgewerkt
+waren en **nul** voor de rest. Op de rekening van een tester las *Vandaag* **−0,58 %** terwijl DEGIRO
+**−2,5 %** liet zien.
 
-Elk blok met cijfers heeft nu een **deelknop**. Je kiest daarna welk cijfer je deelt, en krijgt een
-kaart zonder grafiek: het getal, waar het over gaat, en de herkomst eronder.
+*Vandaag* gebruikt nu de som van de dagresultaten die DEGIRO per positie meestuurt, met de oude
+berekening als terugval als dat veld er niet is. De uitleg achter de **i** zegt welke van de twee je
+ziet. Hiervoor is die ene synchronisatie bovenaan deze pagina nodig.
 
-Op de positiekaart staat er nu ook **ingelegd tegenover gegroeid** bij — dezelfde balk als in de
-tabel. Die bevat geen bedrag, alleen percentages, dus hij blijft staan als je bedragen verbergt.
+## Als het totaal niet klopt, zegt de melding nu meer
 
-En de gemelde fout: **de kleine letters op de kaart waren onleesbaar.** De kaart wordt getekend op
-900 tot 1280 pixels breed en een chat toont hem op ongeveer 500 — dus de regel die zegt of de cijfers
-kloppen kwam aan op zes pixels. Daaronder zat er nog een: die regel liep buiten de kaart en werd
-afgekapt, precies op het woord dat er het meest toe deed. Bij een rekening die *niet* sluit stond er
-`DOES NOT rec…`.
+Klopt je totaal niet met DEGIRO, dan stond er tot nu toe alleen *hoeveel* het verschil was. Er staat
+nu ook **waartegen** er vergeleken is: tegen het rekeningtotaal dat DEGIRO zelf opgeeft, of — als
+DEGIRO er geen meestuurde — tegen de som van de positiewaardes plus het kassaldo. Dat is niet
+hetzelfde probleem: in het eerste geval zit het verschil in de administratie van deze extensie, in het
+tweede kan de vergelijking zelf te laag zijn.
 
-De kaart volgt nu ook je taal, in plaats van altijd Engels te zijn.
+Het foutrapport is meegegroeid, en dat is de kern van deze wijziging: op een leeggehaalde rekening is
+DEGIRO's totaal €0,00, en daar viel de maat van het verschil altijd weg — precies op de rekening die
+klein genoeg is om met de hand na te lopen. Nu wordt het verschil afgezet tegen de omzet van je eigen
+kasboek, en verdeeld over de kascategorieën, zodat een verschil dat exact gelijk is aan één categorie
+zich meldt in plaats van een raadsel te blijven. **Er is geen enkel getal op je scherm door veranderd:
+dit vindt de vijf cent, het lost ze niet op.**
 
-## De popup ziet eruit als de rest
+## Kleinere dingen
 
-Het merk bovenaan, één groot getal, drie kleinere eronder, de vorm van je laatste negentig dagen, en
-één duidelijke knop. Het waren vier even grote tegels en twee even grote knoppen. En als een
-synchronisatie een cijfer verandert, zie je dat nu — het wisselde eerst zonder iets te zeggen.
-
-## Het scherm reageert
-
-- **Een knop die je indrukt en waar je vanaf sleept** ziet er niet langer ingedrukt uit. Je klik was
-  al afgebroken; alleen het knopje bleef aanstaan.
-- **Menu's, de kolomkiezer en de vensters** komen nu uit de knop waarop je drukte, en gaan langs
-  dezelfde weg weer weg.
-- **Een melding duwt de pagina niet meer opzij.** Tijdens een synchronisatie sprong alles onder de
-  melding twee keer weg, terwijl je naar je cijfers zat te kijken.
-- **De themawissel is geen lichtknop meer**, maar een overgang van ruim een vijfde seconde.
-- **Als je data binnenkomt**, verschijnt die per kaart in plaats van het hele scherm in één klap.
-  Eén keer per synchronisatie — niet elke keer dat je op 3M drukt.
-- **Een deelknop op een rij** stond op een telefoon voor altijd half doorzichtig, alsof hij uitstond.
-
-## Als je "verminderde beweging" aan hebt staan
-
-Die instelling deed hier te veel: hij zette *alle* overgangen uit, inclusief de kleurverandering die
-je vertelt dát je knop reageerde. Nu stopt precies wat beweegt en blijft staan wat antwoordt.
-
-De extensie luistert ook naar **verminderde transparantie** en **meer contrast**, wat hij daarvoor
-helemaal niet deed.
-
-## Kleinere correcties die je zou kunnen merken
-
-- Een bedrag van 17 pixels stond gezet met de letterafstand van een kop, op elk scherm en in de hele
-  popup.
-- De grafiek met het opgetelde resultaat gaf een foutmelding op het tabblad Rendement en werd niet
-  getekend.
-- Bij een positie die vier keer haar inleg verloor liep de balk vier keer over de rand — je zag het
-  niet, omdat de tabel hem afknipte.
+- **De popup toonde "Canvas is already in use" in plaats van een nieuwe lijn** als je er een
+  synchronisatie startte. De cijfers ernaast waren de nieuwe; alleen het plaatje was oud en de
+  foutmelding stond in de weg.
+- **Onder de transactietabel staat waarom er geen inleg-vs.-gegroeid bij een verkoopregel hoort** — de
+  vraag is gesteld, het antwoord staat er nu, in het Nederlands.
+- Het deelvenster hield zijn rechterkolom niet binnen zijn eigen breedte, waardoor knoppen aan de
+  rand buiten het venster vielen. Op een telefoon was diezelfde vormkiezer daardoor onleesbaar klein.
