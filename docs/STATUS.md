@@ -112,6 +112,7 @@ F1–F5 shipped in 0.37.0, F6–F9 in 0.38.0. U1–U5 need a decision rather tha
 | Story | State | Waiting on |
 |---|---|---|
 | — | **A price series was rescaled by factor 4,369**, which is not a split ratio. Investigation: one factor across two regimes, or a vwd id that changed instrument. Do not tune the threshold | Nothing |
+| US-76 | **The shape picker shows two of its four shapes** and nothing says the others exist. Adds `4:3`, reorders so `1:1 · 16:9 · 4:3` are the three visible defaults, and gives the strip end stops, a rubber-band and two paging chevrons | Nothing — the measurement is in the files |
 | US-37 | **Trading 212 R1 — PASS, measured 2026-08-13.** Page 200/401, logged out 401, and the service worker `PASS_JSON` with only an `Accept` header — so no device identifier is required either | Nothing. **US-39–US-45 are unblocked** |
 | US-44 | **Trading 212 renders through the existing pipeline** — no separate dashboard | Gated on US-37 and the data gates. Addendum body not yet received |
 | US-45 | Parameterise the session read (`session.js:19`) — renumbered twice | Deferred until R1 clears — rule 8 |
