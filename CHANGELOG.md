@@ -20,6 +20,34 @@ plain increments — this is not a library and nothing depends on its API.
 
 ### Added
 
+- **US-55 / US-63 — the drag on the value chart has physics.** Built together, because they are the
+  same gesture on the same surface and the spring, the velocity trail and the day-snap are shared.
+
+  Dragging still tracks the finger 1:1 — an eased drag feels laggy and is not motion the reader
+  asked for, it is their own hand. What changed is everything after the finger leaves. **The edge
+  settles with a critically-damped spring carrying the release velocity**, so there is no seam
+  between dragging and settling; **a flick throws the window**, landing where the momentum projects
+  and snapping to the day *there* rather than under the release point; and **dragging past the first
+  or last day resists** progressively instead of stopping dead, so the end of the history reads as an
+  edge rather than as a control that has frozen.
+
+  Grabbing the edge again while it is still settling takes it over **from where it is on screen** —
+  measured at a zero-index jump — because the one thing an interruptible animation must never do is
+  teleport to where it was heading.
+
+  Under `prefers-reduced-motion` the tracking stays and only the glide goes: the window applies where
+  the finger left it. Reduced motion is a gentler feedback, never no feedback.
+
+  The discrete range buttons are untouched — they are the fast path and the keyboard one, and this is
+  an addition to them. Nothing recomputes per frame either: the band and its readout update from
+  arrays the chart already holds, and the window applies once, on settle.
+
+  No animation library. MV3's CSP forbids a remote script and the extension is offline by design, so
+  the spring is thirty lines in `src/ui/motion.js` — with its physics separated from the frame loop
+  so a test can drive it, which is how two defects were found: a spring that never quite finished (so
+  the window applied most of a second late), and a velocity read from before the pause a hand makes
+  before letting go (so a deliberate drag released on July 2024 was thrown to April 2025).
+
 - **US-62 — the chart says when a day's price was estimated.** Hovering the value chart or the
   cumulative-result chart already drew a crosshair and a readout of the date and the figure, and
   that readout is always a day the series actually holds — Chart.js resolves the pointer to a data

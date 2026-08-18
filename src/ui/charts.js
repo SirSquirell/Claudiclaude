@@ -198,14 +198,25 @@ const dragSelection = {
     // Everything that does not change per frame still comes from `opts`.
     const sel = chart.$dragSelection;
     if (!sel || sel.a == null || sel.b == null) return;
-    const [lo, hi] = sel.a <= sel.b ? [sel.a, sel.b] : [sel.b, sel.a];
     const days = opts.days ?? [];
+    /**
+     * US-55/US-63: the edges arrive as **fractional** day indices while a spring
+     * is settling, so the band is drawn at the exact position and the readout is
+     * rounded to the day it will land on. Two different roundings on purpose —
+     * quantising the band to whole days would make a smooth settle visibly step,
+     * and interpolating the readout would print a value between two days, which
+     * is the thing this project does not do.
+     */
+    const [rawLo, rawHi] = sel.a <= sel.b ? [sel.a, sel.b] : [sel.b, sel.a];
+    const clampIdx = (v) => Math.min(days.length - 1, Math.max(0, Math.round(v)));
+    const lo = clampIdx(rawLo);
+    const hi = clampIdx(rawHi);
     if (!days[lo] || !days[hi]) return;
 
     const scale = chart.scales.x;
     const { top, bottom, left, right } = chart.chartArea;
-    const x1 = Math.min(Math.max(left, scale.getPixelForValue(lo)), right);
-    const x2 = Math.min(Math.max(left, scale.getPixelForValue(hi)), right);
+    const x1 = Math.min(Math.max(left, scale.getPixelForValue(rawLo)), right);
+    const x2 = Math.min(Math.max(left, scale.getPixelForValue(rawHi)), right);
     const ctx = chart.ctx;
 
     ctx.save();

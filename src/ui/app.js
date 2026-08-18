@@ -47,6 +47,7 @@ import { FORMATS, ownerLine, positionSpan, scoreCardModel, snapshotModel, splitM
 import { HOLDINGS_COLUMNS, baseHidden, droppableByPriority, optionalColumns } from './columns.js';
 import { brokerMarkSvg, lockupSvg, markSvg } from './brand.js';
 import { copySnapshot, downloadSnapshot, drawScoreCard, drawSnapshot, tokensForTheme } from './snapshot.js';
+import { Spring, prefersReducedMotion, project, rubber, velocityFrom } from './motion.js';
 import { inExtension, load, send, wantsDemo } from './datasource.js';
 
 const RANGES = ['1M', '3M', '6M', 'YTD', '1Y', 'ALL'];
@@ -1857,36 +1858,63 @@ function wireZoom() {
   if (!canvas || canvas.dataset.zoomWired) return;
   canvas.dataset.zoomWired = '1';
 
+  /**
+   * The gesture's state. `anchor` is the edge that stays put, `moving` the one
+   * under the finger, both as **fractional day indices** — the spring settles in
+   * the same units the window is expressed in, so nothing has to be converted
+   * back and forth and there is no pixel/day rounding to disagree about.
+   */
   let anchor = null;
+  let grabOffset = 0;
+  let trail = [];
   let pending = false;
+  // A twentieth of a day: below what a pixel on this chart can show, and the
+  // window rounds to a whole day regardless. See `restDistance`.
+  const moving = new Spring(0, { restDistance: 0.05 });
 
-  const indexAt = (event) => {
-    const chart = state.charts.value;
+  const chartNow = () => state.charts.value;
+  const lastIndex = () => Math.max(0, (chartNow()?.data?.labels?.length ?? 1) - 1);
+
+  /** Pointer x to a fractional day index, unclamped so the caller can resist. */
+  const indexAtX = (x) => {
+    const chart = chartNow();
     if (!chart) return null;
     const area = chart.chartArea;
-    const x = event.offsetX;
-    if (x < area.left || x > area.right) return null;
     const labels = chart.data.labels ?? [];
     if (!labels.length) return null;
-    const frac = (x - area.left) / Math.max(1, area.right - area.left);
-    return Math.min(labels.length - 1, Math.max(0, Math.round(frac * (labels.length - 1))));
+    return ((x - area.left) / Math.max(1, area.right - area.left)) * (labels.length - 1);
   };
 
   /**
-   * Show the selection while the pointer is down.
+   * Rubber-band past the ends (US-55 AC4, US-63 AC2).
    *
-   * There was no `pointermove` here at all: the drag recorded an anchor, applied
-   * a range on release, and drew nothing in between — so both ends of the
-   * selection had to be guessed at. Reported, fairly, as not being able to see
-   * what you are selecting.
+   * Before the first day or after the last, the edge keeps moving but ever more
+   * slowly. The point is that the end of the history should read as an *edge* —
+   * something you can push against — rather than as the control having frozen,
+   * which is what stopping dead looks like.
+   */
+  const resist = (idx) => {
+    const n = lastIndex();
+    if (idx < 0) return -rubber(-idx, n);
+    if (idx > n) return n + rubber(idx - n, n);
+    return idx;
+  };
+
+  /**
+   * Show the selection while the pointer is down, and while it settles.
    *
-   * Pointer events fire more often than the screen updates, so the paint is
-   * collapsed onto the next animation frame. `chart.render()` repaints from a
-   * layout that already exists, which is what makes this cheap enough to do on
-   * a two-thousand-point series.
+   * There was no `pointermove` here at all once: the drag recorded an anchor,
+   * applied a range on release, and drew nothing in between — so both ends of
+   * the selection had to be guessed at. Reported, fairly, as not being able to
+   * see what you are selecting.
+   *
+   * Pointer events and spring frames both fire faster than the screen updates,
+   * so the paint is collapsed onto the next animation frame. `chart.render()`
+   * repaints from a layout that already exists, which is what makes this cheap
+   * enough to do on a two-thousand-point series.
    */
   const paint = (a, b) => {
-    const chart = state.charts.value;
+    const chart = chartNow();
     if (!chart) return;
     // On the instance rather than in the options: Chart.js caches resolved
     // plugin options, so a value written there between renders never reaches
@@ -1900,6 +1928,8 @@ function wireZoom() {
     });
   };
 
+  moving.onUpdate = (v) => paint(anchor, v);
+
   /**
    * The hover tooltip is noise during a drag: it lands on top of the readout
    * that says what is being selected, which is the one thing being read. Off
@@ -1907,7 +1937,7 @@ function wireZoom() {
    * `update` it costs is not on the hot path.
    */
   const tooltip = (on) => {
-    const chart = state.charts.value;
+    const chart = chartNow();
     const cfg = chart?.options?.plugins?.tooltip;
     if (!cfg || cfg.enabled === on) return;
     cfg.enabled = on;
@@ -1916,34 +1946,112 @@ function wireZoom() {
 
   const clear = () => {
     anchor = null;
+    trail = [];
+    moving.stop();
     paint(null, null);
     tooltip(true);
   };
 
-  canvas.addEventListener('pointerdown', (e) => {
-    anchor = indexAt(e);
-    if (anchor != null) canvas.setPointerCapture(e.pointerId);
-  });
-  canvas.addEventListener('pointermove', (e) => {
-    if (anchor == null) return;
-    const here = indexAt(e);
-    if (here == null) return;
-    // Only once the pointer has actually left the anchor, so a plain click that
-    // wobbles by a pixel does not flash the tooltip off and on.
-    if (here !== anchor) tooltip(false);
-    paint(anchor, here);
-  });
-  canvas.addEventListener('pointercancel', clear);
-  canvas.addEventListener('pointerup', (e) => {
-    const labels = state.charts.value?.data?.labels ?? [];
-    const start = labels[anchor];
-    const end = labels[indexAt(e)];
+  /** Turn the two edges into a window, or decide it was a click and do nothing. */
+  const apply = () => {
+    const labels = chartNow()?.data?.labels ?? [];
+    const n = labels.length - 1;
+    const at = (v) => labels[Math.min(n, Math.max(0, Math.round(v)))];
+    const start = at(anchor);
+    const end = at(moving.x);
     clear();
     if (!start || !end) return;
     // A click is not a drag. Below this it is someone reading the tooltip.
     if (Math.abs(new Date(end) - new Date(start)) < 2 * 86400000) return;
     const [from, to] = start <= end ? [start, end] : [end, start];
     zoomTo(`${from}..${to}`);
+  };
+
+  canvas.addEventListener('pointerdown', (e) => {
+    const here = indexAtX(e.offsetX);
+    if (here == null) return;
+
+    /**
+     * US-55 AC3 / US-63's interruptibility. A press while the edge is still
+     * settling takes it over **from where it is on screen**, not from where it
+     * was heading — `moving.x` is the presentation value, and grabbing the
+     * target instead is the jump an interruptible animation must never make.
+     * The offset is kept so the edge stays glued to the finger rather than
+     * teleporting under it.
+     */
+    if (moving.running && anchor != null) {
+      moving.stop();
+      grabOffset = moving.x - here;
+    } else {
+      anchor = here;
+      moving.snap(here);
+      grabOffset = 0;
+    }
+    trail = [{ v: moving.x, t: performance.now() }];
+    canvas.setPointerCapture(e.pointerId);
+  });
+
+  canvas.addEventListener('pointermove', (e) => {
+    if (anchor == null) return;
+    const here = indexAtX(e.offsetX);
+    if (here == null) return;
+    const at = resist(here + grabOffset);
+    // 1:1 with the finger: no easing while dragging, ever. The spring is for
+    // what happens *after* the finger leaves.
+    moving.snap(at);
+    trail.push({ v: at, t: performance.now() });
+    if (trail.length > 8) trail.shift();
+    // Only once the pointer has actually left the anchor, so a plain click that
+    // wobbles by a pixel does not flash the tooltip off and on.
+    if (Math.round(at) !== Math.round(anchor)) tooltip(false);
+  });
+
+  canvas.addEventListener('pointercancel', clear);
+
+  canvas.addEventListener('pointerup', () => {
+    if (anchor == null) return;
+    const n = lastIndex();
+    const clamp = (v) => Math.min(n, Math.max(0, v));
+
+    /**
+     * The release itself is a sample, and leaving it out was a real defect.
+     *
+     * A hand slows to a stop before letting go, and during that pause no
+     * `pointermove` fires — so the newest sample in the trail was from *before*
+     * the pause, and the velocity window read the speed the finger had a fifth
+     * of a second ago. A deliberate drag that came to rest was thrown as if it
+     * had been flicked: released on July 2024, landed on April 2025.
+     *
+     * Stamping the current position at the release time makes the pause visible
+     * to `velocityFrom`, so a gesture that stopped has stopped.
+     */
+    trail.push({ v: moving.x, t: performance.now() });
+
+    /**
+     * Velocity handoff and momentum projection (US-55 AC2, US-63 AC1).
+     *
+     * A flick lands where the momentum *projects*, snapped to the day there —
+     * not under the release point. That is what makes a flick throw the window
+     * rather than merely end it, and it is the difference between a control that
+     * has physics and one that has an animation.
+     *
+     * Reduced motion (AC5) keeps the 1:1 tracking above and drops this entirely:
+     * the window applies where the finger left it. Gentler feedback, not none.
+     */
+    const velocity = velocityFrom(trail);
+    if (prefersReducedMotion()) {
+      moving.snap(clamp(Math.round(moving.x)));
+      apply();
+      return;
+    }
+    const landing = Math.round(clamp(moving.x + project(velocity)));
+    moving.onRest = () => {
+      moving.onRest = null;
+      apply();
+    };
+    // The spring continues at the finger's speed, so there is no seam between
+    // dragging and settling.
+    moving.set(landing, { velocity });
   });
 }
 
