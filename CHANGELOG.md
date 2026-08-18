@@ -18,6 +18,16 @@ plain increments — this is not a library and nothing depends on its API.
 
 ## [Unreleased]
 
+## [0.47.0] — 2026-08-18
+
+Twenty-one stories and eleven defects, and the through-line is the same in both halves: **the
+interface now answers.** It answers a press, a preference, a gesture, a screen reader and a language
+it had been ignoring — and every claim below was measured in a browser rather than asserted.
+
+**No resync is needed.** `src/lib/engine.js` was not touched, and neither was any parser or store.
+Every figure on the page is recomputed from the same raw responses as before; what changed is how
+they are shown, said and reached.
+
 ### Added
 
 - **US-71 (second half) — the figure-carrying charts have a table twin.** Result per period, the

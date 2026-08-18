@@ -3,7 +3,7 @@
 `docs/BACKLOG.md` is 2 000 lines of reasoning and evidence, which is the right place for *why* and
 a bad place to find out *where things stand*. This is the index.
 
-**Last updated after the 0.47 build pass.** It had been stale since 0.21.0 once, which is fifteen
+**Last updated at 0.47.0.** It had been stale since 0.21.0 once, which is fifteen
 releases — if it looks stale again, trust the CHANGELOG and fix this.
 
 ## Shipped and confirmed against a real account
@@ -65,29 +65,29 @@ person.** This is the gate that is open.
 | US-47+ | **The share sheet** — four shapes, light or dark, amounts off by default, and a name the sharer chooses from four sources. Download beside the clipboard | 0.46.0 |
 | US-35d | **Optimism Mode draws two different charts** rather than deforming the real one — *Belief in PROP* (conviction index, in points) and *What PROP still owes you* (upside remaining, in euros). `flipSeries` is gone | 0.46.0 |
 | US-17 | **A renamed DEGIRO field is now loud.** `pick()` tallies which candidate name carried each value; a load-bearing field absent on ≥95 % of rows raises a red banner naming it, and the bug report carries the per-field shares — which is also the measurement that lets `parse.js` stop guessing | 0.46.0 |
-| US-59 | **The card's small print is readable at the size it gets posted.** The ramp is a fraction of the card's width, so the four shapes are four crops of one design, and the floor is measured at the width a chat renders. It also exposed a second defect: the footer's joined line overran and truncated the reconciliation verdict to `DOES NOT rec…` | unreleased · this branch |
-| US-60 | **The popup speaks Dutch and carries the redesign.** Every string through `t()`, sync progress translated by phase, one hero and three facts at 320 px, one primary action | unreleased · this branch |
-| US-52 | **Paid in vs grown travels with the card**, from a `splitModel` both the card and the holdings table call. Moving it exposed a bar segment 400 % wide that only the table's clipping hid | unreleased · this branch |
-| US-54 | **A share button on every figures block, and a chartless score card.** The tile's own strings, so anonymize is inherited; the real figure even with Optimism Mode on | unreleased · this branch |
-| US-62 | **The chart readout says when a day's price was estimated.** Most of the story already existed via Chart.js; this is the honesty marker it was missing | unreleased · this branch |
-| US-55 · US-63 | **The drag on the value chart has physics** — velocity handoff, momentum projection, rubber-band, interruptible, reduced-motion aware. `src/ui/motion.js` is the one motion vocabulary | unreleased · this branch |
-| US-64 | **A section arrives instead of cutting** — transform and opacity only, interruptible, nothing locked out | unreleased · this branch |
-| US-65 | **A changed figure swaps, never counts up.** Measured: each changed figure showed exactly two strings across every frame | unreleased · this branch |
-| US-56 | **Three accessibility preferences, two of which had never been asked**, plus a press that is dragged away from stops looking pressed | unreleased · this branch |
-| US-58 | **The type scale is size-bucketed and measured** — `npm run type`, wired into `npm test` | unreleased · this branch |
-| US-57 | **The share sheet arrives as an object** — materialize on open, the same path backwards on close, and the four shapes as a strip you can flick | unreleased · this branch |
-| — | **Two defects found by the browser passes**: the chart readouts had no translations at all (the same gap US-60 found in the popup), and `npm run palette` identified the dark theme as the last `:root` block in the file | unreleased · this branch |
-| US-66 | **Click and drag are told apart by the hand, not the history.** Eight pixels of travel, checked before the momentum — a twitch carries a velocity, and the projection turned it into a throw. Plus the `touch-action` the canvas never had | unreleased · this branch |
-| US-67 | **A hover affordance is an enhancement, not the usable state.** The row share button no longer sits at 45 % forever on a touch pointer, and the 🙃 tap no longer leaves the button rotated | unreleased · this branch |
-| US-68 | **Reduced motion names what stops.** A property allowlist instead of forcing every duration to zero, which had also silenced the colour change that says a press registered | unreleased · this branch |
-| US-69 | **Two durations and one curve, named once.** The second curve the story asked for is deliberately *not* defined — nothing in this build travels across the screen, and a token with no caller is deleted | unreleased · this branch |
-| US-70 | **The overlays come from the control that opened them**, closing shorter than opening, with `@starting-style` and `allow-discrete` so no timer decides when a surface is gone | unreleased · this branch |
-| US-71 | **A chart a screen reader can read.** Every canvas carries `role="img"` and a sentence generated from its own series, in three shapes rather than thirteen; the four figure-carrying charts have a table twin | unreleased · this branch |
-| US-72 | **The end of a line, without hovering** — one endpoint dot and label, clamped inside the plot | unreleased · this branch |
-| US-73 | **A notice opens its own row** instead of shoving the figures below it, twice per notice, while you are reading them | unreleased · this branch |
-| US-74 | **The theme change is a cross-fade**, and the canvases fade in on the new theme rather than snapping inside a page that does not | unreleased · this branch |
-| US-75 | **Data arrives per card**, once per sync and never per render, as a mask over a drawing Chart.js already finished | unreleased · this branch |
-| US-61 | **The Positions table fits its width.** Columns-as-data: the lowest-priority ones drop as the table narrows and fold into a per-row expand, the load-bearing four (Instrument, Value, Paid in vs grown, Result) never drop, and a **Columns** chooser hides the rest, remembered like the theme. Browser-verified desktop→phone, no sideways page scroll; display only, no resync | unreleased · on `main` |
+| US-59 | **The card's small print is readable at the size it gets posted.** The ramp is a fraction of the card's width, so the four shapes are four crops of one design, and the floor is measured at the width a chat renders. It also exposed a second defect: the footer's joined line overran and truncated the reconciliation verdict to `DOES NOT rec…` | 0.47.0 |
+| US-60 | **The popup speaks Dutch and carries the redesign.** Every string through `t()`, sync progress translated by phase, one hero and three facts at 320 px, one primary action | 0.47.0 |
+| US-52 | **Paid in vs grown travels with the card**, from a `splitModel` both the card and the holdings table call. Moving it exposed a bar segment 400 % wide that only the table's clipping hid | 0.47.0 |
+| US-54 | **A share button on every figures block, and a chartless score card.** The tile's own strings, so anonymize is inherited; the real figure even with Optimism Mode on | 0.47.0 |
+| US-62 | **The chart readout says when a day's price was estimated.** Most of the story already existed via Chart.js; this is the honesty marker it was missing | 0.47.0 |
+| US-55 · US-63 | **The drag on the value chart has physics** — velocity handoff, momentum projection, rubber-band, interruptible, reduced-motion aware. `src/ui/motion.js` is the one motion vocabulary | 0.47.0 |
+| US-64 | **A section arrives instead of cutting** — transform and opacity only, interruptible, nothing locked out | 0.47.0 |
+| US-65 | **A changed figure swaps, never counts up.** Measured: each changed figure showed exactly two strings across every frame | 0.47.0 |
+| US-56 | **Three accessibility preferences, two of which had never been asked**, plus a press that is dragged away from stops looking pressed | 0.47.0 |
+| US-58 | **The type scale is size-bucketed and measured** — `npm run type`, wired into `npm test` | 0.47.0 |
+| US-57 | **The share sheet arrives as an object** — materialize on open, the same path backwards on close, and the four shapes as a strip you can flick | 0.47.0 |
+| — | **Two defects found by the browser passes**: the chart readouts had no translations at all (the same gap US-60 found in the popup), and `npm run palette` identified the dark theme as the last `:root` block in the file | 0.47.0 |
+| US-66 | **Click and drag are told apart by the hand, not the history.** Eight pixels of travel, checked before the momentum — a twitch carries a velocity, and the projection turned it into a throw. Plus the `touch-action` the canvas never had | 0.47.0 |
+| US-67 | **A hover affordance is an enhancement, not the usable state.** The row share button no longer sits at 45 % forever on a touch pointer, and the 🙃 tap no longer leaves the button rotated | 0.47.0 |
+| US-68 | **Reduced motion names what stops.** A property allowlist instead of forcing every duration to zero, which had also silenced the colour change that says a press registered | 0.47.0 |
+| US-69 | **Two durations and one curve, named once.** The second curve the story asked for is deliberately *not* defined — nothing in this build travels across the screen, and a token with no caller is deleted | 0.47.0 |
+| US-70 | **The overlays come from the control that opened them**, closing shorter than opening, with `@starting-style` and `allow-discrete` so no timer decides when a surface is gone | 0.47.0 |
+| US-71 | **A chart a screen reader can read.** Every canvas carries `role="img"` and a sentence generated from its own series, in three shapes rather than thirteen; the four figure-carrying charts have a table twin | 0.47.0 |
+| US-72 | **The end of a line, without hovering** — one endpoint dot and label, clamped inside the plot | 0.47.0 |
+| US-73 | **A notice opens its own row** instead of shoving the figures below it, twice per notice, while you are reading them | 0.47.0 |
+| US-74 | **The theme change is a cross-fade**, and the canvases fade in on the new theme rather than snapping inside a page that does not | 0.47.0 |
+| US-75 | **Data arrives per card**, once per sync and never per render, as a mask over a drawing Chart.js already finished | 0.47.0 |
+| US-61 | **The Positions table fits its width.** Columns-as-data: the lowest-priority ones drop as the table narrows and fold into a per-row expand, the load-bearing four (Instrument, Value, Paid in vs grown, Result) never drop, and a **Columns** chooser hides the rest, remembered like the theme. Browser-verified desktop→phone, no sideways page scroll; display only, no resync | 0.47.0 |
 
 **What to look at first**, if you only look at one thing: the Notices tab after a sync. 0.36.0 made
 background failures visible for the first time, so if something has been quietly failing for weeks
