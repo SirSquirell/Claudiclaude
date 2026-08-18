@@ -2395,19 +2395,107 @@ button.snap:focus-visible {
  * answers on the press. 100ms and 0.97 are the standard values: enough to feel,
  * too small to read as an animation.
  */
-button:active,
-.rail-nav button:active,
-.menu button:active {
+button:active:not(.press-cancelled),
+.rail-nav button:active:not(.press-cancelled),
+.menu button:active:not(.press-cancelled) {
   transform: scale(0.97);
   transition: transform 100ms ease-out;
 }
 
 /* A full-width rail item scaling reads as a wobble; it takes the surface
    instead, which is the same "it heard me" without the movement. */
-.rail-nav button:active,
-button.primary:active {
+.rail-nav button:active:not(.press-cancelled),
+button.primary:active:not(.press-cancelled) {
   transform: none;
   background: var(--surface-3);
+}
+
+/*
+ * US-56. `.press-cancelled` is put on by `wirePressFeedback` the moment the
+ * pointer leaves the control it is pressing, and taken off again if it comes
+ * back. It is negated above rather than overriding afterwards so there is one
+ * definition of what a press looks like, and the keyboard path — which never
+ * gets the class, because it has no pointer — keeps it unchanged.
+ */
+
+/*
+ * US-56 — the two preferences this stylesheet had never answered.
+ *
+ * Reduced motion was already handled in five places; transparency and contrast
+ * were not asked at all. They sit here beside the press feedback because that is
+ * what they are: the same "does this page answer honestly" question, asked by a
+ * reader whose setting says the default answer does not work for them.
+ *
+ * They are token overrides rather than per-component rules, for the reason
+ * US-46's mask lives inside the formatters: a control added next year inherits
+ * them because it uses the tokens, and a per-component sprinkle is the denylist
+ * mistake in a different costume.
+ */
+
+/*
+ * Translucency, reduced.
+ *
+ * There is exactly one translucent surface in this stylesheet — the modal
+ * scrim — and it is listed here rather than the rule being written for chrome
+ * that does not exist. If a frosted bar is ever added, it joins this block; the
+ * point of having it is that there is now somewhere obvious for it to go.
+ */
+@media (prefers-reduced-transparency: reduce) {
+  .modal::backdrop {
+    background: rgb(10 14 18 / 92%);
+  }
+}
+
+/*
+ * More contrast.
+ *
+ * Borders that were hairlines become defined, muted text steps up to the
+ * secondary tone, and every interactive surface gains an edge it did not have —
+ * a button that reads as a button because of its background alone disappears for
+ * a reader who asked for this.
+ *
+ * **What is deliberately not softened here**: the reconciliation red, the
+ * warning amber and the critical tone are already the strongest values in the
+ * palette and this only ever moves things *towards* contrast, never away. Rule 6
+ * outranks the aesthetic, and a disagreement with the broker that a reader
+ * cannot see is the failure this project exists not to ship.
+ */
+@media (prefers-contrast: more) {
+  :root {
+    --border: var(--text-secondary);
+    --border-strong: var(--text-primary);
+    --text-muted: var(--text-secondary);
+    --rule: 1px;
+  }
+
+  button,
+  select,
+  input[type='text'],
+  .tile,
+  .card {
+    border: 1px solid var(--border-strong);
+  }
+
+  /*
+   * The two places that erase their border *by design*, restored. A segmented
+   * control uses its track as the frame and a hero tile drops its box entirely —
+   * both good decisions at the default contrast and both wrong for a reader who
+   * asked for more of it. Naming them is not the per-component sprinkle the
+   * token overrides above avoid; it is undoing two deliberate erasures.
+   */
+  .group button {
+    border-color: var(--border-strong);
+  }
+
+  .hero-row .tile {
+    border: 1px solid var(--border);
+  }
+
+  /* The press has to remain distinguishable from the rest once everything has
+     an edge, so it takes the strongest surface rather than a subtler one. */
+  button:active {
+    background: var(--surface-3);
+  }
 }
 
 /*

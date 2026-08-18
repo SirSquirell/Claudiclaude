@@ -20,6 +20,24 @@ plain increments — this is not a library and nothing depends on its API.
 
 ### Added
 
+- **US-56 — the page answers three accessibility preferences, and two of them it had never been
+  asked.** `prefers-reduced-motion` was already handled in five places. `prefers-reduced-transparency`
+  and `prefers-contrast: more` were absent entirely, so a reader who had set either got the default
+  page with nothing to show it had been considered. Both are token overrides rather than
+  per-component rules, so a control added next year inherits them by using the tokens.
+
+  And a press that is dragged away from now stops looking pressed. CSS `:active` gets the press right
+  and the cancel wrong: a held mouse button keeps `:active` on the element it started on even after
+  the pointer has left, because the browser captures the pointer there. The click was already
+  abandoned — one only fires when press and release share an element — but the control went on
+  looking armed, which is the opposite of what backing out of a press is for. Returning to it re-arms.
+
+  Nothing a warning is drawn in is weakened by any of the three: the reconciliation red, the
+  price-gap amber and the critical tone resolve identically under all of them, checked in a browser
+  and pinned by a test.
+
+
+
 - **US-64 — a section arrives instead of cutting.** Switching rail routes swapped instantly. The new
   section now rises a few pixels and fades in over a quarter of a second, on transform and opacity
   only — animating a height would reflow the whole grid on every route change, and on a page of
@@ -135,6 +153,12 @@ plain increments — this is not a library and nothing depends on its API.
   invisible until US-52 put a translated sentence on it and the card went half-and-half.
 
 ### Fixed
+
+- **`npm run palette` took the last `:root` block for the dark theme.** It is the check that keeps
+  the categorical slots honest, and it identified the palette by position — so the moment US-56 added
+  a `:root` under `prefers-contrast: more`, which redefines borders and nothing else, it died with
+  `--series-1 not found`. Loudly, which was the right failure; but the assumption was wrong rather
+  than the change. It now selects the blocks that actually carry a palette.
 
 - **The cumulative-result chart threw on the Performance tab.** US-62 handed it the estimated-day
   flags from a variable that is only in scope in the caller, so opening Performance raised

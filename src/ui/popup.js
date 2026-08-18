@@ -12,6 +12,7 @@
  */
 
 import { lockupSvg } from './brand.js';
+import { wirePressFeedback } from './motion.js';
 import { sparkline } from './charts.js';
 import { applyStatic, getLang, t } from './i18n.js';
 import { applyTheme, fmtEurCents, fmtSigned, tokens } from './theme.js';
@@ -106,6 +107,9 @@ async function main() {
   // 24 is `MIN_LOCKUP_HEIGHT`. Below it `lockupSvg` returns the mark alone,
   // which is the guard working — at 22 the popup was silently wordmark-less.
   $('#lockup').replaceChildren(lockupSvg({ height: 24 }));
+  // The popup's two buttons get the same press behaviour as the page's, from
+  // the same listener rather than from a copy of it.
+  wirePressFeedback();
 
   $('#btn-open').addEventListener('click', () => {
     if (inExtension) send({ type: 'openApp' }).then(() => window.close());

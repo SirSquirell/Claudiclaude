@@ -199,3 +199,56 @@ export function velocityFrom(samples, windowMs = 90) {
   if (dt <= 0) return 0;
   return (last.v - first.v) / dt;
 }
+
+/**
+ * US-56 — a press that is dragged away from is a press that was cancelled.
+ *
+ * CSS `:active` gets the first half right and the second half wrong. A control
+ * highlights the instant it is pressed, which is the point — waiting for `click`
+ * to show anything is the latency Apple calls "a cliff". But a mouse button held
+ * down keeps `:active` on the element it started on **even after the pointer has
+ * left it**, because the browser implicitly captures the pointer there. So a
+ * button you pressed and then slid off stayed lit, looking armed, while the
+ * click it would have fired had already been abandoned.
+ *
+ * The behaviour was never wrong — a `click` only fires when press and release
+ * land on the same element — but the *feedback* disagreed with it, and the whole
+ * reason cancel-by-dragging-away exists is that it is how you get out of a press
+ * you did not mean. A control that keeps saying "yes" while you are backing out
+ * teaches you not to trust it.
+ *
+ * So: one delegated listener, and CSS keeps `:active`. It marks a press as
+ * cancelled rather than replacing the mechanism, which means the keyboard path —
+ * Space and Enter on a focused button, where there is no pointer at all — is
+ * untouched and still shows the same feedback.
+ *
+ * `elementFromPoint` rather than `pointerleave`, and that is forced: implicit
+ * capture routes every move to the pressed element, so it never gets a leave
+ * event to listen for. Re-entering re-arms, because *"drags away and does not
+ * come back"* is the condition, not "drags away".
+ */
+export function wirePressFeedback(root = document) {
+  const CANCELLED = 'press-cancelled';
+  let armed = null;
+
+  const release = () => {
+    armed?.classList.remove(CANCELLED);
+    armed = null;
+  };
+
+  root.addEventListener('pointerdown', (e) => {
+    const el = e.target?.closest?.('button, summary, [role="menuitem"]');
+    armed = el && !el.disabled ? el : null;
+    armed?.classList.remove(CANCELLED);
+  }, true);
+
+  root.addEventListener('pointermove', (e) => {
+    if (!armed) return;
+    const over = document.elementFromPoint(e.clientX, e.clientY);
+    armed.classList.toggle(CANCELLED, !(over && armed.contains(over)));
+  }, true);
+
+  for (const kind of ['pointerup', 'pointercancel', 'dragstart']) {
+    root.addEventListener(kind, release, true);
+  }
+}

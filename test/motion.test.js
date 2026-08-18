@@ -300,3 +300,61 @@ test('a re-render is not a route change', () => {
   // would flash the whole section every time a button is pressed.
   assert.match(app, /const changed = shownTab !== state\.tab;/);
 });
+
+// ===========================================================================
+// US-56 — response, and the preferences this stylesheet had never answered
+// ===========================================================================
+
+test('AC1 — a press that is dragged away from stops looking pressed', () => {
+  /**
+   * CSS `:active` gets the press right and the cancel wrong: a held mouse button
+   * keeps `:active` on the element it started on even after the pointer leaves,
+   * because the browser captures the pointer there. The click was already
+   * abandoned — a click only fires when press and release share an element — but
+   * the control went on looking armed, which is the opposite of what
+   * cancel-by-dragging-away is for.
+   *
+   * `.press-cancelled` is negated in the rule rather than overriding it
+   * afterwards, so there is one definition of what a press looks like — and the
+   * keyboard path, which never gets the class because it has no pointer, is
+   * untouched. Measured in a browser: pressed → scale(0.97), dragged away →
+   * none, returned → scale(0.97) again.
+   */
+  assert.match(css, /button:active:not\(\.press-cancelled\)/);
+  assert.match(read('../src/ui/motion.js'), /export function wirePressFeedback/);
+  // Re-entering re-arms: the condition is "drags away and does not come back".
+  assert.match(read('../src/ui/motion.js'), /armed\.classList\.toggle\(CANCELLED, !\(over && armed\.contains\(over\)\)\)/);
+  // One delegated listener per document, not one per control.
+  for (const f of ['app.js', 'popup.js']) assert.match(read(`../src/ui/${f}`), /wirePressFeedback\(\)/);
+});
+
+test('AC5 — the three preferences are asked, not assumed', () => {
+  /**
+   * The point of this being a test: two of the three had never been asked at
+   * all. Reduced motion was handled in five places; transparency and contrast
+   * were absent, so a reader who had set them got the default page and no
+   * indication that anything had been considered.
+   */
+  for (const q of ['prefers-reduced-motion: reduce', 'prefers-reduced-transparency: reduce', 'prefers-contrast: more']) {
+    assert.ok(css.includes(`@media (${q})`), `${q} is not answered anywhere in the stylesheet`);
+  }
+});
+
+test('no fallback is allowed to soften a warning', () => {
+  /**
+   * US-56's stop condition, and the one that outranks the aesthetic: rule 6's
+   * reconciliation red, the price-gap amber and the critical tone must never be
+   * weakened by a preference. Verified in a browser under each of the three
+   * settings — all three tokens resolve identically — and pinned here as the
+   * rule that none of the blocks may redefine them.
+   */
+  for (const q of ['prefers-reduced-motion: reduce', 'prefers-reduced-transparency: reduce', 'prefers-contrast: more']) {
+    const at = css.indexOf(`@media (${q})`);
+    // The block runs to the next top-level `@media`, which is enough to catch a
+    // token being redefined inside this one.
+    const block = css.slice(at, css.indexOf('\n@media', at + 10) + 1 || undefined);
+    for (const token of ['--neg:', '--critical:', '--warning:', '--pos:']) {
+      assert.ok(!block.includes(token), `${q} redefines ${token}`);
+    }
+  }
+});

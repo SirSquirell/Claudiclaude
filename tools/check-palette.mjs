@@ -127,8 +127,21 @@ if (invokedDirectly) {
     c4: tok(block, 'series-4'), c5: tok(block, 'series-5'), c6: tok(block, 'series-6'),
     c7: tok(block, 'series-7'), cash: tok(block, 'series-cash'),
   });
-  const light = blocks[1];
-  const dark = blocks[blocks.length - 1];
+  /**
+   * The first and last `:root` blocks that actually *carry* a palette.
+   *
+   * This used to take `blocks[1]` and `blocks[blocks.length - 1]` outright, on
+   * the assumption that the last `:root` in the file is the dark theme. US-56
+   * added a `:root` under `prefers-contrast: more` — which redefines borders and
+   * nothing else — and the check died with `--series-1 not found`. Loudly, which
+   * is the right failure; but the assumption was wrong rather than the change,
+   * because a stylesheet may reasonably override tokens in more than three
+   * places. Selecting by content says what is meant: the palette blocks.
+   */
+  const palettes = blocks.filter((b) => /--series-1:\s*#[0-9a-f]{6}/i.test(b));
+  if (palettes.length < 2) throw new Error('expected a light and a dark palette in styles.css');
+  const light = palettes[0];
+  const dark = palettes[palettes.length - 1];
 
   let total = 0;
   for (const [label, slots, surface, pairs] of [

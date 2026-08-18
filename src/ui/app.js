@@ -47,7 +47,7 @@ import { FORMATS, ownerLine, positionSpan, scoreCardModel, snapshotModel, splitM
 import { HOLDINGS_COLUMNS, baseHidden, droppableByPriority, optionalColumns } from './columns.js';
 import { brokerMarkSvg, lockupSvg, markSvg } from './brand.js';
 import { copySnapshot, downloadSnapshot, drawScoreCard, drawSnapshot, tokensForTheme } from './snapshot.js';
-import { Spring, prefersReducedMotion, project, rubber, velocityFrom } from './motion.js';
+import { Spring, prefersReducedMotion, project, rubber, velocityFrom, wirePressFeedback } from './motion.js';
 import { inExtension, load, send, wantsDemo } from './datasource.js';
 
 const RANGES = ['1M', '3M', '6M', 'YTD', '1Y', 'ALL'];
@@ -212,6 +212,10 @@ async function init() {
   applyAnonymize();
   buildAnonControl();
   wireTips();
+  // US-56. One delegated listener for the whole page: a control added next year
+  // inherits the behaviour because it is a button, not because somebody
+  // remembered to wire it.
+  wirePressFeedback();
   onThemeChange(() => render());
 
   // Optimism Mode. Never restored from storage: a joke you turned on in March
