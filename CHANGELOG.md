@@ -20,6 +20,23 @@ plain increments — this is not a library and nothing depends on its API.
 
 ### Added
 
+- **US-58 — the type scale is measured.** Tracking and leading are size-specific: display text wants
+  negative tracking and tight leading, body wants near-zero and comfortable, small uppercase labels
+  want positive tracking or the caps run together. Those values were already in the stylesheet and
+  already correct — scattered across the rules that used them, with nothing that would notice them
+  collapsing back to one global value, which is the failure mode a single `letter-spacing` has.
+
+  `npm run type` reads the tokens out of `styles.css` and fails on a fixed global letter-spacing and
+  on any display-sized rule that is not negatively tracked, naming which. It runs in `npm test`
+  alongside `npm run palette`, and it has been watched failing on both regressions rather than only
+  on passing.
+
+  `font-optical-sizing: auto` is declared, and here is the plain version of what it does: **no font
+  is bundled** — the stack is the system UI face — so it acts where that face carries an optical axis
+  (Apple, recent Windows) and is inert elsewhere. The tracking and leading buckets are the part that
+  works everywhere.
+
+
 - **US-56 — the page answers three accessibility preferences, and two of them it had never been
   asked.** `prefers-reduced-motion` was already handled in five places. `prefers-reduced-transparency`
   and `prefers-contrast: more` were absent entirely, so a reader who had set either got the default

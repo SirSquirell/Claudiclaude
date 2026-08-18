@@ -131,7 +131,30 @@
   --kpi: clamp(1.25rem, 0.95rem + 1.3vw, 1.8125rem);
   --title: 0.9375rem;
   --hint: 0.75rem;
-  --track: 0.07em;
+  /*
+   * US-58 — tracking and leading are size-specific, never one value for all
+   * sizes. A single global `letter-spacing` is wrong somewhere, and on the
+   * biggest number on the page it is wrong most visibly: large display text
+   * wants *negative* tracking and tight leading, body wants near-zero and
+   * comfortable, and small uppercase labels want positive tracking or the caps
+   * run together.
+   *
+   * Bucketed here rather than set per rule so the relationship between the
+   * buckets is visible in one place — and so `npm run type` can measure it. The
+   * values were already in the stylesheet, correct and scattered; what was
+   * missing was anything that would notice them collapsing back to one.
+   */
+  --track-display: -0.025em;
+  --track-title: -0.01em;
+  --track-body: 0em;
+  --track-label: 0.07em;
+  --lead-display: 1.1;
+  --lead-body: 1.55;
+  --lead-label: 1.4;
+  /* The old name, kept because it is the label bucket and it has thirty
+     callers. Aliased rather than renamed: a rename here is a diff nobody can
+     read against a bucket change that is the actual point. */
+  --track: var(--track-label);
   /* Brief §8: charts are 230–320px tall. They were 144–190, and a 1400×190 line
      chart flattens the movement it exists to show — the aspect ratio was doing
      the opposite of the chart's job. The hero sits at the top of the same band
@@ -241,7 +264,17 @@ body {
   color: var(--text-primary);
   font-family: var(--font);
   font-size: var(--base);
-  line-height: 1.55;
+  line-height: var(--lead-body);
+  letter-spacing: var(--track-body);
+  /*
+   * US-58, stated plainly rather than promised: **no font is bundled.** The
+   * stack is the system UI face, so this does something on the platforms whose
+   * system font carries an optical axis — SF on Apple, Segoe UI Variable on
+   * Windows — and nothing at all elsewhere. It costs nothing where it is inert,
+   * and the tracking and leading buckets above are the part that works
+   * everywhere.
+   */
+  font-optical-sizing: auto;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -724,7 +757,7 @@ h1 {
   font-size: 1.25rem;
   font-weight: 700;
   margin: 0;
-  letter-spacing: -0.01em;
+  letter-spacing: var(--track-title);
   display: flex;
   align-items: center;
   gap: 10px;
@@ -902,8 +935,8 @@ button:disabled {
   font-variant-numeric: tabular-nums;
   font-weight: var(--kpi-w);
   margin-top: 8px;
-  letter-spacing: -0.025em;
-  line-height: 1.1;
+  letter-spacing: var(--track-display);
+  line-height: var(--lead-display);
   white-space: nowrap;
 }
 

@@ -358,3 +358,58 @@ test('no fallback is allowed to soften a warning', () => {
     }
   }
 });
+
+// ===========================================================================
+// US-58 — type that changes shape with size
+// ===========================================================================
+
+test('AC1/AC2 — tracking and leading are buckets, not one value with four names', () => {
+  /**
+   * The values were already correct and already in the stylesheet before this
+   * story — scattered across the rules that used them. What was missing was
+   * anything that would notice them collapsing back to one, which is the exact
+   * failure: a single global `letter-spacing` is wrong somewhere, and on the
+   * biggest number on the page it is wrong most visibly.
+   *
+   * `tools/check-type.mjs` is the measurement and it runs in `npm test`. This
+   * asserts it stays wired in, the way the palette check is — a check that is
+   * only run by hand is a check that stops being run.
+   */
+  const pkg = JSON.parse(read('../package.json'));
+  assert.match(pkg.scripts.test, /check-type\.mjs/, 'the type check is no longer part of npm test');
+  assert.equal(pkg.scripts.type, 'node tools/check-type.mjs');
+
+  // And the buckets themselves, so a reader of the tests can see the scale.
+  const root = css.slice(css.indexOf(':root {'), css.indexOf('@media (prefers-color-scheme: dark)'));
+  for (const [name, sign] of [['--track-display', -1], ['--track-title', -1], ['--track-label', 1]]) {
+    const m = new RegExp(`${name}:\\s*(-?[\\d.]+)em`).exec(root);
+    assert.ok(m, `${name} is missing from the token block`);
+    assert.equal(Math.sign(Number(m[1])), sign, `${name} has the wrong sign for its bucket`);
+  }
+});
+
+test('the check fails on the two regressions it exists for', async () => {
+  /**
+   * A check nobody has watched fail is a check that might pass on everything.
+   * Both cases were run against a modified stylesheet: a fixed global
+   * `letter-spacing` on `body`, and a display-sized rule whose tracking was
+   * flattened to the body bucket. Each was reported by name.
+   */
+  const src = read('../tools/check-type.mjs');
+  assert.match(src, /tracking is size-specific, not global/);
+  assert.match(src, /is display-sized but its tracking is/);
+  assert.match(src, /process\.exit\(1\)/, 'the check no longer fails the build');
+});
+
+test('optical sizing is declared, and what it can do is stated rather than promised', () => {
+  /**
+   * The refinement's second trap: optical sizing needs a variable font. **No
+   * font is bundled here** — the stack is the system UI face — so this acts on
+   * the platforms whose system font carries the axis and is inert elsewhere.
+   * That is worth declaring and worth saying out loud; what it is not worth is
+   * claiming.
+   */
+  assert.match(css, /font-optical-sizing: auto;/);
+  assert.match(css, /\*\*no font is bundled\.\*\*/);
+  assert.ok(!/@font-face/.test(css), 'a font was bundled; the note above it is now wrong');
+});
