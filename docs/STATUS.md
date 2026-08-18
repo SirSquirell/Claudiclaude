@@ -109,14 +109,38 @@ F1–F5 shipped in 0.37.0, F6–F9 in 0.38.0. U1–U5 need a decision rather tha
 | ~~U4~~ | **Done, 0.39.0.** Called estimated rather than measured, and counted | — |
 | ~~U5~~ | **Done, 0.39.0.** Each says what it counts | — |
 
+## Unmerged work sitting on branches
+
+Found in the 2026-08-18 branch audit (23 `claude/*` branches; the rest were merged or duplicated
+`main` and are being deleted). These five carry work `main` does not have. **A branch is not a
+backlog** — a story on a branch nobody can see is how US-66 and US-76 each got claimed three times;
+the numbering repair and the rule are in [BACKLOG.md](BACKLOG.md), *Refinement after 0.47.0*.
+
+| Branch | What it carries | State |
+|---|---|---|
+| `claude/paid-vs-grown-discrepancy-rk40yw` | **US-76 + US-77 built**: the card and its table row agreeing, and the card's sparkline keeping the days that matter. Code + tests, on top of 0.47.0 | Ready to merge |
+| `claude/v47-bug-2jcvd3` | Popup sparkline destroyed before repaint (a leak), on top of 0.47.0 | Ready to merge |
+| `claude/bug-report-pbvnjs` | A 0.46.1: *Today* uses DEGIRO's own live day result, not the ragged reconstructed edge. `parse.js` + `app.js` + tests | Stranded 27 commits behind — needs a rebase onto 0.47.0 and a re-versioning before it can land |
+| `claude/multi-broker-build` | US-45 built (parameterised session read) plus a 0.44.2 fix that `main` later got as US-50 | US-45 is real and unmerged; the rest is duplicate. Salvage the one commit |
+| `claude/apple-fluid-poc` | `docs/prototypes/apple-fluid.html` — the validated US-55…58 prototype the backlog already cites | Imported to `main` in the same commit as this table; branch can go |
+
 ## Refined, not built
+
+Complete as of the 2026-08-18 consolidation — every open story number appears either here, in
+*Unmerged work* above, or in *Parked*.
 
 | Story | State | Waiting on |
 |---|---|---|
+| US-81 | **Locate the five cents** — the −0,05 reconciliation gap on the owner's emptied account. A locator, not a fix: name the anchor, size the gap when DEGIRO's total is 0, attribute the residual across cash categories | Nothing — and it decides whether the gap is our ledger or DEGIRO's `totalCash` field |
+| US-78 | The share sheet's shape strip shows one of its four shapes | Nothing |
+| US-79 | Disconnect and freeze: throw the token away, keep the numbers | Nothing |
+| US-80 | The test suite spends ~31 s of its 55 s asleep in real `setTimeout` backoffs — `mock.timers` fakes the clock without touching `degiro.js` | Nothing |
+| US-35b (tiles) | The replacement Optimism tiles ("847 days of unwavering belief") — the charts half went via US-35c/US-35d, the tiles were never built | A decision that the joke is still wanted |
+| US-26 | Instrument coverage declared per broker — verified / assumed, as a vocabulary | More relevant once a second broker lands |
 | — | **A price series was rescaled by factor 4,369**, which is not a split ratio. Investigation: one factor across two regimes, or a vwd id that changed instrument. Do not tune the threshold | Nothing |
 | US-37 | **Trading 212 R1 — PASS, measured 2026-08-13.** Page 200/401, logged out 401, and the service worker `PASS_JSON` with only an `Accept` header — so no device identifier is required either | Nothing. **US-39–US-45 are unblocked** |
 | US-44 | **Trading 212 renders through the existing pipeline** — no separate dashboard | Gated on US-37 and the data gates. Addendum body not yet received |
-| US-45 | Parameterise the session read (`session.js:19`) — renumbered twice | Deferred until R1 clears — rule 8 |
+| US-45 | Parameterise the session read — R1 has cleared, and an implementation already exists on `claude/multi-broker-build` (see *Unmerged work* above) | Salvaging that commit |
 | US-39–43 | Multi-broker delivery sequence from an external brief | All gated on US-37 |
 | US-34 | **Trading 212 — the spike is finished.** R1 through R5 are all answered: the price history is public and needs no account (daily candles to 2017), and R1 passed on 2026-08-12/13. Nothing in this row is open | Nothing. What is left is the *build* — US-39–US-45 — and the account **payload shapes**, which are still marked `hypothesis` in `tools/trading212-r1/spike.js` because no one has seen them in a Network tab |
 | US-36 | **Interactive Brokers — phase 1 has begun.** One DevTools capture shows an ordinary session-backed portal: its own bundle, a 25 kB portfolio payload, a repeating `tickle` keep-alive and a `202` long-poll. See [MULTI-BROKER.md §9](MULTI-BROKER.md) | **The decisive test**: one portfolio request re-run with `credentials: 'include'` and with `'omit'`, both statuses. That decides R1 and nothing else does |
@@ -143,6 +167,7 @@ Not blockers, and not forgotten either.
 | B7 | Flag sparse FX gaps, or fetch a real FX series? | A rate unobserved for a quarter is already flagged |
 | B10 | Does DEGIRO book a split as a transaction pair? | Bounded — the rescaled instruments are all closed |
 | — | `price-scale-adjusted` factor 4.369 on one account | Bounded, same reason. Would need an account that still holds one |
+| — | One account's card reports **DOES NOT reconcile** — reported with a screenshot, not with its bug report | Unknown until that report arrives. The engine already attributes the residual three ways (share counts wrong / one position's price / the cash balance), so the answer is in the Notices tab of that account and nowhere here. Distinct from US-81, which is the owner's five cents on an account holding nothing |
 
 ## Out of scope, decided
 
