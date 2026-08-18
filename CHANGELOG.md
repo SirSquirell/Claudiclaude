@@ -20,6 +20,27 @@ plain increments — this is not a library and nothing depends on its API.
 
 ### Added
 
+- **US-71 (first half) — every chart says what it shows.** Thirteen canvases carried no `role`, no
+  label and no table equivalent, so a screen reader got **nothing** — not a value, not even *"a
+  chart"*. Each now carries `role="img"` and a sentence generated from the same array it draws:
+  where the series started and ended and which way that is, the extreme it reached and when, or for a
+  row of bars how many periods and the best and worst, or for a part-of-whole the shares and the tail
+  it did not name.
+
+  Three shapes rather than thirteen sentences, because a bespoke sentence per chart is a sentence the
+  fourteenth chart ships without — and a test now fails if a builder draws a chart nobody can read.
+  Derived at render from the arrays, so a summary cannot drift from the picture beside it.
+
+  Amounts in a summary mask under anonymize, and they do so without the module knowing what a mask
+  is: the caller hands in the page's own formatter. Dates and percentages stay — US-46 hides what you
+  have, not when. An estimated stretch says so, like US-62's readout does. And Optimism Mode's two
+  charts carry *NOT THE REAL NUMBERS* in their label, because a reader who cannot see the stamp is
+  the one person the joke could actually mislead.
+
+  **The table twin (AC2) is not built.** This half takes every chart from silent to described; the
+  twin gives exact values on the charts that carry figures, and it is a separate piece of work.
+
+
 - **US-69 / US-70 — the overlays come from the control that opened them.** The overflow menu, the
   granularity menu, the column chooser and the diagnostics backdrop all appeared and vanished with no
   path and no origin. Each now scales and fades from the corner it hangs off — the rail menu from the

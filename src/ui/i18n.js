@@ -469,6 +469,32 @@ const DICT = {
     'Share a figure from this section': 'Deel een cijfer uit dit blok',
     'Which figure': 'Welk cijfer',
 
+    // --- US-71: what a chart says to someone who cannot see it -------------
+    // These are `aria-label` sentences, so they are read aloud rather than
+    // looked at. They follow the reader's language for the same reason
+    // everything else does — arguably more, since there is nothing on screen
+    // beside them to fall back on.
+    'Value of the positions': 'Waarde van de posities',
+    'Portfolio value including cash': 'Portefeuillewaarde inclusief kas',
+    'Result, added up': 'Resultaat, opgeteld',
+    'Result per period': 'Resultaat per periode',
+    'Result per period, open to close': 'Resultaat per periode, open tot slot',
+    'Money in and out': 'Geld erin en eruit',
+    'What moved': 'Wat bewoog',
+    'Currency exposure': 'Valuta-exposure',
+    'Uninvested cash over time': 'Niet-belegde kas door de tijd',
+    'Dividend per month': 'Dividend per maand',
+    'The same month, year on year': 'Dezelfde maand, jaar op jaar',
+    'The last 90 days, ending higher than it started.': 'De laatste 90 dagen, hoger geëindigd dan begonnen.',
+    'The last 90 days, ending lower than it started.': 'De laatste 90 dagen, lager geëindigd dan begonnen.',
+    'The last 90 days, ending where it started.': 'De laatste 90 dagen, geëindigd waar het begon.',
+    'The last 90 days: not enough data to draw a shape.':
+      'De laatste 90 dagen: te weinig gegevens om een vorm te tekenen.',
+    'Then three scenarios, not history: {bad}, {expected}, {good} at {when}.':
+      'Daarna drie scenario\'s, geen historie: {bad}, {expected}, {good} op {when}.',
+    'Belief, NOT THE REAL NUMBERS': 'Geloof, NIET DE ECHTE CIJFERS',
+    'What it still owes you, NOT THE REAL NUMBERS': 'Wat het je nog schuldig is, NIET DE ECHTE CIJFERS',
+
     // --- the tile notes (US-60's gap, one surface further in) ---------------
     // Never translated, and `missing()` never counted them because they never
     // reached `t()`. Surfaced when US-54's score card became the first thing to

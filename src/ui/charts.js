@@ -13,6 +13,7 @@
  */
 
 import { t as tr } from './i18n.js';
+import { describeBars, describeParts, describeSeries } from '../lib/describe.js';
 import { alpha, fmtEur, fmtEurCents, fmtSigned, getAnonymize } from './theme.js';
 import { drawMark } from './brand.js';
 import { WATERMARK } from '../lib/config.js';
@@ -357,7 +358,33 @@ const watermark = {
   },
 };
 
-Chart.register(crosshair, cashflowMarkers, dragSelection, tradeMarkers, watermark);
+/**
+ * US-71 — the canvas says what it is, to whoever cannot see it.
+ *
+ * A plugin rather than thirteen lines in `app.js`, because the description has
+ * to be written by whoever holds the data, and that is the builder. It runs
+ * after the chart initialises and after every update, so a summary follows a
+ * range change without anything having to remember to refresh it.
+ *
+ * `role="img"` and a plain label: a canvas with no role is an unlabelled
+ * graphic, which is why a screen reader announced nothing at all. Deliberately
+ * **not** `aria-live` — this is a description of a static picture, not an
+ * announcement, and making it live means it shouts on every range change.
+ *
+ * A builder that supplies no text still gets the role and a generic label, so a
+ * chart is never silently unlabelled; a test names the builder that did it.
+ */
+const a11yLabel = {
+  id: 'a11yLabel',
+  afterRender(chart, _args, opts) {
+    const el = chart.canvas;
+    if (!el) return;
+    el.setAttribute('role', 'img');
+    el.setAttribute('aria-label', opts?.text || 'Chart');
+  },
+};
+
+Chart.register(a11yLabel, crosshair, cashflowMarkers, dragSelection, tradeMarkers, watermark);
 
 /**
  * Stride-sample a set of parallel arrays down to at most `max` points, always
@@ -406,6 +433,15 @@ export function valueChart(ctx, { days, value, positionsValue, netExternal, pnl,
   }
 
   const opts = baseOptions(t);
+  opts.plugins.a11yLabel = {
+    text: describeSeries({
+      title: tr(includeCash ? 'Portfolio value including cash' : 'Value of the positions'),
+      days,
+      values: series,
+      fmt: fmtEurCents,
+      estimated,
+    }),
+  };
   opts.plugins.crosshair = { color: t.axis };
   opts.plugins.cashflowMarkers = { marks, inColor: t.pos, outColor: t.neg };
   opts.plugins.tradeMarkers = { marks: trades ?? [], color: t.muted };
@@ -488,6 +524,7 @@ export function valueChart(ctx, { days, value, positionsValue, netExternal, pnl,
 
 export function pnlChart(ctx, { labels, pnl, starts }, t) {
   const opts = baseOptions(t);
+  opts.plugins.a11yLabel = { text: describeBars({ title: tr('Result per period'), labels: starts ?? labels, values: pnl, fmt: fmtSigned }) };
   opts.interaction = { mode: 'index', intersect: false };
   opts.plugins.tooltip.callbacks = {
     title: (items) => starts[items[0].dataIndex] ?? labels[items[0].dataIndex],
@@ -522,6 +559,9 @@ export function pnlChart(ctx, { labels, pnl, starts }, t) {
 
 export function cumulativeChart(ctx, { labels, cumulative, starts, estimated }, t) {
   const opts = baseOptions(t);
+  opts.plugins.a11yLabel = {
+    text: describeSeries({ title: tr('Result, added up'), days: starts ?? labels, values: cumulative, fmt: fmtSigned, estimated }),
+  };
   opts.plugins.crosshair = { color: t.axis };
   opts.plugins.tooltip.callbacks = {
     title: (items) => starts[items[0].dataIndex] ?? labels[items[0].dataIndex],
@@ -555,6 +595,9 @@ export function cumulativeChart(ctx, { labels, cumulative, starts, estimated }, 
 // ---------------------------------------------------------------------------
 
 export function compositionChart(ctx, composition, t, colours) {
+  // The stack read at its final day: what the portfolio is made of *now*, which
+  // is the question a part-of-whole chart answers however many days it draws.
+  const a11yParts = composition.layers.map((l) => ({ name: l.label, value: l.values.at(-1) ?? 0 }));
   // `sampledDays` are the ISO days that survived downsampling; the tooltip
   // titles come from these, not from an index arithmetic guess.
   const { labels: sampledDays, seriesList } = downsample(
@@ -597,6 +640,10 @@ export function compositionChart(ctx, composition, t, colours) {
   };
   opts.plugins.tooltip.itemSort = (a, b) => b.parsed.y - a.parsed.y;
 
+  opts.plugins.a11yLabel = {
+    text: describeParts({ title: tr('What the portfolio is made of'), parts: a11yParts, fmt: fmtEurCents, max: 7 }),
+  };
+
   return new Chart(ctx, { type: 'line', data: { labels: sampledDays, datasets }, options: opts });
 }
 
@@ -606,6 +653,10 @@ export function compositionChart(ctx, composition, t, colours) {
 
 export function investedVsValueChart(ctx, { days, value, cumulativeDeposited }, t) {
   const opts = baseOptions(t);
+  opts.plugins.a11yLabel = {
+    text: `${describeSeries({ title: tr('Portfolio value'), days, values: value, fmt: fmtEurCents })} `
+      + describeSeries({ title: tr('Money paid in (net)'), days, values: cumulativeDeposited, fmt: fmtEurCents }),
+  };
   opts.plugins.legend.display = true;
   opts.plugins.crosshair = { color: t.axis };
   opts.scales.x.ticks.callback = dayTickFormatter(days);
@@ -656,6 +707,7 @@ export function investedVsValueChart(ctx, { days, value, cumulativeDeposited }, 
 
 export function depositChart(ctx, { labels, amounts }, t) {
   const opts = baseOptions(t);
+  opts.plugins.a11yLabel = { text: describeBars({ title: tr('Money in and out'), labels, values: amounts, fmt: fmtSigned }) };
   opts.plugins.tooltip.callbacks = {
     label: (item) => tr(item.parsed.y >= 0 ? 'Paid in: {v}' : 'Taken out: {v}', { v: fmtSigned(item.parsed.y) }),
   };
@@ -687,6 +739,9 @@ export function depositChart(ctx, { labels, amounts }, t) {
 
 export function dividendChart(ctx, rows, t) {
   const opts = baseOptions(t);
+  opts.plugins.a11yLabel = {
+    text: describeBars({ title: tr('Dividend per month'), labels: rows.map((x) => x.month), values: rows.map((x) => x.net), fmt: fmtEurCents }),
+  };
   opts.plugins.legend.display = true;
   opts.scales.y.stacked = true;
   opts.scales.x.stacked = true;
@@ -740,6 +795,14 @@ export function dividendChart(ctx, rows, t) {
 export function monthCompareChart(ctx, data, metric, t) {
   const money = metric === 'pnl';
   const opts = baseOptions(t);
+  opts.plugins.a11yLabel = {
+    text: describeBars({
+      title: tr('The same month, year on year'),
+      labels: data.labels ?? [],
+      values: (data.datasets?.[0]?.data) ?? [],
+      fmt: money ? fmtEurCents : (v) => `${v}%`,
+    }),
+  };
   opts.plugins.legend.display = true;
   opts.scales.y.grid.color = (c) => (c.tick.value === 0 ? t.axis : t.grid);
   opts.scales.y.ticks.callback = (v) => (money ? fmtEur(v) : `${v}%`);
@@ -780,6 +843,14 @@ export function monthCompareChart(ctx, data, metric, t) {
 // popup sparkline
 // ---------------------------------------------------------------------------
 
+/**
+ * The small shape beside the popup's figures, and on nothing else.
+ *
+ * `role="img"` with a direction and nothing more: every number this shape is
+ * about is already text on the same panel, so a summary repeating them would
+ * make a screen reader read the same four figures twice. What the picture adds
+ * is the direction, and that is what the label says.
+ */
 export function sparkline(ctx, values, t) {
   return new Chart(ctx, {
     type: 'line',
@@ -800,7 +871,20 @@ export function sparkline(ctx, values, t) {
       responsive: true,
       maintainAspectRatio: false,
       animation: false,
-      plugins: { legend: { display: false }, tooltip: { enabled: false } },
+      plugins: {
+        legend: { display: false },
+        tooltip: { enabled: false },
+        a11yLabel: {
+          text: (() => {
+            const xs = values.filter((v) => Number.isFinite(v));
+            if (xs.length < 2) return tr('The last 90 days: not enough data to draw a shape.');
+            const change = xs.at(-1) - xs[0];
+            return tr(change > 0 ? 'The last 90 days, ending higher than it started.'
+              : change < 0 ? 'The last 90 days, ending lower than it started.'
+                : 'The last 90 days, ending where it started.');
+          })(),
+        },
+      },
       scales: { x: { display: false }, y: { display: false } },
       elements: { line: { tension: 0 } },
     },
@@ -822,6 +906,9 @@ export function sparkline(ctx, values, t) {
  */
 export function holdingsPieChart(ctx, { labels, values, colours }, t) {
   const opts = baseOptions(t);
+  opts.plugins.a11yLabel = {
+    text: describeParts({ title: tr('What the portfolio is made of'), parts: labels.map((name, i) => ({ name, value: values[i] })), fmt: fmtEur }),
+  };
   delete opts.scales;
   opts.plugins.legend.display = true;
   opts.plugins.legend.position = 'right';
@@ -868,6 +955,16 @@ export function holdingsPieChart(ctx, { labels, values, colours }, t) {
  */
 export function candleChart(ctx, data, t) {
   const opts = baseOptions(t);
+  // A candle is four numbers a period; the close is the one a summary is about,
+  // and it is the same series the line view draws.
+  opts.plugins.a11yLabel = {
+    text: describeBars({
+      title: tr('Result per period, open to close'),
+      labels: data.labels ?? [],
+      values: (data.candles ?? []).map((c) => c.close),
+      fmt: fmtSigned,
+    }),
+  };
   opts.scales.y.grid.color = (c) => (c.tick.value === 0 ? t.axis : t.grid);
   opts.scales.y.ticks.callback = (v) => fmtEur(v);
   opts.plugins.tooltip.callbacks = {
@@ -929,6 +1026,7 @@ export function candleChart(ctx, data, t) {
  */
 export function moversChart(ctx, { labels, values }, t) {
   const opts = baseOptions(t);
+  opts.plugins.a11yLabel = { text: describeBars({ title: tr('What moved'), labels, values, fmt: fmtSigned }) };
   opts.indexAxis = 'y';
   opts.plugins.tooltip.callbacks = { label: (item) => fmtSigned(item.parsed.x) };
   // The zero line is what separates gain from loss; colour is the second
@@ -977,8 +1075,11 @@ export function moversChart(ctx, { labels, values }, t) {
  *
  * No deposits line on either, because it means nothing on either.
  */
-export function singleSeriesChart(ctx, { days, values }, t, { colour, format }) {
+export function singleSeriesChart(ctx, { days, values }, t, { colour, format, title = 'Chart' }) {
   const opts = baseOptions(t);
+  // `format` rather than a money formatter: this builder draws whatever its
+  // caller hands it, and one of its two callers is measured in points.
+  opts.plugins.a11yLabel = { text: describeSeries({ title: tr(title), days, values, fmt: format }) };
   opts.scales.x.ticks.callback = dayTickFormatter(days);
   opts.scales.y.ticks.callback = (v) => format(v);
   opts.plugins.tooltip.callbacks = { label: (item) => format(item.parsed.y) };
@@ -1012,6 +1113,9 @@ export function singleSeriesChart(ctx, { days, values }, t, { colour, format }) 
  */
 export function cashChart(ctx, { days, cash }, t) {
   const opts = baseOptions(t);
+  opts.plugins.a11yLabel = {
+    text: describeSeries({ title: tr('Uninvested cash over time'), days, values: cash, fmt: fmtEurCents }),
+  };
   opts.plugins.tooltip.callbacks = { label: (item) => fmtEur(item.parsed.y) };
 
   return new Chart(ctx, {
@@ -1047,6 +1151,9 @@ export function cashChart(ctx, { days, cash }, t) {
  */
 export function currencyChart(ctx, { labels, values, colours }, t) {
   const opts = baseOptions(t);
+  opts.plugins.a11yLabel = {
+    text: describeParts({ title: tr('Currency exposure'), parts: labels.map((name, i) => ({ name, value: values[i] })), fmt: fmtEur }),
+  };
   delete opts.scales;
   opts.plugins.legend.display = true;
   opts.plugins.legend.position = 'right';
@@ -1080,6 +1187,21 @@ export function currencyChart(ctx, { labels, values, colours }, t) {
  */
 export function projectionChart(ctx, { days, value, future, bad, expected, good, labels }, t) {
   const opts = baseOptions(t);
+  /**
+   * Two sentences, because this chart is two things: what happened, and three
+   * scenarios that have not. Saying so in words is the same honesty the caption
+   * carries on screen — a reader who cannot see the dashed lines has no other
+   * way to learn that half of this picture is not history.
+   */
+  opts.plugins.a11yLabel = {
+    text: `${describeSeries({ title: tr('Portfolio value'), days, values: value, fmt: fmtEurCents })} `
+      + tr('Then three scenarios, not history: {bad}, {expected}, {good} at {when}.', {
+        bad: fmtEurCents(bad?.at?.(-1) ?? 0),
+        expected: fmtEurCents(expected?.at?.(-1) ?? 0),
+        good: fmtEurCents(good?.at?.(-1) ?? 0),
+        when: (labels ?? future ?? []).at?.(-1) ?? '?',
+      }),
+  };
   opts.plugins.legend.display = true;
   opts.plugins.legend.position = 'bottom';
   opts.plugins.tooltip.callbacks = { label: (i) => `${i.dataset.label}: ${fmtEur(i.parsed.y)}` };

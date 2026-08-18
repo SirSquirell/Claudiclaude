@@ -2388,7 +2388,14 @@ function renderOptimismCharts(r, ends, atEnds, cheerful, t) {
       t,
       // The gain colour whatever it contains, which is the joke keeping a
       // straight face: nothing about the drawing admits what it is measuring.
-      { colour: t.pos, format: (v) => `${Math.round(v).toLocaleString('nl-NL')} pts` },
+      {
+        colour: t.pos,
+        format: (v) => `${Math.round(v).toLocaleString('nl-NL')} pts`,
+        // The label says what the stamp on the chart says. A screen reader
+        // getting the joke figures without the disclaimer would be the one way
+        // Optimism Mode could actually mislead somebody.
+        title: 'Belief, NOT THE REAL NUMBERS',
+      },
     );
     // The baseline note is about a euro axis and this one is in points.
     const note = $('#value-baseline');
@@ -2401,7 +2408,7 @@ function renderOptimismCharts(r, ends, atEnds, cheerful, t) {
       $('#c-invested'),
       { days, values: ends.map((i) => upside[i]) },
       t,
-      { colour: t.pos, format: (v) => fmtEurCents(v) },
+      { colour: t.pos, format: (v) => fmtEurCents(v), title: 'What it still owes you, NOT THE REAL NUMBERS' },
     );
   }
 }
