@@ -6,10 +6,22 @@ a bad place to find out *where things stand*. This is the index.
 **Last updated at 0.48.0.** It had been stale since 0.21.0 once, which is fifteen
 releases — if it looks stale again, trust the CHANGELOG and fix this.
 
-## Unattended build — US-39 … US-45, on `claude/multi-broker-build`
+## Unattended build — US-39 … US-45, on `main`
 
 `docs/US-39-45-BUILD-ORDER.md` is the contract: one story per run, in the order that table gives,
-not the brief's numbering.
+not the brief's numbering. **Its "never push to `main`" rule is superseded** by the branch policy the
+owner set on 2026-08-18 (CLAUDE.md, *Branches*): `main` and one `poc`, nothing else. The rule it
+replaces was about not landing half a story unreviewed, and *one story per run, green tests, its own
+commit* is what actually delivers that.
+
+**Why story 2 has not started, stated once so nobody re-derives it.** US-41 namespaces every stored
+row by broker, and its only consumer is a second broker. That broker cannot be built: US-40's
+transactions endpoint, its dividend vocabulary (58 types) and its cash-movement wording are all
+unmeasured, and the build order's own stop condition for it is *"an endpoint needs anything the R1
+probe did not send"*. Building the namespacing first would be an abstraction with one implementation
+that does not exist yet — rule 8, the same reason US-23 and US-24 are deferred. **What unblocks the
+sequence is a Network-tab capture of a logged-in Trading 212 account**, and nothing in this repository
+can produce it.
 
 | # | Story | State |
 |---|---|---|
@@ -151,13 +163,12 @@ Complete as of the 2026-08-18 consolidation — every open story number appears 
 
 | Story | State | Waiting on |
 |---|---|---|
-| US-80 | The test suite spends ~31 s of its 55 s asleep in real `setTimeout` backoffs — `mock.timers` fakes the clock without touching `degiro.js` | Nothing |
 | US-35b (tiles) | The replacement Optimism tiles ("847 days of unwavering belief") — the charts half went via US-35c/US-35d, the tiles were never built | A decision that the joke is still wanted |
 | US-26 | Instrument coverage declared per broker — verified / assumed, as a vocabulary | More relevant once a second broker lands |
 | — | **A price series was rescaled by factor 4,369**, which is not a split ratio. Investigation: one factor across two regimes, or a vwd id that changed instrument. Do not tune the threshold | Nothing |
 | US-37 | **Trading 212 R1 — PASS, measured 2026-08-13.** Page 200/401, logged out 401, and the service worker `PASS_JSON` with only an `Accept` header — so no device identifier is required either | Nothing. **US-39–US-45 are unblocked** |
 | US-44 | **Trading 212 renders through the existing pipeline** — no separate dashboard | Gated on US-37 and the data gates. Addendum body not yet received |
-| US-39–43 | Multi-broker delivery sequence from an external brief | All gated on US-37 |
+| US-39–43 | Multi-broker delivery sequence from an external brief | **Not on US-37 — that passed.** Gated on a Network-tab capture of a logged-in Trading 212 account (transactions, dividends, cash wording are all `hypothesis`), and US-41 is additionally held by rule 8 until a second broker exists. See *Unattended build* above |
 | US-34 | **Trading 212 — the spike is finished.** R1 through R5 are all answered: the price history is public and needs no account (daily candles to 2017), and R1 passed on 2026-08-12/13. Nothing in this row is open | Nothing. What is left is the *build* — US-39–US-45 — and the account **payload shapes**, which are still marked `hypothesis` in `tools/trading212-r1/spike.js` because no one has seen them in a Network tab |
 | US-36 | **Interactive Brokers — phase 1 has begun.** One DevTools capture shows an ordinary session-backed portal: its own bundle, a 25 kB portfolio payload, a repeating `tickle` keep-alive and a `202` long-poll. See [MULTI-BROKER.md §9](MULTI-BROKER.md) | **The decisive test**: one portfolio request re-run with `credentials: 'include'` and with `'omit'`, both statuses. That decides R1 and nothing else does |
 | — | An architecture report + multi-broker proposal, for an external agent. Brief at `docs/COPILOT-ARCHITECTURE-BRIEF.md` | Nothing. Hand it over with the repo |
