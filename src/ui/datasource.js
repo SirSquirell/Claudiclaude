@@ -152,7 +152,31 @@ export async function loadDemo() {
    * CLAUDE.md rule 7: no value copied out of a real account enters the fixtures,
    * because the value on screen is the one that gets pasted.
    */
-  return { result, meta: { ...meta, fieldStats: getFieldStats() }, counts, mode: 'demo', live: update, transactions, products, accountName: 'Demo Belegger' };
+  /**
+   * `?frozen=1` shows the demo as a disconnected account — US-79.
+   *
+   * A demo-only switch in the demo loader, and it has a caller: the browser pass.
+   * A frozen account cannot be produced in `npm run demo` any other way — it
+   * needs an extension, a real session and then the deliberate loss of it — so
+   * without this the one state whose whole point is *what the reader sees* would
+   * be the one state nobody could look at. US-82 is a whole story about a class
+   * of position that could not be seen; this is the same argument, one screen
+   * over.
+   */
+  const frozen = new URLSearchParams(location.search).has('frozen');
+  return {
+    result,
+    meta: { ...meta, fieldStats: getFieldStats() },
+    counts,
+    mode: 'demo',
+    live: update,
+    transactions,
+    products,
+    accountName: 'Demo Belegger',
+    disconnected: frozen,
+    // The fixtures' own last day, so the frozen date is a date and not "now".
+    lastSyncAt: frozen ? Date.parse(`${meta.today}T18:00:00Z`) : undefined,
+  };
 }
 
 // --- extension -------------------------------------------------------------
@@ -191,7 +215,7 @@ const DIAGNOSTIC_META = {
 export async function loadFromExtension() {
   const store = await import('../lib/store.js');
   const metaKeys = Object.keys(DIAGNOSTIC_META);
-  const [rawTx, rawCash, rawProducts, prices, liveTotal, live, accountName, ...metaValues] = await Promise.all([
+  const [rawTx, rawCash, rawProducts, prices, liveTotal, live, accountName, disconnected, disconnectedAt, ...metaValues] = await Promise.all([
     store.getAll('transactions'),
     store.getAll('cashflows'),
     store.getAll('products'),
@@ -210,6 +234,10 @@ export async function loadFromExtension() {
      * as its own field that only the share sheet reads.
      */
     store.getMeta('displayName', ''),
+    // US-79. Two rows the page needs before it draws anything: a frozen account
+    // states its date on every figure, and it must not read as today's.
+    store.getMeta('disconnected', false),
+    store.getMeta('disconnectedAt', null),
     ...metaKeys.map((k) => store.getMeta(k, DIAGNOSTIC_META[k])),
   ]);
   const meta = Object.fromEntries(metaKeys.map((k, i) => [k, metaValues[i]]));
@@ -229,7 +257,7 @@ export async function loadFromExtension() {
   };
 
   if (!rawTx.length && !rawCash.length) {
-    return { result: null, mode: 'extension', empty: true, accountName, lastSyncAt, lastError, urls, ...diagnosticContext };
+    return { result: null, mode: 'extension', empty: true, accountName, lastSyncAt, lastError, urls, disconnected, disconnectedAt, ...diagnosticContext };
   }
 
   const products = Object.fromEntries(rawProducts.map((p) => [p.id, p]));
@@ -258,7 +286,7 @@ export async function loadFromExtension() {
   // engine result: `sync.js` caches that result, and a few thousand rows of
   // something no chart reads would be carried through every recompute for the
   // sake of one table.
-  return { result, mode: 'extension', live, accountName, lastSyncAt, lastError, urls, transactions: rawTx, products, ...diagnosticContext };
+  return { result, mode: 'extension', live, accountName, lastSyncAt, lastError, urls, disconnected, disconnectedAt, transactions: rawTx, products, ...diagnosticContext };
 }
 
 export async function load() {

@@ -46,6 +46,17 @@
                 <div class="group" id="theme-group" role="group" aria-label="Appearance"></div>
               </div>
               <div class="menu-sep"></div>
+              <!--
+                US-79. Beside Wipe & resync and deliberately *not* styled like it:
+                this one destroys nothing. The "i" is the same control the tiles
+                carry, because "what does disconnect do" is a question somebody
+                asks before pressing it and a changelog is not where they will look.
+                Its text is built in JS so it goes through `t()`.
+              -->
+              <div class="menu-row menu-row-action">
+                <button id="btn-disconnect" type="button" role="menuitem" data-i18n>Disconnect…</button>
+                <button id="btn-disconnect-tip" type="button" class="info" aria-label="What disconnect does">i</button>
+              </div>
               <button id="btn-wipe" type="button" role="menuitem" class="danger" data-i18n>Wipe &amp; resync…</button>
             </div>
           </div>

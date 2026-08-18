@@ -5011,7 +5011,7 @@ reaching the fifth shape with Enter picking it.
 
 ---
 
-## US-79 — Disconnect and freeze: throw the token away, keep the numbers *(new, refined)*
+## US-79 — Disconnect and freeze: throw the token away, keep the numbers *(built)*
 
 *Refined on `claude/new-user-story-iu926r` as US-66; renumbered here — see the note above on how the numbers collided.*
 
@@ -5132,6 +5132,37 @@ If frozen mode needs its own copy of the numbers — a snapshot written into a s
 input — stop. That is rule 2, and it is unnecessary: the raw stores plus a pure recompute already are
 the frozen record. If instead it turns out a logout is only meaningful by invalidating the session at
 DEGIRO, drop the story: that is authenticating in reverse and it belongs on DEGIRO's own site.
+
+### Built, and the freeze cost nothing — as predicted, for the stated reason
+
+No snapshot, no second copy of any number: `disconnectAccount()` writes one flag and deletes
+`IDENTIFYING_META`, and the page renders from the same raw stores it always did. Rule 2 was the
+prediction and it held.
+
+Four notes for whoever touches this next:
+
+1. **The two halves ship in different modules, and both are required.** `sync.js` forgets the
+   identifiers (it owns the database); `sw.js` clears the alarm (it owns the alarms). Without the
+   second, the next firing calls `resolveSession`, re-reads `/pa/secure/client` and re-caches everything
+   the first deleted — a disconnect with an hour's half-life. There is a test for each.
+2. **`scheduled: true` marks a sync nobody asked for.** The alarm and the DEGIRO-tab listener pass it
+   and a disconnected account refuses them; anything else clears the flag and proceeds, so *reconnect*
+   is the ordinary first-run path rather than a second one. A reconnect with its own path would be a
+   second way to authenticate, and rule 9 allows zero.
+3. **`disconnected` and `disconnectedAt` had to be classified before the suite would go green** —
+   `store.test.js` fails on any meta key that is neither exportable nor identifying. They are
+   exportable: the first question a frozen account's bug report has to answer is why nothing is syncing.
+   That guard is doing precisely the job rule 7 gave it.
+4. **Trap 6 turned out to be already handled.** `displayName` goes, and nothing renders the account name
+   in the page header — `ownerLine` collapses an empty name to *no line at all*, which is the required
+   behaviour rather than the string `null`. Nothing to fix; worth recording so nobody goes looking.
+
+**`npm run demo` gained `?frozen=1`.** A frozen account cannot otherwise be produced without an
+extension, a real session and the deliberate loss of it — so the one state whose entire point is *what
+the reader sees* would have been the one state no browser pass could look at. Verified through it: the
+pinned banner (at `info`, not `error` — this is a state somebody chose, not a failure), the rail row,
+the dated verdict keeping its colour, all seven sections still drawing their charts and tables from the
+cache, and the three-sentence tip on hover *and* focus, in both languages.
 
 ---
 

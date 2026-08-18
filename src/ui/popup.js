@@ -243,13 +243,27 @@ async function paint(r, status = {}) {
   const week = r.pnl.slice(Math.max(0, last - 6)).reduce((a, b) => a + b, 0);
   const month = r.pnl.slice(Math.max(0, last - 29)).reduce((a, b) => a + b, 0);
 
+  /**
+   * US-79 — the popup is where a reader checks, so the frozen state is stated
+   * here too.
+   *
+   * The button stays in the app's More menu (this file's own defect was that it
+   * had no `t()` at all until US-60), but a popup that says "Synced at 09:12" over
+   * figures that stopped updating a week ago is the lie the story exists to
+   * prevent. The date is the last sync's, because what matters is the age of the
+   * numbers rather than the age of the decision.
+   */
   ok(status.demo
     ? t('Demo data')
-    : status.lastSyncAt
-      // The time is nl-NL throughout, deliberately: that is a locale for a clock
-      // rather than a language for prose. See the note at the top of i18n.js.
-      ? t('Synced at {time}', { time: new Date(status.lastSyncAt).toLocaleTimeString('nl-NL') })
-      : t('Not synced yet'));
+    : status.disconnected
+      ? t('Disconnected · frozen at {time}', {
+          time: status.lastSyncAt ? new Date(status.lastSyncAt).toLocaleString('nl-NL') : t('an unknown date'),
+        })
+      : status.lastSyncAt
+        // The time is nl-NL throughout, deliberately: that is a locale for a clock
+        // rather than a language for prose. See the note at the top of i18n.js.
+        ? t('Synced at {time}', { time: new Date(status.lastSyncAt).toLocaleTimeString('nl-NL') })
+        : t('Not synced yet'));
 
   const sign = (n) => (n >= 0 ? 'up' : 'down');
   $('#tiles').innerHTML = `

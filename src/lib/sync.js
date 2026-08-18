@@ -21,6 +21,8 @@ import { addDays, splitWindows, subMonths, todayISO } from './dates.js';
 import { getFieldStats, parseCashMovements, parseProducts, parseTransactions, parseUpdate, resetFieldStats } from './parse.js';
 import { SESSION_MESSAGES, checkSession, resolveSession } from './session.js';
 import {
+  IDENTIFYING_META,
+  delMeta,
   getAll,
   getDerived,
   getMeta,
@@ -78,7 +80,10 @@ export async function recompute({ liveTotal = null } = {}) {
  * Run a full sync. Safe to call repeatedly: concurrent calls share one run, and
  * a run inside the cooldown window is a no-op unless `force` is set.
  *
- * @param {{force?: boolean, onProgress?: (step: {phase: string, message: string, pct: number}) => void}} opts
+ * `scheduled: true` marks a run nobody asked for — the alarm and the DEGIRO-tab
+ * listener — which is what a disconnected account refuses (US-79).
+ *
+ * @param {{force?: boolean, scheduled?: boolean, onProgress?: (step: {phase: string, message: string, pct: number}) => void}} opts
  */
 export async function runSync(opts = {}) {
   if (running) return running;
@@ -87,6 +92,45 @@ export async function runSync(opts = {}) {
   });
   return running;
 }
+
+/**
+ * Disconnect: forget who this account is, keep everything it did. US-79.
+ *
+ * The words matter here, because the request that produced this story said
+ * *"wipe"* and then said *"but the figures freeze"*, which is the opposite of
+ * what `wipeAndResync` below does. A later session reading "wipe" in a chat log
+ * and pointing it at `wipeAll` would ship exactly the wrong feature. So:
+ *
+ *  - **Nothing is deleted from the raw or derived stores.** Freezing costs
+ *    nothing, and that is rule 2 rather than luck: the raw responses are the
+ *    truth, every figure on screen is a pure function of them, and neither needs
+ *    the network to render. A disconnected app is the demo path with real data.
+ *  - **What goes is `IDENTIFYING_META`** — the list `store.js` already keeps for
+ *    exactly this classification, so a key added next month is covered on the day
+ *    it is added rather than when somebody remembers this function. Writing the
+ *    four names out again here is how the 0.10.0 export leak happened (rule 7).
+ *  - **DEGIRO's own `JSESSIONID` is not touched, because it was never ours.** It
+ *    is read from the cookie jar per request and stored nowhere. Deleting it
+ *    would log the reader out of their own trading tab, which is the mirror image
+ *    of rule 9.
+ *
+ * The flag is the other half: without it the next alarm calls `resolveSession`,
+ * re-reads `/pa/secure/client` and re-caches everything this just forgot, so a
+ * disconnect would have an hour's half-life. The caller clears the alarm too —
+ * that is `sw.js`, which owns the alarms.
+ */
+export async function disconnectAccount() {
+  // Same reason as the wipe below: a sync in flight is about to write the very
+  // identifiers we are removing.
+  if (running) await running.catch(() => {});
+  await setMeta('disconnected', true);
+  await setMeta('disconnectedAt', new Date().toISOString());
+  await delMeta(IDENTIFYING_META);
+  return { disconnected: true, forgotten: [...IDENTIFYING_META] };
+}
+
+/** Is the account disconnected? Read per call; it is one row. */
+export const isDisconnected = async () => (await getMeta('disconnected', false)) === true;
 
 /**
  * Wipe every store and start over.
@@ -289,7 +333,24 @@ function explain(reason, detail) {
   return extra && extra !== reason ? `${base} (${extra})` : base;
 }
 
-async function doSync({ force = false, onProgress = () => {} } = {}) {
+async function doSync({ force = false, scheduled = false, onProgress = () => {} } = {}) {
+  /**
+   * US-79 AC3. A disconnected account reaches the network for exactly one
+   * reason: the reader pressed Sync.
+   *
+   * So the two callers that are not a person — the periodic alarm and the
+   * DEGIRO-tab listener — pass `scheduled` and stop here, and any other sync is
+   * a reconnect: the flag goes, `resolveSession` finds no cached identifiers and
+   * fetches them exactly as it does on a first run. No second code path, which
+   * is the point: a "reconnect" that had its own path would be a second way to
+   * authenticate, and there is only supposed to be one.
+   */
+  if (scheduled) {
+    if (await isDisconnected()) return { ok: true, skipped: 'disconnected' };
+  } else {
+    await setMeta('disconnected', false);
+  }
+
   const startedAt = Date.now();
   const log = [];
 
@@ -626,13 +687,15 @@ async function doSync({ force = false, onProgress = () => {} } = {}) {
  * progress poller asks for this several times a second.
  */
 export async function getStatus({ includeDerived = false } = {}) {
-  const [derived, lastSyncAt, lastError, syncState, syncLog, live] = await Promise.all([
+  const [derived, lastSyncAt, lastError, syncState, syncLog, live, disconnected, disconnectedAt] = await Promise.all([
     includeDerived ? getDerived() : Promise.resolve(undefined),
     getMeta('lastSyncAt', 0),
     getMeta('lastError', null),
     getMeta('syncState', null),
     getMeta('syncLog', []),
     getMeta('liveSnapshot', null),
+    getMeta('disconnected', false),
+    getMeta('disconnectedAt', null),
   ]);
   return {
     derived,
@@ -643,6 +706,10 @@ export async function getStatus({ includeDerived = false } = {}) {
     syncLog,
     live,
     syncing: running != null,
+    // US-79: both UIs need to say "frozen, as of this date" rather than showing
+    // figures that read as today's.
+    disconnected,
+    disconnectedAt,
     steps: SYNC_STEPS,
   };
 }

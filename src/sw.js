@@ -11,7 +11,7 @@
 
 import { SYNC } from './lib/config.js';
 import { localInfo, runDiagnostics } from './lib/diagnose.js';
-import { getStatus, recompute, runSync, wipeAndResync } from './lib/sync.js';
+import { disconnectAccount, getStatus, recompute, runSync, wipeAndResync } from './lib/sync.js';
 import { exportEverything } from './lib/store.js';
 import { recordError } from './lib/errorstore.js';
 
@@ -46,7 +46,10 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   // and which `runSync` already reports into meta for the popup to show. What
   // it does *not* cover is the throw that gets past `runSync` itself — and
   // that was being discarded here, in the one place nobody is watching.
-  runSync().catch((err) => recordError('alarm-sync', err));
+  // `scheduled`: nobody asked for this one, so a disconnected account refuses it
+  // rather than quietly re-fetching the identifiers it was told to forget
+  // (US-79).
+  runSync({ scheduled: true }).catch((err) => recordError('alarm-sync', err));
 });
 
 /**
@@ -57,7 +60,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 chrome.tabs?.onUpdated.addListener((_tabId, changeInfo, tab) => {
   if (changeInfo.status !== 'complete') return;
   if (!tab.url?.startsWith('https://trader.degiro.nl/')) return;
-  runSync().catch((err) => recordError('tab-sync', err));
+  runSync({ scheduled: true }).catch((err) => recordError('tab-sync', err));
 });
 
 /** Message API used by the popup and the full page. */
@@ -79,8 +82,17 @@ async function handle(msg) {
     case 'status':
       return getStatus({ includeDerived: msg.includeDerived === true });
 
-    case 'sync':
+    case 'sync': {
+      /**
+       * A sync somebody pressed is also the way back from a disconnect (US-79):
+       * `doSync` clears the flag, `resolveSession` finds no cached identifiers and
+       * fetches them exactly as on a first run. The alarm has to be re-armed here
+       * because disconnecting cleared it, and re-arming is idempotent — the
+       * install and startup handlers above create the same one.
+       */
+      chrome.alarms.create(SYNC.alarmName, { periodInMinutes: SYNC.alarmPeriodMinutes });
       return runSync({ force: msg.force === true });
+    }
 
     case 'diagnose':
       return { ...(await runDiagnostics()), local: await localInfo() };
@@ -96,6 +108,22 @@ async function handle(msg) {
       // separate round-trips, or a sync can start between them and be wiped
       // halfway through.
       return wipeAndResync();
+
+    case 'disconnect':
+      /**
+       * Forget the account, keep the figures, and stop syncing by itself.
+       *
+       * Two halves, and they ship together or the feature is theatre: the
+       * identifiers go (`sync.js`, which owns the database), and the periodic
+       * alarm goes (here, because the worker owns the alarms). Without the second
+       * one the next firing calls `resolveSession` and re-caches everything the
+       * first one deleted, so a disconnect would last an hour.
+       *
+       * DEGIRO's own cookie is untouched. This extension has never held it and
+       * removing it would log the reader out of their own trading tab.
+       */
+      await chrome.alarms.clear(SYNC.alarmName);
+      return disconnectAccount();
 
     case 'openApp':
       await chrome.tabs.create({ url: chrome.runtime.getURL('src/ui/app.html') });

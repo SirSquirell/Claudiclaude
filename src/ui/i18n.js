@@ -590,6 +590,28 @@ const DICT = {
     'Reconstructed total is exactly {total}. DEGIRO sent no account total this sync, so this is checked against the sum of the position values and the cash balance it did send \u2014 an independent check, but one that cannot catch an error already in DEGIRO\u2019s own position values.':
       'Het gereconstrueerde totaal is precies {total}. DEGIRO gaf bij deze synchronisatie geen rekeningtotaal, dus dit is getoetst aan de som van de positiewaarden en het kassaldo die wél meekwamen \u2014 een onafhankelijke controle, maar \u00e9\u00e9n die een fout die al in DEGIRO\u2019s eigen positiewaarden zit niet kan opmerken.',
     'Reconstructed total is exactly {total}.': 'Het gereconstrueerde totaal is precies {total}.',
+    // --- US-79: disconnect and freeze ---
+    'Disconnect…': 'Verbinding verbreken…',
+    'What disconnect does': 'Wat verbinding verbreken doet',
+    'Disconnected': 'Verbinding verbroken',
+    'Disconnected · frozen': 'Verbinding verbroken · bevroren',
+    'Disconnected · frozen at {time}': 'Verbinding verbroken · bevroren op {time}',
+    'an unknown date': 'een onbekende datum',
+    'Disconnect this account? The account number DEGIRO gave us is forgotten and syncing stops. Your history stays on this computer and keeps showing the figures from the last sync. You stay logged in at DEGIRO — log out there if you want that too.':
+      'Verbinding met deze rekening verbreken? Het rekeningnummer dat DEGIRO ons gaf wordt vergeten en het synchroniseren stopt. Je historie blijft op deze computer staan en blijft de cijfers van de laatste synchronisatie tonen. Je blijft ingelogd bij DEGIRO — log daar uit als je dat ook wilt.',
+    'This account is disconnected: the account number is forgotten, nothing is being fetched, and every figure below is frozen as it stood on {date}. Press Sync now to reconnect — you are still logged in at DEGIRO.':
+      'De verbinding met deze rekening is verbroken: het rekeningnummer is vergeten, er wordt niets opgehaald en elk cijfer hieronder staat stil zoals het op {date} was. Druk op Nu synchroniseren om opnieuw te verbinden — je bent nog steeds ingelogd bij DEGIRO.',
+    'Checked at the last sync, on {date}; nothing has been checked since.':
+      'Gecontroleerd bij de laatste synchronisatie, op {date}; sindsdien is er niets gecontroleerd.',
+    'How it works. The extension uses the DEGIRO session your own browser already has, and remembers the account number DEGIRO hands back. It never sees a password.':
+      'Hoe het werkt. De extensie gebruikt de DEGIRO-sessie die je browser zelf al heeft, en onthoudt het rekeningnummer dat DEGIRO teruggeeft. Ze ziet nooit een wachtwoord.',
+    'Disconnect forgets that account number and stops syncing by itself.':
+      'Verbinding verbreken vergeet dat rekeningnummer en stopt met zelf synchroniseren.',
+    'It does not delete your history — the figures stay, frozen at the last sync — and it does not log you out of DEGIRO.':
+      'Het verwijdert je historie niet — de cijfers blijven staan, bevroren op de laatste synchronisatie — en het logt je niet uit bij DEGIRO.',
+    'Disconnected. The figures below are frozen at the last sync; press Sync now to reconnect.':
+      'Verbinding verbroken. De cijfers hieronder staan stil op de laatste synchronisatie; druk op Nu synchroniseren om opnieuw te verbinden.',
+    'Could not disconnect: {msg}': 'Verbinding verbreken lukte niet: {msg}',
     'Total does not match DEGIRO': 'Totaal komt niet overeen met DEGIRO',
     // US-81: a failing check says which anchor it failed against.
     'DEGIRO sent no account total this sync, so this is compared against the sum of the position values and the cash balance it did send. If that cash figure is not the whole balance, the difference is in the comparison rather than in your history — send the bug report, it now says how the cash splits.':

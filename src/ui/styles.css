@@ -596,6 +596,29 @@ button.primary:hover {
   flex-wrap: wrap;
 }
 
+/*
+ * US-79 — a menu *item* with an "i" beside it, rather than a row of controls.
+ *
+ * The action has to keep looking like the other menu items (full width, same
+ * padding, same hover) while the explanation sits at its end. `flex-wrap` is off
+ * here on purpose: a wrapped "i" under the label reads as a second item.
+ */
+.menu-row-action {
+  gap: 4px;
+  padding: 0;
+  flex-wrap: nowrap;
+}
+
+.menu-row-action > [role='menuitem'] {
+  flex: 1 1 auto;
+  text-align: left;
+}
+
+.menu-row-action > .info {
+  flex: 0 0 auto;
+  margin-right: 0.5rem;
+}
+
 .menu-label {
   font-size: 0.6875rem;
   color: var(--text-muted);
@@ -1470,9 +1493,10 @@ label.check {
   color: var(--text-secondary);
 }
 
-/* --- the "i" on a tile, and what it says --------------------------------- */
+/* --- the "i" on a tile (and, since US-79, in the menu) -------------------- */
 
-.tile .info {
+.tile .info,
+.menu .info {
   /* Reset the pill button: this is a marker, not an action. */
   all: unset;
   cursor: help;
@@ -1493,12 +1517,15 @@ label.check {
 }
 
 .tile .info:hover,
-.tile .info:focus-visible {
+.tile .info:focus-visible,
+.menu .info:hover,
+.menu .info:focus-visible {
   color: var(--text-primary);
   border-color: var(--text-muted);
 }
 
-.tile .info:focus-visible {
+.tile .info:focus-visible,
+.menu .info:focus-visible {
   outline: 2px solid var(--series-1);
   outline-offset: 2px;
 }

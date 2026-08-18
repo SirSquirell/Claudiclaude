@@ -183,6 +183,25 @@ export async function setMeta(key, value) {
   await put('meta', { key, value, updatedAt: new Date().toISOString() });
 }
 
+/**
+ * Delete meta rows by key. US-79's disconnect, and nothing else so far.
+ *
+ * A real delete rather than `setMeta(key, null)`: a row holding `null` is still a
+ * row, and "the account number is not stored" has to mean the key is gone — that
+ * is what the test asserts and what somebody reading the database would check.
+ * One transaction, so a disconnect cannot half-happen.
+ */
+export async function delMeta(keys) {
+  const list = Array.isArray(keys) ? keys : [keys];
+  if (!list.length) return 0;
+  const db = await openDb();
+  const { t, done } = tx(db, ['meta'], 'readwrite');
+  const store = t.objectStore('meta');
+  for (const key of list) store.delete(key);
+  await done;
+  return list.length;
+}
+
 // --- derived cache ---------------------------------------------------------
 
 export async function getDerived() {
@@ -294,6 +313,16 @@ export const EXPORTABLE_META = [
   // it explicitly — and this is the third: a key nobody classified does not
   // leave, whatever it holds.
   'liveTotalFields',
+  /**
+   * US-79. A boolean and a timestamp: "this account was disconnected, and when".
+   *
+   * Exportable rather than identifying, and it earns the place — the first
+   * question a frozen account's bug report has to answer is *why nothing is
+   * syncing*, and without this the answer looks like a broken alarm. Neither
+   * value says anything about who the holder is.
+   */
+  'disconnected',
+  'disconnectedAt',
   'missingPriceSeries',
   // Counts and reasons only -- no row, no amount, no description. See parse.js.
   // Dates and HTTP statuses only.

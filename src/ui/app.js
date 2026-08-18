@@ -1601,6 +1601,12 @@ function renderRailState(data, r) {
         ? new Date(data.lastSyncAt).toLocaleString('nl-NL')
         : tr('Not synced yet');
   rows.push(`<div class="row"><span class="dot"></span><span>${esc(synced)}</span></div>`);
+  // US-79: the rail is where a reader checks what state this is in, so the frozen
+  // state belongs here as well as in the banner — and above the verdict, because
+  // it dates it.
+  if (data.disconnected) {
+    rows.push(`<div class="row"><span class="dot"></span><span>${esc(tr('Disconnected · frozen'))}</span></div>`);
+  }
 
   if (r.reconciliation) {
     const ok = r.reconciliation.ok === true;
@@ -1910,6 +1916,53 @@ function wireActions() {
     }
   });
 
+  /**
+   * US-79 — disconnect: forget the account, keep the figures.
+   *
+   * The confirm states all three things, because each is a thing a reader could
+   * reasonably fear: what is forgotten, that the numbers stay and stop updating,
+   * and that this does not log them out of DEGIRO. It is not `class="danger"` and
+   * it does not say "delete", because nothing is deleted — the raw responses stay
+   * and every figure is recomputed from them.
+   */
+  $('#btn-disconnect').addEventListener('click', async (e) => {
+    if (demo || !inExtension) {
+      banner('info', 'Nothing stored in demo mode.');
+      return;
+    }
+    if (!confirm(tr('Disconnect this account? The account number DEGIRO gave us is forgotten and syncing stops. Your history stays on this computer and keeps showing the figures from the last sync. You stay logged in at DEGIRO — log out there if you want that too.'))) return;
+    const btn = e.target;
+    btn.disabled = true;
+    try {
+      await send({ type: 'disconnect' });
+      // Reload rather than patch the page: everything below reads `data`, and the
+      // frozen state is a property of the data. One path, and it is the same one
+      // the first render takes.
+      await refresh();
+      // `banner()` does not translate on its own — it takes a string and prints
+      // it — so these go through `tr()` here, which is also what makes
+      // `missing()` count them.
+      banner('info', tr('Disconnected. The figures below are frozen at the last sync; press Sync now to reconnect.'));
+    } catch (err) {
+      banner('error', tr('Could not disconnect: {msg}', { msg: String(err?.message ?? err) }));
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  /**
+   * The three sentences, in the order the question is asked in — US-79 AC8.
+   *
+   * Prose rather than a spec, and translated like every other tip: if it grows
+   * past these three it has turned into documentation and belongs in the README.
+   */
+  $('#btn-disconnect-tip').dataset.tip = [
+    tr('How it works. The extension uses the DEGIRO session your own browser already has, and remembers the account number DEGIRO hands back. It never sees a password.'),
+    tr('Disconnect forgets that account number and stops syncing by itself.'),
+    tr('It does not delete your history — the figures stay, frozen at the last sync — and it does not log you out of DEGIRO.'),
+  ].join(' ');
+  $('#btn-disconnect-tip').setAttribute('aria-label', tr('What disconnect does'));
+
   $('#btn-wipe').addEventListener('click', (e) => {
     if (demo || !inExtension) {
       banner('info', 'Nothing stored in demo mode.');
@@ -1934,7 +1987,7 @@ function wireActions() {
   });
 
   if (demo || !inExtension) {
-    for (const id of ['#btn-wipe']) $(id).disabled = true;
+    for (const id of ['#btn-wipe', '#btn-disconnect']) $(id).disabled = true;
   }
 }
 
@@ -3241,25 +3294,34 @@ function wireTips() {
     tip.style.top = `${Math.round(above >= margin ? above : b.bottom + margin)}px`;
   };
 
-  // Delegated: the tiles are rebuilt on every render, so per-button listeners
-  // would have to be re-attached each time and the old ones leak.
-  const root = $('#tiles');
-  root.addEventListener('pointerover', (e) => {
-    const btn = e.target.closest?.('.info');
-    if (btn) show(btn);
-  });
-  root.addEventListener('pointerout', (e) => {
-    if (e.target.closest?.('.info')) hide();
-  });
-  root.addEventListener('focusin', (e) => {
-    if (e.target.classList?.contains('info')) show(e.target);
-  });
-  root.addEventListener('focusout', hide);
-  // A tap on a touchscreen is a click, not a hover.
-  root.addEventListener('click', (e) => {
-    const btn = e.target.closest?.('.info');
-    if (btn) show(btn);
-  });
+  /**
+   * Delegated per root: the tiles are rebuilt on every render, so per-button
+   * listeners would have to be re-attached each time and the old ones leak.
+   *
+   * Two roots since US-79 — the tiles and the More menu — and two rather than one
+   * on `document` deliberately: this is a list of the places that carry an "i",
+   * which is a decision, where a document-wide listener would silently adopt any
+   * `.info` anybody adds anywhere (rule 8's "no abstraction with one
+   * implementation" cuts both ways).
+   */
+  for (const root of [$('#tiles'), $('#more-menu')].filter(Boolean)) {
+    root.addEventListener('pointerover', (e) => {
+      const btn = e.target.closest?.('.info');
+      if (btn) show(btn);
+    });
+    root.addEventListener('pointerout', (e) => {
+      if (e.target.closest?.('.info')) hide();
+    });
+    root.addEventListener('focusin', (e) => {
+      if (e.target.classList?.contains('info')) show(e.target);
+    });
+    root.addEventListener('focusout', hide);
+    // A tap on a touchscreen is a click, not a hover.
+    root.addEventListener('click', (e) => {
+      const btn = e.target.closest?.('.info');
+      if (btn) show(btn);
+    });
+  }
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') hide();
   });
@@ -3357,9 +3419,34 @@ function positiveMonthsTile(r) {
  * (CLAUDE.md rule 6). Filing that behind a tab would be softening it, which is
  * the one thing that rule forbids.
  */
+/**
+ * The date the figures stand at: the last sync, or the day the data reaches.
+ *
+ * `lastSyncAt` rather than `disconnectedAt`, because what a reader wants is the
+ * age of the numbers, not the age of the decision — disconnecting a month after
+ * the last sync does not make the figures a month younger.
+ */
+function asOfLabel(data) {
+  if (data.lastSyncAt) return new Date(data.lastSyncAt).toLocaleString('nl-NL');
+  return data.result?.days?.at?.(-1) ?? tr('an unknown date');
+}
+
+/**
+ * US-79 AC5 — the reconciliation verdict, dated, and otherwise untouched.
+ *
+ * Rule 6's verdict is a statement about the moment DEGIRO's total was fetched.
+ * Frozen it stays true *as of that date* and says so; it is not re-asserted as
+ * today's, and it is **not softened** either — a red verdict stays red and keeps
+ * its colour, because disconnecting is not a way to make a failed reconciliation
+ * go away. Empty while connected, so nothing changes for anybody else.
+ */
+function asOfClause(data) {
+  return data.disconnected ? ` ${tr('Checked at the last sync, on {date}; nothing has been checked since.', { date: asOfLabel(data) })}` : '';
+}
+
 function renderBanners(data, r) {
   const notes = [];
-  const add = (level, title, body) => notes.push({ level, title, body });
+  const add = (level, title, body, { pinned = false } = {}) => notes.push({ level, title, body, pinned });
 
   if (data.mode === 'demo') {
     add(
@@ -3368,6 +3455,27 @@ function renderBanners(data, r) {
       tr(
         'These charts are built from generated fixtures with the same code path that runs against your real account — good for checking the UI, useless as financial information.',
       ),
+    );
+  }
+
+  /**
+   * US-79 AC4 — a frozen account says so, at the top, on every section.
+   *
+   * Pinned rather than filed under Notices for the same reason the reconciliation
+   * verdict is: a figure with no date is a claim about today, and every number on
+   * this page is now as old as the last sync. The date is not optional here —
+   * *"this is the difference between a record and a lie, and it is the whole
+   * reason the story is allowed to keep showing amounts at all."*
+   */
+  if (data.disconnected) {
+    add(
+      'info',
+      'Disconnected',
+      tr(
+        'This account is disconnected: the account number is forgotten, nothing is being fetched, and every figure below is frozen as it stood on {date}. Press Sync now to reconnect — you are still logged in at DEGIRO.',
+        { date: asOfLabel(data) },
+      ),
+      { pinned: true },
     );
   }
 
@@ -3385,12 +3493,13 @@ function renderBanners(data, r) {
       add(
         'ok',
         derived ? 'Total matches what DEGIRO reports' : 'Total matches DEGIRO',
-        derived
+        (derived
           ? tr(
               'Reconstructed total is exactly {total}. DEGIRO sent no account total this sync, so this is checked against the sum of the position values and the cash balance it did send — an independent check, but one that cannot catch an error already in DEGIRO’s own position values.',
               { total: fmtEurCents(r.reconciliation.live) },
             )
-          : tr('Reconstructed total is exactly {total}.', { total: fmtEurCents(r.reconciliation.live) }),
+          : tr('Reconstructed total is exactly {total}.', { total: fmtEurCents(r.reconciliation.live) })
+        ) + asOfClause(data),
       );
     } else {
       /**
@@ -3423,7 +3532,7 @@ function renderBanners(data, r) {
           derived
             ? tr('DEGIRO sent no account total this sync, so this is compared against the sum of the position values and the cash balance it did send. If that cash figure is not the whole balance, the difference is in the comparison rather than in your history — send the bug report, it now says how the cash splits.')
             : tr('This is DEGIRO’s own stated account total, so the difference is in this extension’s ledger rather than in the comparison. Send the bug report: it now says which cash categories the difference matches.')
-        }`,
+        }${asOfClause(data)}`,
       );
     }
   } else if (r.days.length) {
@@ -3544,10 +3653,19 @@ function renderBanners(data, r) {
 
   state.notes = notes;
 
-  // Pinned: errors only. Everything else is one click away under Notices.
+  /**
+   * Pinned: errors, and the one note that is not an error but changes what every
+   * figure below it means.
+   *
+   * US-79 added the second case. A disconnected account is not a failure and must
+   * not be coloured as one — it is a state somebody chose — but *"every number on
+   * this page is as old as the last sync"* is exactly the kind of thing this
+   * section exists to keep in front of the reader rather than one click away. So
+   * it is pinned at its own level, and the level still carries the colour.
+   */
   $('#banners').innerHTML = '';
-  for (const n of notes.filter((n) => n.level === 'error')) {
-    $('#banners').append(makeBanner('error', `${tr(n.title)} — ${n.body}`));
+  for (const n of notes.filter((n) => n.level === 'error' || n.pinned)) {
+    $('#banners').append(makeBanner(n.level, `${tr(n.title)} — ${n.body}`));
   }
 
   renderNotes(notes);

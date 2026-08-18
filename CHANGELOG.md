@@ -62,6 +62,31 @@ plain increments — this is not a library and nothing depends on its API.
 
 ### Added
 
+- **US-79 — Disconnect: the account number is forgotten, the figures stay.** Asked for as *"a logout
+  button — throw the token away"*, then, one line later, *"but the figures freeze."* That second half is
+  the feature: **Disconnect…** in the More menu forgets the three identifiers this extension caches
+  (the account number, the chart token and the account name), stops the hourly background sync, and
+  leaves your whole history on screen as a frozen record of the last sync.
+
+  What it does not do, all of it deliberate:
+
+  - **It deletes nothing.** Not a transaction, not a cash movement, not a price. Every figure is
+    recomputed from the raw responses already on disk, which is why freezing is free.
+  - **It does not log you out of DEGIRO**, and it could not: this extension has never held DEGIRO's
+    session cookie. It reads the one your browser already has, per request, and stores it nowhere. The
+    confirm says so in a line, because "disconnect" invites the opposite assumption.
+  - **It does not pretend the figures are current.** A number with no date is a claim about today, so
+    the frozen state is stated at the top of every section with the date the figures stand at, in the
+    rail, in the popup, and on the reconciliation verdict — which keeps its colour: a red verdict stays
+    red, because disconnecting is not a way to make a failed reconciliation go away.
+
+  Reconnecting is one press of **Sync now**, which behaves exactly like a first run — it reads the
+  cookie, asks DEGIRO who the account is, and carries on. There is no second code path for it, and no
+  login form anywhere: an extension that never authenticates has nothing to phish.
+
+  An **i** beside the action explains the three things in three sentences, in Dutch and in English,
+  reachable by hover *and* by keyboard.
+
 - **US-78 — the share sheet offers five shapes, three of them visible, and `4:3` is new.** The strip
   was four shapes long in a window two shapes wide, with nothing on screen saying the other two
   existed: no arrows, no dots, no edge fade, and the only hint was a `grab` cursor that a touch screen
