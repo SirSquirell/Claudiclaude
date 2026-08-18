@@ -87,3 +87,22 @@ test('AC6 — the engine gained nothing for this', () => {
   const agg = engine.slice(engine.indexOf('export function aggregatePnl'), engine.indexOf('export function aggregatePnl') + 1400);
   assert.ok(!/estimated/.test(agg), 'aggregatePnl has grown an output for a rendering concern');
 });
+
+// ===========================================================================
+// v0.47.0 — the popup repainted onto a canvas Chart.js still owned
+// ===========================================================================
+
+test('the popup destroys its sparkline before drawing the next one', () => {
+  /**
+   * Reported against 0.47.0: pressing Sync now put *"Canvas is already in use.
+   * Chart with ID '0' must be destroyed before the canvas with ID 'spark' can be
+   * reused"* in the panel, with the stale shape still on screen. `paint` runs
+   * at least twice in that gesture — once on open with the cached result, once
+   * when the sync returns — and Chart.js refuses a canvas it already holds.
+   *
+   * The page has kept its handles for this reason since it had two charts
+   * (`destroyCharts`); the popup owns exactly one, so it is one variable.
+   */
+  const popup = read('../src/ui/popup.js');
+  assert.match(popup, /spark\?\.destroy\(\);\s*\n\s*spark = sparkline\(/);
+});

@@ -205,6 +205,9 @@ async function main() {
  */
 const lastValue = new Map();
 
+/** The one Chart.js instance this panel owns; see the note at the end of `paint`. */
+let spark = null;
+
 const cell = (kind, label, value, cls = '') => {
   /**
    * US-65's swap, on the popup's figures too.
@@ -265,5 +268,14 @@ async function paint(r, status = {}) {
   if (el && inExtension) el.textContent = `v${chrome.runtime.getManifest().version}`;
 
   // Last 90 days of value, enough to read the shape in 64px.
-  sparkline($('#spark'), r.value.slice(Math.max(0, last - 89)), tk);
+  //
+  // Destroyed before it is rebuilt, because `paint` runs more than once: the
+  // popup paints what it has on open and again when a sync you started from it
+  // finishes. Chart.js refuses a canvas it already owns — v0.47.0 showed
+  // "Canvas is already in use" in the panel the moment a sync completed, with
+  // the stale shape still on screen. The page keeps its handles for the same
+  // reason (`destroyCharts`); this one is the only chart here, so it is one
+  // variable rather than a registry.
+  spark?.destroy();
+  spark = sparkline($('#spark'), r.value.slice(Math.max(0, last - 89)), tk);
 }

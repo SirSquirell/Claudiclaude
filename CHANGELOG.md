@@ -39,6 +39,17 @@ plain increments — this is not a library and nothing depends on its API.
 
   The transactions hint is translated with it — it was still English prose under a Dutch table.
 
+### Fixed
+
+- **The popup showed "Canvas is already in use" instead of a fresh sparkline.** `paint` runs more
+  than once in a single opening — once with the cached result when the panel opens, again when a
+  sync you started from it returns — and Chart.js refuses a canvas it already owns. The second
+  paint threw, so the status line carried *"Chart with ID '0' must be destroyed before the canvas
+  with ID 'spark' can be reused"* and the shape on screen stayed the one from before the sync.
+  Nothing was miscomputed: the figures beside it were the new ones, only the picture was stale and
+  the error text was in the way of the status. The popup now holds its chart and destroys it before
+  drawing the next, which is what the full page has done since it had two charts.
+
 ### Changed
 
 - **Interactive Brokers: phase 1 has begun**, from one DevTools capture. The portal looks like an
