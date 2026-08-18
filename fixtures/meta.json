@@ -3,14 +3,14 @@
   "synthetic": true,
   "note": "Shapes follow SPEC §2. Values are generated, not captured from DEGIRO.",
   "seed": 20260808,
-  "today": "2026-08-13",
+  "today": "2026-08-18",
   "start": "2021-01-04",
   "intAccount": 9999999,
   "sessionId": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA.prod_b_128_3",
   "userToken": "11111111",
-  "liveTotal": 115940.77,
-  "liveCash": 3786.85,
-  "livePositionsValue": 112153.92,
+  "liveTotal": 121303.57,
+  "liveCash": 1603.95,
+  "livePositionsValue": 119699.62,
   "charts": [
     "chart-350009261.json",
     "chart-360015751.json",
@@ -22,7 +22,9 @@
     "chart-340001211.json",
     "chart-355001982.json",
     "chart-375004417.json",
-    "chart-399001001.json"
+    "chart-399001001.json",
+    "chart-397002001.json",
+    "chart-397002002.json"
   ],
   "vwdIds": [
     "350009261",
@@ -35,11 +37,13 @@
     "340001211",
     "355001982",
     "375004417",
-    "399001001"
+    "399001001",
+    "397002001",
+    "397002002"
   ],
   "counts": {
-    "transactions": 84,
-    "cashMovements": 349,
-    "products": 11
+    "transactions": 92,
+    "cashMovements": 365,
+    "products": 13
   }
 }

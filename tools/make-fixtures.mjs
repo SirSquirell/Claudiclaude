@@ -38,7 +38,17 @@ const args = Object.fromEntries(
     return [k, v];
   }),
 );
-const TODAY = args.today ?? new Date().toISOString().slice(0, 10);
+/**
+ * Pinned, not `new Date()` — US-82 AC5.
+ *
+ * `npm run fixtures` has to produce the same files twice or a diff of
+ * `fixtures/` is not reviewable, and with the real date as the default every
+ * regeneration moved the window by however long it had been since the last one.
+ * Every other input here is already deterministic (one seeded PRNG, no clock);
+ * this was the one that was not. Pass `--today=YYYY-MM-DD` to roll the window
+ * forward on purpose, which is a decision rather than a side effect.
+ */
+const TODAY = args.today ?? '2026-08-18';
 const SEED = Number(args.seed ?? 20260808);
 const START = '2021-01-04';
 
@@ -97,6 +107,37 @@ const INSTRUMENTS = [
   // account that happens to hold it. Given a negative drift on purpose: a mode
   // whose whole job is to reframe a loss has nothing to say about a winner.
   { id: '9911001', vwd: '399001001', sym: 'PROP', name: 'PROP TRADING GROUP',     isin: 'NL0011999911', p0: 42,  drift: -0.34, vol: 0.55, yield: 0.0,   from: '2023-01-09' }, // leak-check: ok — a generated vwd id, like the ten above it
+  /**
+   * US-82 — the two closed positions, and why there have to be two.
+   *
+   * `fixtures/` held ten products and **none of them was ever sold out**, so
+   * `npm run demo` could not show a closed row, a closed card, the dash where the
+   * paid-in-vs-grown bar goes, or the sale day — the day a position books the move
+   * between its last close and the price it actually sold at, which is the single
+   * largest day of most closed positions. The Positions table's **Closed** and
+   * **All** filters had never had anything to filter. US-76 and US-77 were both
+   * defects on sold positions, both found by a reader looking at a screenshot, and
+   * neither could have been found here.
+   *
+   * One is not enough because there are two ways of ending:
+   *
+   *  - `RTRP` ends **at a profit**, sold out in one go above cost, so its net
+   *    paid-in ends negative — `splitModel`'s `free` branch, which nothing else in
+   *    these fixtures reaches.
+   *  - `DSCT` ends **at a loss with a material move on its own sale day**
+   *    (`saleDayShock`), which is the US-76 shape: the card's total and the row's
+   *    Result agree only while the sale day is inside the span, so a regression
+   *    shows up on screen rather than only in an assertion.
+   *
+   * Appended after the ten rather than inserted among them: the price walk draws
+   * from one seeded PRNG in list order, so adding at the end leaves every existing
+   * series byte-identical and the diff is these two instruments plus the ledger
+   * they move.
+   */
+  { id: '7712001', vwd: '397002001', sym: 'RTRP', name: 'ROUNDTRIP INDUSTRIES',    isin: 'NL0011888822', p0: 120, drift: 0.34,  vol: 0.30, yield: 0.0,   from: '2023-04-17', // leak-check: ok — generated, like the eleven above it
+    roundTrip: { buy: '2023-04-17', sell: '2024-09-10', euro: 4000 } },
+  { id: '7712002', vwd: '397002002', sym: 'DSCT', name: 'DESCENT HOLDINGS',        isin: 'NL0011888833', p0: 64,  drift: -0.22, vol: 0.38, yield: 0.0,   from: '2025-01-20', // leak-check: ok
+    roundTrip: { buy: '2025-01-20', sell: '2025-09-15', euro: 5000, saleDayShock: 0.82 } },
 ];
 
 /**
@@ -128,6 +169,9 @@ for (const ins of INSTRUMENTS) {
     const drift = ins.drift * regimeFor(day);
     const shock = ins.vol * Math.sqrt(dt) * gauss();
     price *= Math.exp((drift - (ins.vol * ins.vol) / 2) * dt + shock);
+    // US-82 AC2: a real move on the day the position is sold, so the sale day is
+    // the largest day in its history and cannot be dropped unnoticed.
+    if (ins.roundTrip?.saleDayShock && day === ins.roundTrip.sell) price *= ins.roundTrip.saleDayShock;
     price = Math.max(price, 0.5);
     series.set(day, Math.round(price * 100) / 100);
   }
@@ -160,6 +204,7 @@ const LUMPS = [
 
 const cashRows = [];
 const transactions = [];
+const holdings = new Map(); // productId -> qty
 let cashBalance = 0;
 let rowId = 1;
 
@@ -174,6 +219,48 @@ function pushCash(date, description, change, extra = {}) {
     change: Math.round(change * 100) / 100,
     balance: { unsettledCash: 0, total: Math.round(cashBalance * 100) / 100 },
     ...extra,
+  });
+}
+
+/**
+ * One trade: the transaction row, the cash leg and the fee, in one place.
+ *
+ * Written out three times before US-82 needed a fourth caller. `qty` is signed —
+ * negative is a sale, which is DEGIRO's own convention on the transaction row —
+ * and the holdings map is updated here so a caller cannot record a trade and
+ * forget the position it moved.
+ */
+function pushTrade(ins, day, qty, px, { fee = 2.0, time = '10:15' } = {}) {
+  const gross = Math.round(Math.abs(qty) * px * 100) / 100;
+  const sell = qty < 0;
+  transactions.push({
+    id: 100000 + transactions.length,
+    productId: Number(ins.id),
+    date: `${day}T${time}:00+01:00`,
+    buysell: sell ? 'S' : 'B',
+    price: px,
+    quantity: qty,
+    total: sell ? gross : -gross,
+    orderTypeId: 0,
+    counterParty: 'MK',
+    transfered: false,
+    fxRate: 0,
+    totalInBaseCurrency: sell ? gross : -gross,
+    feeInBaseCurrency: -fee,
+    totalPlusFeeInBaseCurrency: sell ? gross - fee : -(gross + fee),
+    transactionTypeId: 0,
+    tradingVenue: 'XAMS',
+  });
+  holdings.set(ins.id, (holdings.get(ins.id) ?? 0) + qty);
+  pushCash(
+    day,
+    `${sell ? 'Verkoop' : 'Koop'} ${Math.abs(qty)} @ ${px.toFixed(2)} EUR`,
+    sell ? gross : -gross,
+    { productId: ins.id, type: 'TRANSACTION' },
+  );
+  pushCash(day, 'DEGIRO Transactiekosten en/of kosten van derden', -fee, {
+    productId: ins.id,
+    type: 'TRANSACTION',
   });
 }
 
@@ -194,7 +281,6 @@ const SELLS = {
 };
 
 // --- build the ledger day by day -------------------------------------------
-const holdings = new Map(); // productId -> qty
 const dividendMonths = new Set();
 
 for (const day of allDays) {
@@ -236,13 +322,45 @@ for (const day of allDays) {
     }
   }
 
+  /**
+   * 2b. US-82 — the two scripted round trips.
+   *
+   * Scripted rather than left to the random buy/sell logic, because "a position
+   * that ends" is the property being generated: the generic sells take a fraction
+   * of whatever is largest that day, which is how ten instruments went five years
+   * without one of them reaching zero.
+   *
+   * Placed before the generic buy block on purpose. Both buys sit on a lump-sum
+   * day, so the deposit is already in the balance and the generic block then
+   * invests what is left rather than the round trip fighting it for cash.
+   */
+  for (const ins of INSTRUMENTS) {
+    const rt = ins.roundTrip;
+    if (!rt) continue;
+    const px = priceOn(ins.vwd, day);
+    if (px == null) continue;
+    if (day === rt.buy && cashBalance >= rt.euro) {
+      const qty = Math.floor(rt.euro / px);
+      if (qty >= 1) pushTrade(ins, day, qty, px, { time: '11:05' });
+    }
+    if (day === rt.sell) {
+      const qty = holdings.get(ins.id) ?? 0;
+      // The whole position, so it is *closed* rather than merely smaller.
+      if (qty >= 1) pushTrade(ins, day, -qty, px, { time: '16:40' });
+    }
+  }
+
   // 3. trades. Buy on the first trading day after a cash top-up; occasional
   //    rebalancing sells.
   const buyDay = day.slice(8) === '26' || LUMPS.some((l) => l.date === day && l.amount > 0);
   if (buyDay) {
     const investable = cashBalance * 0.9;
     if (investable > 300) {
-      const eligible = INSTRUMENTS.filter((i) => i.from <= day);
+      // A round trip is scripted end to end (US-82). Left in the generic pool it
+      // gets bought again two months after it was closed, which is how the first
+      // attempt at this story produced two positions that were briefly zero and
+      // open again by the last day.
+      const eligible = INSTRUMENTS.filter((i) => i.from <= day && !i.roundTrip);
       // Concentrate on two names per round so the composition chart has texture.
       const picks = [];
       for (let k = 0; k < 2 && eligible.length; k++) {
@@ -254,31 +372,9 @@ for (const day of allDays) {
         if (px == null) continue;
         const qty = Math.floor(per / px);
         if (qty < 1) continue;
-        const fee = ins.sym === 'VWRL' || ins.sym === 'IWDA' ? 1.0 : 2.0;
-        const gross = Math.round(qty * px * 100) / 100;
-        transactions.push({
-          id: 100000 + transactions.length,
-          productId: Number(ins.id),
-          date: `${day}T10:${String(10 + (transactions.length % 45)).padStart(2, '0')}:00+01:00`,
-          buysell: 'B',
-          price: px,
-          quantity: qty,
-          total: -gross,
-          orderTypeId: 0,
-          counterParty: 'MK',
-          transfered: false,
-          fxRate: 0,
-          totalInBaseCurrency: -gross,
-          feeInBaseCurrency: -fee,
-          totalPlusFeeInBaseCurrency: -(gross + fee),
-          transactionTypeId: 0,
-          tradingVenue: 'XAMS',
-        });
-        holdings.set(ins.id, (holdings.get(ins.id) ?? 0) + qty);
-        pushCash(day, `Koop ${qty} @ ${px.toFixed(2)} EUR`, -gross, { productId: ins.id, type: 'TRANSACTION' });
-        pushCash(day, 'DEGIRO Transactiekosten en/of kosten van derden', -fee, {
-          productId: ins.id,
-          type: 'TRANSACTION',
+        pushTrade(ins, day, qty, px, {
+          fee: ins.sym === 'VWRL' || ins.sym === 'IWDA' ? 1.0 : 2.0,
+          time: `10:${String(10 + (transactions.length % 45)).padStart(2, '0')}`,
         });
       }
     }
@@ -286,40 +382,13 @@ for (const day of allDays) {
 
   const sellPlan = SELLS[day];
   if (sellPlan) {
-    const held = INSTRUMENTS.filter((i) => (holdings.get(i.id) ?? 0) > 2)
+    const held = INSTRUMENTS.filter((i) => !i.roundTrip && (holdings.get(i.id) ?? 0) > 2)
       .sort((a, b) => (holdings.get(b.id) ?? 0) * priceOn(b.vwd, day) - (holdings.get(a.id) ?? 0) * priceOn(a.vwd, day))
       .slice(0, sellPlan.names);
     for (const ins of held) {
       const px = priceOn(ins.vwd, day);
       const qty = Math.floor((holdings.get(ins.id) ?? 0) * sellPlan.fraction);
-      if (px != null && qty >= 1) {
-        const gross = Math.round(qty * px * 100) / 100;
-        const fee = 2.0;
-        transactions.push({
-          id: 100000 + transactions.length,
-          productId: Number(ins.id),
-          date: `${day}T15:20:00+01:00`,
-          buysell: 'S',
-          price: px,
-          quantity: -qty,
-          total: gross,
-          orderTypeId: 0,
-          counterParty: 'MK',
-          transfered: false,
-          fxRate: 0,
-          totalInBaseCurrency: gross,
-          feeInBaseCurrency: -fee,
-          totalPlusFeeInBaseCurrency: gross - fee,
-          transactionTypeId: 0,
-          tradingVenue: 'XAMS',
-        });
-        holdings.set(ins.id, holdings.get(ins.id) - qty);
-        pushCash(day, `Verkoop ${qty} @ ${px.toFixed(2)} EUR`, gross, { productId: ins.id, type: 'TRANSACTION' });
-        pushCash(day, 'DEGIRO Transactiekosten en/of kosten van derden', -fee, {
-          productId: ins.id,
-          type: 'TRANSACTION',
-        });
-      }
+      if (px != null && qty >= 1) pushTrade(ins, day, -qty, px, { time: '15:20' });
     }
   }
 

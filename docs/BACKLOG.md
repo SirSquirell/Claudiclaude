@@ -5309,7 +5309,7 @@ Two tests pin the shape of that evidence — a `CASH_SWEEP` row that is exactly 
 
 ---
 
-## US-82 — There is no closed position in the fixtures *(new, story, refined)*
+## US-82 — There is no closed position in the fixtures *(built)*
 
 US-76 and US-77 were two wrong numbers and a wrong shape on a shared card, both found by a reader
 looking at a screenshot, and **neither could have been found here.** Every fault was on a position
@@ -5373,6 +5373,31 @@ instruments cannot be generated so that it does, the generator is wrong, not the
 If making the demo account reconcile with two extra positions needs a special case anywhere in
 `engine.js`, stop: the engine is not allowed to know which instruments are fixtures, and a generator
 that can only produce a reconciling account by being helped is not testing the thing it claims to.
+
+### Built. `engine.js` was not touched, and the browser pass immediately paid for itself
+
+`RTRP` ends at +€2 364,71 with a net paid-in of −€2 364,71 — `splitModel`'s `free` branch, which
+nothing else in these fixtures reached. `DSCT` ends at −€2 005,23 and its largest single day *is* its
+sale day (−€645,72, from a `saleDayShock` in the price walk), which is the US-76 shape. The account
+still reconciles to the cent with no tolerance widened anywhere.
+
+Three things worth knowing for the next fixture story:
+
+1. **Appending the two instruments rather than inserting them kept every existing price series
+   byte-identical** — the walk draws from one seeded PRNG in list order. The ledger still moved, because
+   the round trips take cash the generic buys would have spent.
+2. **A round trip has to be excluded from the generic buy pool.** The first attempt produced two
+   positions that were closed and then bought again two months later, so the last day held both. A
+   "closed position" is a property of the *end* of the series, and nothing was enforcing it.
+3. **`npm run fixtures` was not deterministic** — `TODAY` defaulted to the clock, so every regeneration
+   moved the window by however long it had been. Pinned, with `--today=` for a deliberate roll. AC5 was
+   the only acceptance criterion that was already false before this story started.
+
+**And the browser pass found what the fixtures existed to expose** — not on a closed position, but two
+layout defects in the share sheet: the controls column was 240 px wide with 394 px of content in it,
+and on a phone every shape in the strip was 23 px around a 30 px drawing. Both are in the US-78
+follow-up commit. That is the story's own argument, tested: *"a browser pass is the project's second
+line of defence and it was blind to a whole class of position."*
 
 ---
 

@@ -26,8 +26,8 @@
         "MARKET"
       ],
       "productBitTypes": [],
-      "closePrice": 765.49,
-      "closePriceDate": "2026-08-13",
+      "closePrice": 772.24,
+      "closePriceDate": "2026-08-18",
       "feedQuality": "R",
       "orderBookDepth": 0,
       "vwdIdentifierType": "issueid",
@@ -62,8 +62,8 @@
         "MARKET"
       ],
       "productBitTypes": [],
-      "closePrice": 8.15,
-      "closePriceDate": "2026-08-13",
+      "closePrice": 6.53,
+      "closePriceDate": "2026-08-18",
       "feedQuality": "R",
       "orderBookDepth": 0,
       "vwdIdentifierType": "issueid",
@@ -98,8 +98,8 @@
         "MARKET"
       ],
       "productBitTypes": [],
-      "closePrice": 100.87,
-      "closePriceDate": "2026-08-13",
+      "closePrice": 105.24,
+      "closePriceDate": "2026-08-18",
       "feedQuality": "R",
       "orderBookDepth": 0,
       "vwdIdentifierType": "issueid",
@@ -134,8 +134,8 @@
         "MARKET"
       ],
       "productBitTypes": [],
-      "closePrice": 80.76,
-      "closePriceDate": "2026-08-13",
+      "closePrice": 79.86,
+      "closePriceDate": "2026-08-18",
       "feedQuality": "R",
       "orderBookDepth": 0,
       "vwdIdentifierType": "issueid",
@@ -170,8 +170,8 @@
         "MARKET"
       ],
       "productBitTypes": [],
-      "closePrice": 39.46,
-      "closePriceDate": "2026-08-13",
+      "closePrice": 35,
+      "closePriceDate": "2026-08-18",
       "feedQuality": "R",
       "orderBookDepth": 0,
       "vwdIdentifierType": "issueid",
@@ -206,8 +206,8 @@
         "MARKET"
       ],
       "productBitTypes": [],
-      "closePrice": 3006.08,
-      "closePriceDate": "2026-08-13",
+      "closePrice": 2608.09,
+      "closePriceDate": "2026-08-18",
       "feedQuality": "R",
       "orderBookDepth": 0,
       "vwdIdentifierType": "issueid",
@@ -242,12 +242,84 @@
         "MARKET"
       ],
       "productBitTypes": [],
-      "closePrice": 123.42,
-      "closePriceDate": "2026-08-13",
+      "closePrice": 130.22,
+      "closePriceDate": "2026-08-18",
       "feedQuality": "R",
       "orderBookDepth": 0,
       "vwdIdentifierType": "issueid",
       "vwdId": "355001982",
+      "qualitySwitchable": false,
+      "qualitySwitchFree": false,
+      "vwdModuleId": 21
+    },
+    "7712001": {
+      "id": "7712001",
+      "name": "ROUNDTRIP INDUSTRIES",
+      "isin": "NL0011888822",
+      "symbol": "RTRP",
+      "contractSize": 1,
+      "productType": "STOCK",
+      "productTypeId": 1,
+      "tradable": true,
+      "category": "B",
+      "currency": "EUR",
+      "exchangeId": "710",
+      "onlyEodPrices": false,
+      "orderTimeTypes": [
+        "DAY",
+        "GTC"
+      ],
+      "buyOrderTypes": [
+        "LIMIT",
+        "MARKET"
+      ],
+      "sellOrderTypes": [
+        "LIMIT",
+        "MARKET"
+      ],
+      "productBitTypes": [],
+      "closePrice": 400.19,
+      "closePriceDate": "2026-08-18",
+      "feedQuality": "R",
+      "orderBookDepth": 0,
+      "vwdIdentifierType": "issueid",
+      "vwdId": "397002001",
+      "qualitySwitchable": false,
+      "qualitySwitchFree": false,
+      "vwdModuleId": 21
+    },
+    "7712002": {
+      "id": "7712002",
+      "name": "DESCENT HOLDINGS",
+      "isin": "NL0011888833",
+      "symbol": "DSCT",
+      "contractSize": 1,
+      "productType": "STOCK",
+      "productTypeId": 1,
+      "tradable": true,
+      "category": "B",
+      "currency": "EUR",
+      "exchangeId": "710",
+      "onlyEodPrices": false,
+      "orderTimeTypes": [
+        "DAY",
+        "GTC"
+      ],
+      "buyOrderTypes": [
+        "LIMIT",
+        "MARKET"
+      ],
+      "sellOrderTypes": [
+        "LIMIT",
+        "MARKET"
+      ],
+      "productBitTypes": [],
+      "closePrice": 19.05,
+      "closePriceDate": "2026-08-18",
+      "feedQuality": "R",
+      "orderBookDepth": 0,
+      "vwdIdentifierType": "issueid",
+      "vwdId": "397002002",
       "qualitySwitchable": false,
       "qualitySwitchFree": false,
       "vwdModuleId": 21
@@ -278,8 +350,8 @@
         "MARKET"
       ],
       "productBitTypes": [],
-      "closePrice": 916.21,
-      "closePriceDate": "2026-08-13",
+      "closePrice": 737.63,
+      "closePriceDate": "2026-08-18",
       "feedQuality": "R",
       "orderBookDepth": 0,
       "vwdIdentifierType": "issueid",
@@ -314,8 +386,8 @@
         "MARKET"
       ],
       "productBitTypes": [],
-      "closePrice": 389.67,
-      "closePriceDate": "2026-08-13",
+      "closePrice": 540,
+      "closePriceDate": "2026-08-18",
       "feedQuality": "R",
       "orderBookDepth": 0,
       "vwdIdentifierType": "issueid",
@@ -350,8 +422,8 @@
         "MARKET"
       ],
       "productBitTypes": [],
-      "closePrice": 10.43,
-      "closePriceDate": "2026-08-13",
+      "closePrice": 8.39,
+      "closePriceDate": "2026-08-18",
       "feedQuality": "R",
       "orderBookDepth": 0,
       "vwdIdentifierType": "issueid",
@@ -386,8 +458,8 @@
         "MARKET"
       ],
       "productBitTypes": [],
-      "closePrice": 83.42,
-      "closePriceDate": "2026-08-13",
+      "closePrice": 106.08,
+      "closePriceDate": "2026-08-18",
       "feedQuality": "R",
       "orderBookDepth": 0,
       "vwdIdentifierType": "issueid",

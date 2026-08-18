@@ -151,6 +151,24 @@ plain increments — this is not a library and nothing depends on its API.
 
 ### Changed
 
+- **US-82 — the demo account now contains two positions that have been sold.** `fixtures/` held ten
+  instruments and **not one of them had ever been closed**, so `npm run demo` could not show a closed
+  row, the dash where the paid-in-vs-grown bar goes, or the sale day — the day a position books the move
+  between its last close and the price it actually sold at, which is the largest single day of most
+  closed positions. The Positions table's **Closed** and **All** filters had never had anything to
+  filter. US-76 and US-77 were both defects on sold positions, both found by a reader looking at a
+  screenshot, and neither could have been found here.
+
+  Two, because there are two ways of ending: one round trip sold out above cost, whose net paid-in ends
+  negative and which is the only thing in these fixtures that reaches *"all gain — more came out than
+  went in"*; and one sold at a loss with a real move on its own sale day, which is the shape where a
+  card and its table row can only agree while the sale day is inside the span.
+
+  The generator also stopped defaulting to *today*: `npm run fixtures` now produces the same files
+  twice, so a diff of `fixtures/` is reviewable, and `--today=YYYY-MM-DD` rolls the window forward as a
+  decision. The demo account still reconciles to the cent, and no test's tolerance was widened to make
+  the new instruments pass. Nothing here ships in the extension — these are the demo and test fixtures.
+
 - **US-81 — the five-cent reconciliation gap can now be located, and it is still five cents.** One
   account has reported *"reconstructed € −0,05 · DEGIRO € 0,00 · off by € −0,05"* for two releases. The
   banner was right to say so — rule 6 does not have a tolerance — but nothing on screen or in the bug

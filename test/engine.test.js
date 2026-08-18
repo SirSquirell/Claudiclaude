@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { aggregatePnl, buildComposition, candleSeries, computePortfolio, deriveContractSizes, deriveFxRates, fxFromConversions, expandSeries, monthlyTable, rangeEndIndex, rangeStartIndex, windowReturnPct, usableReturnDay, annualisedReturn, projectPortfolio, maxDrawdown } from '../src/lib/engine.js';
 import { classifyCashRow } from '../src/lib/classify.js';
 import { parseCashMovements, parseChartResponse, parseProducts, parseTransactions, parseUpdate } from '../src/lib/parse.js';
+import { positionSpan, splitModel } from '../src/lib/snapshot.js';
 import { dayRange } from '../src/lib/dates.js';
 
 const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
@@ -450,6 +451,66 @@ test('SPEC §6: the reconstructed total matches the reported total to the cent',
   );
   near(result.totals.cash, meta.liveCash);
   near(result.totals.positions, meta.livePositionsValue);
+});
+
+test('US-82 — the fixtures contain two closed positions, one of each kind', () => {
+  /**
+   * `fixtures/` held ten products and not one of them had ever been sold out, so
+   * `npm run demo` could not show a closed row, the dash where the
+   * paid-in-vs-grown bar goes, or the sale day — and the sale day is the largest
+   * day of most closed positions. US-76 and US-77 were both defects on sold
+   * positions and neither could have been found here.
+   *
+   * This is the test that keeps them: a regenerated fixture set that loses a
+   * closed position fails the build instead of quietly making the browser pass
+   * blind again.
+   */
+  const meta = fixture('meta.json');
+  const result = computePortfolio({
+    transactions: parseTransactions(fixture('transactions.json')),
+    cashRows: parseCashMovements(fixture('accountoverview.json')),
+    products: parseProducts(fixture('products-info.json')),
+    prices: loadPrices(parseChartResponse, meta),
+    today: meta.today,
+    liveTotal: parseUpdate(fixture('update.json')).totalValue,
+  });
+
+  const n = result.days.length;
+  const closed = result.byProduct.filter((p) => Math.abs(p.qty[n - 1]) < 1e-9);
+  assert.equal(closed.length, 2, `expected two closed positions, got ${closed.map((p) => p.name).join(', ') || 'none'}`);
+
+  const lifetime = (p) => {
+    const span = positionSpan(p.qty, 0, n - 1);
+    assert.ok(span, `${p.name} has no span`);
+    let pnl = 0;
+    for (let i = span.from; i <= span.to; i++) pnl += p.pnl[i] ?? 0;
+    return { span, pnl, paid: p.paidIn[n - 1] };
+  };
+
+  const [profit, loss] = closed.map(lifetime).sort((a, b) => b.pnl - a.pnl);
+
+  // AC1: one ended above cost, and its net paid-in is therefore negative — the
+  // `free` branch of `splitModel`, which nothing else in these fixtures reaches.
+  assert.ok(profit.pnl > 0, `expected a winner, got ${profit.pnl}`);
+  assert.ok(profit.paid < 0, 'more came out than went in');
+  assert.equal(splitModel(profit.paid, profit.pnl).state, 'free');
+
+  // AC1: the other ended below cost.
+  assert.ok(loss.pnl < 0, `expected a loser, got ${loss.pnl}`);
+  assert.equal(splitModel(loss.paid, loss.pnl).state, 'underwater');
+
+  // AC2: one of them books its largest single day on the day it was sold, which
+  // is the day the card's span used to stop short of (US-76). Its own last day is
+  // the sale day, because `positionSpan` reaches one day past the last holding.
+  const worst = closed.find((p) => {
+    const { span } = lifetime(p);
+    let biggest = span.from;
+    for (let i = span.from; i <= span.to; i++) {
+      if (Math.abs(p.pnl[i] ?? 0) > Math.abs(p.pnl[biggest] ?? 0)) biggest = i;
+    }
+    return biggest === span.to;
+  });
+  assert.ok(worst, 'no closed position books its biggest move on its own sale day');
 });
 
 test('fixture run: the derived series are internally consistent', () => {
