@@ -18,6 +18,36 @@ plain increments — this is not a library and nothing depends on its API.
 
 ## [Unreleased]
 
+### Added
+
+- **US-53 decided — no paid-in-vs-grown on a sell row, and the ledger says why.** The request was for
+  the split on every sale. A sale is a *flow*, and splitting one into capital and profit needs FIFO or
+  average cost — a convention this project has refused on the record four times, and the refusal is
+  the reason every other per-holding figure can be trusted.
+
+  The alternative was the *position's* split as of the row's date. Its arithmetic is sound and it
+  answers the wrong question: two sells of one instrument a week apart show almost the same bar,
+  because the bar is the position's state and not the trade's. A figure that needs a label explaining
+  it is not what it looks like has already failed — the reader divides this sale's amount by a split
+  that is not about this sale.
+
+  So the amount stays the row's truth, and one line under the table says where the split does live
+  and why it is not here. A reader who came looking finds an answer instead of concluding the app
+  forgot. Adopting a cost-basis convention remains available and remains a SPEC-level decision; it is
+  not a column somebody adds on a Tuesday, and a test now fails the build if `engine.js` grows a
+  FIFO, an average cost or a per-sale realized gain.
+
+  The transactions hint is translated with it — it was still English prose under a Dutch table.
+
+### Changed
+
+- **Interactive Brokers: phase 1 has begun**, from one DevTools capture. The portal looks like an
+  ordinary session-backed web app — its own bundle, a 25 kB portfolio payload, a repeating `tickle`
+  keep-alive and a `202` long-poll — which is encouraging and is **not** R1 clearing. R1 clears on one
+  test and nothing else: a portfolio request re-run with `credentials: 'include'` and with `'omit'`.
+  `docs/MULTI-BROKER.md` §9 records what the capture does and does not say, and why step 6 of the
+  brief appears to hang (the panel is filtered to Fetch/XHR, and a WebSocket is not a fetch).
+
 ## [0.47.0] — 2026-08-18
 
 Twenty-one stories and eleven defects, and the through-line is the same in both halves: **the

@@ -598,3 +598,68 @@ questions — the bid/ask basis and synthetic candles — turned out not to exis
 
 **R1's page half is answered: the session is cookie-borne.** What is left is the service-worker
 half, which the DEGIRO adapter has been doing in production for weeks.
+
+## 9. Interactive Brokers — a first look, 2026-08-18
+
+**Evidence: one screenshot of a DevTools Network panel, filtered to Fetch/XHR.** That is a real
+observation and it is a narrow one, so this section is mostly a list of what it does *not* say. The
+brief's phase 1 asks six things; a screenshot of the request list can answer part of one of them.
+
+Marked **MEASURED** (visible in the capture), **INFERRED** (a reading of it), or **UNKNOWN**.
+
+### 9a. What the capture shows
+
+| | |
+|---|---|
+| **MEASURED** | Every request is issued by the portal's own bundle (`index.js?q=…`) as `fetch` or `xhr`. Nothing in view comes from a separate origin, a gateway or a plugin |
+| **MEASURED** | Statuses are `200`, except `events`, which is `202` and repeats |
+| **MEASURED** | Request names in view: `list`, `events`, `tickle`, `unsubscribeall`, `models`, `pf?SELECTED=INSTRUMENT,PO…`, `authAdd`, `hasCorporateActionMsg?userN…`, `all`, `pairs?currency=EUR,USD` |
+| **MEASURED** | `pf?SELECTED=INSTRUMENT,PO…` is **25,0 kB**; everything else is 1,3–2,1 kB. Times 82–515 ms |
+| **MEASURED** | After the first burst the panel settles into a repeating `events` / `tickle` cycle |
+| **INFERRED** | `pf?SELECTED=…` at 25 kB against 1,4 kB for everything else is the portfolio payload |
+| **INFERRED** | `tickle` repeating is a **session keep-alive**, and a keep-alive is the shape of a session-backed portal rather than a per-request signed one |
+| **INFERRED** | `events` at `202`, repeating, is a long-poll |
+
+### 9b. What it does not say — which is R1
+
+The gate is rule 9: can this be *read* from a session the browser already holds, or does it need a
+credential the extension would have to keep? **Nothing in a request list answers that.** Every one
+of these is still open:
+
+- **Was a `Cookie` header sent?** The panel does not show headers. (Brief phase 1, step 1.)
+- **What are the header names?** A bearer token, a CSRF token or a device identifier would each
+  change the answer, and each is invisible here. (Step 2.)
+- **Cookie names and their `SameSite` / `Secure` / `HttpOnly` flags.** (Step 3.)
+- **The decisive test.** One portfolio request re-run with `credentials: 'include'` and again with
+  `credentials: 'omit'`, both statuses reported. That single test decides R1, and it is the one
+  thing worth capturing next. (Step 4.)
+- **Field names** in a positions row and a transaction row. (Step 5.)
+
+### 9c. Why step 6 appears to hang
+
+Step 6 asks whether there is a price-history request. Nothing chart-shaped is in the capture, and
+the panel just cycles `events` / `tickle`. Two readings, and the first is the likely one:
+
+1. **The filter is on `Fetch/XHR`, and a WebSocket is not a fetch.** A socket connection never
+   appears under that filter at all — the same panel has a separate **Socket** tab, visible in the
+   screenshot and unselected. If the portal streams quotes over a socket, step 6's answer is behind
+   that tab rather than missing. This is a fact about DevTools, not a claim about IBKR.
+2. A chart was not opened during the capture, so nothing fetched one.
+
+**What to do:** click **Socket** (or **WS**) with a chart on screen. If a connection is listed, open
+its *Messages* and report **whether the frames carry candles and what the field names are** — never
+a value. If there is no socket and no chart request either, that is R4 failing, and
+[§6](#6-what-would-make-us-stop) says what that costs.
+
+### 9d. One warning about the capture itself
+
+`hasCorporateActionMsg?userN…` is truncated in the panel, and the parameter behind it is
+**an identifier**. Rule 7's corollary applies to a spike as much as to an export: paths and
+parameter *names* are the finding, values are not. Whoever captures the next one should widen the
+Name column with that in mind, and paste nothing whose value was not read first.
+
+### 9e. Where this leaves the story
+
+US-36 stays **refined, not built**, and it has moved: phase 1 has begun and the portal looks like an
+ordinary session-backed web app rather than something an extension could not replay. That is
+encouraging and it is *not* R1 clearing. R1 clears on step 4 and nothing else.

@@ -176,3 +176,49 @@ test('the twin toggle says what pressing it does, not what is on screen', () => 
   assert.match(click, /paintTwinToggle\(toggle, !box\.hidden\)/);
   assert.ok(!/const showTable/.test(click), 'the label is derived from a local flag again');
 });
+
+// ===========================================================================
+// US-53 — decided: no cost-basis convention enters this project
+// ===========================================================================
+
+test('AC0 — the engine gained no per-sale realized gain, whichever way US-53 went', () => {
+  /**
+   * The guardrail the story attaches to **every** option, and the reason it is a
+   * test rather than a note: "paid vs grown on sell transactions" is a request
+   * that only a cost-basis convention can answer literally, and adopting FIFO or
+   * average cost changes what this project promises about its numbers. It is a
+   * SPEC-level decision, and the one thing it must never be is a column somebody
+   * added on a Tuesday.
+   *
+   * Four places already say the refusal in prose — US-27 trap 1, `averagePaid`,
+   * `splitCell`, `returnOnMoneyIn`. This is the first one that fails a build.
+   */
+  const engine = read('../src/lib/engine.js');
+  const code = engine.replace(/\/\*\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  for (const forbidden of [/\bfifo\b/i, /averageCost/i, /costBasis/i, /realizedGain/i, /realisedGain/i]) {
+    assert.ok(!forbidden.test(code), `the engine has grown a cost-basis field: ${forbidden}`);
+  }
+  // `realised` on its own is fine and predates this — it is banked P/L over a
+  // window, which needs no convention. What must not exist is a *per-sale* one.
+  assert.ok(!/perSale|saleProfit|profitPerSale/i.test(code));
+});
+
+test('US-53 — the ledger says where the split lives instead of inventing one', () => {
+  /**
+   * Decided as option (b). The other live option was the *position's* split as of
+   * the row's date: honest arithmetic answering the wrong question, because two
+   * sells of one instrument a week apart show almost the same bar — the bar is
+   * the position's state, not the trade's. A figure that needs a label to say it
+   * is not what it looks like has already failed.
+   *
+   * So the ledger keeps the amount as its per-row truth and points at where the
+   * split does live, so a reader who came looking finds out why rather than
+   * concluding the app forgot.
+   */
+  const app = read('../src/ui/app.js');
+  const tx = app.slice(app.indexOf('function renderTransactions'), app.indexOf('function renderTransactions') + 4000);
+  assert.match(tx, /Paid in vs grown belongs to a position, not to one sale/);
+  // And no split reaches a transaction row.
+  const rows = tx.slice(tx.indexOf("$('#transactions tbody')"));
+  assert.ok(!/splitModel|splitInner|split:/.test(rows), 'a paid-vs-grown figure reached a transaction row');
+});

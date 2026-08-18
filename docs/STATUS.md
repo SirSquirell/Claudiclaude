@@ -87,6 +87,7 @@ person.** This is the gate that is open.
 | US-73 | **A notice opens its own row** instead of shoving the figures below it, twice per notice, while you are reading them | 0.47.0 |
 | US-74 | **The theme change is a cross-fade**, and the canvases fade in on the new theme rather than snapping inside a page that does not | 0.47.0 |
 | US-75 | **Data arrives per card**, once per sync and never per render, as a mask over a drawing Chart.js already finished | 0.47.0 |
+| US-53 | **Decided (b): no split on a sell row.** Option (a)'s arithmetic was sound and answered the wrong question — the bar is the position's state, not the trade's, and a figure needing a label to correct the reading it invites has already failed. The ledger says where the split does live; a test now fails the build if the engine grows a cost-basis field | 0.47.0 |
 | US-61 | **The Positions table fits its width.** Columns-as-data: the lowest-priority ones drop as the table narrows and fold into a per-row expand, the load-bearing four (Instrument, Value, Paid in vs grown, Result) never drop, and a **Columns** chooser hides the rest, remembered like the theme. Browser-verified desktop→phone, no sideways page scroll; display only, no resync | 0.47.0 |
 
 **What to look at first**, if you only look at one thing: the Notices tab after a sync. 0.36.0 made
@@ -116,12 +117,11 @@ F1–F5 shipped in 0.37.0, F6–F9 in 0.38.0. U1–U5 need a decision rather tha
 | US-45 | Parameterise the session read (`session.js:19`) — renumbered twice | Deferred until R1 clears — rule 8 |
 | US-39–43 | Multi-broker delivery sequence from an external brief | All gated on US-37 |
 | US-34 | **Trading 212 — the spike ran.** R2, R3, R4, R5 answered; the price history is **public and needs no account**, daily candles back to 2017 | **One question left**: can the account data be reached without storing a credential? Rule 9 decides the story on it |
-| US-36 | **Interactive Brokers** — spike not yet run. Brief at `docs/IBKR-SPIKE-BRIEF.md` | Phase 0 is public documentation and needs no account |
+| US-36 | **Interactive Brokers — phase 1 has begun.** One DevTools capture shows an ordinary session-backed portal: its own bundle, a 25 kB portfolio payload, a repeating `tickle` keep-alive and a `202` long-poll. See [MULTI-BROKER.md §9](MULTI-BROKER.md) | **The decisive test**: one portfolio request re-run with `credentials: 'include'` and with `'omit'`, both statuses. That decides R1 and nothing else does |
 | — | An architecture report + multi-broker proposal, for an external agent. Brief at `docs/COPILOT-ARCHITECTURE-BRIEF.md` | Nothing. Hand it over with the repo |
 | US-23 | Sync and wipe, per broker | Deliberately deferred (rule 8) — a second broker existing |
 | US-24 | Combine, and filter | Same. The arithmetic is proven and tested; the UI is not built |
 | US-25 | Two accounts under one login | A spike, not a story. Cheap *after* US-22, which has landed |
-| US-53 | **Paid vs grown on sell transactions** — refined to a decision, not a build. Per-sale profit is cost basis, which the project refused; recommendation is to decline or reframe as a labelled position figure | An owner decision between (a) position-to-date bar, (b) drop, (c) open cost basis as its own story |
 | US-03 (2nd half) | Expiry, strike, call/put from data rather than a name string | A real HAR |
 | US-07 | Options & margin dashboard — the margin half drops if it is not in the response | A real HAR |
 

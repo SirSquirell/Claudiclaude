@@ -468,6 +468,14 @@ const DICT = {
     'Share this figure': 'Deel dit cijfer',
     'Share a figure from this section': 'Deel een cijfer uit dit blok',
     'Which figure': 'Welk cijfer',
+    // US-53's decision, and the transactions hint it sits in
+    'Newest first. {n} shown': 'Nieuwste eerst. {n} getoond',
+    'Newest first. {n} shown of {total} in range': 'Nieuwste eerst. {n} getoond van {total} in de periode',
+    '{n} in the whole history.': '{n} in de hele historie.',
+    'Price is in the instrument’s own currency; Amount is what moved in {ccy}, fees included.':
+      'Koers staat in de eigen valuta van het instrument; Bedrag is wat er in {ccy} bewoog, kosten inbegrepen.',
+    'Paid in vs grown belongs to a position, not to one sale — splitting a single sale into capital and profit needs a cost-basis convention this project does not use. It is on Positions, per instrument.':
+      'Ingelegd tegenover gegroeid hoort bij een positie, niet bij één verkoop — één verkoop splitsen in inleg en winst vraagt een kostprijsconventie die dit project niet gebruikt. Je vindt het bij Posities, per instrument.',
     // US-71's table twin
     'Show as a table': 'Toon als tabel',
     'Show as a chart': 'Toon als grafiek',

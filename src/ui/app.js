@@ -4106,15 +4106,43 @@ function renderTransactions(data, r, from, to) {
   const shown = inRange.slice(0, LIMIT);
 
   $('#tx-hint').textContent =
-    `Newest first. ${shown.length.toLocaleString('nl-NL')} shown` +
-    (inRange.length > shown.length ? ` of ${inRange.length.toLocaleString('nl-NL')} in range` : '') +
-    ` · ${all.length.toLocaleString('nl-NL')} in the whole history.` +
-    // US-51. Both columns say what they are, because both were read as something
-    // else: the price is the price that was actually paid, in the currency it was
-    // paid in, so for a foreign trade it is not the euro column divided by the
-    // quantity. And Amount is the cash flow, fee included — negative when money
-    // left the account, which is the direction DEGIRO's own statement uses.
-    ` Price is in the instrument's own currency; Amount is what moved in ${r.baseCurrency}, fees included.`;
+    [
+      inRange.length > shown.length
+        ? tr('Newest first. {n} shown of {total} in range', {
+          n: shown.length.toLocaleString('nl-NL'),
+          total: inRange.length.toLocaleString('nl-NL'),
+        })
+        : tr('Newest first. {n} shown', { n: shown.length.toLocaleString('nl-NL') }),
+      tr('{n} in the whole history.', { n: all.length.toLocaleString('nl-NL') }),
+      // US-51. Both columns say what they are, because both were read as something
+      // else: the price is the price that was actually paid, in the currency it was
+      // paid in, so for a foreign trade it is not the euro column divided by the
+      // quantity. And Amount is the cash flow, fee included — negative when money
+      // left the account, which is the direction DEGIRO's own statement uses.
+      tr('Price is in the instrument’s own currency; Amount is what moved in {ccy}, fees included.', {
+        ccy: r.baseCurrency,
+      }),
+      /**
+       * US-53, decided: **no paid-in-vs-grown column here.**
+       *
+       * The request was for the split on every sell row. A sale is a *flow*, and
+       * splitting one flow into capital and profit needs FIFO or average cost —
+       * a convention this project has refused four times on the record, and the
+       * refusal is the reason the rest of the page can be trusted.
+       *
+       * The other option was the *position's* split as of the row's date. It is
+       * honest arithmetic and it answers the wrong question: two sells of one
+       * instrument a week apart show almost the same bar, because the bar is the
+       * position's state and not the trade's. A figure that needs a label to
+       * explain it is not what it looks like has already failed — the reader
+       * divides this sale's amount by a split that is not about this sale.
+       *
+       * So the ledger says what moved, and says where the split does live. A
+       * reader who came looking for it finds out why it is not here, rather than
+       * concluding the app forgot.
+       */
+      tr('Paid in vs grown belongs to a position, not to one sale — splitting a single sale into capital and profit needs a cost-basis convention this project does not use. It is on Positions, per instrument.'),
+    ].join(' · ');
 
   $('#transactions tbody').innerHTML = shown.length
     ? shown

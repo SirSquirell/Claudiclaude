@@ -3434,6 +3434,27 @@ labelled as a position figure and never as the sale's; (b) drop it, amount stays
 or (c) open cost basis as its own story, which is the only thing that answers the literal request
 and is the biggest change in this backlog if taken.
 
+### Decided, 0.47.0 — **(b)**, with the reason said on the page
+
+The owner handed the choice to design. It is **(b)**, and the deciding argument is not the
+arithmetic — option (a)'s arithmetic is sound — it is the mapping.
+
+A bar on a sell row that is *about the position* needs a label explaining that it is not what it
+looks like, and a control or a figure that needs a label to correct the reading it invites has
+already failed. Two sells of one instrument a week apart would show almost the same bar; a reader
+divides this sale's amount by a split that is not about this sale, and nothing on screen stops them.
+That is US-49's *"the layout invented the comparison"* in a new place.
+
+Option (c) stays available and stays a **SPEC-level** decision: adopting FIFO or average cost
+changes what this project promises about every per-holding number on the page. It is not a column
+somebody adds on a Tuesday, and it does not arrive by implication.
+
+**What shipped instead:** nothing on the row, and one sentence under the table saying where the
+split does live and why it is not here — so a reader who came looking finds an answer rather than
+concluding the app forgot. AC0 is now a test rather than a note: `test/describe.test.js` fails the
+build if `engine.js` grows a FIFO, an average cost, a cost basis or a per-sale realized gain. Four
+places already said the refusal in prose; this is the first that enforces it.
+
 ### Acceptance criteria
 
 - **AC0 — the guardrail, whichever option is chosen.** This story introduces **no** cost-basis
