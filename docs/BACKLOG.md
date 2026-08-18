@@ -2119,12 +2119,17 @@ example response from **February 2021** on a path that has since versioned.
 
 ### The three things between here and a story
 
-**All but one are answered — the spike ran on 2026-08-11.** See `MULTI-BROKER.md` §8.
+**All three are answered.** The spike ran on 2026-08-11 and R1 closed on 2026-08-13; see
+`MULTI-BROKER.md` §8. What stands between here and a working adapter is no longer a *question* —
+it is the build (US-39–US-45) and one thing no measurement here has produced: **the account payload
+shapes.** `/rest/v1/accounts`, `/rest/reports/transactions` and `/rest/reports/dividends/v2` are all
+marked `hypothesis` in `tools/trading212-r1/spike.js`, meaning they came from community code and
+have never been seen in a real Network tab. §8a is what building on that instead looks like.
 
 | # | Question | Answer |
 |---|---|---|
 | 1 | How far back does the candle endpoint reach? | **Answered.** Daily candles to 2017 for AAPL, weekly to 2013, paginating backwards with `&to=`. And it needs **no authentication at all** |
-| 2 | Can an extension reach the account data without storing a credential? | **Still open, and now the only gate.** The spike ran logged out and could not look. Prices are free; positions and transactions are behind an API key, which rule 9 forbids |
+| 2 | Can an extension reach the account data without storing a credential? | **Answered — PASS, 2026-08-12/13.** `200` with the session cookie, `401` with `credentials: 'omit'`, `401` logged out; and the service worker got the same, carrying only an `Accept` header. The API key rule 9 forbids is not needed. See `MULTI-BROKER.md` §8d and `TRADING212-R1-RESULT.md` |
 | 3 | ~~Bid, ask or mid?~~ | **Moot.** One close per candle — there is nothing to choose |
 
 The schemas behind R2, R3 and R5 need none of that: **Trading 212 publishes them**, and only the
