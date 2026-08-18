@@ -18,6 +18,29 @@ plain increments — this is not a library and nothing depends on its API.
 
 ## [Unreleased]
 
+### Added
+
+- **US-52 — paid in vs grown travels with the shareable card.** The card already carried the
+  relationship as its hero percentage (*"for every euro in, this came back"*). It now also carries
+  the composition bar the holdings table draws — *"64 % paid in · 36 % grown"* — which answers the
+  other question: *of what this is worth, how much is mine and how much did it make*. It is the one
+  part of a holdings row that was always safe to post: two percentages and a sentence, no amount, so
+  US-46's anonymize does not govern it and there is nothing in it to mask.
+
+  The arithmetic moved into one pure `splitModel`, which both the table and the card call. Two copies
+  of a three-branch rule drift, and the under-water branch — scaled against what was paid in, not
+  against what it is worth now — was a real defect once; fixing that in one of two places would have
+  been worse than never having moved it. Moving it also exposed a case the table had been hiding: a
+  position that lost four times its inlay produced a bar segment 400 % wide, visible only because the
+  table cell clips. The bar now stops at the track and the sentence still says 400 %.
+
+  The split is measured over US-50's span, so it cannot drift from the percentage beside it: a 1Y
+  card on a six-year holding windows all three, and an all-time card reproduces the holdings row's
+  bar to the digit.
+
+- **The card follows the reader's language.** It was English while the page around it was Dutch —
+  invisible until US-52 put a translated sentence on it and the card went half-and-half.
+
 ### Fixed
 
 - **US-60 — the popup speaks Dutch, and looks like the rest of the extension.** Every string in it

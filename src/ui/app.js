@@ -43,7 +43,7 @@ import { isSameRun } from '../lib/sync.js';
 import { ADAPTERS, connected as connectedBrokers } from '../lib/brokers/index.js';
 import { LANGS, applyStatic, getLang, missing as missingTranslations, setLang, t as tr } from './i18n.js';
 import { THEMES, alpha, applyAnonymize, applyTheme, fmtEurCents, fmtPct, fmtPrice, fmtQty, fmtSigned, getAnonymize, getTheme, onThemeChange, setAnonymize, setTheme, tokens } from './theme.js';
-import { FORMATS, ownerLine, positionSpan, snapshotModel } from '../lib/snapshot.js';
+import { FORMATS, ownerLine, positionSpan, snapshotModel, splitModel } from '../lib/snapshot.js';
 import { HOLDINGS_COLUMNS, baseHidden, droppableByPriority, optionalColumns } from './columns.js';
 import { brokerMarkSvg, lockupSvg, markSvg } from './brand.js';
 import { copySnapshot, downloadSnapshot, drawSnapshot, tokensForTheme } from './snapshot.js';
@@ -3461,43 +3461,17 @@ function renderHoldings(r, composition, compColours, t, from, to) {
    * How much of what this holding is worth is money you put in, and how much it
    * made — as a bar and a sentence.
    *
-   * `value = paidIn + result` exactly, at every point, with no cost-basis
-   * convention involved: a buy is money into the position and a sale is money
-   * out, which is SPEC §1.4 applied to one instrument. That identity is the only
-   * reason this can be shown at all — splitting today's value into "cost" and
-   * "gain" the usual way needs FIFO or average cost, and those are an argument
-   * with no right answer.
-   *
-   * Three states, all real:
-   *  - grown: part of the bar is yours, the rest is what it made.
-   *  - under water: worth less than went in, so the bar shows the shortfall in
-   *    the loss colour rather than pretending the gain segment is zero.
-   *  - free: more has come out than went in, `paidIn` is negative, and every
-   *    euro on screen is the market's. Said in words rather than clamped to 0 %.
+   * US-52 lifted the arithmetic into `splitModel` (`lib/snapshot.js`), which the
+   * shareable card also calls. What is left here is the mark: two segments and
+   * the words. Do not put a branch back in — the three states, the percentages
+   * and the under-water scaling are decided in one place, with the test.
    */
   const splitInner = (p) => {
     const paid = p.paidIn?.at(-1) ?? 0;
-    const grown = p.current - paid;
-    let words;
-    let keptPct;
-    let lostPct;
-    if (paid < 0) {
-      // More has come out than went in: every euro on screen is the market's.
-      words = tr('all gain — more came out than went in');
-      keptPct = 0;
-      lostPct = 100;
-    } else if (grown >= 0) {
-      const pctPaid = Math.round((paid / Math.max(p.current, 0.01)) * 100);
-      words = tr('{paid}% paid in · {grown}% grown', { paid: pctPaid, grown: Math.max(0, 100 - pctPaid) });
-      keptPct = pctPaid;
-      lostPct = Math.max(0, 100 - pctPaid);
-    } else {
-      const lost = Math.round((-grown / Math.max(paid, 0.01)) * 100);
-      words = tr('{lost}% of what you paid in is gone', { lost });
-      keptPct = Math.max(0, 100 - lost);
-      lostPct = lost;
-    }
-    return `<span class="bar" title="${esc(words)}"><i style="width:${keptPct}%"></i><em class="${grown >= 0 ? 'up' : 'down'}" style="width:${lostPct}%"></em></span>`
+    const split = splitModel(paid, p.current - paid);
+    const words = tr(split.key, split.vars);
+    return `<span class="bar" title="${esc(words)}"><i style="width:${split.keptPct}%"></i>`
+      + `<em class="${split.state === 'underwater' ? 'down' : 'up'}" style="width:${split.lostPct}%"></em></span>`
       + ` <span class="muted">${esc(words)}</span>`;
   };
   const resultInner = (v) => `<span class="${v > 0.005 ? 'pos' : v < -0.005 ? 'neg' : 'muted'}">${esc(fmtSigned(v))}</span>`;

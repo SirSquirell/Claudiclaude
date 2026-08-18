@@ -18,6 +18,8 @@ export function tokens() {
     textSecondary: read('--text-secondary'),
     muted: read('--text-muted'),
     grid: read('--grid'),
+    /** The track a composition bar is drawn on. Same token the table uses. */
+    surface3: read('--surface-3'),
     axis: read('--axis'),
     pos: read('--pos'),
     neg: read('--neg'),

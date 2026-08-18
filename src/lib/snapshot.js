@@ -35,7 +35,7 @@
  * somebody remembers. The 0.10.0 export leaked three fields exactly that way.
  */
 export const SNAPSHOT_FIELDS = Object.freeze([
-  'name', 'symbol', 'period', 'pct', 'pctBasis', 'amount', 'spark', 'provenance', 'owner',
+  'name', 'symbol', 'period', 'pct', 'pctBasis', 'amount', 'split', 'spark', 'provenance', 'owner',
 ]);
 
 /**
@@ -141,6 +141,78 @@ const pick = (obj, keys) => {
   for (const k of keys) if (obj[k] !== undefined) out[k] = obj[k];
   return out;
 };
+
+/**
+ * US-52 — how much of what this is worth is money you put in, and how much it
+ * made. One function, two renderers.
+ *
+ * `value = paidIn + result` holds exactly at every point for one instrument — a
+ * buy is money into the position, a sale is money out, SPEC §1.4 applied to a
+ * single holding. That identity is the only reason this can be drawn at all:
+ * splitting today's value into "cost" and "gain" the usual way needs FIFO or
+ * average cost, and those are an argument with no right answer. **It splits a
+ * stock, never a flow** — which is exactly why the same bar cannot be put on a
+ * sell transaction (US-53), and the wall to stop at if anybody tries.
+ *
+ * The arithmetic used to live inline in `app.js`'s holdings table. It is here
+ * because the card needs the same split and two copies of a three-branch rule
+ * drift — the under-water scaling in particular was a real defect once, and
+ * fixing it in one of two places would have been worse than never having moved
+ * it. `splitCell` is now a caller; so is `snapshotModel`.
+ *
+ * Returns percentages, an enum and an i18n key with its substitutions. **No
+ * amount, no currency, no identity** — which is what makes it the one part of a
+ * holdings row that was always safe to post publicly, and why it survives US-46
+ * untouched: there is no euro in it to mask.
+ *
+ * Three states, all real:
+ *  - `grown` — part of the bar is yours, the rest is what it made.
+ *  - `underwater` — worth less than went in, so the bar shows the shortfall in
+ *    the loss colour rather than pretending the gain segment is zero.
+ *  - `free` — more has come out than went in, `paid` is negative, and every euro
+ *    on screen is the market's. Said in words rather than clamped to 0 %.
+ */
+export function splitModel(paid, grown) {
+  const value = paid + grown;
+  if (paid < 0) {
+    // A closed position sold at a profit lands here on an all-time card, and
+    // that is correct rather than degenerate: there is nothing left of yours in
+    // it. Words, because a bar of a negative denominator means nothing.
+    return { state: 'free', keptPct: 0, lostPct: 100, key: 'all gain — more came out than went in', vars: {} };
+  }
+  if (grown >= 0) {
+    // `Math.max(value, 0.01)` rather than a zero guard: a position worth nothing
+    // that cost nothing is 100 % paid in, not a division by zero.
+    const paidPct = Math.round((paid / Math.max(value, 0.01)) * 100);
+    const grownPct = Math.max(0, 100 - paidPct);
+    return {
+      state: 'grown',
+      keptPct: paidPct,
+      lostPct: grownPct,
+      key: '{paid}% paid in · {grown}% grown',
+      vars: { paid: paidPct, grown: grownPct },
+    };
+  }
+  // Scaled against what was paid in, not against what it is worth now. Against
+  // the current value a total loss reads as 100 % of nothing.
+  const lost = Math.round((-grown / Math.max(paid, 0.01)) * 100);
+  return {
+    state: 'underwater',
+    keptPct: Math.max(0, 100 - lost),
+    /**
+     * The *bar* stops at the track; the *sentence* keeps the real figure. A
+     * written option can lose four times what was paid in, and `{lost}` says
+     * 400 % — but a segment 400 % wide is not a proportion of anything, and the
+     * only reason it looked right in the table is that the cell clips it. A bar
+     * whose correctness depends on `overflow: hidden` is one wrong stylesheet
+     * away from drawing across the row, and it is drawn on a canvas now, where
+     * there is no cell to clip it.
+     */
+    lostPct: Math.min(100, lost),
+    key: '{lost}% of what you paid in is gone',
+    vars: { lost },
+  };
+}
 
 /**
  * The percentage, and why it is this one.
@@ -249,6 +321,20 @@ export function snapshotModel({
     pctBasis: basis,
     // The only field US-46 controls, and the only one that can carry a figure.
     amount: anonymized ? null : result,
+    /**
+     * US-52. The same two numbers the percentage above is made of, read the
+     * other way round — the pct answers *"for every euro in, how much came
+     * back"*, the split answers *"of what this is worth, how much is mine"*.
+     *
+     * Measured over `span` for free, because `moneyIn` and `result` already are
+     * (US-50). So a windowed card's bar is windowed like everything else on it,
+     * and an all-time card reproduces the holdings row's bar to the digit — the
+     * span ends on the last day, which is where `splitCell` reads.
+     *
+     * Not governed by `anonymized`: there is no amount in it. That is the point
+     * of putting this on a public card rather than the euros beside it.
+     */
+    split: span ? splitModel(moneyIn, result) : null,
     spark: drawable ? sparkline(series) : [],
     /**
      * Normalised here rather than trusted from the caller, so the only two
@@ -280,14 +366,18 @@ export function snapshotModel({
  * Here rather than in the renderer because *what it claims* is the part worth
  * testing, and the renderer should have no opinions left to hold.
  */
-export function provenanceLine(p = {}, { unknownText = 'not checked against the broker' } = {}) {
+export function provenanceLine(p = {}, { translate = (s) => s } = {}) {
+  // `translate` replaces an `unknownText` option that nothing ever passed. The
+  // three verdicts are one decision and they belong in one place; handing in the
+  // lookup keeps this module pure — `i18n.js` is UI, and a lib module reaching
+  // up into it would be the layering the whole `lib/` split exists to prevent.
   const bits = [p.broker].filter(Boolean);
   if (p.asOf) bits.push(p.asOf);
-  bits.push(
+  bits.push(translate(
     p.reconciled === true ? 'reconciled to the cent'
       : p.reconciled === false ? 'DOES NOT reconcile'
-        : unknownText,
-  );
+        : 'not checked against the broker',
+  ));
   if (p.version) bits.push(`v${p.version}`);
   return bits.join(' · ');
 }
@@ -381,6 +471,10 @@ const SPACE = Object.freeze({
   gapHero: 68,
   gapCaption: 34,
   gapAmount: 40,
+  // US-52's bar: its height, the gap above it, and the baseline of its sentence.
+  gapSplit: 34,
+  splitBarH: 12,
+  gapSplitWords: 30,
   gapSpark: 40,
   sparkTopWide: 40,
   sparkFloor: 62,

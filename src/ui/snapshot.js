@@ -16,6 +16,7 @@
  */
 
 import { cardMetrics, formatById, provenanceLine } from '../lib/snapshot.js';
+import { t as tr } from './i18n.js';
 import { drawMark, markWidth } from './brand.js';
 import { fmtPct, fmtSigned, tokens } from './theme.js';
 
@@ -148,12 +149,12 @@ export function drawSnapshot(model, t = tokens(), { format = '16:9' } = {}) {
   y += m.gapHero;
   ctx.fillStyle = up ? t.pos : t.neg;
   ctx.font = `700 ${m.type.hero}px ${FONT}`;
-  ctx.fillText(model.pct == null ? 'all gain' : fmtPct(model.pct), PAD, y);
+  ctx.fillText(model.pct == null ? tr('all gain') : fmtPct(model.pct), PAD, y);
 
   y += m.gapCaption;
   ctx.fillStyle = t.textSecondary;
   ctx.font = `400 ${m.type.caption}px ${FONT_TEXT}`;
-  ctx.fillText(model.pct == null ? 'more has come out than went in' : 'on the money put in', PAD, y);
+  ctx.fillText(tr(model.pct == null ? 'more has come out than went in' : 'on the money put in'), PAD, y);
 
   // The amount, only when US-46 is off. `model.amount` is already null when it
   // is on — this branch is a second lock on the same door, not the only one.
@@ -162,6 +163,51 @@ export function drawSnapshot(model, t = tokens(), { format = '16:9' } = {}) {
     ctx.fillStyle = up ? t.pos : t.neg;
     ctx.font = `600 ${m.type.amount}px ${FONT}`;
     ctx.fillText(fmtSigned(model.amount), PAD, y);
+  }
+
+  // --- how much of it is yours ----------------------------------------------
+  /**
+   * US-52. The same two numbers the percentage above is made of, read the other
+   * way round: the pct says *for every euro in, this came back*; the bar says
+   * *of what this is worth, this much is mine*. Both are the one identity
+   * `value = paidIn + result`, which is why neither needs a cost-basis
+   * convention — see `splitModel`, where the arithmetic lives.
+   *
+   * It is percentages and words, so it carries no amount and US-46 does not
+   * govern it. That is the reason this is the part of a holdings row that was
+   * always safe to post: it discloses the *shape* of a position and nothing
+   * about its size.
+   */
+  if (model.split) {
+    y += m.gapSplit;
+    const barW = colW;
+    ctx.save();
+    ctx.beginPath();
+    ctx.roundRect(PAD, y - m.splitBarH, barW, m.splitBarH, m.splitBarH / 2);
+    ctx.fillStyle = t.surface3;
+    ctx.fill();
+    // Clipped to the pill so the two segments meet square inside a rounded
+    // track, which is what the table's `overflow: hidden` does with CSS.
+    ctx.clip();
+    const kept = (model.split.keptPct / 100) * barW;
+    ctx.fillStyle = t.muted;
+    ctx.fillRect(PAD, y - m.splitBarH, kept, m.splitBarH);
+    ctx.fillStyle = model.split.state === 'underwater' ? t.neg : t.pos;
+    ctx.fillRect(PAD + kept, y - m.splitBarH, (model.split.lostPct / 100) * barW, m.splitBarH);
+    ctx.restore();
+
+    /**
+     * The sentence, except in the one state where the caption above already is
+     * it. `free` means more came out than went in, which the hero has just said
+     * in those words — printing it twice on a card this small is not thoroughness,
+     * it is a card that looks broken.
+     */
+    if (model.split.state !== 'free') {
+      y += m.gapSplitWords;
+      ctx.fillStyle = t.textSecondary;
+      ctx.font = `400 ${m.type.caption}px ${FONT_TEXT}`;
+      ctx.fillText(clip(ctx, tr(model.split.key, model.split.vars), colW), PAD, y);
+    }
   }
 
   // --- the footer, from the bottom up --------------------------------------
@@ -191,7 +237,7 @@ export function drawSnapshot(model, t = tokens(), { format = '16:9' } = {}) {
      * asserting something no code here checked.
      */
     footer.push({
-      text: model.owner.derived ? `${model.owner.text}'s position` : `shared by ${model.owner.text}`,
+      text: tr(model.owner.derived ? "{name}'s position" : 'shared by {name}', { name: model.owner.text }),
       size: m.type.owner,
       weight: '500',
       font: FONT,
@@ -201,7 +247,7 @@ export function drawSnapshot(model, t = tokens(), { format = '16:9' } = {}) {
   if (period) footer.push({ text: period, size: m.type.provenance, weight: '400', font: FONT_TEXT, fill: t.muted });
   // Allowed to be bad news, and now allowed the room to say it in full.
   footer.push({
-    text: provenanceLine(model.provenance),
+    text: provenanceLine(model.provenance, { translate: tr }),
     size: m.type.provenance,
     weight: failed ? '600' : '400',
     font: FONT_TEXT,

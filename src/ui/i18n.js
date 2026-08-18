@@ -451,6 +451,18 @@ const DICT = {
     '{lost}% of what you paid in is gone': '{lost}% van je inleg is weg',
     'Put that frown upside down': 'Zet die frons op z\u2019n kop',
     'of what you paid in': 'van je inleg',
+
+    // --- the shareable card (US-47, US-52) ---------------------------------
+    // The card follows the reader's language like everything else. It carried
+    // English while the page around it was Dutch, which only became visible when
+    // US-52 put a translated sentence on it and the card went half-and-half.
+    'all gain': 'puur winst',
+    'more has come out than went in': 'er kwam meer uit dan erin ging',
+    'on the money put in': 'op je inleg',
+    "{name}'s position": 'de positie van {name}',
+    'shared by {name}': 'gedeeld door {name}',
+    'reconciled to the cent': 'sluit tot op de cent',
+    'not checked against the broker': 'niet gecontroleerd bij de broker',
     'no money in to compare against': 'geen inleg om mee te vergelijken',
     'Total matches what DEGIRO reports': 'Totaal komt overeen met wat DEGIRO meldt',
     'No projection is drawn, because the growth rate measured from your history is {rate}% a year. That is not what a market does \u2014 it is what an account looks like when deposits and the trades they paid for are recorded a day apart, which distorts the early months. Set the rates yourself above to see a projection anyway.':

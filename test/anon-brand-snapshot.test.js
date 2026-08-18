@@ -6,7 +6,7 @@ import { MASK, hasDigits, maskEur, maskQty, maskSigned } from '../src/lib/anon.j
 import { DOTS, DOT_R, LINE, MIN_LOCKUP_HEIGHT, STAR, STROKE_W, VIEWBOX, markWidth } from '../src/ui/brand.js';
 import {
   CARD_MIN_SHORT_EDGE_SHARE, CARD_MIN_TYPE_PX, CARD_RENDER_MIN_PX, FORMATS, PROVENANCE_FIELDS,
-  SNAPSHOT_FIELDS, cardMetrics,
+  SNAPSHOT_FIELDS, cardMetrics, splitModel,
   formatById, onScreenPx, ownerLine, positionSpan, provenanceLine, returnOnMoneyIn, snapshotModel,
   sparkline,
 } from '../src/lib/snapshot.js';
@@ -509,4 +509,120 @@ test('the footer lines cannot collide, at any format', () => {
     );
     assert.ok(m.footHead >= tallest * 0.8, `${f.id}: the footer has no headroom above it`);
   }
+});
+
+// ===========================================================================
+// US-52 — paid vs grown, on the card and in the table, from one function
+// ===========================================================================
+
+test('the three states are the three the holdings table already distinguished', () => {
+  /**
+   * AC4. These are the arithmetic `splitCell` held inline, moved rather than
+   * rewritten: the same rounding, the same denominators, the same words. The
+   * under-water case is scaled against what was *paid in*, not against what it
+   * is worth now — against the current value a total loss reads as 100 % of
+   * nothing, and getting that wrong was a real defect once.
+   */
+  const grown = splitModel(1000, 400);          // worth 1400, 71 % yours
+  assert.equal(grown.state, 'grown');
+  assert.equal(grown.keptPct, 71);
+  assert.equal(grown.lostPct, 29);
+  assert.deepEqual(grown.vars, { paid: 71, grown: 29 });
+
+  const under = splitModel(1000, -250);         // a quarter of the inlay is gone
+  assert.equal(under.state, 'underwater');
+  assert.equal(under.lostPct, 25);
+  assert.equal(under.keptPct, 75);
+
+  const free = splitModel(-300, 800);           // sold out at a profit
+  assert.equal(free.state, 'free');
+  assert.equal(free.keptPct, 0);
+  assert.equal(free.lostPct, 100);
+  assert.deepEqual(free.vars, {});
+
+  // Neither segment can leave the bar, in any state — including the one that
+  // lost four times what went in, where the segment is capped at the track and
+  // the sentence still carries the true 400 %.
+  const wipeout = splitModel(1000, -4000);
+  assert.equal(wipeout.lostPct, 100);
+  assert.equal(wipeout.vars.lost, 400, 'the sentence must not be capped with the bar');
+  for (const m of [grown, under, free, wipeout, splitModel(0, 0)]) {
+    assert.ok(m.keptPct >= 0 && m.keptPct <= 100, `keptPct ${m.keptPct} is outside the bar`);
+    assert.ok(m.lostPct >= 0 && m.lostPct <= 100, `lostPct ${m.lostPct} is outside the bar`);
+  }
+});
+
+test('an all-time card reproduces the holdings row’s bar to the digit', () => {
+  /**
+   * AC2. The table reads `paidIn.at(-1)` and `current − paidIn.at(-1)`; the card
+   * reads the `moneyIn` and `result` it derived over the position's span. On an
+   * all-time card the span ends on the last day, so those are the same two
+   * numbers — and this asserts it against the model rather than trusting that
+   * they are.
+   */
+  const card = snapshotModel({ ...base });
+  const paid = base.paidIn.at(-1);
+  const grown = base.pnl.reduce((a, b) => a + b, 0);
+  assert.deepEqual(card.split, splitModel(paid, grown));
+});
+
+test('the split is measured over the same span as the pct and the amount', () => {
+  /**
+   * AC3, which is US-50's defect asked about a different field. A windowed card
+   * that divided a windowed result by all-time money in printed a percentage
+   * belonging to neither span; a bar computed the same way would do it again,
+   * silently, because a bar has no digits to look wrong.
+   */
+  const windowed = snapshotModel({ ...base, window: { from: 3, to: 4 }, anonymized: false });
+  // Nothing was paid in during those days: the pct has no denominator and says
+  // so, and the bar says the same thing in its own terms — none of what this is
+  // worth over the window is money that went in during it.
+  assert.equal(windowed.pctBasis, 'no-money-in');
+  assert.equal(windowed.split.keptPct, 0);
+  // And it is not the all-time bar wearing a window's dates.
+  assert.notDeepEqual(windowed.split, snapshotModel({ ...base }).split);
+
+  // A card with no drawable span claims no split either, for the same reason it
+  // claims no period: it did not measure one.
+  assert.equal(snapshotModel({ ...base, window: { from: 0, to: 0 } }).split, null);
+});
+
+test('US-46 does not govern the split, because there is nothing in it to mask', () => {
+  /**
+   * AC5 and AC6 together. The bar is two percentages, an enum and a translation
+   * key — it discloses the *shape* of a position and nothing about its size,
+   * which is what makes it the one part of a holdings row that was always safe
+   * to post. So it survives anonymize untouched, and the check that it stays
+   * that way is that nothing in it is a number outside 0–100.
+   */
+  const on = snapshotModel({ ...base, anonymized: true });
+  assert.equal(on.amount, null, 'the amount is still masked');
+  assert.deepEqual(on.split, snapshotModel({ ...base, anonymized: false }).split);
+
+  assert.deepEqual(Object.keys(on.split).sort(), ['keptPct', 'key', 'lostPct', 'state', 'vars']);
+  assert.equal(typeof on.split.key, 'string');
+  assert.ok(['grown', 'underwater', 'free'].includes(on.split.state));
+  for (const v of [on.split.keptPct, on.split.lostPct, ...Object.values(on.split.vars)]) {
+    assert.equal(typeof v, 'number');
+    assert.ok(v >= 0 && v <= 100, `${v} is not a percentage`);
+  }
+
+  // And a caller cannot push anything of its own into it: the field is built by
+  // splitModel from two derived numbers, never copied off the argument.
+  const poisoned = snapshotModel({ ...base, split: { key: 'x', secret: 'NL91ABNA0417164300' } }); // leak-check: ok
+  assert.ok(!JSON.stringify(poisoned.split).includes('NL91'));
+});
+
+test('the holdings table holds no split arithmetic of its own any more', () => {
+  /**
+   * AC7. The point of lifting it was that two copies of a three-branch rule
+   * drift — so the check is that the second copy is gone, not that the first one
+   * works. If a branch reappears in `app.js`, this fails before the two can
+   * disagree about a losing position.
+   */
+  const code = read('../src/ui/app.js');
+  const fn = code.slice(code.indexOf('const splitInner'), code.indexOf('const resultInner'));
+  assert.ok(fn.includes('splitModel('), 'splitInner no longer calls the shared function');
+  assert.ok(!/keptPct\s*=/.test(fn), 'splitInner is computing percentages again');
+  assert.ok(!/Math\.round/.test(fn), 'splitInner is rounding a percentage again');
 });
