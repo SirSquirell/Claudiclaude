@@ -18,6 +18,33 @@ plain increments — this is not a library and nothing depends on its API.
 
 ## [Unreleased]
 
+### Fixed
+
+- **US-76 — a shared card and its own table row reported different results for the same position, and
+  on a closed position they could differ in sign.** Reported from a screenshot: the holdings row read
+  **-€99,02 · -1,57 %**, the card shared from that row read **+€175,50 · +2,79 %**, same instrument,
+  same day. Three faults, all of them on positions that have been sold:
+
+  1. **The card's span stopped a day before the position did.** Quantity is the figure at the *end* of a
+     day, so the day something is sold out it reads zero — and that is the day the sale's own P/L falls
+     on, the move between the last close and the price it actually sold at. The card left it out; the
+     table's Result column kept it. That one missing day is the whole of the €274,52 between the two
+     figures, and the reason the sign flipped. The card now ends its line, its dates and its
+     total on the day of the sale.
+  2. **The percentage divided by the money still in it, not the money put in.** Sold out, nothing is
+     left in a position, so there was no denominator to divide by — and half sold, the denominator falls
+     while the result stays, which made a position report a *rising* return as money came off the table.
+     Both the card and the table's **% of bought** now divide by what went in over the window they show.
+     That also fixes the column itself: it was dividing the selected window's result by all-time buying,
+     so a 1Y range on a position bought six years ago compared one year against six.
+  3. **A "paid in vs grown" bar was drawn for positions that no longer exist.** The bar splits what a
+     holding is worth; a closed one is worth nothing. It read *"100% of what you paid in is gone"* on a
+     sale that lost 20 %. The table has always shown a dash there and the card now does too.
+
+  **No resync needed.** Nothing stored changed — these are all derived figures, recomputed from the raw
+  responses already on disk. Open positions that have never been partly sold show the same numbers as
+  before; closed and partly-sold ones are corrected.
+
 ### Added
 
 - **US-53 decided — no paid-in-vs-grown on a sell row, and the ledger says why.** The request was for

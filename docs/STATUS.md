@@ -3,7 +3,7 @@
 `docs/BACKLOG.md` is 2 000 lines of reasoning and evidence, which is the right place for *why* and
 a bad place to find out *where things stand*. This is the index.
 
-**Last updated at 0.47.0.** It had been stale since 0.21.0 once, which is fifteen
+**Last updated after US-76 (unreleased).** It had been stale since 0.21.0 once, which is fifteen
 releases — if it looks stale again, trust the CHANGELOG and fix this.
 
 ## Shipped and confirmed against a real account
@@ -89,6 +89,7 @@ person.** This is the gate that is open.
 | US-75 | **Data arrives per card**, once per sync and never per render, as a mask over a drawing Chart.js already finished | 0.47.0 |
 | US-53 | **Decided (b): no split on a sell row.** Option (a)'s arithmetic was sound and answered the wrong question — the bar is the position's state, not the trade's, and a figure needing a label to correct the reading it invites has already failed. The ledger says where the split does live; a test now fails the build if the engine grows a cost-basis field | 0.47.0 |
 | US-61 | **The Positions table fits its width.** Columns-as-data: the lowest-priority ones drop as the table narrows and fold into a per-row expand, the load-bearing four (Instrument, Value, Paid in vs grown, Result) never drop, and a **Columns** chooser hides the rest, remembered like the theme. Browser-verified desktop→phone, no sideways page scroll; display only, no resync | 0.47.0 |
+| US-76 | **A card and its own table row now report the same result.** Three faults on closed and partly-sold positions: the card's span stopped the day before the sale, so it dropped the sale's own P/L — enough to flip a sign; the percentage divided by the money *still* in a position rather than what went in, which also fixes the table's **% of bought** dividing a windowed result by all-time buying; and a paid-in-vs-grown bar was drawn for positions worth nothing. Display only, no resync | Unreleased |
 
 **What to look at first**, if you only look at one thing: the Notices tab after a sync. 0.36.0 made
 background failures visible for the first time, so if something has been quietly failing for weeks

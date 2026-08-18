@@ -4687,3 +4687,95 @@ recommendation (A, the soft wipe; not B, the pen-tip dot).
 **Stop condition:** if the reveal cannot be done without turning Chart.js's own animation on, stop.
 The moment the data draws itself, this stopped being a story about arrival and became a story about
 pretending to compute.
+
+---
+
+## US-76 — The card and the row disagree about the same position *(built, defect)*
+
+> *"waarom komt dit niet overeen"* — one screenshot, one instrument, two figures. The holdings row
+> read **-€99,02 · -1,57 %**. The card shared from that same row, on the same day, read **+€175,50 ·
+> +2,79 % op je inleg**, and under it a bar saying **97% paid in · 3% grown** for a position that was
+> sold months earlier.
+
+A different sign for the same position is the worst class of defect this project can have: both
+figures look right, and a reader who never opens both never learns that one of them is wrong. It was
+three faults stacked on one position, all of them on closed positions, and the third had been on
+screen since US-52.
+
+### 1. The span stopped a day before the position did
+
+`positionSpan` ended at the last day `qty` was non-zero. But `qty` is the quantity at the **end** of a
+day, so the day a position is sold out reads zero — and that is exactly the day its largest single
+P/L lands on:
+
+```
+pnl[i] = values[i] - values[i - 1] - tradedIn[i]     // = 0 - yesterday's value + proceeds
+```
+
+The move between the last close and the price it actually sold at. The card's span excluded it; the
+table's Result column sums the whole window and included it. The **€274,52** between the two reported
+figures is that one missing day, and it is the reason the sign flipped.
+
+The fix is one clause: a day belongs to the position if it was held at the end of that day **or at the
+end of the day before**. It reaches back before the window's start on purpose — a window that opens on
+the sale day contains that sale, and the row counts it there.
+
+### 2. The percentage divided by what was *left* in it
+
+`moneyIn` was `paidIn[to] - paidIn[from-1]` — the **net** still in the position. For anything sold out
+that is zero, or negative when it sold above cost, so:
+
+- a closed position had no denominator at all, and the only reason one appeared is that the span
+  stopped a day early (fault 1) and read the net on a day the money was still in;
+- and halfway there, it is wrong in a direction nobody would notice: sell half of a doubled position
+  and the net falls while the result stays, so the same position reports a **rising** return as money
+  comes off the table.
+
+"For every euro I put in, this came back" asks about the euros that went in — a flow, not a stock. New
+`moneyInOver(paidIn, from, to)` sums the *rises* of `paidIn` over the span: gross money in, counted
+once, over the same days as the numerator.
+
+**And the holdings row now divides by the same function.** Its `% of bought` was the window's result
+over `p.bought`, which is all-time — US-50's defect, fixed on the card in phase 7 and left standing in
+the table, so a 1Y window there divided one year of result by six years of buying. Two figures on one
+screen answering one question two ways is what the report was about; there is one way now, and at ALL
+the row and the card agree to the digit by construction.
+
+### 3. A paid-in-vs-grown bar for a position that no longer exists
+
+The bar splits a **stock** — this is US-53's whole finding, one story up. A closed position is worth
+nothing, so there is nothing to split, and `splitModel` was being handed a net and a result that no
+longer describe anything on screen. A position sold out at a loss came back as *"100% of what you paid
+in is gone"* on a sale that lost 20 %, because the money left in it and the loss happened to be the
+same size.
+
+The holdings row has always printed a dash there (`cellFor.split` is `open(p) ? … : dash`). The card
+now agrees: no bar unless the position is open on the last day of the span.
+
+### Acceptance criteria
+
+- **AC1** For a position sold on day *k*, the span ends at *k*, and the card's amount equals the
+  holdings row's Result for the same window, to the cent. Asserted through `computePortfolio`, not
+  from hand-written arrays — the fault was in the relationship between `qty`, `pnl` and `paidIn`, and
+  a test that invents all three can quietly make them agree.
+- **AC2** The card's period states the sale date, not the day before it.
+- **AC3** The card's percentage and the row's `% of bought` come from `moneyInOver` over the same
+  window, and the row's numerator and denominator cover the same days.
+- **AC4** `moneyInOver` counts rises only: a window containing nothing but a sale took no money in, so
+  the caller has no denominator and says so instead of printing a percentage of nothing.
+- **AC5** No split bar on a card for a position that is not open at the end of the span.
+- **AC6** The snapshot field list is unchanged. This story moves no new value onto the card.
+
+### Why no browser pass would have caught it
+
+`fixtures/` has **no closed position** — ten products, all still held. Every fault here is on a
+position that has been sold, so `npm run demo` could not show any of them and neither could a
+screenshot of it. That is a gap in the generator rather than in the story, and it is the reason AC1 is
+asserted through `computePortfolio` instead of through the UI. Worth a round trip in
+`tools/make-fixtures.mjs` the next time that file is opened for another reason.
+
+### Stop condition
+
+If agreeing needs a cost basis — proceeds minus FIFO cost, or an average — stop and re-read US-53.
+Every figure here is `value = paidIn + result` applied to one holding, which is why it can be checked
+at all; the moment a convention is chosen, it is a SPEC-level decision and not a defect fix.
