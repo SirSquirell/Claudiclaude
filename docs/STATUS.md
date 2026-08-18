@@ -187,6 +187,7 @@ Not blockers, and not forgotten either.
 | B7 | Flag sparse FX gaps, or fetch a real FX series? | A rate unobserved for a quarter is already flagged |
 | B10 | Does DEGIRO book a split as a transaction pair? | Bounded — the rescaled instruments are all closed |
 | — | `price-scale-adjusted` factor 4.369 on one account | Bounded, same reason. Would need an account that still holds one |
+| — | One account's card reports **DOES NOT reconcile** — reported with a screenshot, not with its bug report | Unknown until that report arrives. The engine already attributes the residual three ways (share counts wrong / one position's price / the cash balance), so the answer is in the Notices tab of that account and nowhere here. Distinct from US-81, which is the owner's five cents on an account holding nothing |
 
 ## Out of scope, decided
 
