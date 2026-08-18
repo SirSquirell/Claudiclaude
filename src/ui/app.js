@@ -1081,6 +1081,9 @@ function routeFromHash() {
   return TABS.some((t) => t.key === key) ? key : TABS[0].key;
 }
 
+/** The section the page is currently showing, so a re-render is not a route change. */
+let shownTab = null;
+
 function applyRoute() {
   state.tab = routeFromHash();
   if (state.data) render();
@@ -1556,8 +1559,12 @@ function applyTab() {
   // `.grid[data-tab]`, not `[data-tab]`: the tab buttons carry the attribute too,
   // and the first version of this hid four of the five buttons behind the one
   // that was open.
+  const changed = shownTab !== state.tab;
+  shownTab = state.tab;
   for (const section of document.querySelectorAll('.grid[data-tab]')) {
-    section.hidden = section.dataset.tab !== state.tab;
+    const on = section.dataset.tab === state.tab;
+    section.hidden = !on;
+    if (on && changed) arrive(section);
   }
   for (const b of $('#tabs').querySelectorAll('button')) {
     const on = b.dataset.tab === state.tab;
@@ -1579,6 +1586,45 @@ function applyTab() {
   const windowed = !['outlook', 'notices'].includes(state.tab);
   $('.controls').hidden = !windowed;
   $('#window-crumb').hidden = !windowed;
+}
+
+/**
+ * US-64 — a section arrives rather than cutting.
+ *
+ * A short rise and a fade on the container, and nothing else. Three things it
+ * deliberately does not do, each of which is a trap the refinement names:
+ *
+ *  - **It does not delay the content.** The section is shown and interactive
+ *    before this is called; the motion is decoration over an already-usable
+ *    page, and nothing is locked out while it runs.
+ *  - **Transform and opacity only.** Animating a height would reflow the whole
+ *    grid every route change, which is the janky path — and on a page of charts
+ *    it is an expensive one.
+ *  - **It does not re-animate the charts.** They are built with Chart.js
+ *    animation off, and this runs on the container, so a route change cannot
+ *    replay every series.
+ *
+ * Interruptible by cancelling rather than by queueing: flicking through the rail
+ * should leave the last section arriving, not five of them arriving in turn.
+ * Successive changes land on different elements, so cancelling the one being
+ * started is enough — a section returned to mid-flight restarts cleanly.
+ *
+ * Reduced motion drops the slide and keeps a short fade: something appearing is
+ * motion that aids comprehension, and the vestibular part is the travel.
+ */
+function arrive(section) {
+  if (typeof section.animate !== 'function') return;
+  for (const a of section.getAnimations?.() ?? []) a.cancel();
+  const reduced = prefersReducedMotion();
+  section.animate(
+    reduced
+      ? [{ opacity: 0 }, { opacity: 1 }]
+      : [{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }],
+    // The curve a critically-damped spring traces, as a bezier: no overshoot,
+    // the same shape `motion.js` produces for the chart's edge, so the two
+    // surfaces move in one language.
+    { duration: reduced ? 120 : 260, easing: 'cubic-bezier(0.22, 0.61, 0.36, 1)' },
+  );
 }
 
 /** Is this canvas in the section currently on screen? */
@@ -1722,7 +1768,7 @@ function render() {
 
   const agg = aggregatePnl(r.days, r.pnl, gran, from, to);
   if (onScreen('#c-pnl')) state.charts.pnl = pnlChart($('#c-pnl'), agg, t);
-  if (onScreen('#c-cum')) renderCumulative(r, gran, from, to, agg, t);
+  if (onScreen('#c-cum')) renderCumulative(r, gran, from, to, agg, t, ends);
 
   // One composition and one set of colours, used three times: the stacked chart,
   // the holdings table's swatches and the share ring. All three must agree on
@@ -2152,7 +2198,7 @@ function renderZoomState(r, from, to) {
  * The toggle is therefore tied to "Results per", and says why when it cannot
  * be used rather than drawing dashes.
  */
-function renderCumulative(r, gran, from, to, agg, t) {
+function renderCumulative(r, gran, from, to, agg, t, ends) {
   // Remembered so the Candles button, which fires before the next render, can
   // tell whether the granularity it is about to be drawn at can carry a candle.
   state.lastGranularity = gran;

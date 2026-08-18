@@ -20,6 +20,18 @@ plain increments — this is not a library and nothing depends on its API.
 
 ### Added
 
+- **US-64 — a section arrives instead of cutting.** Switching rail routes swapped instantly. The new
+  section now rises a few pixels and fades in over a quarter of a second, on transform and opacity
+  only — animating a height would reflow the whole grid on every route change, and on a page of
+  charts that is expensive as well as janky.
+
+  It is decoration over an already-usable page: the section is shown and interactive before the
+  motion starts, and nothing is locked out while it runs. Flicking through the rail leaves one
+  section arriving rather than five queued behind each other. `prefers-reduced-motion` keeps a short
+  fade and drops the travel — something appearing helps you follow where you are; the journey is the
+  part that does not.
+
+
 - **US-65 — a figure that changed says so, without ever showing a figure that was not true.** Change
   the range and the hero numbers used to jump. The obvious move is a count-up tween, and it stays
   rejected: every frame of a count-up renders a value the account never had. The honest form is a
@@ -123,6 +135,12 @@ plain increments — this is not a library and nothing depends on its API.
   invisible until US-52 put a translated sentence on it and the card went half-and-half.
 
 ### Fixed
+
+- **The cumulative-result chart threw on the Performance tab.** US-62 handed it the estimated-day
+  flags from a variable that is only in scope in the caller, so opening Performance raised
+  `ReferenceError: ends is not defined` and the chart did not draw. Found by clicking through every
+  tab in a browser, which no test does — the suite cannot import `charts.js`, and the section had
+  never been opened during the change that broke it.
 
 - **The chart readouts speak Dutch.** The same gap US-60 found in the popup, one surface over and
   found while building US-62: `charts.js` had no translations at all — every tooltip line was a

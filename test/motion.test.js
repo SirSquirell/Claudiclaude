@@ -251,3 +251,52 @@ test('the departing figure is a ghost — out of the pointer’s way and out of 
   assert.match(tiles, /class="swap-out" aria-hidden="true"/);
   assert.match(css, /\.tile \.value\.swap > \.swap-out \{\s*\n\s*pointer-events: none;/);
 });
+
+// ===========================================================================
+// US-64 — sections arrive, they do not cut
+// ===========================================================================
+
+const route = app.slice(app.indexOf('function arrive(section)'), app.indexOf('/** Is this canvas in the section'));
+
+test('AC1 — a route change animates transform and opacity, and nothing else', () => {
+  /**
+   * Animating a height would reflow the whole grid on every route change, which
+   * is the janky path — and on a page of charts an expensive one. Verified in a
+   * browser: the keyframes the section actually runs carry exactly `opacity` and
+   * `transform`.
+   */
+  assert.match(route, /opacity: 0, transform: 'translateY\(8px\)'/);
+  assert.ok(!/height|width|margin|padding|top:|left:/.test(route), 'the transition has started animating layout');
+});
+
+test('AC2 — flicking through the rail leaves one section arriving, not five', () => {
+  // Cancelled rather than queued. Successive changes land on different
+  // elements, so cancelling on the element being started is enough — and a
+  // section returned to mid-flight restarts cleanly instead of stacking.
+  assert.match(route, /for \(const a of section\.getAnimations\?\.\(\) \?\? \[\]\) a\.cancel\(\);/);
+});
+
+test('AC3/AC4 — the content is not delayed and the charts do not replay', () => {
+  /**
+   * The section is shown and interactive before the motion starts: `arrive` is
+   * called after `hidden` is cleared, it animates the container, and it locks
+   * nothing. And the charts cannot replay because they are built with Chart.js
+   * animation off — the transition never reaches them.
+   */
+  assert.match(app, /section\.hidden = !on;\s*\n\s*if \(on && changed\) arrive\(section\);/);
+  assert.ok(!/pointer-events|disabled|inert/.test(route), 'the transition locks the section it is decorating');
+  assert.match(read('../src/ui/charts.js'), /animation: false,/);
+});
+
+test('AC5 — reduced motion keeps the fade and drops the travel', () => {
+  // Something appearing is motion that aids comprehension; the vestibular part
+  // is the journey. So the slide goes and a short fade stays.
+  assert.match(route, /reduced\s*\n?\s*\? \[\{ opacity: 0 \}, \{ opacity: 1 \}\]/);
+  assert.match(route, /duration: reduced \? 120 : 260/);
+});
+
+test('a re-render is not a route change', () => {
+  // `applyTab` runs on every render, including a range change. Animating there
+  // would flash the whole section every time a button is pressed.
+  assert.match(app, /const changed = shownTab !== state\.tab;/);
+});
