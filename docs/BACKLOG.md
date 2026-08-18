@@ -5125,4 +5125,71 @@ to the answer.
 
 ---
 
-**Next free number: US-82.**
+## US-82 — There is no closed position in the fixtures *(new, story, refined)*
+
+US-76 and US-77 were two wrong numbers and a wrong shape on a shared card, both found by a reader
+looking at a screenshot, and **neither could have been found here.** Every fault was on a position
+that has been sold, and `fixtures/` holds ten products of which **none is closed**:
+
+```
+BESI ASML ARGX IWDA WKL INGA PRX PROP SHELL VWRL   — all still held on the last day
+```
+
+So `npm run demo` cannot show a closed row, a closed card, or the dash the table prints where the
+paid-in-vs-grown bar goes. The Positions table's **Closed** and **All** filters have never had
+anything to filter, `positionSpan`'s end has never been exercised outside a unit test, and the sale
+day — the day a position books the move between its last close and the price it actually sold at, the
+single largest day of most closed positions — has never appeared in a rendered pixel.
+
+That is the gap this story closes, and it is worth stating why it is a fixture story rather than a
+test story: the unit tests for both defects were easy to write *once the defect was known*. What was
+missing was the chance to see it. A browser pass is the project's second line of defence and it was
+blind to a whole class of position.
+
+### What to add, and no more
+
+`tools/make-fixtures.mjs` gains **two** closed positions, because one cannot show the difference
+between the two ways of ending:
+
+1. **A round trip that ended at a profit** — bought, held across a few months, sold out in one go
+   above cost. Its net paid-in ends negative, which is `splitModel`'s `free` branch, and the row's
+   dash. Nothing else in the fixtures reaches that branch.
+2. **A round trip that ended at a loss, with a large move on the sale day itself.** This is the
+   US-76 shape: the card's total and the row's Result can only agree if the sale day is inside the
+   span, and this is the position where a regression makes them differ *on screen* rather than in an
+   assertion.
+
+Both synthetic, both generated (rule 7: nothing copied out of an account), and both wired into
+`meta.json`'s chart list like every other instrument, so the price series exists and the position is
+valued from quotes rather than from the fallback.
+
+### What this will change, and what must not change
+
+Adding two products moves numbers that tests assert on: the account's totals, the composition
+ranking, the seven categorical slots plus *Other*, and the reconciliation anchor in `meta.json`.
+**Those tests are updated to the new fixtures, never loosened** — in particular `reconciliation.ok`
+stays an exact zero-cent check (rule 6), and the demo account keeps reconciling. If the new
+instruments cannot be generated so that it does, the generator is wrong, not the check.
+
+### Acceptance criteria
+
+- **AC1** `fixtures/` contains two closed positions, one ended at a profit and one at a loss, both
+  with a price series and both visible in `npm run demo` under **Closed**.
+- **AC2** One of them has a material move on its own sale day, so the card's total and the row's
+  Result are only equal while US-76's span rule holds.
+- **AC3** The demo account still reconciles to the cent, and no test's tolerance is widened to make
+  the new fixtures pass.
+- **AC4** The holdings table's **Closed** and **All** filters show rows; the split cell shows the
+  dash and the card for a closed position shows no bar (US-76 AC5), both in a browser.
+- **AC5** `npm run fixtures` regenerates deterministically — the same seed gives the same files, so a
+  diff of `fixtures/` is reviewable.
+
+### Stop condition
+
+If making the demo account reconcile with two extra positions needs a special case anywhere in
+`engine.js`, stop: the engine is not allowed to know which instruments are fixtures, and a generator
+that can only produce a reconciling account by being helped is not testing the thing it claims to.
+
+---
+
+**Next free number: US-83.**
