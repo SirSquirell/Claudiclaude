@@ -179,3 +179,110 @@ test('every translatable literal in the UI has a Dutch entry', async () => {
   assert.deepEqual(orphans, [], `${orphans.length} string(s) would render in English on the Dutch page`);
   assert.ok(found.size > 20, 'the scan found almost nothing, so it has stopped matching the call sites');
 });
+
+// ---------------------------------------------------------------------------
+// US-60 — the popup, which had no translations at all
+// ---------------------------------------------------------------------------
+
+/**
+ * The scan above walks `t('…')` call sites in JS. The popup's strings live in
+ * two places it cannot see — `data-i18n` attributes in the markup, and the
+ * phase table, whose entries are looked up by key rather than written as
+ * literal arguments. Both were the shape the defect hid in: the popup *looked*
+ * finished because nothing anywhere counted what it was not translating.
+ */
+const readUi = async (name) => {
+  const { readFileSync } = await import('node:fs');
+  return readFileSync(new URL(`../src/ui/${name}`, import.meta.url), 'utf8');
+};
+
+test('every data-i18n string in the markup has a Dutch entry', async () => {
+  const dict = i18n.__dictForTest?.().nl;
+  if (!dict) return;
+  const orphans = [];
+  let seen = 0;
+  for (const file of ['popup.html', 'app.html']) {
+    const html = await readUi(file);
+    // The attribute marks the element; `applyStatic` uses its text as the key,
+    // so the key is whatever is between the tags, whitespace-collapsed exactly
+    // as `applyStatic` collapses it.
+    for (const m of html.matchAll(/<([a-z0-9]+)[^>]*\bdata-i18n\b[^>]*>([\s\S]*?)<\/\1>/gi)) {
+      // Entities are decoded, because `applyStatic` keys on `textContent` and
+      // that is already decoded — `Wipe &amp; resync…` in the markup is
+      // `Wipe & resync…` in the dictionary, and this check reads the markup.
+      const text = m[2].trim().replace(/\s+/g, ' ')
+        .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"');
+      if (!text || /[<>]/.test(text)) continue; // built in JS, or holds markup
+      seen++;
+      if (!(text in dict)) orphans.push(`${file}: ${text}`);
+    }
+  }
+  assert.ok(seen > 10, 'the scan found almost no marked elements, so it has stopped matching');
+  assert.deepEqual(orphans, [], `${orphans.length} marked string(s) would render in English on the Dutch page`);
+});
+
+test('every sync phase the popup can show has a Dutch entry', async () => {
+  /**
+   * Keyed by phase rather than by the worker's sentence, because two of those
+   * interpolate a count and a string with a number in it has as many keys as the
+   * account has transactions. The cost of that choice is this table, and the
+   * cost of the table is that it can fall out of step with `sync.js` — so both
+   * halves are checked: every entry translates, and every phase `sync.js`
+   * actually reports has an entry.
+   */
+  const dict = i18n.__dictForTest?.().nl;
+  if (!dict) return;
+  const js = await readUi('popup.js');
+  const block = js.match(/const PHASES = \{([\s\S]*?)\n\};/);
+  assert.ok(block, 'the phase table has moved; this check no longer sees it');
+
+  const entries = [...block[1].matchAll(/^\s*(\w+):\s*'((?:[^'\\]|\\.)*)',/gm)]
+    .map((m) => [m[1], m[2].replace(/\\'/g, "'")]);
+  assert.ok(entries.length >= 7, 'the phase table looks empty');
+  for (const [phase, english] of entries) {
+    assert.ok(english in dict, `phase "${phase}" would show English on the Dutch popup`);
+  }
+
+  const { readFileSync } = await import('node:fs');
+  const sync = readFileSync(new URL('../src/lib/sync.js', import.meta.url), 'utf8');
+  const reported = new Set([...sync.matchAll(/await report\(\s*\n?\s*'(\w+)'/g)].map((m) => m[1]));
+  assert.ok(reported.size >= 7, 'the scan stopped finding sync.js checkpoints');
+  const known = new Set(entries.map(([p]) => p));
+  const unlabelled = [...reported].filter((p) => !known.has(p));
+  assert.deepEqual(unlabelled, [], `sync.js reports phases the popup cannot name: ${unlabelled.join(', ')}`);
+});
+
+test('the popup writes no English of its own into the page', async () => {
+  /**
+   * AC1, as a rule rather than as a list. Every string the popup puts on screen
+   * has to come from `t()` — a literal assigned straight to `textContent` is how
+   * this whole defect started, and it is invisible to `missing()` by
+   * construction. The broker's own failure message is the one exception: it is
+   * raised in `sync.js` and naming a failure in the language it was raised in is
+   * what makes it findable in a bug report.
+   */
+  const code = (await readUi('popup.js'))
+    .replace(/\/\*\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '');
+  const written = [...code.matchAll(/textContent\s*=\s*(['"`])((?:[^\\]|\\.)*?)\1/g)]
+    .map((m) => m[2])
+    // A template hole is a value, not a sentence. `v${version}` is the build
+    // number, which is the same string in every language.
+    .filter((s) => !/\$\{/.test(s));
+  assert.deepEqual(written, [], `hardcoded text written to the popup: ${written.join(' | ')}`);
+});
+
+test('the popup reads currentTarget, so a button that gains an icon still works', async () => {
+  /**
+   * The connection-check button had exactly this shape, gained a broker mark,
+   * and then a click on the mark made `target` the `<svg>`: `disabled` did
+   * nothing and the busy label was written inside the icon, where it stayed.
+   * That was a real reported defect. The popup's button is plain text today, so
+   * the bug is latent rather than live — which is the only reason to pin it now.
+   */
+  const code = (await readUi('popup.js'))
+    .replace(/\/\*\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '');
+  assert.ok(!/\be\.target\b/.test(code), 'popup.js reads e.target inside a handler');
+  assert.ok(/e\.currentTarget/.test(code), 'the handler no longer resolves its button at all');
+});

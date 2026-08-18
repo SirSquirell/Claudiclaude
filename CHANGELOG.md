@@ -20,6 +20,30 @@ plain increments — this is not a library and nothing depends on its API.
 
 ### Fixed
 
+- **US-60 — the popup speaks Dutch, and looks like the rest of the extension.** Every string in it
+  was hardcoded English: no `data-i18n` attributes, `applyStatic` never called. Choosing Nederlands
+  gave you a Dutch app and an English popup — and `missing()`, which exists precisely so an
+  untranslated string is *counted rather than hidden*, never saw these because they never reached
+  `t()`. That is why it survived a whole interface rebuild unnoticed.
+
+  The worker's progress now shows in Dutch too. It is translated by *phase* rather than by the
+  worker's sentence: two of those sentences interpolate a count (`Fetched 412 transactions.`), and
+  the dictionary is keyed by the English string, so a sentence with a number in it has as many keys
+  as the account has transactions. The full page still shows the worker's own words step by step.
+
+  The layout carries the redesign's reasoning at 320 px: the mark, one hero figure (total value),
+  three supporting ones, the shape, and one primary action. It was four equal tiles in a 2×2 grid
+  and two equal buttons, on an extension that had moved to one hero and one primary action
+  everywhere else. Before the first sync the figures and the sparkline collapse instead of leaving a
+  blank block that reads as a failed load.
+
+  Also pinned: the busy label restores itself via `currentTarget`. The button is plain text today so
+  both work — but the connection-check button had this exact shape, gained a broker mark, and then a
+  click on the mark wrote "Checking…" *inside the icon*, where it stayed.
+
+  **No resync is needed.** Nothing computed changed; this is what the panel says and how it is laid
+  out.
+
 - **US-59 — the small print on a shareable card is readable again.** The card is drawn at 900–1280 px
   wide and a chat renders it at 500–700, so every size on it was scaled to roughly a half. The
   provenance line — the one that says whether the figures reconciled against DEGIRO's own total — was

@@ -192,6 +192,37 @@ const DICT = {
     'Check connection · {broker}': 'Verbinding met {broker} controleren',
     'Wipe & resync…': 'Wissen & opnieuw synchroniseren…',
 
+    // --- the popup (US-60) -------------------------------------------------
+    // It had none of these: every string in it was hardcoded English, so a
+    // reader who chose Nederlands got a Dutch app and an English popup, and
+    // `missing()` never counted them because they never reached `t()`.
+    'Loading…': 'Bezig met laden…',
+    'Open full chart': 'Open de volledige grafiek',
+    Today: 'Vandaag',
+    Week: 'Week',
+    Month: 'Maand',
+    'Syncing…': 'Bezig met synchroniseren…',
+    'Sync failed.': 'Synchroniseren mislukt.',
+    'Up to date.': 'Bijgewerkt.',
+    'Still syncing — open the full chart to follow it.':
+      'Nog bezig met synchroniseren — open de volledige grafiek om het te volgen.',
+    'The last sync failed. Open DEGIRO and log in.':
+      'De laatste synchronisatie is mislukt. Open DEGIRO en log in.',
+    'No data yet — press Sync now while logged in to DEGIRO.':
+      'Nog geen gegevens — druk op Nu synchroniseren terwijl je bij DEGIRO ingelogd bent.',
+    'Synced at {time}': 'Gesynchroniseerd om {time}',
+
+    // The worker's steps, keyed by phase rather than by its own sentence: two of
+    // those interpolate a count, and a string with a number in it has as many
+    // keys as the account has transactions. See `PHASES` in popup.js.
+    'Checking your session…': 'Je sessie controleren…',
+    'Reading your portfolio…': 'Je portefeuille lezen…',
+    'Fetching transactions…': 'Transacties ophalen…',
+    'Fetching cash movements…': 'Kasmutaties ophalen…',
+    'Fetching product details…': 'Productgegevens ophalen…',
+    'Fetching prices…': 'Koersen ophalen…',
+    'Rebuilding the history…': 'De historie opnieuw opbouwen…',
+
     Light: 'Licht',
     Dark: 'Donker',
     Language: 'Taal',

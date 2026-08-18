@@ -1382,29 +1382,90 @@ button.month-pick[aria-pressed='true'] {
 
 /* --- popup -------------------------------------------------------------- */
 
+/*
+ * US-60. The popup shares this stylesheet, which is why it came through the
+ * 0.46.0 redesign looking plausible and carrying none of it: the tokens changed
+ * underneath it and the structure did not. It was four equal tiles in a 2×2 and
+ * two equal buttons, on a page that had moved to one hero figure with three
+ * supporting ones and a single primary action.
+ *
+ * What is ported is the app's *reasoning* at 320 px, not its layout. The rules
+ * below only re-proportion `.hero-row`, `.tile` and `.facts` — the same classes
+ * the app builds — so a change to how a tile works reaches both.
+ */
 body.popup {
   width: 320px;
   padding: 14px;
   background: var(--surface-1);
 }
 
-body.popup .tiles {
-  grid-template-columns: 1fr 1fr;
+/* The mark, and the build beside it. The popup is where a tester looks first. */
+.popup-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 8px;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
+  color: var(--text-primary);
 }
 
-body.popup .tile {
-  padding: 10px 12px;
+.popup-head .version {
+  margin-top: 0;
 }
 
-body.popup .tile .value {
-  font-size: 1.0625rem;
+/* At 320px the hero stacks above its three facts rather than sitting beside
+   them. Same hierarchy, and the only arrangement that fits. */
+body.popup .hero-row {
+  display: block;
+  padding: 0;
+}
+
+body.popup .tile.is-hero {
+  width: 100%;
+  --kpi: 1.75rem;
+  margin-bottom: 14px;
+}
+
+body.popup .facts {
+  gap: 10px;
+}
+
+/* Thirds that may shrink. `--fits` still guards the digits, so a seven-figure
+   total narrows its type rather than losing its last digit. */
+body.popup .facts > .tile {
+  flex: 1 1 0;
+  width: auto;
+  min-width: 0;
+  --kpi: 0.9375rem;
+}
+
+/* The swatch ties a tile to its series in the app. There is one series here and
+   it is the sparkline, so four grey squares would tie nothing to anything. */
+body.popup .tile .label::before {
+  display: none;
 }
 
 body.popup .spark {
   height: 64px;
-  margin-bottom: 12px;
+  margin: 14px 0 12px;
+}
+
+/* Before the first sync there are no figures and no shape. Reserving the room
+   for them leaves a blank block above the status line that reads as something
+   that failed to load — the same reasoning `.tiles:empty` already carries in the
+   app, applied to the one panel that is usually opened before there is data. */
+body.popup #tiles:empty,
+body.popup #tiles:empty + .spark {
+  display: none;
+}
+
+/* Sync is what you opened this for; the full page is where you go afterwards.
+   Stacked rather than side by side: at 292 px of usable width the two labels do
+   not fit on one line in either language, and a flex row would wrap into this
+   anyway — with the ordering left to chance. The primary treatment comes from
+   `.actions #btn-sync`, which the app already defines. */
+body.popup .actions {
+  flex-direction: column;
 }
 
 .footer-note {

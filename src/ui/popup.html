@@ -2,19 +2,45 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>DEGIRO Portfolio</title>
+    <title>Asteria</title>
     <link rel="icon" href="../../icons/icon-32.png" />
     <link rel="stylesheet" href="styles.css" />
   </head>
+  <!--
+    US-60. The popup shares `styles.css`, which is why it survived the 0.46.0
+    redesign looking plausible while carrying none of it: the tokens updated
+    underneath it and the structure did not.
+
+    Two things changed here. Every string now carries `data-i18n`, so it goes
+    through the same dictionary as the app — the popup had no translations at
+    all, which meant a reader who chose Nederlands got a Dutch app and an
+    English popup, and `missing()` never counted these because they never
+    reached `t()`.
+
+    And the shape follows the app's reasoning at 320 px rather than the app's
+    layout: the mark, one hero figure, three supporting ones, the shape, and one
+    primary action. It was four equal tiles and two equal buttons, where the
+    value is the thing you opened it for and Sync is the thing you press.
+  -->
   <body class="popup">
-    <div id="status" class="sub">Loading…</div>
+    <header class="popup-head">
+      <div id="lockup"></div>
+      <div class="version" id="version"></div>
+    </header>
+
+    <!-- Built in JS: the figures are the same tiles the app builds, down to the
+         `--len` rule that keeps a seven-figure total from being sliced. -->
+    <section id="tiles"></section>
+
     <div class="spark"><canvas id="spark"></canvas></div>
-    <section class="tiles" id="tiles"></section>
+
+    <div id="status" class="sub" data-i18n>Loading…</div>
+
     <div class="actions">
-      <button id="btn-open" type="button">Open full chart</button>
-      <button id="btn-sync" type="button">Sync</button>
+      <button id="btn-sync" type="button" data-i18n>Sync now</button>
+      <button id="btn-open" type="button" data-i18n>Open full chart</button>
     </div>
-    <div class="version" id="version"></div>
+
     <script src="../../vendor/chart.umd.js"></script>
     <script type="module" src="popup.js"></script>
   </body>
