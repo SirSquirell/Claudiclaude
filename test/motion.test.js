@@ -578,3 +578,84 @@ test('a tile note is translated once, where it is built', () => {
   assert.match(score, /caption: tile\.note \|\| null,/, 'the card is translating an already-translated note');
   assert.match(score, /label: tr\(tile\.label\),/, 'the label is a bare key and does need translating');
 });
+
+// ===========================================================================
+// US-66 / US-67 / US-68 — three defects the UI review found
+// ===========================================================================
+
+test('US-66 — a click or a drag is decided by the hand, not by the history', () => {
+  /**
+   * The old test was a span of **days**: below two days it was a click. Two days
+   * is not a length of hand movement, it is a length of history, and the window
+   * changes what it measures on screen — under a pixel on a five-year view, so a
+   * click that wobbled zoomed the page; most of a centimetre on a three-week
+   * window, so a deliberate drag was thrown away.
+   *
+   * Momentum made it worse rather than better, which is the part worth writing
+   * down: a three-pixel twitch carries a velocity, the projection turns that
+   * into a throw, and the day-span it lands on clears two days comfortably. So
+   * the check has to happen *before* the projection, on the distance travelled.
+   *
+   * Browser-measured: a 3px wobble on ALL does nothing; a 40px drag inside a
+   * one-month window zooms.
+   */
+  assert.match(gesture, /const wasClick = \(\) => travelPx < GESTURE\.dragThresholdPx;/);
+  assert.ok(!/86400000/.test(gesture), 'the day-span threshold is back');
+  const up = gesture.slice(gesture.indexOf("addEventListener('pointerup'"));
+  assert.ok(
+    up.indexOf('wasClick()') < up.indexOf('project(velocity)'),
+    'the click test runs after the momentum, so a twitch can still be thrown',
+  );
+  // One number, in the file the other tuning constants live in.
+  assert.match(read('../src/lib/config.js'), /dragThresholdPx: 8,/);
+});
+
+test('US-66 — the selection tracks past the edge of the plot instead of freezing', () => {
+  // `indexAtX` is deliberately unclamped and `resist` decides what happens
+  // outside; returning `null` out there is what made a drag to the edge look
+  // like a hang. Browser-measured at 300px left of the plot: the moving edge
+  // sits at -5.1, rubber-banded rather than stuck.
+  assert.ok(!/x < area\.left \|\| x > area\.right/.test(gesture), 'the handler refuses to index outside the plot again');
+  assert.match(css, /#c-value \{[\s\S]*?touch-action: none;/);
+});
+
+test('US-67 — a hover affordance is an enhancement, never the usable state', () => {
+  /**
+   * `button.snap` sat at `opacity: 0.45` and came up on `tr:hover`. On a pointer
+   * with no hover that is permanent — a share button at 45 % is not "quiet", it
+   * is a control claiming to be off, on the one device where there is no way to
+   * find out otherwise. Measured with a touch context: opacity 1.
+   */
+  const snap = css.slice(css.indexOf('button.snap {'), css.indexOf('.sr-only {'));
+  assert.ok(!/opacity: 0\.45/.test(snap.split('@media')[0]), 'the dimming is outside the hover query again');
+  assert.match(snap, /@media \(hover: hover\) and \(pointer: fine\)/);
+  // `:focus-visible` is how a keyboard reaches it and it stays inside the query,
+  // because outside it there is nothing to reveal.
+  assert.match(snap, /button\.snap:focus-visible/);
+  // And the decorative rotate, which a tap used to leave stuck on.
+  assert.match(css, /@media \(hover: hover\) and \(pointer: fine\) \{\s*\n\s*\.frown-btn:hover/);
+});
+
+test('US-68 — reduced motion names what stops, and forces only that', () => {
+  /**
+   * It used to be `* { transition-duration: 0.01ms !important; animation-duration:
+   * 0.01ms !important }`, which is short because it does not think: it also
+   * silenced the colour change that is the only thing telling a reader their
+   * press registered.
+   *
+   * The replacement forces a **property allowlist** rather than a duration. It
+   * still needs `!important`, and the first attempt without it proved why — a
+   * rule with its own `transition` shorthand wins on specificity, and the row
+   * expander went on rotating under reduced motion.
+   */
+  const block = css.slice(css.indexOf('@media (prefers-reduced-motion: reduce) {\n  /*\n   * US-68'));
+  // Comments stripped: the block quotes the rule it replaced, and matching that
+  // would fail for the one reason that is not a regression.
+  const live = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.ok(!/transition-duration:\s*0\.01ms/.test(live), 'the sledgehammer is back');
+  assert.match(block, /transition-property: background-color[^;]*!important;/);
+  assert.match(block, /animation-name: none !important;/);
+  // Browser-measured: pressed under reduced motion the surface still changes and
+  // nothing transforms.
+  assert.match(block, /button:active,[\s\S]{0,120}transform: none;/);
+});

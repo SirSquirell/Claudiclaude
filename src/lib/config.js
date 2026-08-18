@@ -117,6 +117,25 @@ export const SYNC = {
   minSyncIntervalMs: 5 * 60 * 1000,
 };
 
+/**
+ * US-66 — how far the pointer has to travel before a press is a drag.
+ *
+ * The zoom used to decide this in **days**: below two days of history it was a
+ * click. Two days is not a length of hand movement, it is a length of history,
+ * and the window changes what it measures on screen — under a pixel on a
+ * five-year view, so a click that wobbled zoomed the page; most of a centimetre
+ * on a three-week window, so a deliberate drag was thrown away. The same line
+ * was wrong in both directions.
+ *
+ * Eight pixels is the hysteresis a gesture wants: past a hand's tremor, under
+ * anything anybody would call a drag. Here rather than inline because more than
+ * one gesture needs the same number, and a threshold that is a tuning constant
+ * in one place and a literal in another drifts.
+ */
+export const GESTURE = {
+  dragThresholdPx: 8,
+};
+
 export const STORAGE = {
   dbName: 'degiro-portfolio',
   /**

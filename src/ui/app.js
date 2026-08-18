@@ -7,6 +7,7 @@
 
 import { aggregatePnl, annualisedReturn, buildComposition, projectPortfolio, candleSeries, maxDrawdown, monthlyTable, rangeEndIndex, rangeStartIndex, windowReturnPct } from '../lib/engine.js';
 import { formatDay, monthKey, weekKey } from '../lib/dates.js';
+import { GESTURE } from '../lib/config.js';
 import {
   candleChart,
   compositionChart,
@@ -2125,6 +2126,17 @@ function wireZoom() {
   let grabOffset = 0;
   let trail = [];
   let pending = false;
+  /**
+   * US-66. How far the pointer has actually travelled, in pixels, since it went
+   * down — which is what decides whether this was a click or a drag.
+   *
+   * The old test was a span of **days** between the two ends, and momentum made
+   * it worse rather than better: a three-pixel wobble carries a velocity, the
+   * projection turns that into a throw, and the day-span it lands on is
+   * comfortably over two. So a twitch could zoom the page *further* than before.
+   * Measuring the hand rather than the history is the fix in both directions.
+   */
+  let travelPx = 0;
   // A twentieth of a day: below what a pixel on this chart can show, and the
   // window rounds to a whole day regardless. See `restDistance`.
   const moving = new Spring(0, { restDistance: 0.05 });
@@ -2218,11 +2230,13 @@ function wireZoom() {
     const end = at(moving.x);
     clear();
     if (!start || !end) return;
-    // A click is not a drag. Below this it is someone reading the tooltip.
-    if (Math.abs(new Date(end) - new Date(start)) < 2 * 86400000) return;
     const [from, to] = start <= end ? [start, end] : [end, start];
+    if (from === to) return; // a window of one day is not a window
     zoomTo(`${from}..${to}`);
   };
+
+  /** A press that never really moved. The tooltip is what it was for. */
+  const wasClick = () => travelPx < GESTURE.dragThresholdPx;
 
   canvas.addEventListener('pointerdown', (e) => {
     const here = indexAtX(e.offsetX);
@@ -2245,11 +2259,13 @@ function wireZoom() {
       grabOffset = 0;
     }
     trail = [{ v: moving.x, t: performance.now() }];
+    travelPx = 0;
     canvas.setPointerCapture(e.pointerId);
   });
 
   canvas.addEventListener('pointermove', (e) => {
     if (anchor == null) return;
+    travelPx += Math.abs(e.movementX);
     const here = indexAtX(e.offsetX);
     if (here == null) return;
     const at = resist(here + grabOffset);
@@ -2258,9 +2274,9 @@ function wireZoom() {
     moving.snap(at);
     trail.push({ v: at, t: performance.now() });
     if (trail.length > 8) trail.shift();
-    // Only once the pointer has actually left the anchor, so a plain click that
+    // Only once the gesture has committed to being a drag, so a plain click that
     // wobbles by a pixel does not flash the tooltip off and on.
-    if (Math.round(at) !== Math.round(anchor)) tooltip(false);
+    if (!wasClick()) tooltip(false);
   });
 
   canvas.addEventListener('pointercancel', clear);
@@ -2295,6 +2311,16 @@ function wireZoom() {
      * Reduced motion (AC5) keeps the 1:1 tracking above and drops this entirely:
      * the window applies where the finger left it. Gentler feedback, not none.
      */
+    /**
+     * A click, decided in pixels. It reaches here having drawn nothing and
+     * changed nothing, and the tooltip it was for is re-enabled by `clear()`.
+     * Checked *before* the momentum, because a twitch has a velocity too.
+     */
+    if (wasClick()) {
+      clear();
+      return;
+    }
+
     const velocity = velocityFrom(trail);
     if (prefersReducedMotion()) {
       moving.snap(clamp(Math.round(moving.x)));

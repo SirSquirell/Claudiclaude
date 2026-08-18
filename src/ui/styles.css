@@ -1683,6 +1683,16 @@ body.popup .actions button {
 
 #c-value {
   cursor: crosshair;
+  /*
+   * US-66. The value chart owns the horizontal gesture on it.
+   *
+   * Without this a drag on a touch screen scrolls the page underneath and the
+   * selection is half of what was drawn — the browser takes the gesture away
+   * partway through, which reads as the chart losing track of your finger.
+   * `none` rather than `pan-y`: the brush is the whole point of touching this
+   * canvas, and there is nothing on it to scroll.
+   */
+  touch-action: none;
 }
 
 /* A signed result in a table cell. The sign is already in the number, so the
@@ -2108,7 +2118,15 @@ td .chip {
   transition: filter 150ms, transform 150ms;
 }
 
-.frown-btn:hover { filter: none; transform: rotate(-15deg) scale(1.15); }
+/*
+ * US-67. A decorative transform, and on a touch pointer a tap sets `:hover` and
+ * leaves it set — so the button stayed rotated until you tapped somewhere else.
+ * Hover effects that move something belong behind the query; hover effects that
+ * only change a surface are harmless either way and are left alone.
+ */
+@media (hover: hover) and (pointer: fine) {
+  .frown-btn:hover { filter: none; transform: rotate(-15deg) scale(1.15); }
+}
 .frown-btn.on { filter: none; transform: rotate(180deg); }
 
 .frown-btn.on {
@@ -2325,16 +2343,40 @@ td .chip {
   opacity: 1;
 }
 
+/*
+ * US-67. The un-hovered state is the **default**, not the fallback.
+ *
+ * This control used to sit at `opacity: 0.45` and come up to full on
+ * `tr:hover`. On a pointer with no hover — a phone, a tablet — that is
+ * permanent: a share button at 45 % is not "quiet", it is a control claiming to
+ * be off, on the one device where there is no way to find out otherwise.
+ *
+ * So the dimming lives behind a hover query and the plain rule is the usable
+ * one. Writing it the other way round is how the bug happened.
+ */
 button.snap {
   padding: 2px 8px;
   font-size: 0.95em;
   line-height: 1.4;
-  opacity: 0.45;
 }
 
-tr:hover button.snap,
-button.snap:focus-visible {
-  opacity: 1;
+/*
+ * The quieting, and it only exists where there is a way to undo it. On a fine
+ * pointer the row action rests at 45 % and comes up on hover or focus; on a
+ * touch pointer the rule never matches and the button is simply visible.
+ */
+@media (hover: hover) and (pointer: fine) {
+  button.snap {
+    opacity: 0.45;
+  }
+
+  /* `:focus-visible` is how a keyboard reaches this at all, and it is inside the
+     query for the same reason the dimming is: outside it there is nothing to
+     reveal. */
+  tr:hover button.snap,
+  button.snap:focus-visible {
+    opacity: 1;
+  }
 }
 
 .sr-only {
@@ -2654,15 +2696,50 @@ button.primary:active:not(.press-cancelled) {
  * block is short rather than thorough.
  */
 @media (prefers-reduced-motion: reduce) {
+  /*
+   * US-68. This used to be
+   *
+   *   * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+   *
+   * which is short because it does not think. It stops *everything*, including
+   * the surface and colour changes that are the only thing telling a reader
+   * their press registered — and §14 and US-56 both say the same sentence:
+   * reduced motion is gentler feedback, never no feedback.
+   *
+   * The replacement names what must not move. It is longer, and that is the
+   * point: four named properties can be read and can be tested, where a star
+   * selector can only be trusted.
+   *
+   * Today the damage would be small, because little moves. It stops being small
+   * the moment a story lands whose reduced form *is* an opacity change — the
+   * star rule deletes exactly the fallback the story wrote.
+   */
+  *,
+  *::before,
+  *::after {
+    /*
+     * Movement, gone. Colour, surface and opacity transitions are untouched,
+     * because those are the answer rather than the journey.
+     *
+     * `!important` on an **allowlist**, which is the opposite of what it
+     * replaced. The old rule forced every duration to zero, so it also silenced
+     * the colour change that says a press registered; this forces the *set of
+     * properties* and leaves their timing alone. It has to be forceful for the
+     * same reason the list has to be a list: a rule that sets its own
+     * `transition` shorthand beats a plain declaration on specificity, and a
+     * first attempt without it left the row expander still rotating under
+     * reduced motion. A denylist of the three rules that do that would ship the
+     * next one with the same defect.
+     */
+    transition-property: background-color, border-color, color, box-shadow, opacity, fill, stroke !important;
+    animation-name: none !important;
+    scroll-behavior: auto;
+  }
+
   button:active,
   .rail-nav button:active,
   .menu button:active {
     transform: none;
-  }
-
-  * {
-    transition-duration: 0.01ms !important;
-    animation-duration: 0.01ms !important;
   }
 }
 

@@ -193,6 +193,32 @@ plain increments — this is not a library and nothing depends on its API.
 
 ### Fixed
 
+- **US-66 — a click and a drag are told apart by the hand, not by the history.** The zoom decided it
+  in *days*: below two days of history it was a click. Two days is not a length of hand movement, and
+  the window changes what it measures on screen — under a pixel on a five-year view, so a click that
+  wobbled zoomed the page; most of a centimetre on a three-week window, so a deliberate drag did
+  nothing. The same line was wrong in both directions, and this release's momentum made it worse: a
+  twitch carries a velocity, and the projection turned that into a throw. It is now eight pixels of
+  travel, checked before the momentum.
+
+  Dragging past the edge of the plot no longer freezes, and `#c-value` carries `touch-action: none`
+  so a drag on a touch screen stops scrolling the page out from under the selection.
+
+- **US-67 — a hover affordance is an enhancement, not the usable state.** The share button on a
+  holdings row sat at 45 % opacity and came up on hover. On a pointer with no hover that is
+  permanent: a control claiming to be off, on the one device with no way to find out otherwise. The
+  🙃 button had the matching bug the other way — a tap set `:hover` and left it rotated. Both are
+  behind `@media (hover: hover) and (pointer: fine)` now, and `:focus-visible` still reveals the row
+  action.
+
+- **US-68 — reduced motion stopped saying anything at all.** `* { transition-duration: 0.01ms
+  !important }` is short because it does not think: it also silenced the colour change that is the
+  only thing telling a reader their press registered. It now forces a *property allowlist* instead of
+  a duration — colour, surface and opacity keep answering, movement stops. It still needs
+  `!important`, and the first attempt without it proved why: a rule with its own `transition`
+  shorthand wins on specificity, and the row expander went on rotating.
+
+
 - **A 17px amount was tracked as display type.** `--kpi` is re-set in six contexts — a hero tile takes
   it to 3.5rem, a fact and the all-figures grid to 1.0625rem, the popup to 0.9375rem — while the
   tracking was written once, on the shared rule, at the display value. So the supporting figures on
