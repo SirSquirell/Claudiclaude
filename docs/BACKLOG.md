@@ -3956,6 +3956,8 @@ cash rather than to any holding. DEGIRO lists `degiroCash` and `flatexCash` as s
 somebody knows which of those three fields is the whole balance. Picking one to make the check pass
 would be defeating the check.
 
+Reported again against 0.47.0, unchanged. Refined into **US-76** at the end of this file.
+
 ---
 
 # Refinement 0.49 — the Positions table fits the width it is given
@@ -4687,3 +4689,112 @@ recommendation (A, the soft wipe; not B, the pen-tip dot).
 **Stop condition:** if the reveal cannot be done without turning Chart.js's own animation on, stop.
 The moment the data draws itself, this stopped being a story about arrival and became a story about
 pretending to compute.
+
+
+---
+
+## US-76 — Locate the five cents. Do not tune anything to hide them *(new, defect, refined)*
+
+> *"The total doesn't match my account total right now"* — 0.47.0, the owner's account, with the
+> banner reading **reconstructed € −0,05 · DEGIRO € 0,00 · off by € −0,05**.
+
+This is not a new defect. It is the one already recorded above under *Still open, and not to be
+guessed at*, re-reported one release later because nothing on screen has changed — and nothing on
+screen **should** change until the five cents have a name. Rule 6 is working exactly as written: the
+history rests on the total, the total is out, and the page says so in red.
+
+What has changed is that it is worth doing now, and the reason is the account itself. **6
+transactions, 81 cash movements, 3 instruments, every position closed.** That is the smallest ledger
+this check will ever run against, and the residual is five cents. On the 1 457-transaction account in
+§1 a difference of five cents could not be located by hand; here it can. If this is not resolved on
+this account, it will not be resolved on a harder one.
+
+### What is already known, without asking anybody for anything
+
+Every position is closed, so `byProduct` contributes nothing to `value[n−1]` and the whole residual is
+in the cash series. The engine already reaches that conclusion on its own: `positionsAgree` is true,
+`attribution` is empty, and §7 takes its third branch — *"no individual position disagrees, so the
+difference is in the cash balance rather than in any holding"*.
+
+That leaves two mechanisms. They are mutually exclusive, they have different fixes, and **one field
+already on screen tells them apart**: `reconciliation.source`.
+
+1. **`reported`** — DEGIRO stated a net-liquidity total of 0,00 and our 81 cash rows sum to −0,05.
+   Then the defect is ours, in the ledger. The suspects, in the order they should be checked:
+   rows classified into a category held at `inCash:false` (`CASH_SWEEP`, `RESERVATION`); rows that
+   fell through to `UNKNOWN`; and a sweep or reservation whose *pair* falls outside the window, so
+   one leg is counted and the other never arrives.
+2. **`derived`** — DEGIRO stated no total, so the anchor is `Σ position values + liveCash`, where
+   `liveCash` is whatever `parseUpdate` picked out of `['totalCash', 'reportCashBal', 'cash']`. If
+   DEGIRO splits the balance across `degiroCash` and `flatexCash`, that pick is not the whole
+   balance and the **anchor** is short, not the ledger. On an emptied account the anchor is
+   *entirely* that one field, which is why this account is where the question is cleanest.
+
+Reading which of the two applies is the first ten minutes of this story, and nobody has done it.
+
+### Why an export has not answered this, and cannot
+
+The evidence is already on disk. `sync.js` writes `liveSnapshot` on every sync with the whole parsed
+`/update` — every `totalPortfolio` field it carried *and* the per-currency `cashFunds`, which is where
+`FLATEX_EUR` appears if it appears at all. Nothing surfaces it.
+
+The bug report cannot carry the answer out either, and this is measured rather than suspected.
+`report.js`'s `ratio()` returns `null` when the denominator is zero, and DEGIRO's total here **is**
+zero. So on this account the export states:
+
+- `reconciliation.ratio: null` — the one field whose job is to say how big the discrepancy is;
+- `cashShare: 1` and `residualOverCash: 1` — arithmetic, not information, because on an emptied
+  account cash *is* the total and the residual *is* the cash.
+
+**The artefact designed to carry this finding off the machine is blind exactly when the anchor is
+zero.** That is not a coincidence alongside two releases of "still open"; it is the cause of it.
+
+### What to build
+
+A locator, not a fix. This story must not move a single number on anybody's screen.
+
+- **Say which anchor was used**, on the page and in the report, when the reconciliation fails — the
+  `derived` label already exists for the case where DEGIRO stated no total; it has to be legible in
+  the failing banner, because it is the field that splits the two mechanisms above.
+- **State the size of a failed reconciliation when the total is zero.** The ratio degenerates, so it
+  needs a denominator that cannot be zero on an account that has any rows at all: the residual over
+  the summed absolute value of the cash movements. An amount in cents was considered and rejected —
+  rule 7 is an allowlist and a difference is still an amount; a ratio against a denominator the
+  account itself provides carries the same finding and leaks nothing.
+- **Attribute the residual across the cash categories.** The engine already computes
+  `categoryTotals` and throws it away for this purpose. Carried as ratios of the residual, the answer
+  to this defect is legible on sight: *the rows we hold at `inCash:false` sum to exactly the gap*, or
+  they do not, and the search moves on.
+- **Name the cash fields the response actually carried** in the connection check, and say whether
+  they agree with the sum of `cashFunds`. Names and a verdict. `totalFieldsSeen` already lists them;
+  it does not say which one was used or whether it was complete.
+
+### Acceptance criteria
+
+- **AC1** A failing reconciliation states whether its anchor was `reported` or `derived`, on the page
+  and in the bug report.
+- **AC2** With DEGIRO's total at 0,00 the report still states the size of the discrepancy — asserted
+  by a test that runs `computePortfolio` with `liveTotal: 0` and a non-zero reconstruction, and fails
+  if the field is `null`.
+- **AC3** The report attributes the residual across cash categories, as ratios, so a residual equal
+  to the total of the rows held at `inCash:false` is visible as such.
+- **AC4** The connection check names which cash field the anchor came from and whether the stated
+  cash fields agree with `cashFunds` — names and a verdict, never amounts.
+- **AC5** Nothing new leaves the machine that is not in the allowlist; the existing export test still
+  passes against its declared key set.
+- **AC6** **No number on the page changes.** After this ships the banner still reads −0,05 in red. It
+  is explained, not resolved.
+
+### Stop condition
+
+Do not make this account come out at zero. Concretely, three things are forbidden as the fix:
+flipping `CASH_SWEEP`'s `inCash` flag — `classify.js`'s own comment invites it, and accepting that
+invitation without a capture showing **both** sweep legs would trade a visible five cents on one
+account for an invisible error on every account that sweeps; widening `ok`'s 0,01, which is rule 6
+itself; and adding a fourth candidate to `totalCash`'s pick list on the strength of a guess about
+which field is whole, which is rule 8's dead fallback born on day one.
+
+If the locator lands and the residual turns out to be one line, that is a **separate** story, opened
+with the evidence attached. And if the locator ships and still cannot say where the five cents are,
+that is the finding: write down what it ruled out, because ruling out the ledger is most of the way
+to the answer.
