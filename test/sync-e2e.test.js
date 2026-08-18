@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
+import { underFakeClock } from './fake-clock.js';
+
 import { installFakeIndexedDb } from './fake-indexeddb.js';
 
 /**
@@ -127,7 +129,10 @@ async function withBroker(broker, fn) {
   globalThis.chrome = { cookies: { get: async () => ({ value: 'COOKIE' }) } };
   globalThis.fetch = broker.handler;
   try {
-    return await fn();
+    // US-80: a seven-step sync makes a dozen requests, each spaced 1,1 s apart
+    // by the queue rule 5 owns. Faked, the same requests happen in the same
+    // order without the wall clock.
+    return await underFakeClock(() => fn());
   } finally {
     globalThis.chrome = realChrome;
     globalThis.fetch = realFetch;

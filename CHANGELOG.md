@@ -118,6 +118,18 @@ plain increments — this is not a library and nothing depends on its API.
 
 ### Changed
 
+- **US-80 — `npm test` takes 1,8 seconds instead of 55.** Nothing was computing for those 55 seconds:
+  every request in the extension goes through one queue that spaces requests 1,1 s apart and backs off
+  2, 4, 8 seconds on a 5xx, and the tests drove that real schedule through the real event loop. One
+  test — the config endpoint degrading to its defaults — spent 31 seconds asleep by itself.
+
+  The waiting is now faked per test (`test/fake-clock.js`, on Node's own `mock.timers`), so the same
+  requests happen in the same order against the same code. **`src/lib/degiro.js` was not touched** —
+  no injected clock, no test flag — and the schedule is now asserted rather than merely waited out: a
+  new test reads the gap between retries and fails if the backoff stops doubling, which the old
+  count-the-attempts tests could not see. A suite fast enough to run between two edits is a suite that
+  gets run.
+
 - **Interactive Brokers: phase 1 has begun**, from one DevTools capture. The portal looks like an
   ordinary session-backed web app — its own bundle, a 25 kB portfolio payload, a repeating `tickle`
   keep-alive and a `202` long-poll — which is encouraging and is **not** R1 clearing. R1 clears on one

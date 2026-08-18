@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
+import { underFakeClock } from './fake-clock.js';
+
 /**
  * Session discovery and the connection check.
  *
@@ -36,7 +38,9 @@ async function withBrowser({ cookie = 'JSESSIONID-VALUE', responses = {} }, fn) 
   };
 
   try {
-    return await fn(calls);
+    // US-80: under a fake clock, because `throttledFetch`'s 1,1 s of spacing is
+    // on the path of every check in this file and none of it needs waiting out.
+    return await underFakeClock(() => fn(calls));
   } finally {
     globalThis.chrome = realChrome;
     globalThis.fetch = realFetch;

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { RATE } from '../src/lib/config.js';
+import { underFakeClock } from './fake-clock.js';
 
 /**
  * The network layer, tested against a stand-in `fetch`.
@@ -21,7 +22,14 @@ import { RATE } from '../src/lib/config.js';
  * a login attempt. Both were enforced by code nobody had run.
  */
 
-/** Replace global fetch for one test, and put it back afterwards. */
+/**
+ * Replace global fetch for one test, and put it back afterwards.
+ *
+ * US-80: the whole body runs under a fake clock, because everything this file
+ * asserts is downstream of a schedule — 1,1 s of spacing and `2ⁿ` seconds of
+ * backoff — and none of it needs to be waited out in real time. The assertions
+ * are unchanged; only the clock they read is.
+ */
 async function withFetch(impl, fn) {
   const real = globalThis.fetch;
   const calls = [];
@@ -30,7 +38,7 @@ async function withFetch(impl, fn) {
     return impl(String(url), init, calls.length);
   };
   try {
-    return await fn(calls);
+    return await underFakeClock(() => fn(calls));
   } finally {
     globalThis.fetch = real;
   }
@@ -77,6 +85,29 @@ test('a 500 is retried, up to the budget, and then reported', async () => {
       (e) => e.name === 'DegiroHttpError' && e.status === 500,
     );
     assert.equal(calls.length, 3, 'the first attempt plus two retries');
+  });
+});
+
+test('the backoff schedule is the one config states, not just the right number of tries', async () => {
+  /**
+   * US-80 AC4. The retry tests above count attempts, which a fake clock cannot
+   * break — but it *could* hide a wrong schedule, because a test that jumps the
+   * clock to the end passes whatever the delays were. So this one reads the
+   * delays: each retry waits `backoffBaseMs * 2 ** attempt`, capped, and that is
+   * longer than the queue's own spacing, so the gap between two attempts is the
+   * backoff itself.
+   */
+  await withFetch(() => status(503), async (calls) => {
+    await assert.rejects(() => degiro.throttledFetch('https://trader.degiro.nl/x', {}, { retries: 3 }));
+    assert.equal(calls.length, 4);
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const want = Math.min(RATE.backoffBaseMs * 2 ** attempt, RATE.backoffMaxMs);
+      const gap = calls[attempt + 1].at - calls[attempt].at;
+      assert.ok(
+        gap >= want && gap < want + 200,
+        `retry ${attempt + 1} waited ${gap}ms, expected ${want}ms`,
+      );
+    }
   });
 });
 
