@@ -5432,4 +5432,58 @@ line of defence and it was blind to a whole class of position."*
 
 ---
 
-**Next free number: US-83.**
+## US-83 — `auditSeries` and `fallbackFromTrades` rescan every transaction, once per product
+
+Found on the 2026-08-18 light scan, not from a defect report. Both functions take `transactions`
+and a single `productId`, then do the same thing: walk the *entire* transactions array and skip
+every row that does not match —
+
+```js
+for (const t of transactions) {
+  if (t.productId !== productId) continue;
+  ...
+}
+```
+
+`auditSeries` (used per instrument, to decide whether its price series needs rescaling — see its own
+comment above) and `fallbackFromTrades` are both called from a loop over every product the account
+ever held, so the account-level cost is **O(products × transactions)** rather than O(products +
+transactions). Nothing here is currently a user-visible stall — hundreds of transactions and a few
+dozen products stay well inside rule 2's "milliseconds, measured, not assumed" — which is exactly why
+this is a story and not a defect: it is a real, easily-avoided duplicate scan, not a symptom of one.
+
+**The grouping it needs already exists two hundred lines below it.** The per-product reconstruction
+loop builds `qtyByProduct`, `tradedByProduct` and `tradeDaysByProduct` with a single pass over
+`transactions`, keyed by `productId` (`engine.js:903-918`). A fourth map built the same way —
+`transactionsByProduct: Map<productId, transaction[]>` — built once before the per-product loop and
+handed to `auditSeries`/`fallbackFromTrades` in place of the full array turns both call sites into an
+O(1) map lookup instead of an O(transactions) scan, dropping the account-level cost to
+O(products + transactions).
+
+### What to add, and no more
+
+- One `transactionsByProduct` map, built once, alongside the existing per-product maps it sits next
+  to.
+- `auditSeries` and `fallbackFromTrades` take that product's array directly (`transactionsByProduct.get(productId) ?? []`)
+  instead of the full list, and drop their own `t.productId !== productId` filter — the map already
+  guarantees that.
+- No new option, no config, no change to what either function returns or how it decides its verdict.
+
+### Acceptance criteria
+
+- **AC1** `auditSeries` and `fallbackFromTrades` no longer receive the full `transactions` array —
+  each receives only the rows for its own `productId`.
+- **AC2** Every existing engine test still passes unmodified — this is a call-site change, not a
+  behaviour change, and no test's expected numbers move.
+- **AC3** The demo account still reconciles to the cent (rule 6), because nothing about *which* rows
+  are considered changes, only how they are found.
+
+### Stop condition
+
+If giving `auditSeries` a pre-filtered array instead of the full one plus a `productId` changes any
+verdict, ratio or spread it computes, stop — that would mean the original filter was doing something
+subtler than "same product", and the fix needs to find out what before it ships.
+
+---
+
+**Next free number: US-84.**
