@@ -2512,7 +2512,17 @@ td .chip {
 @media (hover: hover) and (pointer: fine) {
   .frown-btn:hover { filter: none; transform: rotate(-15deg) scale(1.15); }
 }
-.frown-btn.on { filter: none; transform: rotate(180deg); }
+.frown-btn.on {
+  filter: none;
+  /* It was upside down and still. Now it keeps going, because a switch that is
+     visibly out of control is a switch nobody mistakes for a setting. */
+  animation: frown-spin 3.2s linear infinite;
+}
+
+@keyframes frown-spin {
+  from { transform: rotate(180deg); }
+  to   { transform: rotate(540deg); }
+}
 
 .frown-btn.on {
   background: var(--accent);
@@ -2656,7 +2666,7 @@ td .chip {
 
 /* The header joins in. */
 .frown #subtitle::after {
-  content: ' · 🚀 ALL-TIME HIGH · 📈 UP ONLY';
+  content: ' · 🚀 ALL-TIME HIGH · 📈 UP ONLY · 🌕 NEXT STOP: THE MOON · 💎 NEVER SELLING';
   color: var(--pos);
   font-weight: 700;
 }
@@ -2685,11 +2695,160 @@ td .chip {
 /* The charts lean, so even the shapes look pleased with themselves. */
 .frown #panel-overview .card { transform: rotate(0.6deg); }
 
+/* --- and then further -----------------------------------------------------
+   The owner's note on seeing 0.39.0 was that it *"mag nog meer over de top"*,
+   which in this feature is a safety instruction as much as a comic one: the
+   thesis in frown.js is that plausibility is the danger and absurdity is the
+   protection, so more of it is strictly better. Every element below is either a
+   real figure in the wrong voice or a piece of motion that could not appear on a
+   page anybody would forward to an accountant. */
+
+/* The crawl. Hidden outside the mode by `display: none`, so nothing about it can
+   be seen — or read out — on the real page. */
+.frown-ticker { display: none; }
+
+.frown .frown-ticker {
+  display: block;
+  overflow: hidden;
+  margin: 0 0 var(--gap);
+  padding: 0.3rem 0;
+  border-block: var(--rule) solid var(--pos);
+  background: color-mix(in srgb, var(--pos) 12%, transparent);
+  font-size: var(--hint);
+  font-weight: 700;
+  letter-spacing: var(--track-label);
+  color: var(--pos);
+  white-space: nowrap;
+  /* A crawl is a strip of text, and a strip of text that never wraps would push
+     the page sideways at any width without this. */
+  max-width: 100%;
+}
+
+/* The lower crawl runs the other way, so the two do not read as one long line
+   that happens to be printed twice. */
+.frown .frown-ticker-back { margin: var(--gap) 0 0; }
+
+.frown .frown-ticker-back .frown-ticker-track {
+  animation-direction: reverse;
+}
+
+.frown-ticker-track {
+  display: inline-flex;
+  /* Two copies of the same list live in here, so translating by exactly half the
+     track puts the copy where the original was and the loop has no seam. */
+  animation: frown-crawl 28s linear infinite;
+}
+
+.frown-ticker-track span::after {
+  content: ' 🚀 ';
+}
+
+.frown-ticker-track span {
+  padding-inline: 0.75rem;
+}
+
+@keyframes frown-crawl {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+/* Every tile leans its own way, so the block reads as a wall of hype rather than
+   as a tidy grid that has been rotated. Six offsets on a cycle: enough that no
+   two neighbours agree, few enough to stay a pattern rather than noise. */
+.frown .tiles .tile:nth-child(6n + 1) { transform: rotate(-1.2deg); }
+.frown .tiles .tile:nth-child(6n + 2) { transform: rotate(0.9deg); }
+.frown .tiles .tile:nth-child(6n + 3) { transform: rotate(-0.5deg); }
+.frown .tiles .tile:nth-child(6n + 4) { transform: rotate(1.4deg); }
+.frown .tiles .tile:nth-child(6n + 5) { transform: rotate(-1.6deg); }
+.frown .tiles .tile:nth-child(6n)     { transform: rotate(0.6deg); }
+
+/* The figures glow in the direction the mode insists everything is going. */
+.frown .tile .value {
+  text-shadow: 0 0 14px color-mix(in srgb, var(--pos) 55%, transparent);
+}
+
+/* The stamp breathes. It is the one element with a job, so it gets the one
+   animation that draws the eye rather than decorating an edge. */
+.frown .frown-stamp span {
+  animation:
+    frown-stamp-in 500ms cubic-bezier(0.34, 1.8, 0.64, 1) both,
+    frown-stamp-pulse 2.2s ease-in-out 500ms infinite;
+}
+
+@keyframes frown-stamp-pulse {
+  0%, 100% { transform: rotate(-8deg) scale(1); }
+  50%      { transform: rotate(-8deg) scale(1.06); }
+}
+
+/* One rocket, across the page, on switch-on. Launched from `confetti()`, which
+   already refuses to run under reduced motion, so there is one guard rather than
+   two that can disagree. */
+.frown-rocket {
+  position: fixed;
+  left: -12vw;
+  bottom: 12vh;
+  z-index: 60;
+  /* Display-sized, so `npm run type` asks it to state its tracking, and the
+     bucket's own token is the answer — never `--track-display` directly, which is
+     the pin US-58 measured its way out of. One emoji has no letter-spacing to
+     speak of; stating it anyway is cheaper than an exception, and an exception is
+     how a measurable bucket stops being measurable. */
+  font-size: 3rem;
+  letter-spacing: var(--kpi-track);
+  pointer-events: none;
+  animation: frown-fly 2.2s cubic-bezier(0.45, 0, 0.55, 1) both;
+}
+
+@keyframes frown-fly {
+  from { transform: translate(0, 0) rotate(-8deg); opacity: 0; }
+  10%  { opacity: 1; }
+  to   { transform: translate(130vw, -70vh) rotate(18deg); opacity: 1; }
+}
+
+/*
+ * On a phone the leaning stops.
+ *
+ * A rotated grid in a 380 px column pushes its own left edge off screen, and at
+ * that point the figures are not readable — which breaks the one rule this
+ * feature does have. The thesis is *absurd and legible*; a joke you cannot read
+ * is just a broken page, so the tilt is the part that goes and the crawl, the
+ * stamp, the glow and the confetti stay.
+ */
+@media (max-width: 39em) {
+  /* `:nth-child(n)` matches every child and buys one pseudo-class of specificity,
+     which is what it takes to outrank the six `:nth-child(6n + …)` rules above.
+     Without it this whole block is a no-op that reads as though it works — which
+     is what the first version of it was, and a phone screenshot said so. */
+  .frown .frown-wrap .tiles,
+  .frown .tiles .tile:nth-child(n),
+  .frown #panel-overview .card { transform: none; }
+  /*
+   * And the lurch goes with it, because it does not merely animate the lean — it
+   * *holds* it: `both` fill means the last keyframe's `transform` wins over any
+   * declaration, so zeroing the transform alone left the grid exactly as tilted
+   * as before. Measured on a 380 px viewport: the hero tile's left edge at −8 px.
+   */
+  .frown .frown-wrap .tiles { animation: none; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .frown .app,
   .frown main,
   .frown h1::after,
   .frown .tile { animation: none; }
+  /*
+   * US-68's rule, applied to the loudest thing on the page: what *travels*
+   * stops, what *states* stays. The crawl holds still at its start — the words
+   * are the joke and they are still readable — the stamp keeps its arrival and
+   * loses its pulse, and the rocket never existed, because `confetti()` is what
+   * creates it and that returns early here.
+   */
+  .frown .frown-ticker-track,
+  .frown .frown-btn.on { animation: none; }
+  /* The switch still has to *state* that it is on, so what it loses is the spin
+     and not the upside-down — US-68's rule again: travel stops, statements stay. */
+  .frown .frown-btn.on { transform: rotate(180deg); }
+  .frown .frown-stamp span { animation: frown-stamp-in 500ms cubic-bezier(0.34, 1.8, 0.64, 1) both; }
 }
 
 

@@ -174,6 +174,71 @@ test('nothing downstream can read it', () => {
   assert.ok(!/frown/.test(engine), 'nor the engine');
 });
 
+test('US-35b — the crawl restates the tiles and invents nothing', () => {
+  /**
+   * The escalation the owner asked for ("mag nog meer over de top") is safe for
+   * the same reason the rest of this feature is: absurdity is the protection and
+   * plausibility is the danger. So the crawl may be as loud as it likes and may
+   * not contain a number the tiles do not already carry — no new arithmetic, and
+   * therefore nothing that could be wrong in a new way.
+   *
+   * The one line that is not a joke is in it deliberately: whatever else scrolls
+   * past, "NOT THE REAL NUMBERS" comes round every few seconds.
+   */
+  const days = 900;
+  const value = Array.from({ length: days }, (_, i) => 1000 - i * 0.5);
+  const deposited = Array.from({ length: days }, () => 1000);
+  const r = {
+    days: Array.from({ length: days }, (_, i) => String(i)),
+    value,
+    cumulativeDeposited: deposited,
+    totals: { totalPnl: -450 },
+    byProduct: [{ symbol: 'PROP', name: 'PROP', pnl: -450, current: 200, qty: value.map(() => 2) }],
+  };
+  const money = (n) => `EUR ${n.toFixed(2)}`;
+
+  const ticker = frown.hypeTicker(r, money, 'PROP');
+  assert.ok(ticker.length >= 6, 'it is a crawl, not a label');
+  assert.ok(ticker.every((x) => typeof x === 'string'));
+  assert.ok(ticker.includes('NOT THE REAL NUMBERS'), 'the one line with a job is in the crawl');
+  assert.ok(ticker.some((x) => x.includes('PROP')), 'and it is about the holding, by name');
+  // Every figure it states also appears on a tile: same inputs, no new sums.
+  const tiles = frown.optimismTiles(r, money, 'PROP');
+  const onTiles = tiles.map((t) => `${t.value} ${t.note}`).join(' ');
+  assert.ok(onTiles.includes('450.00'), 'the loss is on a tile');
+  assert.ok(ticker.some((x) => x.includes('450.00')), 'and in the crawl, as the same string');
+
+  // No markup: the caller escapes these, and a joke that can inject HTML is not
+  // a joke.
+  assert.ok(!ticker.some((x) => /[<>]/.test(x)));
+});
+
+test('US-35b — the wall of tiles is bigger on both sides of the account, and still all real', () => {
+  const days = 400;
+  const money = (n) => `EUR ${n.toFixed(2)}`;
+  const mk = (pnl) => ({
+    days: Array.from({ length: days }, (_, i) => String(i)),
+    value: Array.from({ length: days }, (_, i) => 1000 + (pnl > 0 ? i : -i)),
+    cumulativeDeposited: Array.from({ length: days }, () => 1000),
+    totals: { totalPnl: pnl },
+    byProduct: [{ symbol: 'PROP', name: 'PROP', pnl, current: 100, qty: Array.from({ length: days }, () => 1) }],
+  });
+
+  for (const pnl of [-800, 800]) {
+    const tiles = frown.optimismTiles(mk(pnl), money, 'PROP');
+    assert.ok(tiles.length >= 18, `${pnl > 0 ? 'a winning' : 'a losing'} account gets a wall, not a row`);
+    // Every tile has all three parts, or it renders as a hole in the grid.
+    for (const t of tiles) {
+      assert.ok(t.label && t.value != null && t.note, `incomplete tile: ${JSON.stringify(t)}`);
+    }
+    // Nothing here is fabricated: the day counts and the money are the account's
+    // own, and the only figures allowed are the ones already computed above.
+    const joined = tiles.map((t) => `${t.value} ${t.note}`).join(' ');
+    assert.ok(joined.includes(String(days)), 'the day count is the real one');
+    assert.ok(joined.includes('800.00'), 'and so is the money');
+  }
+});
+
 test('US-35d — both charts can only rise on a losing account', () => {
   /**
    * The gate for replacing the mirror. `flipSeries` reflected the value series

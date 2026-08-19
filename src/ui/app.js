@@ -3172,6 +3172,25 @@ function renderTiles(r, from = 0, to = r.days.length - 1, live = null) {
   const mine = shown.filter((t) => t.tabs.includes(state.tab));
 
   /**
+   * The crawl. Filled here for the same reason the cheerful tiles are: this is
+   * the one place in the app that is allowed to know the mode is on, and every
+   * figure in it is one the tiles already carry.
+   *
+   * The items are written twice into the track, which is what makes a CSS
+   * marquee loop seamlessly — the animation translates by exactly half the
+   * track's width, so the copy is under the cursor the moment the original
+   * leaves.
+   */
+  const run = cheerful
+    ? frown.hypeTicker(r, fmtSigned, frown.subjectOf(r)).map((x) => `<span>${esc(x)}</span>`).join('')
+    : '';
+  for (const track of document.querySelectorAll('.frown-ticker-track')) {
+    // Twice, whether or not it is empty: one loop for both crawls, and the
+    // emptying is the same statement as the filling.
+    track.innerHTML = run + run;
+  }
+
+  /**
    * US-65 — the honest number change.
    *
    * When the range changes a hero figure jumps, and the obvious move is a

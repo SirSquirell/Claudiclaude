@@ -2223,7 +2223,7 @@ the product:
 
 ---
 
-## US-35b — Optimism Mode, phase two *(half open — the charts half is superseded by US-35c/US-35d; the replacement tiles were never built)*
+## US-35b — Optimism Mode, phase two *(built — the charts half went via US-35c/US-35d; the tiles, and then more of them)*
 
 0.39.0 shipped the switch, the stamp, the flipped tiles and the confetti. Two things were asked for
 after seeing it work, and one of them needs a decision before it is built.
@@ -2269,6 +2269,37 @@ one reaching the export or the bug report, and this touches neither.
 
 Where the account is **up**, the tiles say so and get out of the way. A joke about losses on a
 winning account is not a joke, it is a wrong page.
+
+### Built, and then turned up again on request
+
+The six tiles shipped as twelve (losing) and ten (winning); `STATUS.md` said "never built" for two
+releases because nothing updated the row. The owner's answer when asked whether the joke was still
+wanted was **"nog meer over de top"**, so:
+
+- **A news crawl, twice** — above and below the wall of tiles, running in opposite directions. Every
+  item is a figure the tiles already carry, restated in the register being made fun of, which is the
+  property that keeps this side honest: no new arithmetic, so nothing here can be wrong in a new way.
+  `NOT THE REAL NUMBERS` is one of the items on purpose.
+- **Eighteen tiles**, and the four new computed ones are real measurements: *Hopium reserves* is the
+  share of days the account sat below its own running peak, *Time in market* is the history's length,
+  *Bags held* is every instrument ever owned, *Break-even ETA* is the remaining distance to the money
+  put in. The rest are constants that are jokes rather than figures (*Nights lost to this: 0*).
+- **A rocket, a spinning switch, a breathing stamp, per-tile lean, half again as much confetti.**
+
+Two limits the escalation ran into, both found in a browser and both worth keeping written down:
+
+1. **`npm run type` refused the rocket** until it stated its tracking, and the *right* token is
+   `--kpi-track` rather than `--track-display` — a rule pinning the display value directly is the
+   defect US-58 measured its way out of, and `test/motion.test.js` fails the build for it.
+2. **On a 380 px viewport the lean pushed the hero tile's left edge to −8 px**, and zeroing
+   `transform` did nothing: `frown-lurch` runs with `fill: both`, so the last keyframe *holds* the
+   rotation and outranks any declaration. The animation has to be switched off with it. The tilt is
+   what goes on a phone — the crawl, the stamp, the glow and the confetti stay, because the thesis is
+   *absurd and legible* and a joke nobody can read is only a broken page.
+
+**The joke stays English** on a Dutch page, and that is a choice rather than a gap: *diamond hands*,
+*STRONG BUY* and *to the moon* are English in Dutch too, and a translated meme is a joke explained.
+Everything structural around it — the stamp, the button's label — goes through `t()` as before.
 
 
 ---

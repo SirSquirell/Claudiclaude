@@ -52,6 +52,18 @@ const EUPHEMISMS = [
   'shaking out the weak hands',
   'exactly as planned',
   'the calm before the moon',
+  'a deliberate accumulation phase',
+  'the dip before the ascent',
+  'temporarily misunderstood',
+  'a coiled spring',
+  'stealth wealth',
+  'the discount nobody else spotted',
+  'an entry point, in hindsight',
+  'conviction, priced in euros',
+  'the market being wrong, briefly',
+  'a long-dated call on being right',
+  'zoom out',
+  'still early',
 ];
 
 /** Stable per label, so a re-render does not reshuffle them mid-read. */
@@ -221,6 +233,26 @@ export function optimismTiles(r, money, subject = null) {
   const value = r.value?.at(-1) ?? 0;
   const moon = paid > 0 ? Math.max(0, Math.min(100, (value / paid) * 100)) : 100;
 
+  /**
+   * Three more real measurements, because the funniest number is the true one.
+   *
+   * `hopium` is the share of days the account spent below its own running peak —
+   * an actual drawdown-days statistic, and the more of it there is the more
+   * cheerful the tile gets. `everHeld` counts every instrument ever owned, which
+   * is *bags*. `patience` is the whole history in days, which is genuinely the
+   * only investing statistic that reliably works and is therefore the perfect
+   * straight line to deliver in this voice.
+   */
+  let peak = 0;
+  let underwater = 0;
+  for (const x of r.value ?? []) {
+    peak = Math.max(peak, x);
+    if (x < peak) underwater++;
+  }
+  const hopium = days > 0 ? Math.round((underwater / days) * 100) : 0;
+  const everHeld = (r.byProduct ?? []).length;
+  const patience = days;
+
   const winning = total >= 0;
 
   /**
@@ -239,6 +271,14 @@ export function optimismTiles(r, money, subject = null) {
       { label: 'Beating the market', value: 'OBVIOUSLY', note: 'every market 🌍' },
       { label: 'Lambo ETA', value: 'imminent', note: 'start reading reviews 🏎️' },
       { label: 'Portfolio rating', value: 'S TIER', note: 'S is for spectacular 🏆' },
+      { label: 'Time in market', value: `${patience} days`, note: 'beats timing it, every time 🕰️' },
+      { label: 'Bags held', value: String(everHeld), note: 'every one of them a keeper 🎒' },
+      { label: 'Nights lost to this', value: '0', note: 'sleeping like a rock 😴' },
+      { label: 'Volatility', value: 'a feature', note: 'it means the plan is working 🎢' },
+      { label: 'Hopium reserves', value: 'unnecessary', note: `${hopium}% of days below the peak, and unbothered 🛢️` },
+      { label: 'Nobel committee', value: 'notified', note: 'awaiting their reply 🏅' },
+      { label: 'Risk appetite', value: 'CALIBRATED', note: 'by outcome, retroactively 🎯' },
+      { label: 'Advice for others', value: 'do what I did', note: 'results may vary, but they will not 🗣️' },
     ];
   }
 
@@ -279,7 +319,58 @@ export function optimismTiles(r, money, subject = null) {
     { label: 'Panic level', value: '0%', note: `${name} has never let you down 🧘` },
     { label: 'Exit strategy', value: 'NEVER', note: `${name} to the moon 🌕` },
     { label: 'Portfolio rating', value: 'S TIER', note: `S is for ${name} 🏆` },
+    { label: 'Hopium reserves', value: `${Math.max(hopium, 1)}%`, note: 'topped up daily, never drawn down ⛽' },
+    { label: 'Time in market', value: `${patience} days`, note: `beats timing it — ask ${name} 🕰️` },
+    { label: 'Bags held', value: String(everHeld), note: 'carried with excellent posture 🎒' },
+    { label: 'Nights lost to this', value: '0', note: `${name} sleeps, so do you 😴` },
+    { label: 'Volatility', value: 'a feature', note: 'you would not want a boring one 🎢' },
+    { label: 'Average entry', value: 'a bargain', note: 'relative to where it is going 🧾' },
+    { label: 'Thesis', value: 'INTACT', note: 'strengthened, if anything 📜' },
+    { label: 'Risk appetite', value: 'HEALTHY', note: `${name} is a rounding error, eventually 🎯` },
+    { label: 'Break-even ETA', value: 'any minute', note: `${Math.round(100 - moon)}% of the way to go 🛬` },
+    { label: 'Advice for others', value: 'buy more', note: 'this is not financial advice 🗣️' },
   ];
+}
+
+/**
+ * The ticker, because a wall of tiles was apparently not enough.
+ *
+ * Every item is one of the numbers already on the tiles, restated in the voice
+ * of a channel nobody should take advice from — so it adds no arithmetic, which
+ * is the property that keeps this side of the feature honest. It reads as a
+ * financial news crawl, which is exactly the register being made fun of, and it
+ * is a second reason a still frame of this page cannot be mistaken for the real
+ * one: the real one has never had a crawl and never will.
+ *
+ * Returned as strings rather than markup: the caller escapes them, and a joke
+ * that can inject HTML is not a joke.
+ *
+ * @param {object} r  a computePortfolio result
+ * @param {(n:number)=>string} money  the page's own currency formatter
+ */
+export function hypeTicker(r, money, subject = null) {
+  const total = r.totals?.totalPnl ?? 0;
+  const days = r.days?.length ?? 0;
+  const name = subject || 'THE PLAN';
+  const paid = r.cumulativeDeposited?.at(-1) ?? 0;
+  const value = r.value?.at(-1) ?? 0;
+  const moon = paid > 0 ? Math.round(Math.max(0, Math.min(100, (value / paid) * 100))) : 100;
+  const up = total >= 0;
+
+  const items = [
+    `${name} ▲ STRONG BUY`,
+    up ? `CERTIFIED GENIUS · ${money(Math.abs(total))}` : `DISCOUNT SECURED · ${money(Math.abs(total))}`,
+    `${days} DAYS OF UNWAVERING BELIEF`,
+    `MOON PROGRESS ${moon}%`,
+    up ? 'NOBEL COMMITTEE NOTIFIED' : 'THESIS INTACT',
+    `${name} TO THE MOON 🚀`,
+    'ANALYST CONSENSUS: THE ANALYST IS YOU',
+    up ? 'ZERO REGRETS · ZERO NOTES' : 'ZERO PANIC · ZERO EXITS',
+    'NOT THE REAL NUMBERS',
+  ];
+  // The last item is not a joke and it is in the crawl on purpose: whatever is
+  // read on this page, this line goes past every few seconds.
+  return items;
 }
 
 /**
@@ -298,7 +389,7 @@ function confetti() {
   document.body.append(c);
   const ctx = c.getContext('2d');
   const colours = ['#557cd4', '#7b52ab', '#00868b', '#b0461a', '#a5851b', '#577f43', '#a03a6f'];
-  const bits = Array.from({ length: 320 }, (_, i) => ({
+  const bits = Array.from({ length: 520 }, (_, i) => ({
     x: Math.random() * c.width,
     y: -20 - Math.random() * c.height * 0.5,
     r: 4 + Math.random() * 6,
@@ -308,6 +399,8 @@ function confetti() {
     a: Math.random() * Math.PI,
     colour: colours[i % colours.length],
   }));
+
+  rocket();
 
   let frames = 0;
   const tick = () => {
@@ -328,4 +421,22 @@ function confetti() {
     else c.remove();
   };
   requestAnimationFrame(tick);
+}
+
+/**
+ * One rocket, across the page, once per switch-on.
+ *
+ * A DOM node with a CSS animation rather than more canvas: it is one element for
+ * two seconds, the stylesheet already owns the timing vocabulary, and it removes
+ * itself on `animationend` so nothing outlives the gag. Only reached from
+ * `confetti()`, which is the function that already refuses to run under
+ * `prefers-reduced-motion` — one guard, not two that can disagree.
+ */
+function rocket() {
+  const el = document.createElement('div');
+  el.className = 'frown-rocket';
+  el.setAttribute('aria-hidden', 'true');
+  el.textContent = '🚀';
+  el.addEventListener('animationend', () => el.remove());
+  document.body.append(el);
 }

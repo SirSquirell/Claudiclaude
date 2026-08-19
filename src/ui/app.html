@@ -127,7 +127,18 @@
         </div>
 
         <div class="frown-wrap">
+          <!--
+            US-35b. The crawl exists only in Optimism Mode (CSS hides it
+            otherwise) and is filled by `renderTiles` from the same figures the
+            tiles use. `aria-hidden`, because a screen reader reading a joke
+            headline every four seconds is not a joke, and there is nothing in it
+            that is not already announced by a tile.
+          -->
+          <div class="frown-ticker" id="frown-ticker" aria-hidden="true"><div class="frown-ticker-track"></div></div>
           <section class="tiles" id="tiles"></section>
+          <!-- The same crawl, the other way, under the wall of tiles: a cable
+               channel does not have one of these, it has two. -->
+          <div class="frown-ticker frown-ticker-back" aria-hidden="true"><div class="frown-ticker-track"></div></div>
           <div class="frown-stamp" aria-hidden="true"><span>NOT THE REAL NUMBERS</span></div>
         </div>
 

@@ -16,6 +16,36 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [Unreleased]
+
+### Changed
+
+- **US-35b — Optimism Mode goes further, on request.** The owner's note on seeing it work was that it
+  *"mag nog meer over de top"*, and in this one feature that is a safety instruction as much as a comic
+  one: the whole argument for allowing a mode that turns a loss into a gain is that **absurdity is the
+  protection and plausibility is the danger**. A tastefully inverted chart is something somebody
+  forwards to their accountant; a page that has visibly lost its mind is not. So it now has
+
+  - **a news crawl**, twice — above the tiles and below them, running in opposite directions, carrying
+    the account's own figures in the voice of a channel nobody should take advice from, with *"NOT THE
+    REAL NUMBERS"* coming round every few seconds;
+  - **eighteen tiles instead of ten**, including *Hopium reserves* (which is the real share of days the
+    account spent below its own peak), *Time in market*, *Bags held*, *Break-even ETA* and *Nights lost
+    to this: 0*;
+  - **a rocket across the screen** on switch-on, a switch that keeps spinning while it is on, a stamp
+    that breathes, each tile leaning its own way, and half again as much confetti.
+
+  **Every number in it is still the reader's own** — nothing is fabricated, only the framing is
+  ridiculous, which is both funnier than invention and the reason this stays honest. The crawl states
+  no figure the tiles do not already carry, so it adds no arithmetic that could be wrong. Under
+  `prefers-reduced-motion` the crawl holds still, the rocket never launches and the switch keeps its
+  upside-down without the spin; on a phone the leaning stops, because a joke you cannot read is just a
+  broken page.
+
+  Unchanged: it does not persist, it never leaves the Overview, it only appears for an account holding
+  the instrument the joke is about, and nothing downstream — no export, no bug report, no stored figure
+  — can see any of it.
+
 ## [0.48.0] — 2026-08-18
 
 Nine stories and four defects. The through-line is **what the screen is allowed to imply**: a figure may
