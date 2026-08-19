@@ -5583,13 +5583,36 @@ Both fit every number above, and they have opposite fixes:
 - The category keys in both report maps are filtered against `classify.js`'s vocabulary, making
   the fixed-vocabulary promise written on them enforced rather than assumed.
 
+### The second report and DEGIRO's own screen, same day
+
+A second 0.50.0 report (pre-locator — `amountlessByCategory` is not in that build) arrived from an
+**incremental** sync, which makes its field tally a window onto exactly the rows in question: only
+2026 was refetched, and 2026 alone holds **6 cash rows on an account that has been empty since
+2024** — none product-bound, all typed and currencied, and **one of the six amount-less**
+(`change: missingShare 0.17` over 12 picks). The account still ticks about six rows a year while
+holding nothing; those recurring rows are what both hypotheses are about.
+
+Beside it, a screenshot of DEGIRO's own app: *Totaal Account*, *Portefeuille*, *EUR* and *Vrije
+Ruimte* all **0,00** — so the derived anchor equals DEGIRO's own displayed total and the ledger is
+the side that is off — and *Totaal W/V* **+16,68** where this extension's Result says **+16,56**.
+If DEGIRO's figure means value minus net external, its implied lifetime net external is −16,68
+against our −16,61, and the 0,12 splits exactly: **0,05 is the located interest gap, 0,07 is a
+separate difference in what counts as a deposit/withdrawal.** That *if* is real — DEGIRO does not
+publish the definition of Totaal W/V — but `cashFundCompensation` (three spellings in
+`liveTotalFields`) is precisely the kind of amount the two sides would book differently: a
+compensation is P/L to one bookkeeper and a deposit to the other, and rule 3 says that choice is
+exactly where a wrong guess fabricates profit. Not two mysteries, then: every open cent points at
+the same handful of cash-fund/interest rows.
+
 ### What closes it, and only this
 
-The rows themselves: the full export (the trusted channel), or a HAR of the account overview. Two
-questions to answer from them — what the ~15 amount-less rows are, and what the interest rows'
-wording says they are. Then either a classification decision lands in `classify.js` with the
-capture as its justification, or a field-name candidate lands in `parse.js` on the same evidence.
-One or the other, and nothing before the capture.
+The rows themselves: the full export (the trusted channel), a HAR of the account overview — or,
+cheapest of all, the owner reading the recurring rows' wording straight off DEGIRO's own
+Rekeningoverzicht, since 2024 that is only a dozen rows. Three questions to answer from them — what
+the amount-less rows are, what the interest rows' wording says they are, and whether a cash-fund
+compensation row sits among them. Then either a classification decision lands in `classify.js` with
+the capture as its justification, or a field-name candidate lands in `parse.js` on the same
+evidence. One or the other, and nothing before the capture.
 
 ### Stop condition
 
