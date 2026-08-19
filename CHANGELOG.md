@@ -18,6 +18,14 @@ plain increments — this is not a library and nothing depends on its API.
 
 ## [Unreleased]
 
+### Changed
+
+- **US-83 — the engine stopped rescanning every transaction once per product.** `auditSeries` and
+  `fallbackFromTrades` each walked the whole transaction list and skipped the rows that were not
+  theirs, from inside a loop over every product — O(products × transactions). The rows are now
+  grouped by product in one pass and each call reads only its own. No verdict, ratio or figure
+  changes: the same rows are considered, they are just found once. All 543 tests pass unmodified.
+
 ### Fixed
 
 - **The cash chart's x-axis printed raw ISO dates.** `cashChart` was the one day-labelled chart not
