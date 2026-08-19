@@ -27,4 +27,5 @@ die zichtbaar gek geworden is niet. Dus is er nu meer van:
 **Elk getal blijft je eigen getal** — er wordt niets verzonnen, alleen de verpakking is belachelijk.
 Het blijft op het Overzicht, het onthoudt zichzelf niet, en niets ervan kan in een export of
 bugreport terechtkomen. Met *verminderde beweging* aan staat de ticker stil en blijft de raket aan
-de grond.
+de grond; op een telefoon gaan de scheve tegels eruit, want een grap die je niet kunt lezen is
+gewoon een kapotte pagina.
