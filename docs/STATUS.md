@@ -6,6 +6,52 @@ a bad place to find out *where things stand*. This is the index.
 **Last updated at 0.48.0.** It had been stale since 0.21.0 once, which is fifteen
 releases — if it looks stale again, trust the CHANGELOG and fix this.
 
+## Light scan, 2026-08-18
+
+A routine sweep, not an audit: branches, an export/rule-compliance spot-check, and a browser design
+pass. One thing fixed, nothing else open.
+
+**Branches.** All 19 remaining remote `claude/*` branches plus `poc` were checked against `main` by
+commit count. `claude/eager-cannon-islvb3` (1 commit ahead) turned out to be a previous run of this
+same scan, stranded on its own throwaway branch — the branch-per-session problem CLAUDE.md's
+*Branches* section describes, happening again live. Its one finding, the `0.46.1` Today-live-day-result
+fix, is already on `main` (STATUS's own *Unmerged work* section confirms this). The two large outliers,
+`claude/multi-broker-poc` (90 ahead) and `claude/portfolio-visualization-testing-xs5ck4` (22 ahead), are
+not real unmerged work: diffed against `main` they are thousands of lines *behind* on files `main` has
+since rewritten (`app.js`, `styles.css`, `charts.js`), i.e. old pre-rewrite snapshots whose content
+already shipped through different commits. Every other branch is 0–3 commits ahead and either an empty
+diff or superseded docs. **No unmerged story found.** The stale branches still can't be deleted from
+here — this environment's git proxy refuses it, same as before — so they're GitHub-UI cleanup, not
+code.
+
+**Rule compliance / security.** Spot-checked the export allowlist (`store.js`'s `EXPORTABLE_META` is
+still default-deny), `throttledFetch` (still the one queue, still no 401/403 retry), `session.js`
+(still reads the cookie and persists nothing but the derived IDs), `engine.js` (still no `fetch`/
+`chrome.*`/`indexedDB`, the two `new Date()` calls are output metadata, not inputs), `innerHTML` call
+sites in `src/ui/` (all pass account-derived strings through `esc()`), and console output (no session
+id, cookie or token logged anywhere). Nothing found.
+
+**Design pass** (`apple-design` skill, browser-verified at 1440/380 × light/dark via Playwright — no
+page errors, no horizontal overflow anywhere across all seven sections). One real inconsistency:
+**`cashChart`'s x-axis rendered raw ISO date strings** (`2021-01-31`, `2022-09-30`, …) while every
+sibling chart on the same page abbreviates (`jan 21`, `sep 22`) via `dayTickFormatter`. `valueChart`,
+`compositionChart`, `investedVsValueChart` and `singleSeriesChart` all set
+`opts.scales.x.ticks.callback = dayTickFormatter(days)`; `cashChart` was the one chart builder that
+never did. One line added (`src/ui/charts.js`), verified in-browser before and after, no test exists
+for Chart.js tick rendering (consistent with how the other four builders are covered — display only).
+`npm test` (543/543), `npm run palette` and `node tools/check-leaks.mjs` all clean after the change.
+No other visual defect, translucency, or depth violation found against `docs/redesign/DESIGN-BRIEF.md`
+§8's one-flat-container-depth rule.
+
+**Optimization.** `auditSeries` and `fallbackFromTrades` in `engine.js` each rescan the full
+`transactions` array per product (O(products × transactions)) when the grouping they need
+(`qtyByProduct`-style, keyed by `productId`) is already built once, two hundred lines below, for
+other purposes. Not user-visible yet, and not a rewrite to attempt mid-scan against the pure
+engine's own testability claim — refined as **US-83** in `docs/BACKLOG.md` instead.
+
+No new broker surfaced worth scoping — the multi-broker sequence's blocker is unchanged from the table
+below (a Trading 212 Network-tab capture, which this environment cannot produce).
+
 ## Unattended build — US-39 … US-45, on `main`
 
 `docs/US-39-45-BUILD-ORDER.md` is the contract: one story per run, in the order that table gives,
