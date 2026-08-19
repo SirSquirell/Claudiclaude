@@ -16,6 +16,21 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.53.0] — 2026-08-19
+
+### Fixed
+
+- **The per-product Bought and Sold amounts are back** (US-86). A tester reported feature loss
+  since the redesign; a measured audit — the 0.42.0 UI checked out, served and inventoried
+  headless beside the current one — found exactly one real loss: US-49's merge of the old *Profit
+  and loss per product* table said Bought and Sold "move behind the row's disclosure, or drop",
+  and they dropped. Nowhere on screen since 0.46.0, computed by the engine all along. They return
+  as optional columns: visible when the table has room, first to fold into the row's disclosure
+  when it does not, hideable in the Columns chooser, headers naming their span (*all time*).
+  Everything else the audit checked survives: all ten charts (including *Money paid in vs what it
+  is worth* and the per-position *Paid in vs grown* bar), the year/month/transactions tables, and
+  every 0.42 toolbar action (now in the sidebar's More sheet). No resync needed — display only.
+
 ## [0.52.0] — 2026-08-19
 
 ### Changed

@@ -5716,4 +5716,53 @@ uncompressed file exactly to the people who needed the small one).
 
 ---
 
-**Next free number: US-86.**
+## US-86 — The feature-loss audit, and the two columns it found *(built, 0.53.0)*
+
+> *"alles wat ik wilde heeft hij niet alleen niet gedaan maar ook gewoon compleet weg gehaald"* — a
+> tester, via Discord. The owner: *"check alle tabellen … denk aan de paid vs grown charts bijv"*,
+> and then: *"echt even goed kijken sinds versie 42 of we feature loss hebben gehad."*
+
+Taken as what it is: a serious complaint, answered by measurement rather than memory. The 0.42.0
+release (`7dd9a9f`, reachable after unshallowing the clone) was checked out into a worktree, its
+demo served beside the current one, and **both UIs were driven headless and inventoried** — every
+nav section, every visible canvas, table, column and control, at 1680 px and narrow.
+
+### What the measurement says
+
+- **All ten charts survive, byte-for-byte the same ids**: value, invested (*Money paid in vs what
+  it is worth* — the one the owner named), pnl, cumulative, movers, composition, cash, deposits,
+  dividends, outlook. The per-position *Paid in vs grown* bar is there too, as a locked column.
+- **The Year-by-year, Month-by-month and Transactions tables are intact**, and Performance,
+  Income & cost and Holdings all *gained* controls since 0.42: 1M/3M/6M/1Y ranges, Show-as-a-table,
+  Open/Closed filters, the Columns chooser, per-position snapshots.
+- **The 0.42 header toolbar moved, nothing in it was lost**: EN/NL, theme, Sync now, Check
+  connection, Copy bug report, Export JSON, Wipe & resync all live in the sidebar's *More* sheet,
+  plus Disconnect, which 0.42 did not have.
+- **One real loss, found and now closed**: the 0.42 *Profit and loss per product* table died in
+  US-49's merge — by the tester's own request — and its columns went to the merged table except
+  two. US-49's text said Bought and Sold "move behind the row's disclosure with the transactions,
+  **or drop**", and that unresolved "or" resolved itself as *drop*: since 0.46.0 the per-product
+  all-time **Bought** and **Sold** amounts rendered nowhere — not in the table, not in the chooser,
+  not in the disclosure — while the engine computed them all along.
+- One promise from US-49 remains undelivered and is deliberately left so: *Type* as a chip on the
+  instrument cell. The type filter chips exist and the demo carries mostly one type; a per-row chip
+  is a new ask if anyone actually misses it.
+
+### Built
+
+`bought` and `sold` return as optional columns (US-61's machinery does the rest: chooser-hideable,
+first to fold into the row's disclosure when width is short, carried by the disclosure at every
+width). All-time figures, so the headers say so — *Bought (all time)*, *Sold (all time)* — per
+US-49's own span rule, and the windowed set stays exactly `{Result}`. Verified headless: wide shows
+them when they fit, narrow folds them, the disclosure carries them with the right figures.
+
+### What this changes about process
+
+US-49's "or drop" is the defect here: a migration that lists what survives must resolve every
+column by name, because an unresolved "or" is a decision made by nobody. The audit that caught it —
+inventory the old UI and the new one, diff the surfaces — took under an hour with the demo and a
+headless browser, and is the answer the next "everything is gone" complaint gets too.
+
+---
+
+**Next free number: US-87.**

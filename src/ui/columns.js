@@ -23,6 +23,17 @@ export const HOLDINGS_COLUMNS = Object.freeze([
   { key: 'instrument', label: 'Instrument', lock: true },
   { key: 'quantity', label: 'Quantity', openOnly: true, num: true, pri: 85 },
   { key: 'price', label: 'Price', openOnly: true, num: true, pri: 90 },
+  /**
+   * US-86: restored. The 0.42 "Profit and loss per product" table carried
+   * Bought and Sold per product; US-49's merge said they "move behind the
+   * row's disclosure with the transactions, or drop" and they dropped —
+   * silently, which a measured 0.42-vs-0.52 audit caught as the one real
+   * feature loss since the redesign. All-time figures, so the headers say so
+   * (US-49's span rule), and the highest drop priorities in the table: they
+   * fold into the disclosure first when width is short.
+   */
+  { key: 'bought', label: 'Bought (all time)', num: true, pri: 96 },
+  { key: 'sold', label: 'Sold (all time)', num: true, pri: 94 },
   { key: 'avgPaid', label: 'Average paid', num: true, pri: 70 },
   { key: 'value', label: 'Value', lock: true, num: true },
   { key: 'split', label: 'Paid in vs grown', lock: true },

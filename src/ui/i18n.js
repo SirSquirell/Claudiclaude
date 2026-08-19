@@ -181,6 +181,8 @@ const DICT = {
     'No positions match this filter.': 'Geen posities passen bij dit filter.',
     'Largest first': 'Grootste eerst',
     'Dividend (all time)': 'Dividend (hele looptijd)',
+    'Bought (all time)': 'Gekocht (hele looptijd)',
+    'Sold (all time)': 'Verkocht (hele looptijd)',
     Columns: 'Kolommen',
     Details: 'Details',
     'dividend, interest, fees and currency': 'dividend, rente, kosten en valuta',

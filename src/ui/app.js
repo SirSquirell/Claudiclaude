@@ -4673,6 +4673,9 @@ function renderHoldings(r, composition, compColours, t, from, to) {
         + `${grouped ? ` <span class="muted">· in “${esc(otherLabel)}”</span>` : ''}`;
     },
     quantity: (p) => (open(p) ? esc(fmtQty(p.qty.at(-1))) : dash),
+    // All-time, like their headers say — the engine's scalars, not windowed.
+    bought: (p) => (p.bought > 0.005 ? esc(fmtEurCents(p.bought)) : dash),
+    sold: (p) => (p.sold > 0.005 ? esc(fmtEurCents(p.sold)) : dash),
     price: (p) => (open(p) ? esc(unitPrice(p, p.qty.at(-1))) : dash),
     avgPaid: (p) => esc(averagePaid(p)),
     value: (p) => (open(p) ? esc(fmtEurCents(p.current)) : dash),

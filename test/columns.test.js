@@ -48,6 +48,22 @@ test('the drop order is highest priority first and never contains a lock column'
   }
 });
 
+test('US-86 — Bought and Sold are back, optional, all-time, and the first to fold', () => {
+  // The one measured feature loss since the 0.46 redesign: the old
+  // "Profit and loss per product" table's Bought and Sold columns rendered
+  // nowhere after US-49's merge. They return as optional columns whose headers
+  // name their span, and they fold into the disclosure before anything else.
+  const bought = HOLDINGS_COLUMNS.find((c) => c.key === 'bought');
+  const sold = HOLDINGS_COLUMNS.find((c) => c.key === 'sold');
+  assert.ok(bought && sold, 'both columns exist');
+  assert.match(bought.label, /all time/, 'an all-time column says so in its header (US-49 span rule)');
+  assert.match(sold.label, /all time/);
+  assert.ok(!bought.lock && !sold.lock, 'optional: the chooser may hide them');
+  assert.ok(!bought.openOnly && !sold.openOnly, 'they mean something for closed positions — that is the point');
+  const [first, second] = droppableByPriority();
+  assert.deepEqual([first.key, second.key], ['bought', 'sold'], 'they are the first columns to fold when width is short');
+});
+
 test('baseHidden never hides a load-bearing column, and drops open-only ones under Closed', () => {
   // A persisted set from a future build that names a load-bearing column must
   // still not hide it — the floor is enforced here, not trusted from storage.
