@@ -277,10 +277,9 @@ export function expandSeries(series, days, dayIndex) {
  *
  * @returns {{ratios, median, verdict: 'ok'|'rescale'|'reject', spread: number}}
  */
-export function auditSeries(transactions, productId, close, dayIndex, covered) {
+export function auditSeries(transactions, close, dayIndex, covered) {
   const ratios = [];
   for (const t of transactions) {
-    if (t.productId !== productId) continue;
     if (!(t.price > 0)) continue;
     const i = dayIndex.get(t.date);
     if (i === undefined) continue;
@@ -786,6 +785,17 @@ export function computePortfolio(input) {
   const unitsOf = (productId) => contractSizes[productId] ?? 1;
   const unresolvedSizes = contractReport.filter((r) => r.verdict === 'unresolved');
 
+  // One pass, so the per-product passes below — the series audit and the
+  // trade fallback — read their own rows instead of rescanning every
+  // transaction once per product (US-83).
+  const transactionsByProduct = new Map();
+  for (const t of transactions) {
+    let rows = transactionsByProduct.get(t.productId);
+    if (!rows) transactionsByProduct.set(t.productId, (rows = []));
+    rows.push(t);
+  }
+  const rowsOf = (productId) => transactionsByProduct.get(productId) ?? [];
+
   // ---- 2. price series, before the ledger --------------------------------
   // The ledger depends on the prices: a reverse split means the quantities in
   // the transaction history and the quotes in the series are in different
@@ -852,7 +862,7 @@ export function computePortfolio(input) {
   for (const productId of productIds) {
     const entry = priceByProduct.get(productId);
     if (!entry.hasSeries) continue;
-    const audit = auditSeries(transactions, productId, entry.close, dayIndex, entry.covered);
+    const audit = auditSeries(rowsOf(productId), entry.close, dayIndex, entry.covered);
     entry.audit = audit;
     if (audit.verdict === 'ok') continue;
 
@@ -1186,7 +1196,7 @@ export function computePortfolio(input) {
     // What this instrument actually changed hands for, forward-filled. Used on
     // days the series does not reach — a real price paid beats extrapolating
     // the first quote backwards, which after a split is off by the split factor.
-    const traded = fallbackFromTrades(transactions, productId, days, dayIndex, meta);
+    const traded = fallbackFromTrades(rowsOf(productId), days, dayIndex, meta);
 
     // Collected rather than warned about one by one: an account with 79 of
     // these produced 79 banners saying the same thing.
@@ -2610,14 +2620,14 @@ function aggregateMonthly(days, gross, tax) {
  * market close — but it is real evidence about this instrument at this time,
  * which is more than can be said for extrapolating a future quote backwards.
  */
-function fallbackFromTrades(transactions, productId, days, dayIndex, meta) {
+function fallbackFromTrades(transactions, days, dayIndex, meta) {
   const close = new Float64Array(days.length);
   const estimated = new Uint8Array(days.length);
   estimated.fill(1);
 
   const known = new Map();
   for (const t of transactions) {
-    if (t.productId === productId && t.price > 0) known.set(t.date, t.price);
+    if (t.price > 0) known.set(t.date, t.price);
   }
   if (meta?.closePrice > 0 && meta.closePriceDate) known.set(meta.closePriceDate, meta.closePrice);
 

@@ -46,6 +46,26 @@ plain increments — this is not a library and nothing depends on its API.
   the instrument the joke is about, and nothing downstream — no export, no bug report, no stored figure
   — can see any of it.
 
+## [0.49.0] — 2026-08-19
+
+A small one: one visible fix, one invisible refinement. **No resync needed** — nothing about what is
+stored or fetched changed.
+
+
+### Changed
+
+- **US-83 — the engine stopped rescanning every transaction once per product.** `auditSeries` and
+  `fallbackFromTrades` each walked the whole transaction list and skipped the rows that were not
+  theirs, from inside a loop over every product — O(products × transactions). The rows are now
+  grouped by product in one pass and each call reads only its own. No verdict, ratio or figure
+  changes: the same rows are considered, they are just found once. All 543 tests pass unmodified.
+
+### Fixed
+
+- **The cash chart's x-axis printed raw ISO dates.** `cashChart` was the one day-labelled chart not
+  running its ticks through `dayTickFormatter`; it now labels its axis the same way the value,
+  result and composition charts do. Found on a light scan, not from a report.
+
 ## [0.48.0] — 2026-08-18
 
 Nine stories and four defects. The through-line is **what the screen is allowed to imply**: a figure may

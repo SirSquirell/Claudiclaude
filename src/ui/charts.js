@@ -1180,6 +1180,7 @@ export function cashChart(ctx, { days, cash }, t) {
     text: describeSeries({ title: tr('Uninvested cash over time'), days, values: cash, fmt: fmtEurCents }),
   };
   opts.plugins.tooltip.callbacks = { label: (item) => fmtEur(item.parsed.y) };
+  opts.scales.x.ticks.callback = dayTickFormatter(days);
 
   return new Chart(ctx, {
     type: 'line',
