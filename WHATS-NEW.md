@@ -1,4 +1,4 @@
-# Wat er nieuw is — 0.49.0
+# Wat er nieuw is — 0.50.0
 
 Wat er verandert ten opzichte van de vorige versie, in gewone taal. Alleen deze release: de
 volledige geschiedenis staat in [CHANGELOG.md](CHANGELOG.md), installeren doe je met
@@ -10,15 +10,21 @@ volledige geschiedenis staat in [CHANGELOG.md](CHANGELOG.md), installeren doe je
 
 ---
 
-## De datums onder de cash-grafiek zijn weer leesbaar
+## Optimism Mode gaat verder over de top — op verzoek
 
-De grafiek **Niet-belegd geld door de tijd** schreef zijn datums als ruwe `2026-08-19`-labels,
-terwijl elke andere grafiek ze netjes opmaakt. Dat was de enige grafiek die het verkeerd deed;
-hij doet het nu zoals de rest.
+De hele reden dat een stand die verlies als winst laat zien mág bestaan, is dat **absurditeit de
+bescherming is**: een smaakvol omgekeerde grafiek stuurt iemand door naar z'n boekhouder, een pagina
+die zichtbaar gek geworden is niet. Dus is er nu meer van:
 
-## En onder de motorkap
+- **Een nieuwsticker**, twee keer — boven en onder de tegels, tegen elkaar in draaiend, met je eigen
+  cijfers in de toon van een zender waar niemand advies van moet aannemen. *"NOT THE REAL NUMBERS"*
+  komt elke paar seconden voorbij.
+- **Achttien tegels in plaats van tien**, waaronder *Hopium reserves*, *Bags held*, *Break-even ETA*
+  en *Nights lost to this: 0*.
+- **Een raket over je scherm** bij het aanzetten, een knop die blijft draaien, een stempel die
+  ademt, en anderhalf keer zoveel confetti.
 
-De berekening groepeert je transacties nu één keer per synchronisatie in plaats van de hele lijst
-opnieuw door te lopen voor elk instrument. **Geen enkel cijfer verandert erdoor** — dezelfde rijen
-worden bekeken, ze worden alleen sneller gevonden. Merkbaar wordt dit pas op rekeningen met veel
-instrumenten en veel transacties tegelijk.
+**Elk getal blijft je eigen getal** — er wordt niets verzonnen, alleen de verpakking is belachelijk.
+Het blijft op het Overzicht, het onthoudt zichzelf niet, en niets ervan kan in een export of
+bugreport terechtkomen. Met *verminderde beweging* aan staat de ticker stil en blijft de raket aan
+de grond.

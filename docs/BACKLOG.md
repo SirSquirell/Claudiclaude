@@ -2223,7 +2223,7 @@ the product:
 
 ---
 
-## US-35b — Optimism Mode, phase two *(built — the charts half went via US-35c/US-35d; the tiles, and then more of them)*
+## US-35b — Optimism Mode, phase two *(built, 0.50.0 — the charts half went via US-35c/US-35d; the tiles, and then more of them)*
 
 0.39.0 shipped the switch, the stamp, the flipped tiles and the confetti. Two things were asked for
 after seeing it work, and one of them needs a decision before it is built.
