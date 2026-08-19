@@ -191,25 +191,45 @@ test('parseUpdate flattens the name/value-pair encoding', () => {
   assert.equal(parsed.todayPl, null, 'no todayPlBase in the response means null, not a fabricated 0');
 });
 
-test('parseUpdate sums DEGIRO’s own per-position day P/L into todayPl', () => {
+test('US-88 — todayPl is value plus todayPlBase, never todayPlBase alone', () => {
+  /**
+   * `todayPlBase` is the negative of the position's start-of-day reference
+   * value, not a day figure — measured on two real accounts, where summing it
+   * alone read as "down 100 % today" on every account holding anything. The
+   * shape below is the real one: value 500 with reference 487.50 is a +12,50
+   * day; value 200 with reference 230 is a −30 day.
+   */
   const parsed = parseUpdate({
     portfolio: {
       value: [
-        { value: [{ name: 'id', value: '1' }, { name: 'size', value: 10 }, { name: 'value', value: 500 }, { name: 'todayPlBase', value: { EUR: 12.5 } }] },
-        { value: [{ name: 'id', value: '2' }, { name: 'size', value: 4 }, { name: 'value', value: 200 }, { name: 'todayPlBase', value: { EUR: -30 } }] },
+        { value: [{ name: 'id', value: '1' }, { name: 'size', value: 10 }, { name: 'value', value: 500 }, { name: 'todayPlBase', value: { EUR: -487.5 } }] },
+        { value: [{ name: 'id', value: '2' }, { name: 'size', value: 4 }, { name: 'value', value: 200 }, { name: 'todayPlBase', value: { EUR: -230 } }] },
         // A closed position (size 0) is dropped and does not contribute.
-        { value: [{ name: 'id', value: '3' }, { name: 'size', value: 0 }, { name: 'value', value: 0 }, { name: 'todayPlBase', value: { EUR: 999 } }] },
+        { value: [{ name: 'id', value: '3' }, { name: 'size', value: 0 }, { name: 'value', value: 0 }, { name: 'todayPlBase', value: { EUR: -999 } }] },
       ],
     },
   });
-  assert.equal(parsed.todayPl, -17.5, 'sum of the open positions’ todayPlBase.EUR, rounded to cents');
+  assert.equal(parsed.todayPl, -17.5, 'sum of value + todayPlBase per open position');
+});
+
+test('US-88 — a todayPlBase without a value makes todayPl null, not half a sum', () => {
+  const parsed = parseUpdate({
+    portfolio: {
+      value: [
+        { value: [{ name: 'id', value: '1' }, { name: 'size', value: 10 }, { name: 'value', value: 500 }, { name: 'todayPlBase', value: { EUR: -487.5 } }] },
+        // No `value` on this row: adding its reference alone would poison the sum.
+        { value: [{ name: 'id', value: '2' }, { name: 'size', value: 4 }, { name: 'todayPlBase', value: { EUR: -230 } }] },
+      ],
+    },
+  });
+  assert.equal(parsed.todayPl, null, 'a partial day figure must not wear the face of a whole one');
 });
 
 test('parseUpdate reads a foreign base currency out of the todayPlBase map', () => {
   const parsed = parseUpdate(
     {
       portfolio: {
-        value: [{ value: [{ name: 'id', value: '1' }, { name: 'size', value: 1 }, { name: 'todayPlBase', value: { USD: 3.33 } }] }],
+        value: [{ value: [{ name: 'id', value: '1' }, { name: 'size', value: 1 }, { name: 'value', value: 100 }, { name: 'todayPlBase', value: { USD: -96.67 } }] }],
       },
     },
     'USD',

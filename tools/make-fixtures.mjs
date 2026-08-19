@@ -412,12 +412,15 @@ for (const ins of INSTRUMENTS) {
   const px = priceOn(ins.vwd, TODAY);
   const value = Math.round(qty * px * 100) / 100;
   positionsValue += value;
-  // DEGIRO's own day figure: today's close against the previous trading day,
-  // times the size held. A realistic small move so the demo's "Today" tile
-  // reads like a day and not like the whole position — see parseUpdate, which
-  // sums this to a number that matches DEGIRO's own.
+  // DEGIRO's `todayPlBase` is NOT a day figure: measured on two real accounts
+  // (US-88), it is the negative of the position's reference value at the start
+  // of the day, so the day movement is `value + todayPlBase`. The fixture
+  // reproduces that real shape: a realistic small move, encoded the way DEGIRO
+  // actually encodes it, so parseUpdate's `value + todayPlBase` reading is what
+  // the demo exercises.
   const prevPx = priceOn(ins.vwd, addDays(TODAY, -1));
   const todayPl = prevPx != null ? Math.round(qty * (px - prevPx) * 100) / 100 : 0;
+  const todayPlBase = Math.round((todayPl - value) * 100) / 100;
   positions.push({
     id: ins.id,
     value: [
@@ -428,7 +431,7 @@ for (const ins of INSTRUMENTS) {
       { name: 'value', value: value },
       { name: 'accruedInterest', value: null },
       { name: 'plBase', value: { EUR: -value } },
-      { name: 'todayPlBase', value: { EUR: todayPl } },
+      { name: 'todayPlBase', value: { EUR: todayPlBase } },
       { name: 'portfolioValueCorrection', value: 0 },
       { name: 'breakEvenPrice', value: px },
       { name: 'averageFxRate', value: 1 },

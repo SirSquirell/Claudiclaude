@@ -5765,7 +5765,7 @@ headless browser, and is the answer the next "everything is gone" complaint gets
 
 ---
 
-## US-87 — The Positions table becomes yours: sort, rearrange, remember *(new, refined — POC built, awaiting the pick)*
+## US-87 — The Positions table becomes yours: sort, rearrange, remember *(refined — variant B picked, ready to build)*
 
 > *"we need some ways of interacting with the table, think about like sorting by, rearranging the
 > columns (which will be saved in the plugin someway …), and i want a way of filtering out colums i
@@ -5810,12 +5810,74 @@ self-contained page, synthetic data, all three variants live with working persis
   hidden by a stored preference, exactly as `test/columns.test.js` already asserts.
 - **AC5** The redundant sort chips are gone, and the demo exercises sort + reorder + hide.
 
+### The pick — B, same day
+
+> *"optie b vind ik het beste; ik zou wel willen als ik er niet mee ga slepen maar op klik dat dat
+> de Sort by knop heeft en dan de ene is dan desc en de ander asc"* — the owner.
+
+So variant B, stated precisely:
+
+- **Click a header = sort.** Numeric columns start descending (biggest first), a second click
+  ascends, a third returns to natural order; text columns start ascending. The header shows the
+  active column and direction. This is exactly what the POC's B does — the pick confirms it.
+- **Drag a header = reorder**, with the POC's live drop indicator; a click that moves less than a
+  few pixels stays a click. Instrument stays anchored first, the snapshot action last.
+- **Hide stays in the Columns chooser** (US-61) — no second mechanism.
+- The ⋮ header menu from variant A is **not** built: B's pick is click-and-drag, and the chooser
+  covers hiding. If touch or keyboard reordering turns out to be missed in practice, that is the
+  A-menu's re-entry ticket, opened on that evidence and not before.
+
 ### Stop condition
 
-If the picked variant is B and drag cannot be made to coexist with the sticky header and the
-container's own horizontal scroll without jank, fall back to that variant's ⋮ menu for reordering
-and say so — a drag that fights the scroll is worse than no drag.
+If drag cannot be made to coexist with the sticky header and the container's own horizontal
+scroll without jank, fall back to reorder-in-the-chooser and say so — a drag that fights the
+scroll is worse than no drag.
 
 ---
 
-**Next free number: US-88.**
+## US-88 — `todayPlBase` is not a day figure, and the Today tile said −100 % *(built, 0.54.0)*
+
+> *"his 'Today' is off by a mile, it should in his case be rn 1% down"* — a tester with three open
+> positions, the first account with holdings whose owner actually looked at the tile.
+
+The field was read on faith. `parseUpdate` summed `todayPlBase` per position and called it
+DEGIRO's own day result; the comment even said so. Two captures in one day measured what the field
+actually is: on both accounts the sum came out as **exactly the negative of the whole portfolio's
+value, to the cent** (−322 736,77 against 322 736,77; −26 945,43 against 26 945,43). `todayPlBase`
+is the negative of the position's start-of-day reference value — the same convention its sibling
+`plBase` uses for cost, which the fixture generator had already guessed right — and the day figure
+is **`value + todayPlBase`**. Every account with an open position has been told it was down ~100 %
+today since the field shipped.
+
+Fixed in `parse.js`: the sum is `value + todayPlBase` per open row; a row carrying `todayPlBase`
+without a stated `value` makes the whole figure `null` rather than half a sum; the fixture
+generator now encodes the field the way DEGIRO actually does, so the demo exercises the real
+shape. On the captures the corrected figure lands on ±0,01 — matching the €0,00 day DEGIRO's own
+app showed. When the API serves last-close prices the honest answer *is* flat; it is never a
+fabricated −100 %. Known limit, inherited from the field: a position closed today drops to size 0
+and leaves the figure. **One ordinary Sync now refreshes the tile — no wipe needed.**
+
+## US-89 — A windowed card counts the opening value as stake *(built, 0.54.0)*
+
+> *"he cant be 200% down on what he put in yk. all he can do is be 100% down"* — the same tester,
+> holding a share card reading **−212,91 % on the money put in**.
+
+He is right, and the arithmetic was wrong in a way US-50 half-fixed: that story made the numerator
+and denominator share a span, but the denominator was still only the money put in *during* the
+window. A month card on a position bought earlier divided the month's loss by the month's deposits
+and ignored that the position entered the window already worth something. What is at stake in a
+window is **the opening value plus what was put in during it**.
+
+`snapshotModel` now computes the opening value from US-14's identity (`value = paidIn + cumulative
+pnl`, read the day before the span) and it joins both denominators: the headline pct
+(`returnOnMoneyIn`, new `at-stake` basis) and the bar's own-money segment, restoring
+`value = paid + grown` inside the window. The copy names the denominator it has — *"on what was in
+it"*, *"{lost}% of what was in it is gone"* — and the all-time card is untouched: opening value
+zero, `money-in` basis, original sentences, byte-for-byte. Replayed against the reporting account's
+export: the same card now reads **−20,22 % on what was in it**, which is what that month actually
+did. A long position can no longer read below −100 %; a written option still can, and the sentence
+keeps saying so uncapped, because for a short that is the truth.
+
+---
+
+**Next free number: US-90.**

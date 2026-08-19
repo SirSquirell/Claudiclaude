@@ -476,25 +476,34 @@ function flattenPairs(entry) {
 export function parseUpdate(res, baseCurrency = 'EUR') {
   const positions = [];
   /**
-   * DEGIRO's own result-so-far-today, summed across the open positions.
+   * DEGIRO's own result-so-far-today: per open position, **`value` plus
+   * `todayPlBase`** — never `todayPlBase` alone.
    *
-   * `/update` states a `todayPlBase` per position — a currency map, `{EUR: n}`
-   * — which is the day figure DEGIRO shows in its own app. Summing it is the
-   * only way this project can report "today" that matches what the user sees in
-   * DEGIRO, and it is the honest one at the ragged edge of the data: the vwd
-   * daily-close series lags intraday, and it lags *per instrument* (one feed has
-   * today's close, another is still on Friday's), so the reconstructed
-   * day-over-day change on the last calendar day is a partial move — some
-   * holdings counted, others held flat. This number has that problem for none of
-   * them, because it is DEGIRO's, computed against every position's live price.
+   * `todayPlBase` is not a day figure. It is the *negative of the position's
+   * reference value at the start of the day*, the same convention the sibling
+   * field `plBase` uses for cost (US-88). Measured, not read from any
+   * documentation: on two real accounts in one day, the summed field came out
+   * as **exactly the negative of the whole portfolio's value, to the cent** —
+   * −322 736,77 against a 322 736,77 portfolio, −26 945,43 against 26 945,43.
+   * Summing it alone, as this function did from the day the field shipped,
+   * told every account with an open position that it was down ~100 % *today*.
+   * Nobody with positions had looked at the tile until one did.
    *
-   * `null`, not `0`, when the field is absent — an older capture, or a response
-   * shape that never carried it. A `0` would read as "flat today" and is exactly
-   * the plausible-wrong-number this project refuses to invent (rule 4); a `null`
-   * lets the caller fall back rather than lie.
+   * `value + todayPlBase` is the day movement DEGIRO's own bookkeeping implies,
+   * and on those captures it lands on ±0,01 — which is also what DEGIRO's own
+   * app showed. When the API serves last-close prices (no realtime entitlement)
+   * this is honestly zero; it is never a fabricated −100 %.
+   *
+   * `null`, not `0`, when the field is absent — and also when **any** row
+   * carries `todayPlBase` without a stated `value`: half a sum would wear the
+   * face of a whole one, which is the same failure the reconciliation anchor
+   * guards against. A position closed *today* still escapes this figure (its
+   * row returns to size 0 and is skipped), which is a known limit of the field,
+   * not of this reading.
    */
   let todayPlSum = 0;
   let sawTodayPl = false;
+  let todayPlIncomplete = false;
   const portfolioRows = unwrap(res, ['portfolio.value', 'portfolio']) ?? [];
   if (Array.isArray(portfolioRows)) {
     for (const row of portfolioRows) {
@@ -503,16 +512,20 @@ export function parseUpdate(res, baseCurrency = 'EUR') {
       if (!productId) continue;
       const size = num(pick(f, ['size', 'qty', 'quantity'], 0));
       if (size === 0) continue; // closed positions still show up with size 0
-      const todayPl = currencyAmount(pick(f, ['todayPlBase'], null), baseCurrency);
-      if (todayPl != null) {
-        todayPlSum += todayPl;
-        sawTodayPl = true;
+      const rawValue = pick(f, ['value', 'valueInEur'], null);
+      const todayBase = currencyAmount(pick(f, ['todayPlBase'], null), baseCurrency);
+      if (todayBase != null) {
+        if (rawValue == null) todayPlIncomplete = true;
+        else {
+          todayPlSum += num(rawValue) + todayBase;
+          sawTodayPl = true;
+        }
       }
       positions.push({
         productId,
         size,
         price: num(pick(f, ['price'], 0)),
-        value: num(pick(f, ['value', 'valueInEur'], 0)),
+        value: num(rawValue ?? 0),
       });
     }
   }
@@ -542,8 +555,9 @@ export function parseUpdate(res, baseCurrency = 'EUR') {
     totalValue: totalValue == null ? null : num(totalValue),
     totalCash: totalCash == null ? null : num(totalCash),
     // DEGIRO's own result-so-far-today. `null` when the response never carried
-    // `todayPlBase`, so a caller can tell "flat" from "not stated".
-    todayPl: sawTodayPl ? Math.round(todayPlSum * 100) / 100 : null,
+    // `todayPlBase` — or carried it on a row with no value to add it to — so a
+    // caller can tell "flat" from "not stated" and never gets half a sum.
+    todayPl: sawTodayPl && !todayPlIncomplete ? Math.round(todayPlSum * 100) / 100 : null,
     cash,
     // Everything else DEGIRO put in totalPortfolio, kept rather than dropped.
     // Two fields were being picked out of this object and the rest discarded
