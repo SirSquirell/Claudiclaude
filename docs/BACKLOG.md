@@ -5604,15 +5604,32 @@ compensation is P/L to one bookkeeper and a deposit to the other, and rule 3 say
 exactly where a wrong guess fabricates profit. Not two mysteries, then: every open cent points at
 the same handful of cash-fund/interest rows.
 
+### The third report — the sharpened locator's first answer, and hypothesis 1 is dead
+
+Same day, after a wipe-and-resync on the new build: `amountlessByCategory: { CASH_SWEEP: 15 }`.
+**Every one of the fifteen amount-less rows is a sweep** — rows the ledger holds outside the cash
+balance anyway, so their unreadable amounts cost nothing. Every row in every `inCash: true`
+category carries an amount the parser read. There is no hidden counter-entry parsed as 0,00: the
+ledger is fully read, it genuinely sums to −0,05, and all of it is the interest rows.
+
+(A side-finding for free: DEGIRO's sweep rows apparently come in two shapes, with and without an
+amount — 15 amount-less against a non-zero `CASH_SWEEP` total means both exist in one account.
+Nothing depends on it while sweeps stay `inCash: false`; noted so nobody rediscovers it.)
+
+That leaves hypothesis 2 alone standing, in two flavours only a capture can tell apart: the
+interest was compensated in a `totalPortfolio` field rather than in a row (`cashFundCompensation`,
+three spellings), or it never settled against the balance DEGIRO reports at all.
+
 ### What closes it, and only this
 
-The rows themselves: the full export (the trusted channel), a HAR of the account overview — or,
-cheapest of all, the owner reading the recurring rows' wording straight off DEGIRO's own
-Rekeningoverzicht, since 2024 that is only a dozen rows. Three questions to answer from them — what
-the amount-less rows are, what the interest rows' wording says they are, and whether a cash-fund
-compensation row sits among them. Then either a classification decision lands in `classify.js` with
-the capture as its justification, or a field-name candidate lands in `parse.js` on the same
-evidence. One or the other, and nothing before the capture.
+The rows themselves. The **full export** now answers both remaining questions at once: the
+`cashflows` store carries the interest rows' wording, and `liveSnapshot` is on the export's meta
+allowlist and carries the whole parsed `/update` — including the `cashFundCompensation` values. If
+those compensation fields hold the missing five cents, the mechanism is named. Otherwise: the
+owner reading the rente-rows' wording off the Rekeningoverzicht settles it. Then either a
+classification decision lands in `classify.js` with the capture as its justification, or a
+field-name candidate lands in `parse.js` on the same evidence. One or the other, and nothing
+before the capture.
 
 ### Stop condition
 
