@@ -236,7 +236,7 @@ const pick = (obj, keys) => {
  *  - `free` — more has come out than went in, `paid` is negative, and every euro
  *    on screen is the market's. Said in words rather than clamped to 0 %.
  */
-export function splitModel(paid, grown) {
+export function splitModel(paid, grown, { windowed = false } = {}) {
   const value = paid + grown;
   if (paid < 0) {
     // A closed position sold at a profit lands here on an all-time card, and
@@ -273,7 +273,12 @@ export function splitModel(paid, grown) {
      * there is no cell to clip it.
      */
     lostPct: Math.min(100, lost),
-    key: '{lost}% of what you paid in is gone',
+    /**
+     * On a windowed card the denominator includes the position's opening value
+     * (US-89), and "what you paid in" would then claim more than it means —
+     * the sentence names the denominator it actually has.
+     */
+    key: windowed ? '{lost}% of what was in it is gone' : '{lost}% of what you paid in is gone',
     vars: { lost },
   };
 }
@@ -291,10 +296,23 @@ export function splitModel(paid, grown) {
  * When `paidIn` is zero or negative, more has come out than went in and there is
  * no denominator. That is a real state, not an error, and the card says it in
  * words rather than printing a percentage of nothing.
+ *
+ * `openingValue` (US-89) is what the position was already worth when the window
+ * opened, and it belongs in the denominator: a card windowed to one month on a
+ * position bought earlier was dividing the month's loss by only the money added
+ * *that month*, and a real account's card read **−212,91 % "on the money put
+ * in"** — a long position, which can lose at most everything. What was at stake
+ * in the window is the opening value plus what was put in during it; against
+ * that, a long bottoms out at −100 % and the sentence stops overclaiming. When
+ * the window covers the whole position the opening value is zero and nothing
+ * changes — the basis says which reading the card is making, so the copy can
+ * name its denominator honestly.
  */
-export function returnOnMoneyIn(result, paidIn) {
-  if (!(paidIn > 0.005)) return { pct: null, basis: 'no-money-in' };
-  return { pct: (result / paidIn) * 100, basis: 'money-in' };
+export function returnOnMoneyIn(result, paidIn, openingValue = 0) {
+  const opening = openingValue > 0.005 ? openingValue : 0;
+  const stake = paidIn + opening;
+  if (!(stake > 0.005)) return { pct: null, basis: 'no-money-in' };
+  return { pct: (result / stake) * 100, basis: opening > 0 ? 'at-stake' : 'money-in' };
 }
 
 /**
@@ -410,6 +428,7 @@ export function snapshotModel({
   let result = 0;
   let moneyIn = 0;
   let netIn = 0;
+  let openingValue = 0;
   const series = [];
   if (span) {
     let running = 0;
@@ -426,9 +445,23 @@ export function snapshotModel({
     // is *still* in it. Only the bar uses this, because only the bar splits a
     // value into parts that have to add up to it.
     netIn = (paidIn[span.to] ?? 0) - (span.from > 0 ? paidIn[span.from - 1] ?? 0 : 0);
+    /**
+     * What the position was already worth when the window opened — US-14's
+     * identity, `value = paidIn + cumulative pnl`, read at the day before the
+     * span. Zero when the window covers the whole position, so all-time cards
+     * are untouched; on a windowed card it joins the denominator (US-89) and
+     * the bar's own-money segment, restoring `value = paid + grown` inside the
+     * window — without it, a month card on an older position divided the
+     * month's loss by the month's deposits alone and printed −212 % on a long.
+     */
+    if (span.from > 0) {
+      let cum = 0;
+      for (let i = 0; i < span.from; i++) cum += pnl[i] ?? 0;
+      openingValue = Math.max(0, (paidIn[span.from - 1] ?? 0) + cum);
+    }
   }
 
-  const { pct, basis } = returnOnMoneyIn(result, moneyIn);
+  const { pct, basis } = returnOnMoneyIn(result, moneyIn, openingValue);
 
   const model = {
     name: String(name ?? '—'),
@@ -459,7 +492,9 @@ export function snapshotModel({
      * Not governed by `anonymized`: there is no amount in it. That is the point
      * of putting this on a public card rather than the euros beside it.
      */
-    split: span && Math.abs(qty[span.to] ?? 0) > 1e-9 ? splitModel(netIn, result) : null,
+    // The opening value is part of "yours" here for the same reason it is part
+    // of the stake above: inside the window, value = (opening + net in) + grown.
+    split: span && Math.abs(qty[span.to] ?? 0) > 1e-9 ? splitModel(openingValue + netIn, result, { windowed: openingValue > 0.005 }) : null,
     spark: drawable ? sparkline(series) : [],
     /**
      * Normalised here rather than trusted from the caller, so the only two

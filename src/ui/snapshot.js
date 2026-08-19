@@ -154,7 +154,9 @@ export function drawSnapshot(model, t = tokens(), { format = '16:9' } = {}) {
   y += m.gapCaption;
   ctx.fillStyle = t.textSecondary;
   ctx.font = `400 ${m.type.caption}px ${FONT_TEXT}`;
-  ctx.fillText(tr(model.pct == null ? 'more has come out than went in' : 'on the money put in'), PAD, y);
+  // US-89: a windowed card's denominator includes what the position was worth
+  // when the window opened, and the caption must claim that and no more.
+  ctx.fillText(tr(model.pct == null ? 'more has come out than went in' : model.pctBasis === 'at-stake' ? 'on what was in it' : 'on the money put in'), PAD, y);
 
   // The amount, only when US-46 is off. `model.amount` is already null when it
   // is on — this branch is a second lock on the same door, not the only one.

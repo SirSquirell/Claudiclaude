@@ -452,16 +452,18 @@ test('US-50 — the card measures its number over the days it draws', () => {
   assert.ok(Math.abs(all.pct - 123.456) < 0.005);
 
   /**
-   * The window, and the defect in one assertion. Over days 2–3 the position made
-   * 734.56 — and the old code divided that by 1 000 of all-time money in, giving
-   * 73 %. Nothing was put in during those days, so there is no denominator and
-   * the card says so in words instead of printing a percentage of the wrong span.
+   * The window, in three generations. US-50's defect: the windowed 734.56 was
+   * divided by 1 000 of *all-time* money in — 73 % of neither span. US-50's
+   * stopgap: nothing was put in during those days, so refuse the percentage.
+   * US-89 supplies the denominator that was there all along: the position was
+   * worth 1 500 entering the window (1 000 paid + 500 grown), and that is what
+   * the window's result is measured against — with a basis that says so.
    */
   const windowed = snapshotModel({ ...base, window: { from: 3, to: 4 }, anonymized: false });
   assert.deepEqual(windowed.period, { from: '2026-06-01', to: '2026-08-12' });
   assert.ok(Math.abs(windowed.amount - 734.56) < 0.005);
-  assert.equal(windowed.pct, null);
-  assert.equal(windowed.pctBasis, 'no-money-in');
+  assert.ok(Math.abs(windowed.pct - (734.56 / 1500) * 100) < 0.005);
+  assert.equal(windowed.pctBasis, 'at-stake');
 
   // AC5: one day inside the window draws no line and claims no period.
   const oneDay = snapshotModel({ ...base, window: { from: 4, to: 4 } });
@@ -709,11 +711,12 @@ test('the split is measured over the same span as the pct and the amount', () =>
    * silently, because a bar has no digits to look wrong.
    */
   const windowed = snapshotModel({ ...base, window: { from: 3, to: 4 }, anonymized: false });
-  // Nothing was paid in during those days: the pct has no denominator and says
-  // so, and the bar says the same thing in its own terms — none of what this is
-  // worth over the window is money that went in during it.
-  assert.equal(windowed.pctBasis, 'no-money-in');
-  assert.equal(windowed.split.keptPct, 0);
+  // Nothing was paid in during those days, but the position entered the window
+  // worth 1 500 — US-89 counts that as the stake, for the pct and for the bar
+  // alike, so `value = (opening + net in) + grown` holds inside the window.
+  assert.equal(windowed.pctBasis, 'at-stake');
+  assert.equal(windowed.split.state, 'grown');
+  assert.equal(windowed.split.keptPct, Math.round((1500 / 2234.56) * 100));
   // And it is not the all-time bar wearing a window's dates.
   assert.notDeepEqual(windowed.split, snapshotModel({ ...base }).split);
 
@@ -926,4 +929,43 @@ test('the sheet’s motion holds no opinion about the card’s contents', () => 
   const code = app.replace(/\/\*\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
   assert.equal((code.match(/showModal\(\)/g) ?? []).length, 1, 'a dialog opens without going through openModal');
   assert.match(app, /openModal\(box\)/, 'the diagnostics dialog no longer materializes');
+});
+
+test('US-89 — a windowed card counts the opening value as stake, so a long cannot read below −100%', () => {
+  /**
+   * The capture: a one-month card on a position bought earlier printed
+   * "−212,91% on the money put in" — the month's loss divided by only the
+   * month's deposits. What was at stake in the window is the opening value
+   * plus what was added during it. Synthetic shape: 400 in the position when
+   * the window opens, 100 added inside it, 450 lost inside it.
+   */
+  const m = snapshotModel({
+    name: 'Windowed Instrument',
+    days: ['2026-01-01', '2026-02-01', '2026-03-01', '2026-04-01', '2026-05-01'],
+    qty: [10, 10, 12, 12, 12],
+    pnl: [0, 100, 0, -200, -250],
+    paidIn: [300, 300, 400, 400, 400],
+    window: { from: 2, to: 4 },
+  });
+  assert.equal(m.pctBasis, 'at-stake', 'the denominator includes the opening value, and the card says so');
+  // Opening value 400 (paidIn 300 + pnl 100), plus 100 added in the window.
+  assert.ok(Math.abs(m.pct - (-450 / 500) * 100) < 0.01, `−90%, not −450%: got ${m.pct}`);
+  assert.ok(m.pct >= -100, 'a long position cannot lose more than what was in it');
+  // The bar keeps the same identity: value = (opening + net in) + grown.
+  assert.equal(m.split.state, 'underwater');
+  assert.equal(m.split.key, '{lost}% of what was in it is gone', 'the sentence names the denominator it has');
+  assert.equal(m.split.vars.lost, 90);
+});
+
+test('US-89 — an all-time card is untouched: money-in basis, original sentence', () => {
+  const m = snapshotModel({
+    name: 'Whole-life Instrument',
+    days: ['2026-01-01', '2026-02-01', '2026-03-01'],
+    qty: [10, 10, 10],
+    pnl: [0, -100, -100],
+    paidIn: [400, 400, 400],
+  });
+  assert.equal(m.pctBasis, 'money-in');
+  assert.ok(Math.abs(m.pct - (-200 / 400) * 100) < 0.01);
+  assert.equal(m.split.key, '{lost}% of what you paid in is gone');
 });

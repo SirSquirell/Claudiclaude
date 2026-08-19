@@ -454,6 +454,8 @@ const DICT = {
     'all gain \u2014 more came out than went in': 'puur winst \u2014 er kwam meer uit dan erin ging',
     '{paid}% paid in \u00b7 {grown}% grown': '{paid}% ingelegd \u00b7 {grown}% gegroeid',
     '{lost}% of what you paid in is gone': '{lost}% van je inleg is weg',
+    '{lost}% of what was in it is gone': '{lost}% van wat erin zat is weg',
+    'on what was in it': 'op wat erin zat',
     'Put that frown upside down': 'Zet die frons op z\u2019n kop',
     'of what you paid in': 'van je inleg',
 
