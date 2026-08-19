@@ -16,7 +16,11 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
-## [Unreleased]
+## [0.49.0] — 2026-08-19
+
+A small one: one visible fix, one invisible refinement. **No resync needed** — nothing about what is
+stored or fetched changed.
+
 
 ### Changed
 

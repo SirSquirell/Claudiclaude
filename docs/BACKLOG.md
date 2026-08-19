@@ -5432,7 +5432,7 @@ line of defence and it was blind to a whole class of position."*
 
 ---
 
-## US-83 — `auditSeries` and `fallbackFromTrades` rescan every transaction, once per product
+## US-83 — `auditSeries` and `fallbackFromTrades` rescan every transaction, once per product *(built, 0.49.0)*
 
 Found on the 2026-08-18 light scan, not from a defect report. Both functions take `transactions`
 and a single `productId`, then do the same thing: walk the *entire* transactions array and skip
