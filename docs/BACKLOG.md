@@ -5827,11 +5827,71 @@ So variant B, stated precisely:
   covers hiding. If touch or keyboard reordering turns out to be missed in practice, that is the
   A-menu's re-entry ticket, opened on that evidence and not before.
 
-### Stop condition
+### Build plan for the unattended run — measured against the code as of 0.54.0
 
-If drag cannot be made to coexist with the sticky header and the container's own horizontal
-scroll without jank, fall back to reorder-in-the-chooser and say so — a drag that fights the
-scroll is worse than no drag.
+Written so the night session guesses nothing. One story, one run: build this, release 0.55.0,
+land on `main` (CLAUDE.md, *Branches* — a forced session branch is transport; the owner's standing
+instruction is that work lands on `main` the same run). `npm test` green before every commit.
+
+**State and persistence — extend the pattern that exists, invent nothing.** The Columns chooser
+already persists its hidden set in `localStorage` under `HOLDINGS_COLS_KEY =
+'degiro-portfolio.holdings-cols'` (`app.js` ~4754). Add two sibling keys, same mechanism:
+`'degiro-portfolio.holdings-order'` (comma-joined column keys) and
+`'degiro-portfolio.holdings-sort'` (`'key:dir'` or absent). Sanitise on read exactly the way the
+POC does: unknown keys dropped, missing keys appended in canonical order, `instrument` forced
+first, `snap` forced last. A persisted sort on a hidden or unknown column is cleared, and hiding
+the sorted column via the chooser clears the sort.
+
+**Pure halves in `columns.js`, tested in `test/columns.test.js`:**
+- `orderedColumns(orderKeys)` → the sanitised, ordered column list described above.
+- `cycleSort(current, key, isNum)` → next sort state: numeric columns cycle `desc → asc → null`,
+  text columns `asc → desc → null`; clicking a different column starts that column's cycle fresh.
+
+**Sorting, in `renderHoldings` (`app.js`):**
+- Every header cell except `snap` becomes a real button (the POC's `.head` shape) with an arrow
+  indicator and `aria-sort` on the `th`. Click = `cycleSort`; re-render is instant — no animation,
+  ties break on `a.name.localeCompare(b.name)` (the convention already written at the sort at
+  ~4618).
+- Sort values, named per column: `instrument` → `p.name` (text); `value`/`share` → `p.current`;
+  `result` → `sumWindow(p.pnl, from, to)`; `qty` → `p.qty.at(-1)`; `price` → the same unit price
+  the cell shows; `avgPaid` → `p.bought / p.boughtQty`; `dividend`/`bought`/`sold`/`pctBought` →
+  their scalars; `split` → `p.current / max(paidIn.at(-1), 0.01)`; `currency` → text.
+- **The cash row never sorts** — it is appended after the rows today and stays that way, pinned
+  last, because it is the invariant that makes the Result column sum (US-49).
+- **Remove the `#products-sort` chips** (`app.js` ~4609, plus their element in `app.html`). The
+  default with nothing persisted is **windowed result, descending** — that is what today's default
+  (`state.productSort: 'best'`, line ~75) shows, so the default view does not move. The i18n
+  strings for the chips go with them; `npm test` counts untranslated strings, so remove both
+  languages' entries.
+
+**Drag to reorder, the POC's mechanics verbatim** (`docs/prototypes/holdings-table-interactions.html`
+is the reference implementation): `pointerdown` on a `th` (never `instrument`), a 5 px movement
+threshold so a click stays a click, pointer capture, `elementsFromPoint` over the header row, a
+2 px accent drop indicator via inset box-shadow (`drop-before`/`drop-after`), reorder on release,
+and the click that the release produces is swallowed. Order feeds `orderedColumns`; header, body
+rows, the cash row and the detail row all already map over one column list, so they follow it by
+construction. US-61's width-folding and the chooser are untouched — they key on `data-col`, not on
+position.
+
+**Verification, before the release commit:** the demo driven headless (the repo has no driver
+dependency — `npm i playwright-core` in a scratch dir outside the repo, Chromium is at
+`/opt/pw-browsers`): click Result twice and read the first row flip; drag Value left of Result and
+read the header order; reload and read both again (persisted); hide the sorted column and confirm
+natural order returns. Wide and narrow. Zero page errors.
+
+**Release 0.55.0:** CHANGELOG entry + WHATS-NEW rewritten (a feature the reader will notice; no
+resync for this — and keep carrying the pre-0.51.0 wipe note until the owner says everyone is
+past it), STATUS row, this heading → *(built, 0.55.0)*, `manifest.json` + `package.json` bumped.
+
+### Stop conditions
+
+- If drag cannot be made to coexist with the sticky header and the container's own horizontal
+  scroll without jank, fall back to reorder-in-the-chooser and say so — a drag that fights the
+  scroll is worse than no drag.
+- If removing the sort chips visibly changes the default ordering of the table, stop and keep the
+  default at windowed-result-descending; the chips leave, the default stays.
+- **No scope beyond this story.** Anything discovered on the way (and something will be) becomes a
+  backlog entry under the next free number, not a change in this run.
 
 ---
 
