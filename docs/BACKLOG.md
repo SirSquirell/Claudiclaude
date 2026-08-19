@@ -5940,4 +5940,61 @@ keeps saying so uncapped, because for a short that is the truth.
 
 ---
 
-**Next free number: US-90.**
+## US-90 — `carryStocksForward` re-scans a broker's whole calendar to find one day *(refined, ready to build)*
+
+Found on the 2026-08-19 light scan, not from a defect report — the same shape as US-83, one module
+over. `combine.js`'s `carryStocksForward` walks the combined n-day union calendar once per broker
+part, and on every day that belongs to that broker's own calendar it does this —
+
+```js
+for (let j = 0; j < n; j++) {
+  const day = out.days[j];
+  if (own.has(day)) {
+    const i = r.days.indexOf(day);   // full linear scan of r.days, every matching day
+    ...
+```
+
+`r.days.indexOf(day)` is a fresh O(n) scan of that broker's own calendar, and because two brokers'
+calendars overlap on most days in the ordinary case, this branch fires on close to every one of the
+n outer iterations — **O(n²) per broker part** on a ~2 000-day history. Nothing here is user-visible
+yet for the same reason US-83 wasn't: no account this project has synced holds a second broker, so
+`combineResults` (`combine.js:44`) has never run on real data since US-45 landed. It is a real,
+easily-avoided duplicate scan sitting in code that already exists and is already tested, not a
+symptom of one — which is why this is a story and not a defect, and why it is not fixed inline
+during the scan that found it, same as US-83 before it.
+
+**The lookup it needs is built four lines above the call site and simply isn't passed down.**
+`combineResults` already builds `index = new Map(days.map((d, i) => [d, i]))` for the *combined*
+calendar (`combine.js:56`) before calling `carryStocksForward`. What's missing is the same kind of
+map for each broker's *own* calendar — `Map<day, i>` built once per part, immediately before that
+part's inner loop — turning `r.days.indexOf(day)` into an O(1) lookup and the whole function into
+O(n) per broker instead of O(n²).
+
+### What to add, and no more
+
+- One `Map(r.days.map((d, i) => [d, i]))` built once per `part`, right where `own` (the `Set`) is
+  already built on the line above it.
+- The inner lookup becomes `ownIndex.get(day)` in place of `r.days.indexOf(day)`; `own` (the `Set`)
+  stays, since the `own.has(day)` branch test and the index lookup are two different questions.
+- No new option, no config, no change to what `carryStocksForward` returns or which days it carries.
+
+### Acceptance criteria
+
+- **AC1** `carryStocksForward` contains no `.indexOf(` call — the per-broker day lookup is a `Map`
+  built once per part.
+- **AC2** Every existing `combine.js` test still passes unmodified — this is a lookup-mechanism
+  change, not a behaviour change, and no test's expected numbers move.
+- **AC3** A multi-broker fixture combining two calendars of realistic size (hundreds of days,
+  partial overlap, one broker starting later) reconciles to the same totals before and after —
+  rule 6 applies to the combined view exactly as it does to a single broker.
+
+### Stop condition
+
+If replacing the scan with a map lookup changes which day's stock value gets carried forward for
+any day in any existing or new test, stop — that would mean `indexOf`'s first-match semantics were
+doing something the `Set`-plus-map pair does not preserve, and the fix needs to find out what before
+it ships.
+
+---
+
+**Next free number: US-91.**

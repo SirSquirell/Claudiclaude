@@ -6,48 +6,70 @@ a bad place to find out *where things stand*. This is the index.
 **Last updated at 0.54.0.** It had been stale since 0.21.0 once, which is fifteen
 releases — if it looks stale again, trust the CHANGELOG and fix this.
 
-## Light scan, 2026-08-18
+## Light scan, 2026-08-19
 
-A routine sweep, not an audit: branches, an export/rule-compliance spot-check, and a browser design
-pass. One thing fixed, nothing else open.
+A routine sweep, not an audit: branches, GitHub issues/PRs, backlog consistency, an export/rule-
+compliance spot-check, and a browser design pass. Nothing fixed directly; one optimization refined
+as a story, same treatment as US-83 below. This supersedes the 2026-08-18 entry it replaces — its
+branch cleanup and design fix are both still on `main`, listed under *Unmerged work* and in the
+*Shipped* table (`cashChart`'s tick formatter) further down.
 
-**Branches.** All 19 remaining remote `claude/*` branches plus `poc` were checked against `main` by
-commit count. `claude/eager-cannon-islvb3` (1 commit ahead) turned out to be a previous run of this
-same scan, stranded on its own throwaway branch — the branch-per-session problem CLAUDE.md's
-*Branches* section describes, happening again live. Its one finding, the `0.46.1` Today-live-day-result
-fix, is already on `main` (STATUS's own *Unmerged work* section confirms this). The two large outliers,
-`claude/multi-broker-poc` (90 ahead) and `claude/portfolio-visualization-testing-xs5ck4` (22 ahead), are
-not real unmerged work: diffed against `main` they are thousands of lines *behind* on files `main` has
-since rewritten (`app.js`, `styles.css`, `charts.js`), i.e. old pre-rewrite snapshots whose content
-already shipped through different commits. Every other branch is 0–3 commits ahead and either an empty
-diff or superseded docs. **No unmerged story found.** The stale branches still can't be deleted from
-here — this environment's git proxy refuses it, same as before — so they're GitHub-UI cleanup, not
-code.
+**Branches.** All 24 remote `claude/*` branches plus `poc` re-checked against `main`, independently
+of yesterday's audit. One branch is new since then, `degiro-reconciliation-issues-7t3iyc` — it is a
+zero-diff snapshot of `main`'s own history, same as several others already on the delete list, not
+new work. Every other branch matches yesterday's read exactly: either zero/near-zero diff against
+`main`, or an old pre-rewrite snapshot (`app.js`, `styles.css`, `charts.js` have all moved on)
+carrying nothing `main` is missing. **No unlanded story found, again.** Full branch-by-branch table
+kept out of this file (it would just repeat yesterday's) — see the delete list under *Unmerged work*
+below, now with `degiro-reconciliation-issues-7t3iyc` added to the *fully contained, delete without
+looking* line. Still can't delete from here — the git proxy refuses `push --delete` — so it stays
+GitHub-UI cleanup for the owner, not code.
 
-**Rule compliance / security.** Spot-checked the export allowlist (`store.js`'s `EXPORTABLE_META` is
-still default-deny), `throttledFetch` (still the one queue, still no 401/403 retry), `session.js`
-(still reads the cookie and persists nothing but the derived IDs), `engine.js` (still no `fetch`/
-`chrome.*`/`indexedDB`, the two `new Date()` calls are output metadata, not inputs), `innerHTML` call
-sites in `src/ui/` (all pass account-derived strings through `esc()`), and console output (no session
-id, cookie or token logged anywhere). Nothing found.
+**GitHub.** Zero open issues. One open PR, **#8** ("0.46.1 — 'Today' uses DEGIRO's own live day
+result"), base `main@a29a11d` from when `main` was still at 0.44.1 — five releases and two rewrites
+ago. Its fix (sum `todayPlBase` directly into `todayPl`) is the *same bug* **US-88** later diagnosed
+more precisely (`todayPlBase` is the negative start-of-day reference, not a day delta) and fixed
+correctly as `value + todayPlBase`, shipped in 0.54.0. PR #8's approach would reintroduce the −100 %
+fabrication US-88 just fixed. Recommend closing it as superseded rather than merging; left open,
+report-only, since closing someone else's PR is a step further than this scan's remit.
 
-**Design pass** (`apple-design` skill, browser-verified at 1440/380 × light/dark via Playwright — no
-page errors, no horizontal overflow anywhere across all seven sections). One real inconsistency:
-**`cashChart`'s x-axis rendered raw ISO date strings** (`2021-01-31`, `2022-09-30`, …) while every
-sibling chart on the same page abbreviates (`jan 21`, `sep 22`) via `dayTickFormatter`. `valueChart`,
-`compositionChart`, `investedVsValueChart` and `singleSeriesChart` all set
-`opts.scales.x.ticks.callback = dayTickFormatter(days)`; `cashChart` was the one chart builder that
-never did. One line added (`src/ui/charts.js`), verified in-browser before and after, no test exists
-for Chart.js tick rendering (consistent with how the other four builders are covered — display only).
-`npm test` (543/543), `npm run palette` and `node tools/check-leaks.mjs` all clean after the change.
-No other visual defect, translucency, or depth violation found against `docs/redesign/DESIGN-BRIEF.md`
-§8's one-flat-container-depth rule.
+**Backlog consistency.** `docs/BACKLOG.md`: no duplicate or skipped story numbers (the `US-35`/`b`/
+`c`/`d` cluster is deliberate variants, not a collision); *Next free number* line matched reality
+(`US-90`) before this run added **US-90** itself, now correctly `US-91`. `US-87` is still marked
+*(refined — variant B picked, ready to build)* and its code — sort chips, no drag, no column-click
+sort — matches that exactly in the browser; nothing claims *(built)* that main doesn't have.
 
-**Optimization.** `auditSeries` and `fallbackFromTrades` in `engine.js` each rescan the full
-`transactions` array per product (O(products × transactions)) when the grouping they need
-(`qtyByProduct`-style, keyed by `productId`) is already built once, two hundred lines below, for
-other purposes. Not user-visible yet, and not a rewrite to attempt mid-scan against the pure
-engine's own testability claim — refined as **US-83** in `docs/BACKLOG.md` instead.
+**Rule compliance / security.** Spot-checked the same six things as yesterday and found the same
+result: export allowlist (`store.js`'s `EXPORTABLE_META`) still default-deny; `throttledFetch` still
+the one queue, still no 401/403 retry; `session.js` still persists only derived IDs
+(`intAccount`/`userToken`/`displayName`), never the cookie; `engine.js` still has no `fetch`/
+`chrome.*`/`indexedDB`/`Date.now()`; every `innerHTML` site in `src/ui/` still routes data through
+`esc()`; `manifest.json`'s permissions (`storage`, `unlimitedStorage`, `alarms`, `cookies`) and host
+permissions (`trader.degiro.nl`, `charting.vwdservices.com`) are still the minimum the two rules
+need, CSP still `script-src 'self'; object-src 'self'`. Nothing found.
+
+**Design pass** (`apple-design` skill, browser-verified at 1440/380 × light/dark via Playwright on
+Overview and Holdings — no page errors, no horizontal page overflow either size or theme). Holdings
+at 380px flagged one thing worth checking rather than reporting: `getBoundingClientRect` found a
+728px-wide `<table>` inside a 380px viewport. Traced it — the table sits in a `.table-scroll`
+container with `overflow-x: auto`, exactly the "wide content scrolls in its own box" pattern, and the
+document's own `scrollWidth` never exceeds its `clientWidth` at either breakpoint. Not a repeat of
+the tile-collapsed-to-zero or menu-under-chart defects this pass has caught before — correctly
+contained, not a leak. No violation of `docs/redesign/DESIGN-BRIEF.md` §8's one-flat-container-depth
+rule found; no translucency, no stacked light-on-light surfaces.
+
+**Optimization.** Same shape as US-83, one module over: `combine.js`'s `carryStocksForward` calls
+`r.days.indexOf(day)` — a full linear scan of a broker's own ~2 000-day calendar — inside a loop that
+already runs once per day of the combined calendar, making it O(n²) per broker part when the `Map`
+it needs (`day → index`, the same pattern `combineResults` already builds for the *combined* calendar
+four lines above the call site) would make it O(n). Currently unreachable by any real account — no
+synced account has a second broker yet — so this is a real, easily-avoided duplicate scan sitting in
+already-tested code, not a symptom of one. Refined as **US-90** rather than fixed inline, same
+reasoning as US-83: a pure-module change earns a story with acceptance criteria, not a patch slipped
+into a routine scan.
+
+`npm test` (557/557), `npm run palette` and `node tools/check-leaks.mjs` all clean, before and after
+adding the US-90 entry (docs-only change, nothing to re-test).
 
 No new broker surfaced worth scoping — the multi-broker sequence's blocker is unchanged from the table
 below (a Trading 212 Network-tab capture, which this environment cannot produce).
@@ -211,9 +233,11 @@ lives on the one `poc` branch until it is promoted or dropped.**
 proxy refuses `git push --delete`, so it is a one-time job in GitHub's UI. `main` and `poc` stay
 (`poc` currently equals `main`).
 
-*Fully contained in `main` — delete without looking:* `eager-cannon-b3ncc4`, `hoi-jft2cv`,
-`popup-0470`, `readme-0460`, `refine-0470c`, `remaining-build-items-05dbxv`, `status-0460-cleanup`,
-`ui-overhaul-user-stories-odcw7i`, `v47-bug-2jcvd3`.
+*Fully contained in `main` — delete without looking:* `eager-cannon-b3ncc4`,
+`degiro-reconciliation-issues-7t3iyc` (new since the 08-18 audit; zero diff against `main`, same as
+the rest of this line), `hoi-jft2cv`, `popup-0470`, `readme-0460`, `refine-0470c`,
+`remaining-build-items-05dbxv`, `status-0460-cleanup`, `ui-overhaul-user-stories-odcw7i`,
+`v47-bug-2jcvd3`.
 
 *One or two commits ahead, and every one of them is text that landed on `main` under a different
 story number or code that landed as a different commit* — the subjects are in the git log, and each
