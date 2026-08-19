@@ -1,36 +1,34 @@
-# Wat er nieuw is — 0.51.0
+# Wat er nieuw is — 0.52.0
 
 Wat er verandert ten opzichte van de vorige versie, in gewone taal. Alleen deze release: de
 volledige geschiedenis staat in [CHANGELOG.md](CHANGELOG.md), installeren doe je met
 [INSTALL.md](INSTALL.md).
 
-> **Hoef je te resyncen voor deze versie? JA — één keer "Wipe & resync".** Beide correcties
-> hieronder werken op het moment dat de regels van DEGIRO worden ingelezen, en al opgeslagen
-> regels houden hun oude betekenis tot je ze opnieuw ophaalt. Een gewone synchronisatie is niet
-> genoeg.
+> **Hoef je te resyncen voor deze versie? Voor 0.52.0 zelf niet** — maar kom je van een versie
+> vóór 0.51.0, dan geldt de correctie uit die release nog steeds en is één keer **Wipe & resync**
+> nodig: de geldmarktfonds-compensatie en het fondsverlies worden pas meegeteld nadat de regels
+> opnieuw zijn ingelezen. Zie [CHANGELOG.md](CHANGELOG.md) onder 0.51.0.
 
 ---
 
-## Het totaal klopt nu ook als je geld ooit in het geldmarktfonds zat
+## De export past nu door elk chatkanaal
 
-Twee fouten, die samen op een echt account precies **€ -0,05 verschil met DEGIRO** maakten —
-de rode balk die er drie releases stond:
+De volledige export (knop **Export**) wordt voortaan **gecomprimeerd** gedownload en heet nu
+duidelijk wat hij is:
 
-- **DEGIRO's geldmarktfonds-compensatie telde niet mee.** De regel *"DEGIRO Geldmarktfondsen
-  Compensatie"* — DEGIRO dat terugbetaalt wat het fonds en de negatieve rente je kostten — werd
-  aangezien voor een interne overboeking en dus genegeerd. Hij telt nu mee als opbrengst: geen
-  storting (DEGIRO's eigen stortingsteller slaat hem ook over), wel geld op je rekening.
-- **Het waardeverlies van het geldmarktfonds zelf was onzichtbaar.** Vóór de overstap naar flatex
-  wás je cash fondsdeelnemingen, en die zakten langzaam in waarde. De conversieregels dragen geen
-  bedrag — alleen aantallen en een koers ín de omschrijving. Die worden nu gelezen, en je saldo
-  volgt de koers die het fonds zelf opgeeft. Blijven er deelnemingen "achter" die nooit verkocht
-  zijn, dan zegt een melding dat, in plaats van er stil omheen te rekenen.
+```
+degiro-portfolio-export-v0.52.0-2026-08-19.json.gz
+```
 
-Op het account dat dit meldde: rente -0,05, compensatie +0,07, fondsverlies -0,02 — samen
-**€ 0,00, tot op de cent gelijk aan DEGIRO**, nagerekend op de echte export. Het resultaatcijfer
-sluit daarmee ook aan op DEGIRO's eigen stortingsteller.
+- **15× kleiner**, gemeten op een echt account (1,8 MB → 116 kB). Ook een groot account met
+  duizenden regels en honderd koersreeksen past daarmee onder de bijlagelimiet van Discord en
+  vergelijkbare kanalen.
+- **Er is niets uit weggelaten.** Elke rij, elk veld, elke koers zit erin — uitpakken (`gunzip`,
+  of gewoon dubbelklikken) geeft byte-voor-byte het oude bestand. Diagnose heeft alles nodig, dus
+  alles reist mee.
+- **De naam zegt wat het is en welke versie hem maakte** — de export en het foutenrapport heetten
+  tot nu toe hetzelfde, en dat heeft een dag debuggen aan het verkeerde bestand gekost.
 
-Had jouw account vóór ~2022 cash bij DEGIRO, dan stond je geschiedenis tot nu toe een fractie te
-hoog — meestal centen. Na de resync klopt hij, of de balk vertelt je precies in welke categorie
-het resterende verschil zit: het foutenrapport zegt sinds deze versie per categorie ook hoeveel
-regels helemaal geen bedrag droegen.
+Blijft gelden: dit bestand ís je volledige beleggingsgeschiedenis, met bedragen en namen van
+fondsen. Stuur het alleen naar iemand die je vertrouwt, en liever niet onbeveiligd in een openbaar
+kanaal.
