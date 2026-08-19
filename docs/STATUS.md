@@ -3,7 +3,7 @@
 `docs/BACKLOG.md` is 2 000 lines of reasoning and evidence, which is the right place for *why* and
 a bad place to find out *where things stand*. This is the index.
 
-**Last updated at 0.52.0.** It had been stale since 0.21.0 once, which is fifteen
+**Last updated at 0.53.0.** It had been stale since 0.21.0 once, which is fifteen
 releases — if it looks stale again, trust the CHANGELOG and fix this.
 
 ## Light scan, 2026-08-18
@@ -176,6 +176,7 @@ person.** This is the gate that is open.
 | US-81 | **The five cents can now be located, and are still five cents.** A failing banner says which anchor it failed against; the report sizes the gap against the ledger's own turnover (the old ratio is `null` whenever DEGIRO's total is zero — which is why this stayed open) and attributes it across the cash categories as ratios; the connection check names the cash field used and whether `cashFunds` adds up. A locator, not a fix: no number on any screen changed | 0.48.0 |
 | US-84 | **The five cents resolved: the owner's account reconciles to 0,00.** The locator's output plus the full export named two stacked defects — the cash-fund compensation classified as a sweep (now its own `COMPENSATION` category), and the money-market-fund era's value drift, which appears in no row's amount and is now marked to the fund's own stated prices read out of the conversie rows' descriptions. Requires one wipe & resync; any pre-flatex account was slightly rich until this | 0.51.0 |
 | US-85 | **The full export downloads gzipped** (`.json.gz`, 15× smaller measured on a real account) under a name that states what it is and which build made it. Nothing trimmed — the owner's explicit call — so a big account's complete export fits through a chat channel | 0.52.0 |
+| US-86 | **Feature-loss audit since 0.42, by measurement**: both UIs served and inventoried headless. All charts, tables and toolbar actions survive; the one real loss — per-product Bought/Sold, dropped by US-49's unresolved "or drop" — is restored as optional columns that fold first | 0.53.0 |
 | US-82 | **The demo account has two closed positions**, one sold at a profit (the only thing that reaches *all gain — more came out than went in*) and one at a loss with its largest day on its own sale day. The **Closed** and **All** filters finally have rows; `npm run fixtures` is deterministic again. Its browser pass immediately found two share-sheet layout defects | 0.48.0 |
 | US-35b | **Optimism Mode, turned up on request.** The replacement tiles existed after all (this row said "never built" for two releases); on the owner's *"nog meer over de top"* it gained two news crawls, eighteen tiles — four of them real measurements, including the share of days spent below the account's own peak — a rocket, a spinning switch and a breathing stamp. Absurdity is the safety mechanism, so more of it is strictly better; every figure is still the reader's own, and nothing downstream can see any of it | 0.50.0 |
 
