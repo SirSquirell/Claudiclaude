@@ -1002,6 +1002,26 @@ export function computePortfolio(input) {
    * is still a ratio, so rule 7 is unaffected.
    */
   let cashTurnover = 0;
+  /**
+   * Rows that stated no amount at all, counted per category.
+   *
+   * `parse.js` returns `change: 0` when no candidate field carried an amount,
+   * and until now that was indistinguishable from a stated 0,00. The owner's
+   * 0.50.0 bug report is why the difference matters: 15 of 81 cash rows were
+   * amount-less, the residual sat at exactly one category's total, and the
+   * report could not say whether those 15 rows were harmless sweeps or the
+   * missing counter-entry parsed as zero. Counts only — a count of rows is not
+   * an amount, so it can travel in the bug report (rule 7).
+   *
+   * `null` unless **every** row says either way: rows stored by a version
+   * before the flag existed cannot be counted, and an ordinary sync is
+   * incremental, so after an upgrade the store holds a mix. A partial count
+   * would read as "measured" over rows it never saw — `measured` means
+   * measured (B11's lesson, again) — so one unflagged row makes the whole
+   * answer "not measured", and a resync from scratch is what measures it.
+   */
+  const amountlessByCategory = {};
+  let amountStatedEverywhere = true;
 
   for (const row of cashRows) {
     const i = idxOf(row.date);
@@ -1009,6 +1029,11 @@ export function computePortfolio(input) {
     const cat = row.category ?? CATEGORY.UNKNOWN;
     categoryTotals[cat] = (categoryTotals[cat] ?? 0) + row.change;
     cashTurnover += Math.abs(row.change);
+    if ('changeAbsent' in row) {
+      if (row.changeAbsent) amountlessByCategory[cat] = (amountlessByCategory[cat] ?? 0) + 1;
+    } else {
+      amountStatedEverywhere = false;
+    }
 
     if (affectsCash(cat)) {
       let arr = cashByCurrency.get(row.currency);
@@ -1710,11 +1735,32 @@ export function computePortfolio(input) {
        */
       cashFlow: round2(cashTurnover),
       categories: mapValues(categoryTotals, round2),
+      /**
+       * How many rows per category stated no amount and were counted at 0,00.
+       * See where it is gathered: it is the one suspect `residualByCategory`
+       * cannot see, because a row parsed as zero moves no total.
+       */
+      amountless: amountStatedEverywhere ? { ...amountlessByCategory } : null,
       attribution: attribution.slice(0, 10),
     };
 
     if (!reconciliation.ok) {
       const led = attribution[0];
+      /**
+       * A category whose rows sum to the gap, to the cent, either way round.
+       *
+       * The engine has had this answer since US-81 and kept it in the report's
+       * ratios, while the sentence on screen guessed. On the owner's account the
+       * guess was wrong twice over: it blamed "the exchange rate used for money
+       * held in another currency" on an account whose foreign cash nets to zero,
+       * while `residualByCategory` carried INTEREST at exactly 1.0. Sign is
+       * ignored because both readings name the same rows: a counted category
+       * equal to the gap, or an uncounted one (`inCash: false`) equal to its
+       * negative.
+       */
+      const sumsToGap = Object.entries(categoryTotals)
+        .filter(([, total]) => Math.abs(Math.abs(total) - Math.abs(diff)) < 0.005)
+        .map(([cat]) => cat);
       warn(
         positionMismatches.length ? 'error' : 'warn',
         'reconciliation-failed',
@@ -1732,8 +1778,11 @@ export function computePortfolio(input) {
                 // prices", which sent the reader looking in the one place the
                 // difference demonstrably was not.
                 ` Every share count matches what DEGIRO reports and no individual position disagrees, so the` +
-                ` difference is in the cash balance rather than in any holding — most likely the exchange rate` +
-                ` used for money held in another currency.`),
+                ` difference is in the cash balance rather than in any holding` +
+                (sumsToGap.length
+                  ? ` — and the rows classified ${sumsToGap.join(', ')} sum to exactly this difference, which` +
+                    ` names where to look.`
+                  : ` — most likely the exchange rate used for money held in another currency.`)),
         reconciliation,
       );
     }

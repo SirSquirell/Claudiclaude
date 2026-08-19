@@ -3987,7 +3987,9 @@ cash rather than to any holding. DEGIRO lists `degiroCash` and `flatexCash` as s
 somebody knows which of those three fields is the whole balance. Picking one to make the check pass
 would be defeating the check.
 
-Reported again against 0.47.0, unchanged. Refined into **US-81** at the end of this file.
+Reported again against 0.47.0, unchanged. Refined into **US-81** at the end of this file — whose
+locator ran against the 0.50.0 report and named the rows: see **US-84**. The five cents are the
+interest rows, exactly, and the balance-split question above turned out not to be the mechanism.
 
 ---
 
@@ -5244,7 +5246,7 @@ change, and a hook added just for testability is the thing rule 8 exists to keep
 
 ---
 
-## US-81 — Locate the five cents. Do not tune anything to hide them *(built — the locator; the five cents are still there)*
+## US-81 — Locate the five cents. Do not tune anything to hide them *(built — the locator; its first report landed and named the rows, see US-84)*
 
 > *"The total doesn't match my account total right now"* — 0.47.0, the owner's account, with the
 > banner reading **reconstructed € −0,05 · DEGIRO € 0,00 · off by € −0,05**.
@@ -5368,6 +5370,11 @@ asked for. The locator says which of the two mechanisms is in play; running it i
 question, and the answer is a new story with the evidence attached (rule: no fix without a capture).
 Two tests pin the shape of that evidence — a `CASH_SWEEP` row that is exactly the residual reads as
 `-1`, and a split `EUR`/`FLATEX_EUR` balance reads as `short`.
+
+**Read, 2026-08-19, from the owner's 0.50.0 bug report — and the answer is neither mechanism.** The
+anchor was `derived`, the foreign cash nets to zero, and `residualByCategory` carries
+`INTEREST: 1.0` exactly: the interest rows *are* the five cents. The reading, the two hypotheses it
+leaves standing, and what closes them are **US-84**.
 
 ---
 
@@ -5517,4 +5524,81 @@ subtler than "same product", and the fix needs to find out what before it ships.
 
 ---
 
-**Next free number: US-84.**
+## US-84 — The five cents have a name: the interest rows *(open — the 0.50.0 report is read, the locator sharpened; a capture closes it)*
+
+US-81 built the locator and ended with an instruction: run it, and the answer is a new story with
+the evidence attached. The owner ran it — 0.50.0, 2026-08-19, the same account: 6 transactions, 81
+cash movements, 3 instruments, every position closed, **reconstructed −0,05 against 0,00**. This is
+that story, and the evidence moves the suspect list somewhere neither of US-81's two mechanisms
+pointed.
+
+### What the report says, read out
+
+- **The anchor was `derived`.** DEGIRO stated no net-liquidity total (`reportNetliq`: sought on one
+  row, missing on it), so the check ran against `Σ position values + totalCash` — which on this
+  emptied account is `totalCash` alone. `liveTotalFields` shows `degiroCash`, `flatexCash` and
+  `totalCash` all present; whether `totalCash` covers both is the connection check's `cashVerdict`
+  question, and this report does not carry that check.
+- **The residual is not foreign cash.** `fx-stale` carries `exposureShare: 0` for USD: the USD cash
+  ledger nets to zero at the end, so the stale derived rate (3 observations, widest gap 1 748 days)
+  prices nothing still held. The gap is EUR cash.
+- **`residualByCategory` answers the question it was built for, naming a category US-81 never
+  suspected: `INTEREST: 1.0`, exactly.** The interest rows sum to exactly the gap. And the other
+  ratios say the rest of the ledger is internally perfect: DEPOSIT and WITHDRAWAL reproduce the
+  Money-paid-in tile to the cent, and the `inCash: true` categories *minus* INTEREST sum to exactly
+  zero — which is what an account emptied by a final everything-withdrawal should sum to. Neither
+  US-81 suspect is it: there are **no** `UNKNOWN` rows at all, and `CASH_SWEEP` sits at 291,8× the
+  residual, nowhere near ±1.
+- **Fifteen of the 81 rows stated no amount.** The field tally (`change`: `missingShare 0.19` over
+  162 picks, two per row) says ~15 rows carried none of `change`/`amount`/`value` and were counted
+  at 0,00 — and the report could not say which categories they fell in.
+
+### The two hypotheses still standing
+
+Both fit every number above, and they have opposite fixes:
+
+1. **The interest was real and the balance absorbed it — and something refunded it in a row the
+   parser read as 0,00.** Fifteen amount-less rows is exactly the room such a counter-entry hides
+   in, and `cashFundCompensation` (in three spellings) is among the fourteen `liveTotalFields`.
+   If one of those rows is a compensation credit under a field name `parse.js` does not know, the
+   ledger is one readable field away from zero.
+2. **The interest rows never moved the withdrawable balance** — booked and displayed, but settled
+   somewhere `totalCash` does not carry, or written off when the account emptied. Then
+   `inCash: true` is wrong *for these rows*, and the distinguishing evidence is their wording,
+   which rule 7 keeps out of the bug report by design.
+
+### Built now — the locator, sharpened where this report was blind
+
+- `parse.js` marks a cash row whose amount no candidate field carried (`changeAbsent`); a stated
+  0,00 stays distinguishable from an absence. Arithmetic unchanged — absence still counts as zero.
+- The engine counts those rows per category and the bug report carries the counts as
+  `amountlessByCategory` — counts, never amounts (rule 7), and **all-or-nothing**: `null` unless
+  every stored row carries the flag, because an ordinary sync is incremental and a partial count
+  would read as measured over rows it never saw. A resync from scratch is what measures it; the
+  next report from this account answers hypothesis 1's first question by sight.
+- The failing banner stops guessing. When a category's total equals the gap to the cent it is
+  named — *"the rows classified INTEREST sum to exactly this difference"* — instead of "most
+  likely the exchange rate used for money held in another currency", which on this account blamed
+  FX with zero foreign exposure while the report beside it carried the answer.
+- The category keys in both report maps are filtered against `classify.js`'s vocabulary, making
+  the fixed-vocabulary promise written on them enforced rather than assumed.
+
+### What closes it, and only this
+
+The rows themselves: the full export (the trusted channel), or a HAR of the account overview. Two
+questions to answer from them — what the ~15 amount-less rows are, and what the interest rows'
+wording says they are. Then either a classification decision lands in `classify.js` with the
+capture as its justification, or a field-name candidate lands in `parse.js` on the same evidence.
+One or the other, and nothing before the capture.
+
+### Stop condition
+
+Unchanged from US-81, and it now survives the temptation being one flag away: do **not** flip
+`INTEREST`'s `inCash` on this evidence — it would zero this account by breaking every account whose
+interest really does settle in cash, which is every account with a normal balance. No tolerance, no
+fourth `totalCash` candidate, no guessed field names. The account stays red until the capture says
+why it should not be.
+
+---
+
+**Next free number: US-85.**

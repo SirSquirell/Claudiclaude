@@ -36,6 +36,36 @@ plain increments — this is not a library and nothing depends on its API.
   Deliberately *not* checked: whether a story marked `built` is actually on `main`. That cannot be
   answered from this file, and a check that guesses is worse than no check.
 
+- **The bug report counts cash rows that stated no amount, per category** (`amountlessByCategory`,
+  US-84). `parse.js` returns `change: 0` when no candidate field carried an amount, and that was
+  indistinguishable from a stated 0,00 — on the owner's account **15 of 81 rows** were counted at
+  zero by absence, visible only as `change: missingShare 0.19` in the field tally, with nothing
+  saying which categories they fell in. Those rows are the one suspect `residualByCategory` is
+  structurally blind to: a row parsed as zero moves no total. Counts, never amounts (rule 7), and
+  all-or-nothing — `null` unless every stored row carries the new flag, because an ordinary sync is
+  incremental and a partial count would read as measured over rows it never saw. A wipe-and-resync
+  is what measures it.
+
+### Changed
+
+- **A failing reconciliation names the cash category that sums to the gap, instead of guessing at
+  FX** (US-84). The owner's 0.50.0 bug report carried `residualByCategory.INTEREST: 1.0` — the
+  interest rows are exactly the five cents — while the sentence on screen said "most likely the
+  exchange rate used for money held in another currency", on an account whose foreign cash nets to
+  zero (`fx-stale` itself says so: `exposureShare: 0`). The engine had the answer and guessed
+  anyway. When a category's total equals the gap to the cent it is now named; the FX guess remains
+  only for the case where nothing does. **No number changes** — that account still reads −0,05 in
+  red, now with the right place to look. The reading of the report, the two hypotheses left
+  standing and what closes them are US-84 in `docs/BACKLOG.md`.
+
+### Fixed
+
+- **Category keys in the bug report are now enforced against `classify.js`'s vocabulary.** The
+  report promised the keys of `residualByCategory` were a fixed vocabulary rather than account
+  data, but they arrive off a stored row's `category` field and storage is not a type system. A key
+  outside the vocabulary — which is what a hand-edited or corrupted row would carry — no longer
+  travels, from either category map.
+
 ## [0.50.0] — 2026-08-19
 
 One feature, on request. **No resync needed** — nothing about what is stored or fetched changed, and

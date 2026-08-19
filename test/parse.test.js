@@ -122,6 +122,27 @@ test('parseCashMovements finds rows under data.cashMovements and classifies them
   assert.equal(parsed[0].change, 1000);
 });
 
+test('a cash row that states no amount is counted at zero, and says so', () => {
+  /**
+   * US-84. `num(missing)` is 0, and a stated 0,00 and an absent amount used to
+   * be the same row afterwards. On the owner's account 15 of 81 rows were
+   * amount-less, and the reconciliation could not say which categories they
+   * fell in — a row parsed as zero moves no total, so it is invisible to every
+   * attribution built from totals.
+   */
+  const parsed = parseCashMovements({
+    data: {
+      cashMovements: [
+        { date: '2024-01-02', description: 'iDEAL Deposit', change: 1000, currency: 'EUR' },
+        { date: '2024-01-03', description: 'Degiro Cash Sweep Transfer', currency: 'EUR' },
+        { date: '2024-01-04', description: 'Rente', change: 0, currency: 'EUR' },
+      ],
+    },
+  });
+  assert.deepEqual(parsed.map((r) => r.changeAbsent), [false, true, false], 'a stated 0,00 is not "absent"');
+  assert.equal(parsed[1].change, 0, 'the arithmetic is unchanged — absence still counts as zero');
+});
+
 // --- products / update ------------------------------------------------------
 
 test('parseProducts keys by id and keeps vwdId as a string', () => {

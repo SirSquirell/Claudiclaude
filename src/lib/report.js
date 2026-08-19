@@ -30,8 +30,19 @@
  * Pure. No I/O, no Chrome APIs — the caller gathers, this shapes.
  */
 
+import { CATEGORY } from './classify.js';
+
 /** How many sync-log lines are worth carrying. The tail is where it broke. */
 const SYNC_LOG_LINES = 25;
+
+/**
+ * The category vocabulary, enforced rather than assumed. The comments below
+ * promise that category names are `classify.js`'s fixed vocabulary and not
+ * account data — but the keys arrive off a stored row's `category` field, and
+ * storage is not a type system. A key that is not in the vocabulary does not
+ * travel.
+ */
+const KNOWN_CATEGORIES = new Set(Object.values(CATEGORY));
 
 /**
  * A number that is a ratio rather than an amount, rounded to something a human
@@ -218,9 +229,29 @@ const DETAIL_SUMMARY = {
      */
     residualByCategory: Object.fromEntries(
       Object.entries(d.categories ?? {})
+        .filter(([cat]) => KNOWN_CATEGORIES.has(cat))
         .map(([cat, total]) => [cat, ratio(total, d.reconstructed - d.live)])
         .filter(([, r]) => r !== null),
     ),
+    /**
+     * Rows that stated no amount at all, per category — counts, not amounts.
+     *
+     * The blind spot the owner's 0.50.0 report hit: `residualByCategory` can
+     * only attribute what was counted, and a row whose amount no candidate
+     * field carried is counted at 0,00. Fifteen of that account's 81 rows were
+     * exactly that — visible only as `change: missingShare 0.19` in the field
+     * tally, with nothing saying *which categories* they fell in. If the
+     * category at ratio 1.0 also holds amount-less rows, the "missing
+     * counter-entry parsed as zero" hypothesis is live; if they are all sweeps,
+     * it is dead. `null` when the stored rows predate the flag.
+     */
+    amountlessByCategory: d.amountless
+      ? Object.fromEntries(
+          Object.entries(d.amountless)
+            .filter(([cat]) => KNOWN_CATEGORIES.has(cat))
+            .map(([cat, rows]) => [cat, Number(rows) || 0]),
+        )
+      : null,
     /**
      * How each disagreeing instrument disagrees — as a ratio, unnamed, ranked.
      *

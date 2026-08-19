@@ -365,6 +365,71 @@ test('US-81 — a failing reconciliation can be sized and located when DEGIRO re
   // And the category totals travel with it, so the residual can be attributed.
   near(rec.categories.CASH_SWEEP, -0.05, 0.001);
   near(rec.categories.DEPOSIT, 1000, 0.001);
+  // Rows stored before the changeAbsent flag existed cannot be counted, and
+  // "not measured" must not read as "every row stated an amount".
+  assert.equal(rec.amountless, null);
+});
+
+test('US-84 — the failing banner names the category that sums to the gap, instead of guessing at FX', () => {
+  /**
+   * The owner's 0.50.0 bug report, in the smallest form that reproduces it:
+   * every position closed, DEGIRO stating no total, so the anchor is derived
+   * from the cash balance it did state. The non-interest flows sum to exactly
+   * zero and the interest rows are exactly the gap — `residualByCategory`
+   * carried INTEREST at 1.0 while the sentence on screen said "most likely the
+   * exchange rate used for money held in another currency", on an account
+   * whose foreign cash nets to zero. The engine had the answer and guessed
+   * anyway; now it says what it knows.
+   */
+  const r = computePortfolio({
+    products: {},
+    prices: {},
+    transactions: [],
+    cashRows: [
+      { date: '2024-01-01', description: 'iDEAL Deposit', change: 122, currency: 'EUR', category: 'DEPOSIT', changeAbsent: false },
+      { date: '2024-03-01', description: 'Rente', change: -0.05, currency: 'EUR', category: 'INTEREST', changeAbsent: false },
+      { date: '2024-06-01', description: 'Withdrawal', change: -122, currency: 'EUR', category: 'WITHDRAWAL', changeAbsent: false },
+      // A row whose amount no candidate field carried: parsed as 0,00, so it
+      // moves no total and residualByCategory cannot see it. Counted here.
+      { date: '2024-06-02', description: 'Degiro Cash Sweep Transfer', change: 0, currency: 'EUR', category: 'CASH_SWEEP', changeAbsent: true },
+    ],
+    today: '2024-06-03',
+    liveCash: 0,
+    livePositions: [],
+  });
+
+  const rec = r.reconciliation;
+  assert.ok(rec, 'an emptied account with only a cash figure still gets a check');
+  assert.equal(rec.source, 'derived');
+  assert.equal(rec.ok, false);
+  near(rec.diff, -0.05, 0.001, 'the gap is the interest');
+
+  const w = r.warnings.find((x) => x.code === 'reconciliation-failed');
+  assert.ok(w, 'and it is said out loud');
+  assert.ok(w.message.includes('INTEREST'), `the category is named: ${w.message}`);
+  assert.ok(!w.message.includes('exchange rate'), 'and the FX guess stays out when the ledger already answered');
+
+  // The rows counted at zero by absence, per category — counts, never amounts.
+  assert.deepEqual(rec.amountless, { CASH_SWEEP: 1 });
+});
+
+test('US-84 — amount-less counts are all-or-nothing: one row stored before the flag makes the answer "not measured"', () => {
+  // An ordinary sync is incremental, so after an upgrade the store holds a mix
+  // of flagged and unflagged rows. A count over only the rows that carry the
+  // flag would read as "measured" over rows it never saw.
+  const r = computePortfolio({
+    products: {},
+    prices: {},
+    transactions: [],
+    cashRows: [
+      { date: '2024-01-01', description: 'iDEAL Deposit', change: 100, currency: 'EUR', category: 'DEPOSIT' },
+      { date: '2024-01-02', description: 'Rente', change: 0, currency: 'EUR', category: 'INTEREST', changeAbsent: true },
+    ],
+    today: '2024-01-03',
+    liveTotal: 100,
+  });
+  assert.equal(r.reconciliation.ok, true);
+  assert.equal(r.reconciliation.amountless, null, 'a partial measurement does not wear the face of a whole one');
 });
 
 test('reconciliation reports the gap when the totals disagree', () => {

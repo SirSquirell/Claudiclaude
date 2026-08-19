@@ -256,7 +256,12 @@ test('US-81 — the report states the size of a gap DEGIRO says is zero, and whe
           detail: {
             reconstructed: 0.05, live: 0, diff: 0.05, positionsAgree: true, source: 'reported',
             cash: 0.05, positions: 0, cashFlow: 2000,
-            categories: { DEPOSIT: 1000, WITHDRAWAL: -999.95, CASH_SWEEP: -0.05 },
+            // 'Dividend ASML (7654321)' is what a hand-edited or corrupted row's
+            // category could look like: storage is not a type system, and the
+            // fixed-vocabulary promise on these keys has to be enforced, not
+            // assumed. It must not travel — in either map.
+            categories: { DEPOSIT: 1000, WITHDRAWAL: -999.95, CASH_SWEEP: -0.05, 'Dividend ASML (7654321)': 3 },
+            amountless: { CASH_SWEEP: 2, 'Dividend ASML (7654321)': 1 },
             attribution: [],
           },
         },
@@ -274,6 +279,13 @@ test('US-81 — the report states the size of a gap DEGIRO says is zero, and whe
   // the residual, which names the suspect instead of describing the symptom.
   assert.equal(d.residualByCategory.CASH_SWEEP, -1);
   assert.equal(d.residualByCategory.DEPOSIT, 20000);
+
+  // US-84: the rows counted at zero by absence, per category — counts, so they
+  // travel; and the one suspect the ratios above are structurally blind to.
+  assert.deepEqual(d.amountlessByCategory, { CASH_SWEEP: 2 });
+  // A category key that is not classify.js vocabulary is account data wearing a
+  // key's clothes, and it does not travel from either map.
+  assert.ok(!JSON.stringify(out).includes('ASML'), 'a non-vocabulary category key travelled');
 
   // Nothing here is an amount. Checked as values rather than as substrings: the
   // ratio 20000 contains the digits of the turnover and is not the turnover.

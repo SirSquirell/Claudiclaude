@@ -326,6 +326,12 @@ export function parseCashMovements(res) {
     .map((r) => {
       const date = isoDayOf(pick(r, ['date', 'valueDate']));
       if (!date) return null;
+      // `null` fallback, so "no candidate field carried an amount" is
+      // distinguishable from a stated 0,00. `num(null)` is 0 either way — the
+      // ledger arithmetic is unchanged — but a row counted at zero *by absence*
+      // is a row the reconciliation cannot see, and on the owner's account 15 of
+      // 81 rows were exactly that with nothing anywhere saying so.
+      const rawChange = pick(r, ['change', 'amount', 'value'], null);
       const row = {
         id: stableKey(seen, [
           date,
@@ -341,7 +347,8 @@ export function parseCashMovements(res) {
         productId: pick(r, ['productId', 'product_id'], null),
         description: String(pick(r, ['description', 'text', 'label'], '')),
         currency: String(pick(r, ['currency', 'ccy'], 'EUR')),
-        change: num(pick(r, ['change', 'amount', 'value'], 0)),
+        change: num(rawChange),
+        changeAbsent: rawChange == null,
         type: String(pick(r, ['type', 'transactionType'], '')),
       };
       row.productId = row.productId == null ? null : String(row.productId);
