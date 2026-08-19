@@ -16,6 +16,26 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [Unreleased]
+
+### Added
+
+- **The backlog's numbering is checked rather than trusted — `npm run backlog`, and part of `npm test`.**
+  CLAUDE.md's *Branches* section records why: parallel sessions each numbered against the `main` they
+  could see, and three different stories ended up as US-66 and three as US-76, so one of each pair was
+  going to be built against the other's acceptance criteria. The repair was a rule — a number is claimed
+  by landing in `docs/BACKLOG.md` on `main`, with the next free one stated at the end of the file — and a
+  rule is a comment until something checks it. `tools/check-backlog.mjs` now fails the build on a number
+  claimed twice, on a *Next free number* line pointing at a number already in use, and on a story heading
+  that does not say whether it is open or built.
+
+  It found one on its first run: **US-16 appeared twice**, once as the story and once as its
+  implementation plan, and the second heading carried no state — so the shipped 0.46.0 redesign still read
+  as `*(new)*` while a second section claimed its number. Both fixed.
+
+  Deliberately *not* checked: whether a story marked `built` is actually on `main`. That cannot be
+  answered from this file, and a check that guesses is worse than no check.
+
 ## [0.50.0] — 2026-08-19
 
 One feature, on request. **No resync needed** — nothing about what is stored or fetched changed, and

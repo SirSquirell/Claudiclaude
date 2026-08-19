@@ -1620,7 +1620,7 @@ happened — and inventing an event is worse than mis-ranking one.
 
 ---
 
-## US-16 — Redesign the interface *(new)*
+## US-16 — Redesign the interface *(built, 0.46.0 — eight phases; `docs/RETIRED.md` is the ledger)*
 
 **As someone opening this page, I want it to look like a product rather than a stack of
 charts, and to find the answer I came for without scrolling past six I did not.**
@@ -1898,7 +1898,7 @@ what the spike has been waiting on.
 
 ---
 
-## US-16 — implementation plan, against the delivered mockup
+## The US-16 implementation plan, against the delivered mockup *(built, 0.46.0)*
 
 The mockup arrived. Read rather than rendered: it loads React from unpkg, which the sandbox
 blocks and which the extension could not use anyway, so the assessment is from its source.
