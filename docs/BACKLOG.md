@@ -5199,7 +5199,7 @@ cache, and the three-sentence tip on hover *and* focus, in both languages.
 
 ---
 
-## US-80 — The suite waits in real time for retries it could fake *(new, refined — optimisation)*
+## US-80 — The suite waits in real time for retries it could fake *(built, 0.48.0)*
 
 *Refined on `claude/eager-cannon-islvb3` as US-66; renumbered here — see the note above on how the numbers collided.*
 

@@ -32,7 +32,7 @@ reaches the page at all and cannot be recovered from the DOM or a copy-paste. Pe
 which is the point: you can say +340 % without saying on what. The money axis on each chart goes
 away with them rather than repeating the mask down the side.
 
-**Any position can be shared as a card**, drawn rather than screenshotted — four shapes, light or
+**Any position can be shared as a card**, drawn rather than screenshotted — five shapes, light or
 dark, amounts off by default, and a name you choose from four sources or leave off entirely. It
 carries the reconciliation verdict and says *"not checked"* when there is nothing to check against.
 There is no badge and no signature: any mark this extension could produce, anyone holding it could
@@ -101,6 +101,13 @@ its data from somewhere, and this extension repeats the read-only requests that 
 makes — in the same browser, with the same session, far more slowly. It fetches your trades,
 your cash movements, the instruments behind them and their daily closing prices, and nothing
 else. **Nothing here can place, change or cancel an order.**
+
+**And you can throw the connection away without losing the history.** **Disconnect** under
+**Meer** forgets the account number DEGIRO hands back and stops the background sync, while every
+figure stays on screen — frozen at the last sync, dated on every screen so nothing reads as
+today's. Nothing is deleted, because nothing needs to be: every number is recomputed from the raw
+responses already on disk. It cannot log you out of DEGIRO and does not claim to — that session
+was never this extension's to end. One press of **Sync** reconnects, exactly like a first run.
 
 **Where it goes: nowhere.** There is no server behind this and no account to create. Everything
 lands in IndexedDB in your own browser. No analytics, no telemetry, no crash reporting — and

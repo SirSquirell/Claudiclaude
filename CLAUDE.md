@@ -165,6 +165,14 @@ waiting to shift the whole series by a day.
 reproduces the response *shapes* SPEC §2 describes, not DEGIRO's actual field names.
 See `docs/ENDPOINT-REPORT.md` for exactly what is and is not evidence.
 
+Two properties of the generator are load-bearing rather than incidental. **Its date is
+pinned** (`--today=YYYY-MM-DD` rolls the window forward as a decision) — with the clock as
+the default, every regeneration moved the window and a diff of `fixtures/` was unreviewable.
+And **two of the thirteen instruments are closed positions**, one sold at a profit and one at
+a loss with a real move on its own sale day: for five years there was not one, so the demo
+could not show a closed row, the *Closed* filter had nothing to filter, and two defects on
+sold positions had to be found by a reader looking at a screenshot instead (US-82).
+
 When a real HAR arrives:
 
 ```bash
@@ -208,7 +216,18 @@ npm run fixtures  # regenerate fixtures/
 ```
 
 `npm run demo` runs the real engine through the real UI with no Chrome APIs and no
-DEGIRO login. Use it for any UI change.
+DEGIRO login. Use it for any UI change. Two flags on that page, both there because the
+state behind them cannot otherwise be *looked at*: `?demo=1` is the demo itself, and
+`?frozen=1` shows it as a disconnected account (US-79) — a state that would otherwise need
+an extension, a real session and the deliberate loss of it.
+
+**The suite fakes the clock; do not put the sleeps back.** Every outbound request goes
+through one queue that spaces requests 1,1 s apart and backs off `2ⁿ` seconds on a 5xx, and
+`npm test` used to spend 53 of its 55 seconds asleep inside that schedule. `test/fake-clock.js`
+(Node's own `mock.timers`, `setTimeout` *and* `Date`) advances it instead, in small steps —
+a single jump to the end would satisfy every pending timer at once and hide a wrong schedule,
+which is why one test reads the gaps between retries. `src/lib/degiro.js` has no clock
+injected into it and must not grow one: the whole point was zero production-code change.
 
 **`sync.js`, `session.js` and `degiro.js` are tested too, and that line used to say they
 could not be.** `test/fake-indexeddb.js` is sixty lines of key-value store, and a stand-in
