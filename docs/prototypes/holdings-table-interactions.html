@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Posities-tabel — interactie-POC</title>
+<style>
+  /* POC only. Synthetic data, no Chrome APIs, no engine — the look borrows the
+     app's tokens, the interactions are the proposal. Pick A, B or C. */
+  :root {
+    --bg: #0b0e14; --card: #12161f; --card2: #171c27; --line: #232a38;
+    --text: #dbe2ee; --muted: #8b94a7; --accent: #5b9dff; --pos: #4ade80; --neg: #f87171;
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    padding: 24px; -webkit-font-smoothing: antialiased;
+  }
+  h1 { font-size: 17px; margin: 0 0 2px; letter-spacing: .01em; }
+  .sub { color: var(--muted); font-size: 12.5px; margin-bottom: 18px; }
+
+  /* variant switcher */
+  .variants { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+  .variant {
+    background: var(--card); border: 1px solid var(--line); color: var(--text);
+    border-radius: 10px; padding: 10px 14px; cursor: pointer; text-align: left;
+    max-width: 300px; transition: transform 140ms var(--ease-out), border-color 140ms ease;
+  }
+  .variant b { display: block; font-size: 13px; }
+  .variant span { color: var(--muted); font-size: 11.5px; }
+  .variant:active { transform: scale(0.98); }
+  .variant[aria-pressed="true"] { border-color: var(--accent); background: var(--card2); }
+  @media (hover: hover) and (pointer: fine) { .variant:hover { border-color: #3b4a62; } }
+
+  .toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; min-height: 32px; }
+  .chip {
+    background: var(--card); color: var(--muted); border: 1px solid var(--line);
+    border-radius: 999px; padding: 5px 12px; font-size: 12px; cursor: pointer;
+    transition: transform 120ms var(--ease-out), color 120ms ease, border-color 120ms ease;
+  }
+  .chip:active { transform: scale(0.96); }
+  .chip[aria-pressed="true"] { color: var(--text); border-color: var(--accent); }
+  .spacer { flex: 1; }
+  #reset, #manage-open { border-style: dashed; }
+
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; min-width: 720px; }
+  thead th {
+    position: sticky; top: 0; background: var(--card2); color: var(--muted);
+    font-size: 11px; text-transform: uppercase; letter-spacing: .06em; font-weight: 600;
+    text-align: left; padding: 0; border-bottom: 1px solid var(--line); white-space: nowrap;
+    user-select: none;
+  }
+  thead th.num { text-align: right; }
+  th .head {
+    display: flex; align-items: center; gap: 5px; width: 100%; padding: 9px 12px;
+    background: none; border: 0; color: inherit; font: inherit; cursor: pointer;
+    text-transform: inherit; letter-spacing: inherit;
+    transition: color 120ms ease;
+  }
+  th.num .head { justify-content: flex-end; }
+  @media (hover: hover) and (pointer: fine) { th .head:hover { color: var(--text); } }
+  th .arrow { font-size: 9px; width: 10px; opacity: 0; transition: opacity 120ms ease; }
+  th[aria-sort] .arrow { opacity: 1; color: var(--accent); }
+  th .kebab {
+    opacity: 0; border: 0; background: none; color: var(--muted); cursor: pointer;
+    font: inherit; padding: 2px 4px; border-radius: 6px; transition: opacity 120ms ease, background 120ms ease;
+  }
+  th:hover .kebab, th:focus-within .kebab { opacity: 1; }
+  th .kebab:hover { background: var(--line); color: var(--text); }
+  th.dragging { opacity: .35; }
+  th.drop-before .head { box-shadow: inset 2px 0 0 var(--accent); }
+  th.drop-after .head { box-shadow: inset -2px 0 0 var(--accent); }
+
+  tbody td { padding: 9px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  tbody tr:last-child td { border-bottom: 0; }
+  tbody tr { transition: background 120ms ease; }
+  @media (hover: hover) and (pointer: fine) { tbody tr:hover { background: rgba(255,255,255,.025); } }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .swatch { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 8px; vertical-align: 0; }
+  .sym { color: var(--muted); font-size: 12px; margin-left: 6px; }
+  .pos { color: var(--pos); } .neg { color: var(--neg); }
+  .split { min-width: 170px; }
+  .bar { display: flex; gap: 2px; height: 6px; border-radius: 4px; overflow: hidden; width: 120px; margin-bottom: 3px; }
+  .bar i { display: block; height: 100%; }
+  .bar .in { background: #64748b; border-radius: 4px 0 0 4px; }
+  .bar .gr { background: var(--pos); border-radius: 0 4px 4px 0; }
+  .bar .gr.neg { background: var(--neg); }
+  .splitline { font-size: 11px; color: var(--muted); }
+
+  /* header menu (variant A) — origin-aware, fast in, faster out */
+  .menu {
+    position: absolute; z-index: 30; min-width: 180px;
+    background: var(--card2); border: 1px solid var(--line); border-radius: 10px;
+    box-shadow: 0 12px 32px rgba(0,0,0,.45); padding: 4px;
+    transform-origin: top left;
+    opacity: 1; transform: scale(1);
+    transition: opacity 140ms var(--ease-out), transform 140ms var(--ease-out);
+  }
+  .menu[data-closing] { opacity: 0; transform: scale(0.97); transition-duration: 90ms; }
+  @starting-style { .menu { opacity: 0; transform: scale(0.96); } }
+  .menu button {
+    display: flex; width: 100%; gap: 8px; align-items: center;
+    background: none; border: 0; color: var(--text); font: inherit; font-size: 13px;
+    padding: 7px 10px; border-radius: 7px; cursor: pointer; text-align: left;
+  }
+  .menu button:hover { background: rgba(255,255,255,.06); }
+  .menu button:disabled { color: var(--muted); opacity: .5; cursor: default; }
+  .menu hr { border: 0; border-top: 1px solid var(--line); margin: 4px 6px; }
+  .menu .k { color: var(--muted); width: 14px; text-align: center; }
+
+  /* manage sheet (variant C) */
+  #sheet {
+    position: fixed; inset: 0 0 0 auto; width: min(320px, 90vw); z-index: 40;
+    background: var(--card2); border-left: 1px solid var(--line); padding: 16px;
+    transform: translateX(100%); transition: transform 240ms cubic-bezier(0.32, 0.72, 0, 1);
+    overflow-y: auto;
+  }
+  #sheet.open { transform: translateX(0); }
+  #scrim { position: fixed; inset: 0; z-index: 39; background: rgba(0,0,0,.4); opacity: 0; pointer-events: none; transition: opacity 240ms ease; }
+  #scrim.open { opacity: 1; pointer-events: auto; }
+  #sheet h2 { font-size: 13px; margin: 0 0 4px; }
+  #sheet .hint { color: var(--muted); font-size: 11.5px; margin-bottom: 12px; }
+  .colrow {
+    display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 8px;
+    border: 1px solid transparent; font-size: 13px;
+  }
+  .colrow:hover { background: rgba(255,255,255,.04); }
+  .colrow.lockrow { color: var(--muted); }
+  .colrow .updown { margin-left: auto; display: flex; gap: 2px; }
+  .colrow .updown button, .colrow input { cursor: pointer; }
+  .colrow .updown button {
+    background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 6px;
+    width: 24px; height: 22px; font-size: 10px; transition: transform 100ms var(--ease-out);
+  }
+  .colrow .updown button:active { transform: scale(0.92); }
+  .colrow .updown button:disabled { opacity: .3; }
+  .lock { font-size: 10px; color: var(--muted); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; margin-left: 6px; }
+
+  .note {
+    margin-top: 16px; border: 1px dashed var(--line); border-radius: 12px; padding: 14px 16px;
+    color: var(--muted); font-size: 12.5px; max-width: 860px;
+  }
+  .note b { color: var(--text); }
+  .savedflash { color: var(--accent); font-size: 12px; opacity: 0; transition: opacity 200ms ease; }
+  .savedflash.show { opacity: 1; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .menu, #sheet, #scrim, .variant, .chip { transition-duration: 1ms; }
+  }
+</style>
+</head>
+<body>
+<h1>Posities-tabel — drie manieren van bedienen</h1>
+<div class="sub">POC met verzonnen cijfers. Kies een variant, speel ermee — je keuzes (volgorde, verborgen kolommen, sortering) worden bewaard en zijn er na herladen nog. <span class="savedflash" id="saved">✓ bewaard</span></div>
+
+<div class="variants" role="group" aria-label="Variant">
+  <button class="variant" data-v="A" aria-pressed="false"><b>A · Alles in de kolomkop</b><span>Klik = sorteren. Het ⋮-menu per kolom: sorteer, verberg, schuif links/rechts. Geen extra knoppen.</span></button>
+  <button class="variant" data-v="B" aria-pressed="false"><b>B · Slepen</b><span>Klik = sorteren. Sleep een kolomkop om te herschikken, met een blauwe druppositie. Verbergen via ⋮.</span></button>
+  <button class="variant" data-v="C" aria-pressed="false"><b>C · Eén beheerpaneel</b><span>Klik = sorteren, verder blijft de tabel stil. Alles over kolommen — aan/uit én volgorde — in één paneel.</span></button>
+</div>
+
+<div class="toolbar">
+  <button class="chip" data-f="open" aria-pressed="true">Open</button>
+  <button class="chip" data-f="closed" aria-pressed="false">Gesloten</button>
+  <button class="chip" data-f="all" aria-pressed="false">Alles</button>
+  <span class="spacer"></span>
+  <button class="chip" id="manage-open" hidden>Kolommen indelen</button>
+  <button class="chip" id="reset">Reset voorkeuren</button>
+</div>
+
+<div class="card"><div class="scroll"><table id="t"><thead></thead><tbody></tbody></table></div></div>
+
+<div class="note" id="tradeoffs">
+  <b>Voor de kiezer:</b> alle drie onthouden je indeling en respecteren dezelfde vloer — Instrument, Waarde, Paid&nbsp;in&nbsp;vs&nbsp;grown en Resultaat kunnen nooit verdwijnen, en sorteren hersorteert direct (geen animatie op iets dat je tientallen keren per sessie doet; gelijke waarden vallen terug op naam, dus niets wiebelt).<br><br>
+  <b>A</b> is het lichtst: nul extra UI, alles zit waar je kijkt, ook zonder muis bedienbaar — maar herschikken gaat stap voor stap.
+  <b>B</b> voelt het lekkerst voor muisgebruikers (direct slepen), kost het meest om goed te bouwen (aanraakschermen, toetsenbord-alternatief blijft het ⋮-menu).
+  <b>C</b> is het rustigst: de tabel zelf blijft simpel en alle inrichting zit in één paneel — maar het is twee kliks in plaats van nul.
+</div>
+
+<div id="scrim"></div>
+<aside id="sheet" aria-label="Kolommen indelen">
+  <h2>Kolommen</h2>
+  <div class="hint">Vink aan wat je wil zien; ▲▼ bepaalt de volgorde. Vergrendelde kolommen horen bij de kern en blijven staan.</div>
+  <div id="collist"></div>
+</aside>
+
+<script>
+'use strict';
+/* ------------------------------------------------------------------ data --
+   Synthetic. Twelve made-up instruments; two closed. No real account values. */
+const HUES = ['#5b9dff','#f0a35c','#4ade80','#e879f9','#facc15','#38bdf8','#fb7185','#a3e635','#94a3b8','#c4b5fd','#f97316','#2dd4bf'];
+const ROWS = [
+  { name: 'Nova Semiconductors',  sym: 'NOVA', qty: 34, price: 182.4,  paidIn: 3120, value: 6201.6,  result: 3184.2,  dividend: 96.4,  bought: 4210.5, sold: 1090.5, ccy: 'EUR', open: true },
+  { name: 'Delta Shipping',       sym: 'DSHP', qty: 120, price: 14.86, paidIn: 2010, value: 1783.2,  result: -226.8,  dividend: 210.1, bought: 2010,   sold: 0,     ccy: 'EUR', open: true },
+  { name: 'Borealis Foods',       sym: 'BRF',  qty: 55,  price: 41.02, paidIn: 1500, value: 2256.1,  result: 812.6,   dividend: 55,    bought: 1811,   sold: 311,   ccy: 'EUR', open: true },
+  { name: 'Quanta Grid',          sym: 'QGRD', qty: 18,  price: 240.1, paidIn: 3900, value: 4321.8,  result: 421.8,   dividend: 0,     bought: 3900,   sold: 0,     ccy: 'USD', open: true },
+  { name: 'Helix Pharma',         sym: 'HLXP', qty: 210, price: 6.44,  paidIn: 1710, value: 1352.4,  result: -357.6,  dividend: 12.6,  bought: 1710,   sold: 0,     ccy: 'EUR', open: true },
+  { name: 'Aurora Rail',          sym: 'AURA', qty: 42,  price: 55.9,  paidIn: 1810, value: 2347.8,  result: 537.8,   dividend: 130.2, bought: 2110,   sold: 300,   ccy: 'EUR', open: true },
+  { name: 'Cobalt Marine ETF',    sym: 'CBLT', qty: 90,  price: 33.71, paidIn: 2800, value: 3033.9,  result: 233.9,   dividend: 340.8, bought: 2800,   sold: 0,     ccy: 'EUR', open: true },
+  { name: 'Meridian Utilities',   sym: 'MRDU', qty: 61,  price: 24.05, paidIn: 1400, value: 1467.1,  result: 67.1,    dividend: 88,    bought: 1400,   sold: 0,     ccy: 'EUR', open: true },
+  { name: 'Sable Energy',         sym: 'SBLE', qty: 130, price: 9.13,  paidIn: 1080, value: 1186.9,  result: 106.9,   dividend: 61.5,  bought: 1080,   sold: 0,     ccy: 'USD', open: true },
+  { name: 'Vireo Robotics',       sym: 'VIRO', qty: 12,  price: 96.2,  paidIn: 1010, value: 1154.4,  result: 144.4,   dividend: 0,     bought: 1010,   sold: 0,     ccy: 'EUR', open: true },
+  { name: 'Kestrel Media',        sym: 'KSTL', qty: 0,   price: 0,     paidIn: 0,    value: 0,       result: 388.4,   dividend: 24.2,  bought: 1560,   sold: 1948.4, ccy: 'EUR', open: false },
+  { name: 'Tundra Logistics',     sym: 'TNDR', qty: 0,   price: 0,     paidIn: 0,    value: 0,       result: -212.7,  dividend: 0,     bought: 890,    sold: 677.3, ccy: 'EUR', open: false },
+];
+
+const eur = (v) => v.toLocaleString('nl-NL', { style: 'currency', currency: 'EUR' });
+const COLS = [
+  { key: 'instrument', label: 'Instrument', lock: true },
+  { key: 'qty',      label: 'Aantal',              num: true, openOnly: true },
+  { key: 'price',    label: 'Koers',               num: true, openOnly: true },
+  { key: 'value',    label: 'Waarde',              num: true, lock: true },
+  { key: 'split',    label: 'Paid in vs grown',    lock: true },
+  { key: 'result',   label: 'Resultaat',           num: true, lock: true },
+  { key: 'dividend', label: 'Dividend (looptijd)', num: true },
+  { key: 'bought',   label: 'Gekocht (looptijd)',  num: true },
+  { key: 'sold',     label: 'Verkocht (looptijd)', num: true },
+  { key: 'ccy',      label: 'Valuta' },
+];
+const byKey = Object.fromEntries(COLS.map((c) => [c.key, c]));
+
+/* ------------------------------------------------------- persisted state -- */
+const KEY = 'poc-holdings-table-prefs';
+const defaults = () => ({ variant: 'A', order: COLS.map((c) => c.key), hidden: [], sort: null, filter: 'open' });
+let state = defaults();
+try { state = { ...state, ...(JSON.parse(localStorage.getItem(KEY)) ?? {}) }; } catch { /* fresh */ }
+state.order = state.order.filter((k) => byKey[k]).concat(COLS.map((c) => c.key).filter((k) => !state.order.includes(k)));
+
+const savedFlash = document.getElementById('saved');
+let flashT;
+function persist() {
+  localStorage.setItem(KEY, JSON.stringify(state));
+  savedFlash.classList.add('show');
+  clearTimeout(flashT); flashT = setTimeout(() => savedFlash.classList.remove('show'), 900);
+}
+
+/* ---------------------------------------------------------------- render -- */
+const table = document.getElementById('t');
+const cellFor = {
+  instrument: (r, i) => `<span class="swatch" style="background:${HUES[i % HUES.length]}"></span>${r.name}<span class="sym">${r.sym}</span>`,
+  qty: (r) => (r.open ? r.qty : '—'),
+  price: (r) => (r.open ? eur(r.price) : '—'),
+  value: (r) => (r.open ? eur(r.value) : '—'),
+  split: (r) => {
+    if (!r.open) return '<span class="splitline">gesloten — alles is eruit</span>';
+    const inPct = Math.max(0, Math.min(100, (r.paidIn / r.value) * 100));
+    const grown = 100 - inPct;
+    const neg = r.value < r.paidIn;
+    const gShare = neg ? 0 : grown;
+    return `<div class="bar"><i class="in" style="width:${neg ? 100 : inPct}%"></i>${gShare ? `<i class="gr" style="width:${gShare}%"></i>` : ''}</div>
+      <span class="splitline">${neg ? `onder water — ${eur(r.paidIn)} erin` : `${Math.round(inPct)}% ingelegd · ${Math.round(grown)}% gegroeid`}</span>`;
+  },
+  result: (r) => `<span class="${r.result >= 0 ? 'pos' : 'neg'}">${r.result >= 0 ? '+' : ''}${eur(r.result)}</span>`,
+  dividend: (r) => (r.dividend > 0 ? eur(r.dividend) : '—'),
+  bought: (r) => eur(r.bought),
+  sold: (r) => (r.sold > 0 ? eur(r.sold) : '—'),
+  ccy: (r) => r.ccy,
+};
+const sortVal = { instrument: (r) => r.name.toLowerCase(), split: (r) => (r.open && r.value ? r.value / Math.max(r.paidIn, 1) : -1) };
+const visibleCols = () => state.order.map((k) => byKey[k]).filter((c) => !state.hidden.includes(c.key));
+
+function render() {
+  document.querySelectorAll('.variant').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === state.variant)));
+  document.querySelectorAll('.chip[data-f]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.f === state.filter)));
+  document.getElementById('manage-open').hidden = state.variant !== 'C';
+
+  const cols = visibleCols();
+  table.tHead.innerHTML = '<tr>' + cols.map((c) => {
+    const sorted = state.sort?.key === c.key;
+    return `<th data-key="${c.key}" class="${c.num ? 'num' : ''}"${sorted ? ` aria-sort="${state.sort.dir === 1 ? 'ascending' : 'descending'}"` : ''}>
+      <button type="button" class="head" data-sort="${c.key}"${state.variant === 'B' && c.key !== 'instrument' ? ' draggable-head' : ''}>
+        ${c.label}<span class="arrow">${sorted ? (state.sort.dir === 1 ? '▲' : '▼') : '▲'}</span>
+        ${state.variant !== 'C' ? `<span class="kebab" role="button" tabindex="0" data-menu="${c.key}" aria-label="Kolomopties ${c.label}">⋮</span>` : ''}
+      </button></th>`;
+  }).join('') + '</tr>';
+
+  let rows = ROWS.map((r, i) => ({ ...r, _i: i }))
+    .filter((r) => state.filter === 'all' || (state.filter === 'open' ? r.open : !r.open));
+  if (state.sort) {
+    const { key, dir } = state.sort;
+    const val = sortVal[key] ?? ((r) => r[key] ?? -Infinity);
+    rows.sort((a, b) => {
+      const va = val(a), vb = val(b);
+      const d = va < vb ? -1 : va > vb ? 1 : a.name.localeCompare(b.name); /* name tiebreak: no jitter */
+      return d * dir;
+    });
+  }
+  table.tBodies[0].innerHTML = rows.map((r) =>
+    `<tr>${cols.map((c) => `<td class="${c.num ? 'num' : ''}${c.key === 'split' ? ' split' : ''}">${cellFor[c.key](r, r._i)}</td>`).join('')}</tr>`).join('');
+  renderSheet();
+}
+
+/* --------------------------------------------------------------- sorting -- */
+table.addEventListener('click', (e) => {
+  if (e.target.closest('.kebab')) return;
+  const btn = e.target.closest('[data-sort]');
+  if (!btn || dragMoved) return;
+  const key = btn.dataset.sort;
+  state.sort = state.sort?.key !== key ? { key, dir: byKey[key].num ? -1 : 1 } /* numbers: big first */
+    : state.sort.dir === (byKey[key].num ? -1 : 1) ? { key, dir: -state.sort.dir }
+    : null; /* third click: back to natural order */
+  persist(); render();
+});
+
+/* ----------------------------------------------------- header menu (A/B) -- */
+let openMenu = null;
+function closeMenu() {
+  if (!openMenu) return;
+  const m = openMenu; openMenu = null;
+  m.setAttribute('data-closing', '');
+  setTimeout(() => m.remove(), 100);
+}
+document.addEventListener('click', (e) => { if (openMenu && !openMenu.contains(e.target) && !e.target.closest('.kebab')) closeMenu(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeMenu(); closeSheet(); } });
+table.addEventListener('click', (e) => {
+  const k = e.target.closest('.kebab'); if (!k) return;
+  e.stopPropagation(); closeMenu();
+  const key = k.dataset.menu; const col = byKey[key];
+  const vis = visibleCols().map((c) => c.key); const at = vis.indexOf(key);
+  const m = document.createElement('div');
+  m.className = 'menu'; m.setAttribute('role', 'menu');
+  m.innerHTML = `
+    <button data-a="asc"><span class="k">▲</span> Sorteer oplopend</button>
+    <button data-a="desc"><span class="k">▼</span> Sorteer aflopend</button>
+    <hr>
+    <button data-a="left" ${at <= (vis[0] === 'instrument' ? 1 : 0) ? 'disabled' : ''}><span class="k">←</span> Schuif naar links</button>
+    <button data-a="right" ${at === vis.length - 1 ? 'disabled' : ''}><span class="k">→</span> Schuif naar rechts</button>
+    <hr>
+    <button data-a="hide" ${col.lock ? 'disabled title="Kernkolom — kan niet verborgen worden"' : ''}><span class="k">✕</span> Verberg kolom${col.lock ? ' 🔒' : ''}</button>`;
+  document.body.appendChild(m);
+  const r = k.getBoundingClientRect();
+  m.style.left = (Math.min(r.left, innerWidth - m.offsetWidth - 12) + scrollX) + 'px';
+  m.style.top = (r.bottom + 6 + scrollY) + 'px';
+  openMenu = m;
+  m.addEventListener('click', (ev) => {
+    const a = ev.target.closest('button')?.dataset.a; if (!a) return;
+    if (a === 'asc') state.sort = { key, dir: 1 };
+    if (a === 'desc') state.sort = { key, dir: -1 };
+    if (a === 'hide' && !col.lock) state.hidden.push(key);
+    if (a === 'left' || a === 'right') {
+      const o = state.order; const i = o.indexOf(key);
+      /* swap with the nearest *visible* neighbour so a hidden column in
+         between does not eat the move; never move into instrument's slot */
+      let j = i + (a === 'left' ? -1 : 1);
+      while (j > 0 && j < o.length && state.hidden.includes(o[j])) j += (a === 'left' ? -1 : 1);
+      const floor = o[0] === 'instrument' ? 1 : 0;
+      if (j >= floor && j < o.length) { [o[i], o[j]] = [o[j], o[i]]; }
+    }
+    closeMenu(); persist(); render();
+  });
+});
+
+/* ------------------------------------------------- drag to reorder (B) -- */
+let drag = null, dragMoved = false;
+table.addEventListener('pointerdown', (e) => {
+  if (state.variant !== 'B') return;
+  const th = e.target.closest('thead th'); if (!th || e.target.closest('.kebab')) return;
+  if (th.dataset.key === 'instrument') return; /* anchored first */
+  drag = { key: th.dataset.key, th, x: e.clientX }; dragMoved = false;
+  th.setPointerCapture(e.pointerId);
+});
+table.addEventListener('pointermove', (e) => {
+  if (!drag) return;
+  if (!dragMoved && Math.abs(e.clientX - drag.x) < 5) return; /* click stays a click */
+  dragMoved = true; drag.th.classList.add('dragging'); document.body.style.cursor = 'grabbing';
+  document.querySelectorAll('thead th').forEach((t) => t.classList.remove('drop-before', 'drop-after'));
+  const target = document.elementsFromPoint(e.clientX, e.clientY).find((el) => el.matches?.('thead th') && el !== drag.th);
+  if (target && target.dataset.key !== 'instrument') {
+    const r = target.getBoundingClientRect();
+    target.classList.add(e.clientX < r.left + r.width / 2 ? 'drop-before' : 'drop-after');
+    drag.over = { key: target.dataset.key, before: e.clientX < r.left + r.width / 2 };
+  } else drag.over = null;
+});
+table.addEventListener('pointerup', () => {
+  if (!drag) return;
+  document.body.style.cursor = '';
+  if (dragMoved && drag.over) {
+    const o = state.order.filter((k) => k !== drag.key);
+    const at = o.indexOf(drag.over.key);
+    o.splice(drag.over.before ? at : at + 1, 0, drag.key);
+    state.order = o; persist();
+  }
+  drag = null; render();
+  setTimeout(() => { dragMoved = false; }, 0); /* swallow the click this pointerup produces */
+});
+
+/* --------------------------------------------------- manage sheet (C) -- */
+const sheet = document.getElementById('sheet'), scrim = document.getElementById('scrim');
+function closeSheet() { sheet.classList.remove('open'); scrim.classList.remove('open'); }
+document.getElementById('manage-open').addEventListener('click', () => { sheet.classList.add('open'); scrim.classList.add('open'); });
+scrim.addEventListener('click', closeSheet);
+function renderSheet() {
+  document.getElementById('collist').innerHTML = state.order.map((k, i) => {
+    const c = byKey[k]; const hid = state.hidden.includes(k);
+    return `<div class="colrow ${c.lock ? 'lockrow' : ''}">
+      <input type="checkbox" id="cb-${k}" data-cb="${k}" ${hid ? '' : 'checked'} ${c.lock ? 'disabled' : ''}>
+      <label for="cb-${k}">${c.label}${c.lock ? '<span class="lock">vast</span>' : ''}</label>
+      <span class="updown">
+        <button data-mv="${k}" data-d="-1" ${i <= 1 ? 'disabled' : ''} aria-label="Omhoog">▲</button>
+        <button data-mv="${k}" data-d="1" ${i === state.order.length - 1 || i === 0 ? 'disabled' : ''} aria-label="Omlaag">▼</button>
+      </span></div>`;
+  }).join('');
+}
+sheet.addEventListener('change', (e) => {
+  const k = e.target.dataset.cb; if (!k) return;
+  state.hidden = e.target.checked ? state.hidden.filter((x) => x !== k) : [...state.hidden, k];
+  persist(); render();
+});
+sheet.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-mv]'); if (!b) return;
+  const o = state.order; const i = o.indexOf(b.dataset.mv); const j = i + Number(b.dataset.d);
+  if (j < 1 || j >= o.length) return; /* instrument stays first */
+  [o[i], o[j]] = [o[j], o[i]]; persist(); render();
+});
+
+/* ------------------------------------------------------------- controls -- */
+document.querySelectorAll('.variant').forEach((b) => b.addEventListener('click', () => { closeMenu(); state.variant = b.dataset.v; persist(); render(); }));
+document.querySelectorAll('.chip[data-f]').forEach((b) => b.addEventListener('click', () => { state.filter = b.dataset.f; persist(); render(); }));
+document.getElementById('reset').addEventListener('click', () => { const v = state.variant; state = { ...defaults(), variant: v }; persist(); render(); });
+
+render();
+</script>
+</body>
+</html>

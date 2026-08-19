@@ -5765,4 +5765,57 @@ headless browser, and is the answer the next "everything is gone" complaint gets
 
 ---
 
-**Next free number: US-87.**
+## US-87 — The Positions table becomes yours: sort, rearrange, remember *(new, refined — POC built, awaiting the pick)*
+
+> *"we need some ways of interacting with the table, think about like sorting by, rearranging the
+> columns (which will be saved in the plugin someway …), and i want a way of filtering out colums i
+> dont care about so it doesnt get too wide"* — the owner, after US-86 restored two columns and made
+> the table wider in the process.
+
+Three capabilities, one open design question. The capabilities are settled:
+
+1. **Sort by any column**, ascending/descending/natural, numeric columns defaulting to
+   biggest-first. The floor is already written down twice (US-49's design notes, and the existing
+   sort chips): **re-sorting is instant, never animated**, and equal values tie-break on name so
+   nothing jitters. The existing *Largest/Best/Worst first* chips become redundant and go — one
+   mechanism, not two.
+2. **Rearrange columns**, with Instrument anchored first and the snapshot action last.
+3. **Hide columns** — already shipped as the Columns chooser (US-61); whatever variant wins folds
+   it in rather than adding a second way to do the same thing.
+4. **All of it persists** the way the theme does (`chrome.storage`/meta, per install), and the
+   US-61 floor is untouched: the four load-bearing columns can never be hidden, dropped or sorted
+   away, and width-folding into the row disclosure keeps working on whatever order the user made.
+
+The open question is *where the controls live*, and that is taste, so it is a POC and a pick rather
+than a decision made here: **`docs/prototypes/holdings-table-interactions.html`** — one
+self-contained page, synthetic data, all three variants live with working persistence:
+
+- **A · everything in the header** — click sorts; a per-column ⋮ menu sorts/hides/nudges left-right.
+  Cheapest, keyboard-friendly, zero new chrome.
+- **B · direct manipulation** — click sorts; drag a header to reorder against a live drop
+  indicator. Feels the best with a mouse; costs the most (touch, and the ⋮ menu stays as the
+  keyboard path).
+- **C · one management panel** — the table stays quiet (click-to-sort only); ordering and
+  visibility live together in one sheet, an evolution of the existing Columns chooser.
+
+### Acceptance criteria (variant-independent)
+
+- **AC1** Clicking a column header cycles its sort; the sorted column and direction are visible in
+  the header, re-sorting is instant, ties break on name.
+- **AC2** Column order is user-changeable, Instrument stays first, the action column stays last.
+- **AC3** Order, hidden set and sort survive a browser restart, live beside the theme preference,
+  and never enter an export or bug report (they are preferences, not account data — but the rule 7
+  reflex applies anyway).
+- **AC4** `baseHidden`'s floor holds under any persisted state — the load-bearing columns cannot be
+  hidden by a stored preference, exactly as `test/columns.test.js` already asserts.
+- **AC5** The redundant sort chips are gone, and the demo exercises sort + reorder + hide.
+
+### Stop condition
+
+If the picked variant is B and drag cannot be made to coexist with the sticky header and the
+container's own horizontal scroll without jank, fall back to that variant's ⋮ menu for reordering
+and say so — a drag that fights the scroll is worse than no drag.
+
+---
+
+**Next free number: US-88.**
