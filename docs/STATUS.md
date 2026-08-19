@@ -200,9 +200,27 @@ F1–F5 shipped in 0.37.0, F6–F9 in 0.38.0. U1–U5 need a decision rather tha
 `main`: US-76 + US-77 merged, the popup sparkline leak merged, US-45 cherry-picked, the Today
 live-day-result fix rebased on (was stranded as a 0.46.1), and the apple-fluid prototype imported.
 The policy that keeps it this way is in [CLAUDE.md](../CLAUDE.md): **work lands on `main`; a POC
-lives on the one `poc` branch until it is promoted or dropped.** The 22 stale `claude/*` branches
-are contained in `main` or superseded by it and are waiting on a one-time delete in GitHub's UI —
-this environment's git proxy refuses branch deletion.
+lives on the one `poc` branch until it is promoted or dropped.**
+
+**The delete list, measured on 2026-08-19** so nobody has to re-derive it. This environment's git
+proxy refuses `git push --delete`, so it is a one-time job in GitHub's UI. `main` and `poc` stay
+(`poc` currently equals `main`).
+
+*Fully contained in `main` — delete without looking:* `eager-cannon-b3ncc4`, `hoi-jft2cv`,
+`popup-0470`, `readme-0460`, `refine-0470c`, `remaining-build-items-05dbxv`, `status-0460-cleanup`,
+`ui-overhaul-user-stories-odcw7i`, `v47-bug-2jcvd3`.
+
+*One or two commits ahead, and every one of them is text that landed on `main` under a different
+story number or code that landed as a different commit* — the subjects are in the git log, and each
+was checked: `account-total-bug-veh3bv`, `apple-fluid-poc` (its prototype is in
+`docs/prototypes/`), `bug-report-pbvnjs` (the Today fix, merged), `eager-cannon-islvb3`,
+`multi-broker-build` (US-45, cherry-picked), `new-user-story-iu926r` (US-79's refinement),
+`paid-vs-grown-discrepancy-rk40yw` and `paid-vs-grown-user-story-23ltue` (US-76/77, merged),
+`refine-0470`, `refine-0470b`, `v47-nav-aspect-ratio-v0wa42` (US-78's refinement).
+
+*Old parallel histories, 8–90 commits ahead — **look before deleting**, they are the only ones this
+audit did not read end to end:* `degiro-portfolio-spike-7x5d4h`, `multi-broker-poc`,
+`portfolio-visualization-testing-xs5ck4`.
 
 ## Refined, not built
 
