@@ -16,6 +16,14 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [Unreleased]
+
+### Fixed
+
+- **The cash chart's x-axis printed raw ISO dates.** `cashChart` was the one day-labelled chart not
+  running its ticks through `dayTickFormatter`; it now labels its axis the same way the value,
+  result and composition charts do. Found on a light scan, not from a report.
+
 ## [0.48.0] — 2026-08-18
 
 Nine stories and four defects. The through-line is **what the screen is allowed to imply**: a figure may
