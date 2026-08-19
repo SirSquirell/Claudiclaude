@@ -1909,7 +1909,11 @@ function wireActions() {
       // Reading every store and cloning it across the worker boundary is the
       // slowest message this page sends, so it gets more than the default.
       const payload = demo || !inExtension ? state.data : await send({ type: 'export' }, { timeoutMs: 60000 });
-      downloadJson(payload, `degiro-portfolio-${new Date().toISOString().slice(0, 10)}.json`);
+      // "export" and the version in the name, because a day of debugging went
+      // into a bug report and an export that shared one filename — and into a
+      // report whose "0.50.0" could not say which build actually produced it.
+      const build = inExtension ? chrome.runtime.getManifest().version : demoVersion;
+      await downloadJsonGz(payload, `degiro-portfolio-export-v${build}-${new Date().toISOString().slice(0, 10)}.json.gz`);
     } catch (err) {
       notice('error', `Could not build the export: ${err.message ?? err}`);
     } finally {
@@ -5141,13 +5145,32 @@ async function copy(obj) {
   }
 }
 
-function downloadJson(obj, filename) {
-  const url = URL.createObjectURL(new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' }));
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
   a.download = filename;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/**
+ * The full export, gzipped in the browser (US-85).
+ *
+ * The export deliberately carries everything — every store, every price point —
+ * because every defect so far needed a field nobody predicted. That makes big
+ * accounts big: tens of megabytes, which no chat channel accepts. JSON this
+ * repetitive compresses ~15x (measured on a real export: 1,83 MB → 116 kB), and
+ * `CompressionStream` is built into every browser this runs in, so the fix is
+ * to never hand the user the uncompressed file in the first place. Nothing
+ * about the *content* changes: `gunzip` returns byte-for-byte what
+ * `downloadJson` used to write.
+ */
+async function downloadJsonGz(obj, filename) {
+  const stream = new Blob([JSON.stringify(obj, null, 2)])
+    .stream()
+    .pipeThrough(new CompressionStream('gzip'));
+  downloadBlob(await new Response(stream).blob(), filename);
 }
 
 /** '/trading4/' out of 'https://trader.degiro.nl/trading4/secure/'. */

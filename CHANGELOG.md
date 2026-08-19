@@ -16,6 +16,18 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.52.0] — 2026-08-19
+
+### Changed
+
+- **The full export downloads gzipped, under a name that says what it is** (US-85):
+  `degiro-portfolio-export-v<versie>-<datum>.json.gz`. Nothing was removed from it — the owner's
+  explicit call, since every defect so far needed a field nobody predicted — it is simply 15×
+  smaller (measured: 1,83 MB → 116 kB on a real account), so a big account's export fits through a
+  chat channel. `gunzip` returns byte-for-byte the old file. The name change closes two small
+  wounds from the US-84 day: the export and the bug report shared a filename, and nothing said
+  which build produced a file.
+
 ## [0.51.0] — 2026-08-19
 
 ### Added

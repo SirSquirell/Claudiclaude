@@ -5681,4 +5681,39 @@ of them was reconstructed slightly rich, hidden inside whatever else their recon
 
 ---
 
-**Next free number: US-85.**
+## US-85 — The full export, small enough to actually send *(built, 0.52.0)*
+
+> *"my friends will have bigger files which dont fit in discord chat"* — the owner, the same day
+> US-84 closed **because** a full export finally travelled.
+
+US-84's lesson in one line: the bug report diagnoses, but the export decides — and an export that
+cannot travel is a capture that never arrives. A small account's export is 1,8 MB; an account with
+thousands of rows and a hundred price series is tens of megabytes, and chat channels stop at ~10 MB.
+
+Trimming was considered and rejected by the owner, correctly: *"the export needs to have all the
+data that you can use for diagnosis."* Every defect so far needed a field nobody predicted —
+the 4,369 rescale lived in the price series, the five cents in the wording of amount-less rows —
+so the export stays complete, and the fix is size, not scope.
+
+### Built
+
+- **The export downloads gzipped** (`CompressionStream('gzip')` — built into the browser, no
+  vendor code, MV3-clean). Measured on the real export that closed US-84: **1 828 645 → 118 575
+  bytes, 15,4×**; the content is byte-for-byte what the uncompressed file was, `gunzip` away.
+- **The filename says what it is and what made it**:
+  `degiro-portfolio-export-v0.52.0-2026-08-19.json.gz`. Two defects from the US-84 day, one line
+  each: the export and the bug report shared a filename (a day of debugging went to reading the
+  wrong one), and a report saying `0.50.0` could not say which build actually produced it, because
+  three builds shipped under that version in one morning.
+
+### Deliberately not built
+
+A trimmed "diagnostic" export (rule 8 — the owner declined it, and the full one now fits), an
+upload target of any kind (rule 7 — this project does not send data anywhere, ever; how the file
+travels is the sender's choice), and a fallback for browsers without `CompressionStream` (every
+browser this runs in has had it for years; a fallback would be an untested branch shipping the
+uncompressed file exactly to the people who needed the small one).
+
+---
+
+**Next free number: US-86.**
