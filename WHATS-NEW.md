@@ -1,31 +1,36 @@
-# Wat er nieuw is — 0.50.0
+# Wat er nieuw is — 0.51.0
 
 Wat er verandert ten opzichte van de vorige versie, in gewone taal. Alleen deze release: de
 volledige geschiedenis staat in [CHANGELOG.md](CHANGELOG.md), installeren doe je met
 [INSTALL.md](INSTALL.md).
 
-> **Hoef je te resyncen voor deze versie? Nee.** Er verandert niets aan wat wordt opgehaald of
-> opgeslagen. Kwam je van een versie vóór 0.48.0, dan geldt de ene synchronisatie uit die release
-> nog steeds — druk dan één keer op **Nu synchroniseren**.
+> **Hoef je te resyncen voor deze versie? JA — één keer "Wipe & resync".** Beide correcties
+> hieronder werken op het moment dat de regels van DEGIRO worden ingelezen, en al opgeslagen
+> regels houden hun oude betekenis tot je ze opnieuw ophaalt. Een gewone synchronisatie is niet
+> genoeg.
 
 ---
 
-## Optimism Mode gaat verder over de top — op verzoek
+## Het totaal klopt nu ook als je geld ooit in het geldmarktfonds zat
 
-De hele reden dat een stand die verlies als winst laat zien mág bestaan, is dat **absurditeit de
-bescherming is**: een smaakvol omgekeerde grafiek stuurt iemand door naar z'n boekhouder, een pagina
-die zichtbaar gek geworden is niet. Dus is er nu meer van:
+Twee fouten, die samen op een echt account precies **€ -0,05 verschil met DEGIRO** maakten —
+de rode balk die er drie releases stond:
 
-- **Een nieuwsticker**, twee keer — boven en onder de tegels, tegen elkaar in draaiend, met je eigen
-  cijfers in de toon van een zender waar niemand advies van moet aannemen. *"NOT THE REAL NUMBERS"*
-  komt elke paar seconden voorbij.
-- **Achttien tegels in plaats van tien**, waaronder *Hopium reserves*, *Bags held*, *Break-even ETA*
-  en *Nights lost to this: 0*.
-- **Een raket over je scherm** bij het aanzetten, een knop die blijft draaien, een stempel die
-  ademt, en anderhalf keer zoveel confetti.
+- **DEGIRO's geldmarktfonds-compensatie telde niet mee.** De regel *"DEGIRO Geldmarktfondsen
+  Compensatie"* — DEGIRO dat terugbetaalt wat het fonds en de negatieve rente je kostten — werd
+  aangezien voor een interne overboeking en dus genegeerd. Hij telt nu mee als opbrengst: geen
+  storting (DEGIRO's eigen stortingsteller slaat hem ook over), wel geld op je rekening.
+- **Het waardeverlies van het geldmarktfonds zelf was onzichtbaar.** Vóór de overstap naar flatex
+  wás je cash fondsdeelnemingen, en die zakten langzaam in waarde. De conversieregels dragen geen
+  bedrag — alleen aantallen en een koers ín de omschrijving. Die worden nu gelezen, en je saldo
+  volgt de koers die het fonds zelf opgeeft. Blijven er deelnemingen "achter" die nooit verkocht
+  zijn, dan zegt een melding dat, in plaats van er stil omheen te rekenen.
 
-**Elk getal blijft je eigen getal** — er wordt niets verzonnen, alleen de verpakking is belachelijk.
-Het blijft op het Overzicht, het onthoudt zichzelf niet, en niets ervan kan in een export of
-bugreport terechtkomen. Met *verminderde beweging* aan staat de ticker stil en blijft de raket aan
-de grond; op een telefoon gaan de scheve tegels eruit, want een grap die je niet kunt lezen is
-gewoon een kapotte pagina.
+Op het account dat dit meldde: rente -0,05, compensatie +0,07, fondsverlies -0,02 — samen
+**€ 0,00, tot op de cent gelijk aan DEGIRO**, nagerekend op de echte export. Het resultaatcijfer
+sluit daarmee ook aan op DEGIRO's eigen stortingsteller.
+
+Had jouw account vóór ~2022 cash bij DEGIRO, dan stond je geschiedenis tot nu toe een fractie te
+hoog — meestal centen. Na de resync klopt hij, of de balk vertelt je precies in welke categorie
+het resterende verschil zit: het foutenrapport zegt sinds deze versie per categorie ook hoeveel
+regels helemaal geen bedrag droegen.
