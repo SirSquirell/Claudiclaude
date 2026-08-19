@@ -100,3 +100,21 @@ test('a failed deposit is still external, so the reversal is not read as a loss'
   assert.equal(classifyCashRow({ description: 'Storting mislukt; IDEAL@1234 EUR' }), CATEGORY.DEPOSIT);
   assert.equal(classifyCashRow({ description: 'iDEAL storting' }), CATEGORY.DEPOSIT);
 });
+
+test('US-84 — the cash-fund compensation is income in the balance, not a sweep', () => {
+  // "DEGIRO Geldmarktfondsen Compensatie" contains "geldmarktfonds", so the
+  // sweep rule swallowed it and the credit never entered the cash balance —
+  // the larger half of a real account's reconciliation being red by −0,05 for
+  // three releases. The compensation rule must win.
+  assert.equal(classifyCashRow({ description: 'DEGIRO Geldmarktfondsen Compensatie' }), CATEGORY.COMPENSATION);
+  assert.equal(classifyCashRow({ description: 'Money Market Fund Compensation' }), CATEGORY.COMPENSATION);
+  assert.equal(isExternal(CATEGORY.COMPENSATION), false, 'DEGIRO’s own totalDepositWithdrawal excludes it');
+  assert.equal(affectsCash(CATEGORY.COMPENSATION), true, 'and its cash balance absorbed it');
+});
+
+test('US-84 — a fund conversion is still a sweep, and the compensation rule does not eat it', () => {
+  assert.equal(
+    classifyCashRow({ description: 'Conversie geldmarktfonds: Koop 0,000123 @ 9.999,0001 EUR' }),
+    CATEGORY.CASH_SWEEP,
+  );
+});

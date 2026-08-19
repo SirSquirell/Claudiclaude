@@ -168,6 +168,7 @@ const NOTE_TITLES = {
   'fx-derived': 'Exchange rates derived from your own trades',
   'fx-stale': 'An exchange rate is out of date',
   'fx-unknown': 'A currency has no rate at all',
+  'cash-fund-outstanding': 'Money-market fund units still held',
   'no-data': 'Nothing to reconstruct yet',
 };
 

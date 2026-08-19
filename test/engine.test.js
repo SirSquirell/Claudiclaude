@@ -413,6 +413,60 @@ test('US-84 — the failing banner names the category that sums to the gap, inst
   assert.deepEqual(rec.amountless, { CASH_SWEEP: 1 });
 });
 
+test('US-84 — the cash-fund era reconciles: fund drift marked to its own prices, compensation counted as income', () => {
+  /**
+   * The mechanism the capture named, with synthetic numbers (rule 7: nothing
+   * from a real account enters test/). Money sits in the money-market fund and
+   * loses value between the conversion rows — which carry no amount, only
+   * units and a price in their description. DEGIRO later pays the loss back as
+   * a compensation credit. Before US-84: the drift was invisible (no `change`
+   * anywhere) and the compensation classified as a sweep (its wording contains
+   * "geldmarktfonds"), so the reconstruction was wrong by both at once.
+   *
+   * Deposit 100 → 0.01 units bought at 10 000 → sold at 9 800 (−2,00 of
+   * drift) → DEGIRO compensates +2,00 → everything withdrawn. True balance: 0.
+   */
+  const r = computePortfolio({
+    products: {},
+    prices: {},
+    transactions: [],
+    cashRows: [
+      { date: '2024-01-01', description: 'iDEAL storting', change: 100, currency: 'EUR', category: 'DEPOSIT' },
+      { date: '2024-01-02', description: 'Conversie geldmarktfonds: Koop 0,01 @ 10.000,00 EUR', currency: 'EUR', category: 'CASH_SWEEP', change: 0, changeAbsent: true, fundUnits: 0.01, fundNav: 10000 },
+      { date: '2024-03-01', description: 'Conversie geldmarktfonds: Verkoop 0,01 @ 9.800,00 EUR', currency: 'EUR', category: 'CASH_SWEEP', change: 0, changeAbsent: true, fundUnits: -0.01, fundNav: 9800 },
+      { date: '2024-04-01', description: 'DEGIRO Geldmarktfondsen Compensatie', change: 2, currency: 'EUR', category: 'COMPENSATION', changeAbsent: false },
+      { date: '2024-05-01', description: 'Terugstorting', change: -100, currency: 'EUR', category: 'WITHDRAWAL', changeAbsent: false },
+    ],
+    today: '2024-05-02',
+    liveTotal: 0,
+  });
+
+  const rec = r.reconciliation;
+  assert.equal(rec.ok, true, `off by ${rec.diff}: the drift and the compensation must cancel exactly`);
+  near(r.cash.at(-1), 0, 0.001);
+  // The drift is real P/L on the days it was observed, not external flow.
+  near(r.totals.invested, 0, 0.001, 'deposit and withdrawal cancel; the compensation is not a deposit');
+  // And the balance actually dipped while the fund was down: after the sale
+  // realised the −2,00, before the compensation arrived.
+  const dipDay = r.days.indexOf('2024-03-01');
+  near(r.cash[dipDay], 98, 0.001, 'the fund loss is in the balance the day its price says so');
+  assert.ok(!r.warnings.some((w) => w.code === 'cash-fund-outstanding'), 'units returned to zero');
+});
+
+test('US-84 — fund units that never return to zero are said out loud, not held flat silently', () => {
+  const r = computePortfolio({
+    products: {},
+    prices: {},
+    transactions: [],
+    cashRows: [
+      { date: '2024-01-01', description: 'iDEAL storting', change: 100, currency: 'EUR', category: 'DEPOSIT' },
+      { date: '2024-01-02', description: 'Conversie geldmarktfonds: Koop 0,01 @ 10.000,00 EUR', currency: 'EUR', category: 'CASH_SWEEP', change: 0, changeAbsent: true, fundUnits: 0.01, fundNav: 10000 },
+    ],
+    today: '2024-01-03',
+  });
+  assert.ok(r.warnings.some((w) => w.code === 'cash-fund-outstanding'));
+});
+
 test('US-84 — amount-less counts are all-or-nothing: one row stored before the flag makes the answer "not measured"', () => {
   // An ordinary sync is incremental, so after an upgrade the store holds a mix
   // of flagged and unflagged rows. A count over only the rows that carry the

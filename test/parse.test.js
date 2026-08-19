@@ -143,6 +143,27 @@ test('a cash row that states no amount is counted at zero, and says so', () => {
   assert.equal(parsed[1].change, 0, 'the arithmetic is unchanged — absence still counts as zero');
 });
 
+test('US-84 — a fund conversion row yields its units and fund price, read out of the description', () => {
+  // These rows carry no amount: the units and the price in the text are the
+  // only record of what the cash-fund era did to the balance. Dutch number
+  // format, verbatim shape from the capture that motivated this.
+  const parsed = parseCashMovements({
+    data: {
+      cashMovements: [
+        { date: '2021-03-01', description: 'Conversie geldmarktfonds: Koop 0,000123 @ 9.999,0001 EUR', currency: 'EUR' },
+        { date: '2021-04-01', description: 'Conversie geldmarktfonds: Verkoop 0,000123 @ 9.876,54 EUR', currency: 'EUR' },
+        { date: '2021-05-01', description: 'iDEAL storting', change: 100, currency: 'EUR' },
+      ],
+    },
+  });
+  assert.equal(parsed[0].fundUnits, 0.000123, 'a purchase is positive');
+  assert.equal(parsed[0].fundNav, 9999.0001);
+  assert.equal(parsed[1].fundUnits, -0.000123, 'a sale is negative');
+  assert.equal(parsed[1].fundNav, 9876.54);
+  assert.equal(parsed[2].fundUnits, undefined, 'ordinary rows carry neither field');
+  assert.equal(parsed[0].changeAbsent, true, 'and the row still counts as amount-less');
+});
+
 // --- products / update ------------------------------------------------------
 
 test('parseProducts keys by id and keeps vwdId as a string', () => {

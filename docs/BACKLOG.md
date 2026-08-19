@@ -5524,7 +5524,7 @@ subtler than "same product", and the fix needs to find out what before it ships.
 
 ---
 
-## US-84 — The five cents have a name: the interest rows *(open — the 0.50.0 report is read, the locator sharpened; a capture closes it)*
+## US-84 — The five cents have a name: the interest rows *(built, 0.51.0 — the capture arrived; the account reconciles to 0,00)*
 
 US-81 built the locator and ended with an instruction: run it, and the answer is a new story with
 the evidence attached. The owner ran it — 0.50.0, 2026-08-19, the same account: 6 transactions, 81
@@ -5638,6 +5638,46 @@ Unchanged from US-81, and it now survives the temptation being one flag away: do
 interest really does settle in cash, which is every account with a normal balance. No tolerance, no
 fourth `totalCash` candidate, no guessed field names. The account stays red until the capture says
 why it should not be.
+
+### Closed — the capture arrived, and it was two defects stacked
+
+The owner sent the full export (it had in fact been attached to every message of the day; the
+bug-report JSON pasted alongside it was what got read — a lesson about assumptions, not about the
+owner). The rows settle everything, and the stop condition held: the interest was real and its flag
+was right. What was wrong was on either side of it:
+
+1. **The compensation was classified as a sweep.** 2026-08-11, `DEGIRO Geldmarktfondsen
+   Compensatie`, **+0,07** — DEGIRO paying back what its cash funds had cost the account. The
+   wording contains "geldmarktfonds", the `CASH_SWEEP` rule matches on that word, first match wins,
+   and `inCash: false` kept the credit out of the balance. New `COMPENSATION` category, rule placed
+   above the sweep rule, both flags capture-backed: DEGIRO's own `totalDepositWithdrawal` (−16,61,
+   **exactly** this ledger's figure) excludes it, so `external: false`; its cash absorbed it, so
+   `inCash: true`. Its app's lifetime W/V of +16,68 is 16,61 + 0,07 — the compensation counted as
+   profit, which is now this ledger's reading too.
+
+2. **The money-market-fund era's value drift appeared in no row's amount.** The eight `Conversie
+   geldmarktfonds` rows are amount-less (they are the 15-row `CASH_SWEEP` count from the locator,
+   minus the flatex echoes); their descriptions carry units and the fund price, and between what
+   went in and what came out the fund lost **0,019** — invisible to a ledger that only sums
+   `change`. `parse.js` now reads units and price out of those descriptions, and the engine marks
+   the fund era to its own stated prices: at each conversion row, the units held since the previous
+   one are revalued to the price it states. No cost basis, no interpolation — when the era ends at
+   zero units (DEGIRO closed the funds) the sum telescopes to exactly in-minus-out. Units that do
+   not return to zero raise `cash-fund-outstanding` instead of being held flat.
+
+Arithmetic on the account: −0,05 interest + 0,07 compensation − 0,019 drift = **+0,001**, inside
+rule 6's cent. Replayed against the export itself: `reconstructed 0,00 · live 0,00 · diff 0 ·
+ok: true`, result +16,61 = DEGIRO's own net-deposit figure, and the only warnings left are the
+price-rescale note and the stale-USD-rate pair, both true statements about the data.
+
+**Requires a wipe & resync**: both fixes live at parse time (classification and the extracted
+units), and stored rows keep the category they were stored with.
+
+What the episode adds to the standing lore: the locator earned its keep twice (it killed the
+readable-counter-entry hypothesis with `amountlessByCategory`, which is what forced the export to
+be read instead of theorised about), and the fund-era drift is a **shape** — any account that held
+cash before the flatex migration has these amount-less conversie rows, and until 0.51.0 every one
+of them was reconstructed slightly rich, hidden inside whatever else their reconciliation carried.
 
 ---
 

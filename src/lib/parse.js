@@ -309,7 +309,24 @@ function withDropped(parsed, rawRows, reasonOf) {
 // ---------------------------------------------------------------------------
 
 /**
+ * A money-market-fund conversion, e.g.
+ * "Conversie geldmarktfonds: Koop 0,000327 @ 9.893,9506 EUR".
+ *
+ * These rows carry **no amount** — the units and the fund price live in the
+ * description, and they are the only record of the cash-fund era's value drift.
+ * US-84: a real account's fund lost two cents between what went in and what
+ * came out, no row anywhere stated it, and the reconciliation was red by
+ * exactly that (plus the mis-filed compensation) for three releases. The Dutch
+ * wording is verbatim from that capture; the English variant is unconfirmed.
+ */
+const FUND_CONVERSION_RE =
+  /(?:conversie geldmarktfonds|money market fund conversion)\W*\b(koop|verkoop|buy|sell)\b\s*([0-9.,]+)\s*@\s*([0-9.,]+)/i;
+
+/**
  * @returns {Array<{id, date, productId, description, currency, change, type, category}>}
+ * Rows that are fund conversions additionally carry `fundUnits` (signed: a
+ * purchase positive, a sale negative) and `fundNav` (the fund price the row
+ * states). Everything else omits both.
  */
 export function parseCashMovements(res) {
   const rows =
@@ -353,6 +370,15 @@ export function parseCashMovements(res) {
       };
       row.productId = row.productId == null ? null : String(row.productId);
       row.category = classifyCashRow(row);
+      const conv = FUND_CONVERSION_RE.exec(row.description);
+      if (conv) {
+        const units = num(conv[2]);
+        const nav = num(conv[3]);
+        if (units > 0 && nav > 0) {
+          row.fundUnits = /^(koop|buy)$/i.test(conv[1]) ? units : -units;
+          row.fundNav = nav;
+        }
+      }
       return row;
     })
     .filter(Boolean)

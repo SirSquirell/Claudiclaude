@@ -26,6 +26,7 @@ export const CATEGORY = {
   DIVIDEND: 'DIVIDEND',
   DIVIDEND_TAX: 'DIVIDEND_TAX',
   INTEREST: 'INTEREST',
+  COMPENSATION: 'COMPENSATION',
   FEE: 'FEE',
   TRADE: 'TRADE',
   FX: 'FX',
@@ -54,6 +55,16 @@ const CATEGORY_META = {
   [CATEGORY.FEE]: { external: false, inCash: true },
   [CATEGORY.TRADE]: { external: false, inCash: true },
   [CATEGORY.FX]: { external: false, inCash: true },
+  /**
+   * DEGIRO's cash-fund compensation: it promised cash held in the money-market
+   * funds (and later at flatex) would not lose value, and pays the losses back
+   * as one credit. US-84's capture decided both flags: the credit sat inside
+   * DEGIRO's cash balance (`inCash: true` — leaving it out is exactly the five
+   * cents that account was red by), and DEGIRO's own `totalDepositWithdrawal`
+   * excluded it while its lifetime W/V included it (`external: false` — it is
+   * income, not a deposit; rule 3 says a wrong guess here fabricates profit).
+   */
+  [CATEGORY.COMPENSATION]: { external: false, inCash: true },
   [CATEGORY.CASH_SWEEP]: { external: false, inCash: false },
   /**
    * "Reservation iDEAL": DEGIRO fronts you the money so you can trade while an
@@ -110,6 +121,14 @@ const RULES = [
   // --- an advance against an incoming transfer, reversed when it clears ---
   // Must beat the DEPOSIT rule below: "Reservation iDEAL" contains "ideal".
   { re: /^reservation |reservering|reservation ideal/, cat: CATEGORY.RESERVATION },
+
+  // --- DEGIRO paying back what the cash funds lost ---
+  // Must beat the CASH_SWEEP rule below: "DEGIRO Geldmarktfondsen Compensatie"
+  // contains "geldmarktfonds", and a real account's compensation spent years
+  // classified as a sweep — held out of the cash balance, which was the larger
+  // half of a reconciliation stuck at −0,05 (US-84). The English wording is
+  // unconfirmed by a capture; the Dutch is verbatim from one.
+  { re: /geldmarktfonds(en)? compensatie|(money market|cash) fund compensation/, cat: CATEGORY.COMPENSATION },
 
   // --- internal transfer between DEGIRO cash and the flatex bank account ---
   {

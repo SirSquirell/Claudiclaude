@@ -60,6 +60,29 @@ plain increments — this is not a library and nothing depends on its API.
 
 ### Fixed
 
+- **The owner's five cents, resolved — and every pre-flatex account was slightly rich (US-84).**
+  The full export settled what three bug reports had narrowed down. Two defects, stacked, netting
+  to −0,05 on that account and to *something* on any account that held cash before the flatex
+  migration:
+
+  1. **DEGIRO's cash-fund compensation was classified as a cash sweep** — its wording contains
+     "geldmarktfonds", the sweep rule matches that word, and `inCash: false` kept the credit out of
+     the balance. It is now its own `COMPENSATION` category: income in the balance (DEGIRO's own
+     `totalDepositWithdrawal` excludes it, so it is not a deposit either — rule 3's choice, made on
+     a capture).
+  2. **The money-market-fund era's value drift appeared in no row's amount.** The `Conversie
+     geldmarktfonds` rows carry no `change` at all — units and the fund's price live in the
+     description text. The parser now reads them out, and the engine marks the fund era to the
+     fund's own stated prices, revaluing the units held at each conversion row. When the era ends
+     at zero units the correction telescopes to exactly what went in minus what came out; units
+     that never return to zero raise the new `cash-fund-outstanding` warning instead of being held
+     flat silently.
+
+  On the reporting account: −0,05 interest + 0,07 compensation − 0,019 fund drift = 0,00 to the
+  cent, verified by replaying the export through the engine — `diff 0, ok: true`, and the account's
+  result equals DEGIRO's own lifetime net-deposit figure. **A wipe & resync is required**: both
+  fixes live at parse time, and stored rows keep the category they were stored with.
+
 - **Category keys in the bug report are now enforced against `classify.js`'s vocabulary.** The
   report promised the keys of `residualByCategory` were a fixed vocabulary rather than account
   data, but they arrive off a stored row's `category` field and storage is not a type system. A key

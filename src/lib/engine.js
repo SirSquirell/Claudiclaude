@@ -1070,6 +1070,60 @@ export function computePortfolio(input) {
   }
 
   /**
+   * The money-market-fund era, marked to the fund's own stated prices.
+   *
+   * Until the flatex migration, "cash" at DEGIRO was units of a money-market
+   * fund, and those units drifted in value. The conversion rows carry no
+   * amount — `parse.js` reads the units and the fund price out of their
+   * descriptions — so the drift appears in no `change` anywhere, and the cash
+   * series silently held what was paid in while the balance DEGIRO reported
+   * was what the units were worth. On US-84's account the whole-history drift
+   * was −0,019: invisible, and half of a reconciliation that stayed red for
+   * three releases (the compensation DEGIRO later paid for exactly this loss
+   * is the other half — see `COMPENSATION` in classify.js).
+   *
+   * Mark-to-market at observations only: each conversion row states the fund
+   * price that day, so the units held since the previous row are revalued to
+   * it. No cost basis, no interpolation — when the era starts and ends at zero
+   * units (DEGIRO closed the funds; every account ends at zero), the sum
+   * telescopes to exactly what went in minus what came out. Units that do not
+   * return to zero are money this cannot value, and that is said out loud
+   * rather than held flat.
+   */
+  {
+    const fundRows = cashRows
+      .filter((r) => Number.isFinite(r.fundUnits) && Number.isFinite(r.fundNav) && r.fundNav > 0 && idxOf(r.date) >= 0)
+      .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+    let unitsHeld = 0;
+    let lastNav = null;
+    let lastCurrency = null;
+    for (const r of fundRows) {
+      if (lastNav != null && Math.abs(unitsHeld) > 1e-12) {
+        const i = idxOf(r.date);
+        let arr = cashByCurrency.get(lastCurrency);
+        if (!arr) {
+          arr = new Float64Array(n);
+          cashByCurrency.set(lastCurrency, arr);
+        }
+        arr[i] += unitsHeld * (r.fundNav - lastNav);
+      }
+      unitsHeld += r.fundUnits;
+      lastNav = r.fundNav;
+      lastCurrency = r.currency;
+    }
+    if (Math.abs(unitsHeld) > 1e-9) {
+      warn(
+        'warn',
+        'cash-fund-outstanding',
+        `The account still holds ${unitsHeld} unit(s) of a money-market cash fund, and no price for them has been ` +
+          `seen since the last conversion row. Their value is not in these totals, so the cash balance is short by ` +
+          `whatever they are worth.`,
+        { units: Number(unitsHeld.toPrecision(6)) },
+      );
+    }
+  }
+
+  /**
    * A trade that says it settled in the base currency, and did not.
    *
    * When an instrument is in euros, `|totalBase| − |fee|` has to equal
