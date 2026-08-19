@@ -16,6 +16,27 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.54.0] — 2026-08-19
+
+### Fixed
+
+- **The Today tile fabricated "down ~100 %" on every account with open positions** (US-88).
+  DEGIRO's `todayPlBase` was summed as if it were the day's result; measured on two real accounts
+  in one day, the summed field is **exactly the negative of the portfolio's value, to the cent** —
+  it is the start-of-day reference (the `plBase` convention), and the day figure is
+  `value + todayPlBase`. Now read that way; a row carrying the field without a value makes the
+  figure `null` instead of half a sum, and the fixture generator encodes the real shape so the
+  demo exercises it. On the captures the corrected tile reads ±€ 0,01 — the same flat day DEGIRO's
+  own app showed. **One ordinary Sync now refreshes it; no wipe needed.**
+
+- **A windowed share card could read "−212,91 % on the money put in" on a long position** (US-89).
+  The denominator was only the money added during the window; the value the position already had
+  when the window opened was ignored. The stake is now the opening value plus the window's
+  deposits, the copy names its denominator ("on what was in it", "{lost}% of what was in it is
+  gone"), a long can no longer read below −100 % (a written option still can, truthfully), and the
+  bar's `value = paid + grown` identity holds inside the window. All-time cards are untouched.
+  Replayed on the reporting account: the same card now reads −20,22 %. Display only, no resync.
+
 ## [0.53.0] — 2026-08-19
 
 ### Fixed
