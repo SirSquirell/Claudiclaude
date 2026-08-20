@@ -38,4 +38,9 @@ a decision somebody can disagree with later.
 
 ## Retired
 
-*(nothing yet)*
+- `products-sort` → RETIRED: superseded by sorting in the column headers themselves (US-87 —
+  click a header cycles descending/ascending/natural, with the active column and direction shown
+  in the header), because two mechanisms for one question is one too many: the three chips could
+  only ever sort on two of the table's thirteen columns, and the header can sort on all of them.
+  The default with nothing persisted is unchanged — windowed result, descending — so the view the
+  chips showed is the view the table still opens with.

@@ -5765,7 +5765,7 @@ headless browser, and is the answer the next "everything is gone" complaint gets
 
 ---
 
-## US-87 — The Positions table becomes yours: sort, rearrange, remember *(refined — variant B picked, ready to build)*
+## US-87 — The Positions table becomes yours: sort, rearrange, remember *(built, 0.56.0 — the plan said 0.55.0, which US-90 had taken by the time this ran)*
 
 > *"we need some ways of interacting with the table, think about like sorting by, rearranging the
 > columns (which will be saved in the plugin someway …), and i want a way of filtering out colums i

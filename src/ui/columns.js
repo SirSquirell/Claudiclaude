@@ -79,3 +79,39 @@ export function baseHidden(status, userHidden = new Set()) {
   }
   return hidden;
 }
+
+/**
+ * US-87 — the column list in the reader's own order.
+ *
+ * `orderKeys` is whatever storage held, and storage is not trusted: unknown
+ * keys are dropped, duplicates keep their first appearance, keys a future
+ * build added are appended in canonical order rather than lost, and the two
+ * anchors hold whatever was stored — Instrument first, because the row is
+ * unreadable without its name, and the share action last, because an action
+ * is not data. The canonical list with no stored order is the identity case.
+ */
+export function orderedColumns(orderKeys = []) {
+  const byKey = new Map(HOLDINGS_COLUMNS.map((c) => [c.key, c]));
+  const seen = new Set();
+  const kept = orderKeys.filter((k) => byKey.has(k) && !seen.has(k) && seen.add(k));
+  const rest = HOLDINGS_COLUMNS.map((c) => c.key).filter((k) => !seen.has(k));
+  const middle = [...kept, ...rest].filter((k) => k !== 'instrument' && k !== 'snap');
+  return ['instrument', ...middle, 'snap'].map((k) => byKey.get(k));
+}
+
+/**
+ * US-87 — the next sort state after a header click.
+ *
+ * Numeric columns start biggest-first because that is the question a number
+ * column answers ("where is the most?"); text columns start A-first. The
+ * third click returns `null` — natural order, which the caller defines (the
+ * table's default of windowed result, descending). Clicking a different
+ * column starts that column's own cycle fresh rather than inheriting the old
+ * direction.
+ */
+export function cycleSort(current, key, isNum) {
+  const first = isNum ? 'desc' : 'asc';
+  if (current?.key !== key) return { key, dir: first };
+  if (current.dir === first) return { key, dir: first === 'desc' ? 'asc' : 'desc' };
+  return null;
+}

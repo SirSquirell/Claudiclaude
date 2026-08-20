@@ -45,7 +45,7 @@ import { ADAPTERS, connected as connectedBrokers } from '../lib/brokers/index.js
 import { LANGS, applyStatic, getLang, missing as missingTranslations, setLang, t as tr } from './i18n.js';
 import { THEMES, alpha, applyAnonymize, applyTheme, fmtEurCents, fmtPct, fmtPrice, fmtQty, fmtSigned, getAnonymize, getTheme, onThemeChange, setAnonymize, setTheme, tokens, withAnonymize } from './theme.js';
 import { FORMATS, moneyInOver, ownerLine, positionSpan, scoreCardModel, snapshotModel, splitModel } from '../lib/snapshot.js';
-import { HOLDINGS_COLUMNS, baseHidden, droppableByPriority, optionalColumns } from './columns.js';
+import { HOLDINGS_COLUMNS, baseHidden, cycleSort, droppableByPriority, optionalColumns, orderedColumns } from './columns.js';
 import { brokerMarkSvg, lockupSvg, markSvg } from './brand.js';
 import { copySnapshot, downloadSnapshot, drawScoreCard, drawSnapshot, tokensForTheme } from './snapshot.js';
 import { Spring, clampShift, prefersReducedMotion, project, rubber, revealOnArrival, shiftToShow, velocityFrom, wirePressFeedback } from './motion.js';
@@ -70,9 +70,10 @@ const state = {
   data: null,
   /** Everything the last render had to say, for the Notices section. */
   notes: [],
-  /** Product table: which type chip is active, and which way it is sorted. */
+  /** Product table: which type chip is active. Sort and column order are
+   *  persisted preferences (US-87), not view state, so they live beside the
+   *  theme in localStorage rather than here. */
   productType: 'ALL',
-  productSort: 'best',
   /** Outlook: horizon in months, contribution, and whether rates are derived. */
   outlook: { months: 60, monthly: 0, manual: false, growthPct: null, yieldPct: null, reinvest: null },
   /** 'money' (what my money earned) or 'time' (how the portfolio performed). */
@@ -4606,22 +4607,49 @@ function renderHoldings(r, composition, compColours, t, from, to) {
     () => state.posStatus ?? 'open', (k) => { state.posStatus = k; render(); });
   buildChoice('#products-filter', [{ key: 'ALL', label: tr('All') }, ...types.map((k) => ({ key: k, label: titleCase(k) }))],
     () => state.productType, (k) => { state.productType = k; render(); });
-  buildChoice('#products-sort', [{ key: 'value', label: tr('Largest first') }, { key: 'best', label: tr('Best first') }, { key: 'worst', label: tr('Worst first') }],
-    () => state.productSort ?? 'value', (k) => { state.productSort = k; render(); });
-
   const status = state.posStatus ?? 'open';
-  const sort = state.productSort ?? 'value';
+
+  /**
+   * US-87. The sort lives in the header now — click a column, the chips are
+   * gone. One value per column key, so the sort and the cell can never
+   * disagree about what a column means; the window-following columns sort on
+   * the same windowed figure they display.
+   */
+  const sortValFor = {
+    instrument: (p) => p.name.toLowerCase(),
+    quantity: (p) => p.qty.at(-1),
+    price: (p) => (Math.abs(p.qty.at(-1)) < 1e-9 ? -Infinity : p.current / p.qty.at(-1)),
+    bought: (p) => p.bought ?? 0,
+    sold: (p) => p.sold ?? 0,
+    avgPaid: (p) => ((p.boughtQty ?? 0) > 0 && p.bought > 0 ? p.bought / p.boughtQty : -Infinity),
+    value: (p) => p.current,
+    split: (p) => p.current / Math.max(p.paidIn?.at(-1) ?? 0, 0.01),
+    result: (p) => sumWindow(p.pnl, from, to),
+    dividend: (p) => p.dividend ?? 0,
+    pctBought: (p) => {
+      const inOver = moneyInOver(p.paidIn, from, to);
+      return inOver > 0.005 ? (sumWindow(p.pnl, from, to) / inOver) * 100 : -Infinity;
+    },
+    share: (p) => p.current,
+    currency: (p) => p.currency,
+  };
+  const sortState = readHoldingsSort();
   const rows = [...r.byProduct]
     .filter(traded)
     .filter((p) => (status === 'open' ? open(p) : status === 'closed' ? !open(p) : true))
     .filter((p) => state.productType === 'ALL' || (p.productType || 'OTHER') === state.productType)
     .sort((a, b) => {
-      const ra = sumWindow(a.pnl, from, to);
-      const rb = sumWindow(b.pnl, from, to);
       // Name as the tiebreak, so equal results cannot reorder between renders —
-      // a table that jitters is a table nobody trusts.
-      return (sort === 'best' ? rb - ra : sort === 'worst' ? ra - rb : b.current - a.current)
-        || a.name.localeCompare(b.name);
+      // a table that jitters is a table nobody trusts. Natural order (no header
+      // sort) is windowed result descending: what the old default chip showed,
+      // so a reader with nothing persisted sees the table they always saw.
+      if (!sortState) {
+        return (sumWindow(b.pnl, from, to) - sumWindow(a.pnl, from, to)) || a.name.localeCompare(b.name);
+      }
+      const va = sortValFor[sortState.key](a);
+      const vb = sortValFor[sortState.key](b);
+      const cmp = typeof va === 'string' ? va.localeCompare(vb) : va - vb;
+      return (sortState.dir === 'asc' ? cmp : -cmp) || a.name.localeCompare(b.name);
     });
 
   // Everything the account made in this window, and the part of it that came
@@ -4710,7 +4738,10 @@ function renderHoldings(r, composition, compColours, t, from, to) {
   const detailRow = (p) => `<tr class="pos-detail" hidden><td class="detail-cell" colspan="${HOLDINGS_COLUMNS.length}">`
     + optionalColumns().map((c) => `<span class="kv" data-col="${c.key}" hidden><b>${esc(tr(c.label))}</b> <span>${cellFor[c.key](p)}</span></span>`).join('')
     + '</td></tr>';
-  const body = rows.map((p) => `<tr class="pos-row">${HOLDINGS_COLUMNS.map((c) => colTd(c, p)).join('')}</tr>${detailRow(p)}`).join('');
+  // US-87. The reader's own column order — header, rows, cash row and the
+  // detail expand all map over this one list, so a reorder cannot desync them.
+  const cols = orderedColumns(userColOrder());
+  const body = rows.map((p) => `<tr class="pos-row">${cols.map((c) => colTd(c, p)).join('')}</tr>${detailRow(p)}`).join('');
 
   // The cash row carries `accountResult − positionResult` so the Result column
   // sums to the account's result (US-49). Hiding a column must not change that,
@@ -4722,11 +4753,21 @@ function renderHoldings(r, composition, compColours, t, from, to) {
     share: () => `${((r.totals.cash / total) * 100).toFixed(1)}%`,
     currency: () => esc(r.baseCurrency),
   };
-  const cashRow = `<tr class="cash-row">${HOLDINGS_COLUMNS.map((c) =>
+  const cashRow = `<tr class="cash-row">${cols.map((c) =>
     `<td data-col="${c.key}" class="${tdClass(c)}">${cashCell[c.key] ? cashCell[c.key]() : dash}</td>`).join('')}</tr>`;
 
-  $('#holdings thead').innerHTML = `<tr>${HOLDINGS_COLUMNS.map((c) =>
-    `<th data-col="${c.key}" class="${tdClass(c)}">${c.action ? `<span class="sr-only">${esc(tr('Copy image'))}</span>` : esc(tr(c.label))}</th>`).join('')}</tr>`;
+  // US-87. Every header except the action is a real button: click cycles the
+  // sort (the pure half is `cycleSort`), the active column and direction show
+  // as an arrow plus `aria-sort`, and re-sorting is a plain re-render —
+  // instant, never animated (US-49's floor).
+  $('#holdings thead').innerHTML = `<tr>${cols.map((c) => {
+    const sorted = sortState?.key === c.key;
+    const aria = sorted ? ` aria-sort="${sortState.dir === 'asc' ? 'ascending' : 'descending'}"` : '';
+    if (c.action) return `<th data-col="${c.key}" class="${tdClass(c)}"><span class="sr-only">${esc(tr('Copy image'))}</span></th>`;
+    return `<th data-col="${c.key}" class="${tdClass(c)}"${aria}>`
+      + `<button type="button" class="col-head" data-sort-col="${c.key}">${esc(tr(c.label))}`
+      + `<span class="arrow">${sorted && sortState.dir === 'asc' ? '▲' : '▼'}</span></button></th>`;
+  }).join('')}</tr>`;
 
   // An empty filter says so rather than showing a headed table with nothing in
   // it, which reads as a load that failed.
@@ -4744,6 +4785,7 @@ function renderHoldings(r, composition, compColours, t, from, to) {
   // observer is running, and fit to the current container width.
   buildColumnChooser();
   ensureHoldingsObserver();
+  ensureHoldingsHeader();
   fitHoldingsColumns();
 
   renderHoldingsShare(composition, rows, compColours, t, r);
@@ -4768,6 +4810,137 @@ function setUserHiddenCols(set) {
   } catch {
     /* memory only for this page's lifetime */
   }
+}
+
+// --- US-87: sort by header, drag to reorder, both persisted -------------------
+
+const HOLDINGS_ORDER_KEY = 'degiro-portfolio.holdings-order';
+const HOLDINGS_SORT_KEY = 'degiro-portfolio.holdings-sort';
+
+/** The reader's stored column order, as keys. `orderedColumns` does the
+ *  distrusting — unknown keys, duplicates, missing keys, the two anchors. */
+function userColOrder() {
+  try {
+    return (localStorage.getItem(HOLDINGS_ORDER_KEY) || '').split(',').filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+function setUserColOrder(keys) {
+  try {
+    localStorage.setItem(HOLDINGS_ORDER_KEY, keys.join(','));
+  } catch {
+    /* memory only for this page's lifetime */
+  }
+}
+
+/**
+ * The persisted sort, read defensively: an unknown column, an unknown
+ * direction or a column the reader has since hidden clears the stored sort
+ * rather than ordering the table on something invisible.
+ */
+function readHoldingsSort() {
+  try {
+    const raw = localStorage.getItem(HOLDINGS_SORT_KEY) || '';
+    if (!raw) return null;
+    const [key, dir] = raw.split(':');
+    const col = HOLDINGS_COLUMNS.find((c) => c.key === key && !c.action);
+    if (!col || (dir !== 'asc' && dir !== 'desc') || userHiddenCols().has(key)) {
+      localStorage.removeItem(HOLDINGS_SORT_KEY);
+      return null;
+    }
+    return { key, dir };
+  } catch {
+    return null;
+  }
+}
+function setHoldingsSort(sort) {
+  try {
+    if (sort) localStorage.setItem(HOLDINGS_SORT_KEY, `${sort.key}:${sort.dir}`);
+    else localStorage.removeItem(HOLDINGS_SORT_KEY);
+  } catch {
+    /* memory only for this page's lifetime */
+  }
+}
+
+/**
+ * US-87, variant B — the owner's pick. Click a header to sort, drag it to
+ * reorder, mechanics from the POC (`docs/prototypes/
+ * holdings-table-interactions.html`): five pixels of travel decide
+ * drag-vs-click, `elementsFromPoint` over the header row finds the drop
+ * target, a 2px accent edge shows where the column will land, and the click
+ * that the release produces is swallowed. Instrument never drags and never
+ * receives a drop — it is anchored first; the action column has no `.col-head`
+ * and is anchored last by `orderedColumns`. Wired once, delegated, because the
+ * header is rebuilt on every render.
+ */
+let holdingsDrag = null;
+let holdingsDragMoved = false;
+function ensureHoldingsHeader() {
+  const table = $('#holdings');
+  if (!table || table.dataset.headWired) return;
+  table.dataset.headWired = '1';
+
+  table.addEventListener('click', (e) => {
+    // Matched from the `th`, not the button: the pointer capture the drag path
+    // takes on `pointerdown` retargets the release, so the click this produces
+    // lands on the `th` itself — `closest('.col-head')` walks ancestors and
+    // would miss the button below it. Measured headless, not theorised.
+    const th = e.target.closest('thead th[data-col]');
+    if (!th || !th.querySelector('.col-head') || holdingsDragMoved) return;
+    const col = HOLDINGS_COLUMNS.find((c) => c.key === th.dataset.col);
+    if (!col) return;
+    // `split` sorts on its paid-in-vs-grown ratio, so it cycles like a number
+    // despite not being a right-aligned numeric cell.
+    setHoldingsSort(cycleSort(readHoldingsSort(), col.key, !!col.num || col.key === 'split'));
+    render();
+  });
+
+  table.addEventListener('pointerdown', (e) => {
+    const th = e.target.closest('thead th');
+    if (!th || !th.querySelector('.col-head')) return;
+    if (th.dataset.col === 'instrument') return; // anchored first
+    holdingsDrag = { key: th.dataset.col, th, x: e.clientX, over: null };
+    holdingsDragMoved = false;
+    th.setPointerCapture(e.pointerId);
+  });
+  table.addEventListener('pointermove', (e) => {
+    if (!holdingsDrag) return;
+    if (!holdingsDragMoved && Math.abs(e.clientX - holdingsDrag.x) < 5) return; // a click stays a click
+    holdingsDragMoved = true;
+    holdingsDrag.th.classList.add('dragging');
+    document.body.style.cursor = 'grabbing';
+    table.querySelectorAll('thead th').forEach((el) => el.classList.remove('drop-before', 'drop-after'));
+    const target = document.elementsFromPoint(e.clientX, e.clientY)
+      .find((el) => el.matches?.('#holdings thead th') && el !== holdingsDrag.th);
+    if (target && target.dataset.col !== 'instrument' && target.querySelector('.col-head')) {
+      const rect = target.getBoundingClientRect();
+      const before = e.clientX < rect.left + rect.width / 2;
+      target.classList.add(before ? 'drop-before' : 'drop-after');
+      holdingsDrag.over = { key: target.dataset.col, before };
+    } else {
+      holdingsDrag.over = null;
+    }
+  });
+  const endDrag = (commit) => {
+    if (!holdingsDrag) return;
+    document.body.style.cursor = '';
+    if (commit && holdingsDragMoved && holdingsDrag.over) {
+      const keys = orderedColumns(userColOrder()).map((c) => c.key).filter((k) => k !== holdingsDrag.key);
+      const at = keys.indexOf(holdingsDrag.over.key);
+      keys.splice(holdingsDrag.over.before ? at : at + 1, 0, holdingsDrag.key);
+      setUserColOrder(keys); // orderedColumns re-anchors on the next read
+    }
+    const moved = holdingsDragMoved;
+    holdingsDrag = null;
+    if (moved) {
+      render();
+      // Swallow the click this pointerup produces, then arm the next one.
+      setTimeout(() => { holdingsDragMoved = false; }, 0);
+    }
+  };
+  table.addEventListener('pointerup', () => endDrag(true));
+  table.addEventListener('pointercancel', () => endDrag(false));
 }
 
 /**
@@ -4872,9 +5045,18 @@ function buildColumnChooser() {
   pop.addEventListener('change', (e) => {
     const cb = e.target.closest('input[data-col]');
     if (!cb) return;
+    const sortedKey = readHoldingsSort()?.key;
     const set = userHiddenCols();
     if (cb.checked) set.delete(cb.dataset.col); else set.add(cb.dataset.col);
     setUserHiddenCols(set);
+    // US-87. Hiding the column the table is sorted on clears the sort — an
+    // order driven by something invisible is a mystery order. This one needs a
+    // re-render (the rows visibly change order), not just a re-fit.
+    if (!cb.checked && cb.dataset.col === sortedKey) {
+      setHoldingsSort(null);
+      render();
+      return;
+    }
     fitHoldingsColumns();
   });
   if (!document.body.dataset.colsPopWired) {

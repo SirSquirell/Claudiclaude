@@ -5,9 +5,11 @@ import {
   HOLDINGS_COLUMNS,
   LOAD_BEARING,
   baseHidden,
+  cycleSort,
   droppableByPriority,
   isLockColumn,
   optionalColumns,
+  orderedColumns,
 } from '../src/ui/columns.js';
 
 // US-61. The pure half of the responsive table. The invariant the whole story
@@ -76,4 +78,49 @@ test('baseHidden never hides a load-bearing column, and drops open-only ones und
   for (const c of HOLDINGS_COLUMNS) {
     if (c.openOnly) assert.ok(closed.has(c.key), `${c.key} is open-only and should drop under Closed`);
   }
+});
+
+// US-87. The pure halves of sort-by-header and drag-to-reorder. Storage is not
+// trusted: whatever a past or future build persisted, the anchors hold and the
+// list stays complete.
+
+test('US-87 — orderedColumns with nothing stored is the canonical list', () => {
+  assert.deepEqual(orderedColumns([]), [...HOLDINGS_COLUMNS]);
+  assert.deepEqual(orderedColumns(), [...HOLDINGS_COLUMNS]);
+});
+
+test('US-87 — a stored order is honoured, sanitised, and completed', () => {
+  // A real reordering round-trips…
+  const swapped = orderedColumns(['instrument', 'value', 'quantity']).map((c) => c.key);
+  assert.equal(swapped[0], 'instrument');
+  assert.deepEqual(swapped.slice(1, 3), ['value', 'quantity']);
+  // …unknown keys from another build are dropped, duplicates keep their first
+  // appearance, and every canonical key the store forgot is appended in order.
+  const keys = orderedColumns(['bogus', 'value', 'value', 'currency']).map((c) => c.key);
+  assert.ok(!keys.includes('bogus'));
+  assert.deepEqual([...new Set(keys)], keys, 'no duplicates survive');
+  assert.deepEqual([...keys].sort(), HOLDINGS_COLUMNS.map((c) => c.key).sort(), 'nothing is lost');
+});
+
+test('US-87 — Instrument stays first and the action column last, whatever was stored', () => {
+  const keys = orderedColumns(['snap', 'currency', 'instrument', 'value']).map((c) => c.key);
+  assert.equal(keys[0], 'instrument');
+  assert.equal(keys.at(-1), 'snap');
+});
+
+test('US-87 — cycleSort: numeric desc → asc → natural, text asc → desc → natural', () => {
+  assert.deepEqual(cycleSort(null, 'value', true), { key: 'value', dir: 'desc' });
+  assert.deepEqual(cycleSort({ key: 'value', dir: 'desc' }, 'value', true), { key: 'value', dir: 'asc' });
+  assert.equal(cycleSort({ key: 'value', dir: 'asc' }, 'value', true), null);
+
+  assert.deepEqual(cycleSort(null, 'instrument', false), { key: 'instrument', dir: 'asc' });
+  assert.deepEqual(cycleSort({ key: 'instrument', dir: 'asc' }, 'instrument', false), { key: 'instrument', dir: 'desc' });
+  assert.equal(cycleSort({ key: 'instrument', dir: 'desc' }, 'instrument', false), null);
+});
+
+test('US-87 — clicking a different column starts its cycle fresh', () => {
+  // Mid-cycle on Value, click Instrument: Instrument starts at its own first
+  // direction, never inheriting Value's.
+  assert.deepEqual(cycleSort({ key: 'value', dir: 'asc' }, 'instrument', false), { key: 'instrument', dir: 'asc' });
+  assert.deepEqual(cycleSort({ key: 'instrument', dir: 'desc' }, 'value', true), { key: 'value', dir: 'desc' });
 });

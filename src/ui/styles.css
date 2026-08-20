@@ -2315,6 +2315,56 @@ td.act {
 #holdings td {
   padding: 9px 9px;
 }
+
+/* US-87. Every header except the action column is a real button: click sorts,
+   drag reorders. The button is invisible chrome — it inherits the header's
+   type entirely — and the arrow only exists on the sorted column, coloured so
+   the eye finds the active sort without reading every header. */
+#holdings thead th .col-head {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 4px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  text-align: inherit;
+  cursor: pointer;
+  touch-action: none; /* the header is a drag surface; the wrap scrolls, not this */
+}
+#holdings thead th.num .col-head {
+  justify-content: flex-end;
+}
+#holdings thead th .arrow {
+  font-size: 0.55rem;
+  line-height: 1.4;
+  visibility: hidden;
+}
+#holdings thead th[aria-sort] .arrow {
+  visibility: visible;
+  color: var(--accent);
+}
+@media (hover: hover) and (pointer: fine) {
+  #holdings thead th .col-head:hover {
+    color: var(--text-primary);
+  }
+}
+/* The drag itself: the lifted column dims, the drop edge is a 2px accent line
+   on the side of the header it will land against. Re-sorting and re-ordering
+   are instant — no transition on any of this (US-49's floor). */
+#holdings thead th.dragging {
+  opacity: 0.35;
+}
+#holdings thead th.drop-before {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+#holdings thead th.drop-after {
+  box-shadow: inset -2px 0 0 var(--accent);
+}
 #holdings td.split {
   min-width: 7.5rem;
 }
