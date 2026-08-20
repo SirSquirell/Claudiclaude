@@ -327,7 +327,10 @@ test('US-79 — the action states what it does, and the verdict is dated rather 
   // AC8: three sentences, through `t()`, on a control reachable by hover *and*
   // focus — which is what the second delegated root is for.
   assert.match(app, /btn-disconnect-tip'\)\.dataset\.tip/);
-  assert.match(app, /for \(const root of \[\$\('#tiles'\), \$\('#more-menu'\)\]/);
+  // The delegated root list grew with US-93 (the Positions header and its
+  // chooser joined), so this pins the intent rather than the old two-entry
+  // literal: the More menu is one of the decided roots.
+  assert.match(app, /\{ el: \$\('#more-menu'\), tap: true \}/);
   const tipBlock = app.slice(app.indexOf("btn-disconnect-tip').dataset.tip"), app.indexOf("btn-disconnect-tip').setAttribute"));
   assert.equal((tipBlock.match(/tr\(/g) ?? []).length, 3, 'three sentences, each translated');
 

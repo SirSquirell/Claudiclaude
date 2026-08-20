@@ -183,6 +183,14 @@ const MAX_COMPARE_CELLS = 4;
 
 const $ = (sel) => document.querySelector(sel);
 
+/** Hide the shared tooltip from outside `wireTips` — the header drag needs to
+ *  (US-93). Assigned inside `wireTips`; a no-op until then. Declared up here,
+ *  above the `init()` call, because `wireTips` runs during boot — declared
+ *  beside it, the assignment threw in the temporal dead zone and took the page
+ *  down. Third TDZ defect in this file; the `fx-stale` comment records the
+ *  first two. */
+let hideTip = () => {};
+
 // ---------------------------------------------------------------------------
 // boot
 // ---------------------------------------------------------------------------
@@ -3301,8 +3309,13 @@ function wireTips() {
   const hide = () => {
     tip.hidden = true;
   };
+  // US-93: the drag path (US-87) hides the tip the moment a header drag starts
+  // and keeps it away until the drop — a tooltip riding a dragged column is
+  // noise. The header code calls this; it is the only outside caller.
+  hideTip = hide;
 
   const show = (btn) => {
+    if (holdingsDragMoved) return; // mid-drag; the tip stays away until the drop
     tip.textContent = btn.dataset.tip;
     tip.hidden = false;
 
@@ -3323,29 +3336,48 @@ function wireTips() {
    * Delegated per root: the tiles are rebuilt on every render, so per-button
    * listeners would have to be re-attached each time and the old ones leak.
    *
-   * Two roots since US-79 — the tiles and the More menu — and two rather than one
-   * on `document` deliberately: this is a list of the places that carry an "i",
-   * which is a decision, where a document-wide listener would silently adopt any
-   * `.info` anybody adds anywhere (rule 8's "no abstraction with one
-   * implementation" cuts both ways).
+   * A decided list of roots, deliberately not one listener on `document`: this
+   * is the list of the places that carry an explanation, which is a decision,
+   * where a document-wide listener would silently adopt any `[data-tip]`
+   * anybody adds anywhere (rule 8's "no abstraction with one implementation"
+   * cuts both ways). Four since US-93: the tiles and the More menu (US-79),
+   * the Positions header and its column chooser.
+   *
+   * `tap` is per root, and the header's is off on purpose: a tap on a column
+   * head is already taken — it sorts, and the render that follows would leave
+   * the tip orphaned over a rebuilt header. Touch reaches the header texts
+   * through the chooser instead (US-67: nothing is hover-only).
    */
-  for (const root of [$('#tiles'), $('#more-menu')].filter(Boolean)) {
+  const roots = [
+    { el: $('#tiles'), tap: true },
+    { el: $('#more-menu'), tap: true },
+    { el: $('#holdings thead'), tap: false },
+    { el: $('#holdings-columns'), tap: true },
+  ];
+  for (const { el: root, tap } of roots.filter((r) => r.el)) {
     root.addEventListener('pointerover', (e) => {
-      const btn = e.target.closest?.('.info');
+      const btn = e.target.closest?.('[data-tip]');
       if (btn) show(btn);
     });
     root.addEventListener('pointerout', (e) => {
-      if (e.target.closest?.('.info')) hide();
+      if (e.target.closest?.('[data-tip]')) hide();
     });
     root.addEventListener('focusin', (e) => {
-      if (e.target.classList?.contains('info')) show(e.target);
-    });
-    root.addEventListener('focusout', hide);
-    // A tap on a touchscreen is a click, not a hover.
-    root.addEventListener('click', (e) => {
-      const btn = e.target.closest?.('.info');
+      const btn = e.target.closest?.('[data-tip]');
       if (btn) show(btn);
     });
+    root.addEventListener('focusout', hide);
+    // A tap on a touchscreen is a click, not a hover. Capture phase, because
+    // the column chooser's popup stops click propagation to survive the
+    // document-level click-away closer — which would silently eat the tap
+    // that US-93 routes through it. Capture runs before any bubble handler
+    // can stop anything, and the popup's own guard keeps working.
+    if (tap) {
+      root.addEventListener('click', (e) => {
+        const btn = e.target.closest?.('[data-tip]');
+        if (btn) show(btn);
+      }, { capture: true });
+    }
   }
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') hide();
@@ -4764,8 +4796,11 @@ function renderHoldings(r, composition, compColours, t, from, to) {
     const sorted = sortState?.key === c.key;
     const aria = sorted ? ` aria-sort="${sortState.dir === 'asc' ? 'ascending' : 'descending'}"` : '';
     if (c.action) return `<th data-col="${c.key}" class="${tdClass(c)}"><span class="sr-only">${esc(tr('Copy image'))}</span></th>`;
+    // US-93: the header explains itself. `data-tip` rides the existing button —
+    // hover and keyboard focus show it via the shared element; a tap stays a
+    // sort, so touch reaches the same text through the column chooser instead.
     return `<th data-col="${c.key}" class="${tdClass(c)}"${aria}>`
-      + `<button type="button" class="col-head" data-sort-col="${c.key}">${esc(tr(c.label))}`
+      + `<button type="button" class="col-head" data-sort-col="${c.key}"${c.tip ? ` data-tip="${esc(tr(c.tip))}"` : ''}>${esc(tr(c.label))}`
       + `<span class="arrow">${sorted && sortState.dir === 'asc' ? '▲' : '▼'}</span></button></th>`;
   }).join('')}</tr>`;
 
@@ -4893,6 +4928,9 @@ function ensureHoldingsHeader() {
     // `split` sorts on its paid-in-vs-grown ratio, so it cycles like a number
     // despite not being a right-aligned numeric cell.
     setHoldingsSort(cycleSort(readHoldingsSort(), col.key, !!col.num || col.key === 'split'));
+    // US-93: the render below rebuilds the header, which would leave the tip
+    // floating over a button that no longer exists.
+    hideTip();
     render();
   });
 
@@ -4908,6 +4946,7 @@ function ensureHoldingsHeader() {
     if (!holdingsDrag) return;
     if (!holdingsDragMoved && Math.abs(e.clientX - holdingsDrag.x) < 5) return; // a click stays a click
     holdingsDragMoved = true;
+    hideTip(); // US-93: no tooltip rides a dragged column; `show` stays off until the drop
     holdingsDrag.th.classList.add('dragging');
     document.body.style.cursor = 'grabbing';
     table.querySelectorAll('thead th').forEach((el) => el.classList.remove('drop-before', 'drop-after'));
@@ -5020,16 +5059,22 @@ function ensureHoldingsObserver() {
 }
 
 /**
- * The chooser — the escape hatch (US-61). Load-bearing columns are not offered;
- * everything else can be turned off, persisted like the theme. Toggling re-fits
- * rather than re-rendering, so the panel stays open while you tick through it.
+ * The chooser — the escape hatch (US-61). Load-bearing columns are still not
+ * offered to hide — theirs are rendered checked and disabled, which reads as
+ * what it is: always on. They are listed at all because of US-93: the chooser
+ * is the touch path to every column's explanation (a tap on the header itself
+ * is taken — it sorts), and a path that skipped the four most-read columns
+ * would leave exactly their texts hover-only (US-67). Toggling re-fits rather
+ * than re-rendering, so the panel stays open while you tick through it.
  */
 function buildColumnChooser() {
   const host = $('#holdings-columns');
   if (!host) return;
   const hidden = userHiddenCols();
-  const items = optionalColumns()
-    .map((c) => `<label><input type="checkbox" data-col="${c.key}"${hidden.has(c.key) ? '' : ' checked'}> ${esc(tr(c.label))}</label>`)
+  const items = HOLDINGS_COLUMNS.filter((c) => !c.action)
+    .map((c) => (c.lock
+      ? `<label${c.tip ? ` data-tip="${esc(tr(c.tip))}"` : ''}><input type="checkbox" checked disabled> ${esc(tr(c.label))}</label>`
+      : `<label${c.tip ? ` data-tip="${esc(tr(c.tip))}"` : ''}><input type="checkbox" data-col="${c.key}"${hidden.has(c.key) ? '' : ' checked'}> ${esc(tr(c.label))}</label>`))
     .join('');
   host.innerHTML = `<button type="button" class="cols-btn" id="cols-btn" aria-expanded="false" aria-haspopup="true">${esc(tr('Columns'))}</button>`
     + `<div class="cols-pop" id="cols-pop" hidden role="group" aria-label="${esc(tr('Columns'))}">${items}</div>`;

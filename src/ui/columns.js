@@ -18,11 +18,23 @@
  *            there; kept as data rather than a special case in the renderer.
  * `num`    — right-aligned numeric cell.
  * `action` — the snapshot button; a column with no header label.
+ * `tip`    — US-93: the header explains itself. One sentence set per column,
+ *            here and nowhere else, so the header, the chooser and anything
+ *            else that shows it cannot desynchronise. Every text about a
+ *            number names its denominator and its window (all time or the
+ *            selected range) — that distinction is the question that caused
+ *            the story. Only the action column has none: a button is not an
+ *            assertion. Each claim is verified against the engine, and two of
+ *            them are the measured pitfalls: Result excludes dividend, and
+ *            Dividend is net of withheld tax.
  */
 export const HOLDINGS_COLUMNS = Object.freeze([
-  { key: 'instrument', label: 'Instrument', lock: true },
-  { key: 'quantity', label: 'Quantity', openOnly: true, num: true, pri: 85 },
-  { key: 'price', label: 'Price', openOnly: true, num: true, pri: 90 },
+  { key: 'instrument', label: 'Instrument', lock: true,
+    tip: 'Name and symbol, with the colour this position keeps in every chart. The arrow opens the columns hidden at this width.' },
+  { key: 'quantity', label: 'Quantity', openOnly: true, num: true, pri: 85,
+    tip: 'Units held today. Options and other contracts count contracts, not the shares they cover.' },
+  { key: 'price', label: 'Price', openOnly: true, num: true, pri: 90,
+    tip: 'What one unit is worth today: the position’s value divided by the units held, in euros.' },
   /**
    * US-86: restored. The 0.42 "Profit and loss per product" table carried
    * Bought and Sold per product; US-49's merge said they "move behind the
@@ -32,16 +44,26 @@ export const HOLDINGS_COLUMNS = Object.freeze([
    * (US-49's span rule), and the highest drop priorities in the table: they
    * fold into the disclosure first when width is short.
    */
-  { key: 'bought', label: 'Bought (all time)', num: true, pri: 96 },
-  { key: 'sold', label: 'Sold (all time)', num: true, pri: 94 },
-  { key: 'avgPaid', label: 'Average paid', num: true, pri: 70 },
-  { key: 'value', label: 'Value', lock: true, num: true },
-  { key: 'split', label: 'Paid in vs grown', lock: true },
-  { key: 'result', label: 'Result', lock: true, num: true },
-  { key: 'dividend', label: 'Dividend (all time)', num: true, pri: 50 },
-  { key: 'pctBought', label: '% of bought', num: true, pri: 55 },
-  { key: 'share', label: 'Share', openOnly: true, num: true, pri: 75 },
-  { key: 'currency', label: 'Currency', pri: 80 },
+  { key: 'bought', label: 'Bought (all time)', num: true, pri: 96,
+    tip: 'Every euro that ever went into buying this position, fees included — all time, whatever range is selected.' },
+  { key: 'sold', label: 'Sold (all time)', num: true, pri: 94,
+    tip: 'Every euro selling ever returned, after fees — all time, whatever range is selected.' },
+  { key: 'avgPaid', label: 'Average paid', num: true, pri: 70,
+    tip: 'Bought (all time) divided by the units bought. Not the running cost of what remains after sales — this project deliberately picks no cost-basis convention.' },
+  { key: 'value', label: 'Value', lock: true, num: true,
+    tip: 'What the position is worth today — units held times the last known price, in euros. It does not follow the selected range.' },
+  { key: 'split', label: 'Paid in vs grown', lock: true,
+    tip: 'Splits what the position is worth today into the part that is money you put in and the part it made. Its “paid in” is net: every sale takes money back out. A different question from “% of bought”, whose denominator is gross and follows the selected range.' },
+  { key: 'result', label: 'Result', lock: true, num: true,
+    tip: 'Price result over the selected range: how the value moved, minus what you put in or took out. Dividend is not in here — it has its own column, and reaches the account result through the cash row.' },
+  { key: 'dividend', label: 'Dividend (all time)', num: true, pri: 50,
+    tip: 'Dividend that actually landed from this instrument, net — gross minus the tax withheld at source. All time, whatever range is selected.' },
+  { key: 'pctBought', label: '% of bought', num: true, pri: 55,
+    tip: 'The Result over the selected range, divided by every euro that went in during that same range — gross, so sales do not shrink the denominator. A different question from “Paid in vs grown”, which splits today’s value and whose “paid in” is net.' },
+  { key: 'share', label: 'Share', openOnly: true, num: true, pri: 75,
+    tip: 'This position’s value as a share of today’s whole account — positions plus cash.' },
+  { key: 'currency', label: 'Currency', pri: 80,
+    tip: 'The currency the instrument trades in; foreign values are converted at rates learned from your own conversions and trades. “est.” marks an instrument with no price history, held at the last price it traded at.' },
   { key: 'snap', label: '', lock: true, action: true },
 ].map(Object.freeze));
 

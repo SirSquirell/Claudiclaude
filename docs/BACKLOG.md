@@ -6146,7 +6146,7 @@ respecteert `prefers-reduced-motion` (geen inschuif-animatie, wel dezelfde inhou
 
 ---
 
-## US-93 — De kolomkop legt zichzelf uit *(new, refined)*
+## US-93 — De kolomkop legt zichzelf uit *(built, 0.60.0)*
 
 > *"Zou wel lekker zijn als we een soort hover effect hebben op de kolom namen met toelichting?"*
 > — de eigenaar, 2026-08-20, direct nadat hij moest vragen waarom "% of bought" (+18,98 %) een

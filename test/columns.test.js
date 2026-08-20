@@ -124,3 +124,62 @@ test('US-87 — clicking a different column starts its cycle fresh', () => {
   assert.deepEqual(cycleSort({ key: 'value', dir: 'asc' }, 'instrument', false), { key: 'instrument', dir: 'asc' });
   assert.deepEqual(cycleSort({ key: 'instrument', dir: 'desc' }, 'value', true), { key: 'value', dir: 'desc' });
 });
+
+// ---------------------------------------------------------------------------
+// US-93 — the header explains itself
+// ---------------------------------------------------------------------------
+
+test('US-93 — every column except the action carries an explanation', () => {
+  // A column without a text is conspicuous by design (the TILE_TIPS argument):
+  // a number on a dashboard is an assertion, and a header is the name of one.
+  for (const c of HOLDINGS_COLUMNS) {
+    if (c.action) {
+      assert.ok(!c.tip, 'the action column is a button, not an assertion');
+    } else {
+      assert.ok(typeof c.tip === 'string' && c.tip.length > 0, `${c.key} needs a tip`);
+    }
+  }
+});
+
+test('US-93 — every text about a number names its window', () => {
+  /**
+   * The question that caused the story was two percentages on one row with
+   * different windows and different denominators, explained nowhere. So the
+   * texts must carry the window: an all-time column says "all time", a
+   * window-following one says "selected range". Value and the flow columns are
+   * "today"/"all time"; Result and % of bought follow the range.
+   */
+  const allTime = ['bought', 'sold', 'dividend'];
+  const windowed = ['result', 'pctBought'];
+  for (const key of allTime) {
+    const c = HOLDINGS_COLUMNS.find((x) => x.key === key);
+    assert.match(c.tip, /all time/i, `${key} must say it is all time`);
+  }
+  for (const key of windowed) {
+    const c = HOLDINGS_COLUMNS.find((x) => x.key === key);
+    assert.match(c.tip, /selected range/i, `${key} must say it follows the range`);
+  }
+});
+
+test('US-93 — the two measured pitfalls are stated, not repeated', () => {
+  // Result excludes dividend (engine.js: per-product pnl is value movement
+  // minus own trades) and Dividend is net of withheld tax (gross plus the
+  // negative tax rows). A tip claiming otherwise is worse than none.
+  const result = HOLDINGS_COLUMNS.find((c) => c.key === 'result');
+  assert.match(result.tip, /dividend is not in here/i);
+  const dividend = HOLDINGS_COLUMNS.find((c) => c.key === 'dividend');
+  assert.match(dividend.tip, /net/i);
+  assert.match(dividend.tip, /withheld/i);
+});
+
+test('US-93 — every tip has a Dutch translation', async () => {
+  // The tips reach tr() as data (`tr(c.tip)`), which the literal-scan test in
+  // config.test.js cannot see — so their coverage is asserted here explicitly.
+  const i18n = await import('../src/ui/i18n.js');
+  const dict = i18n.__dictForTest?.().nl;
+  if (!dict) return;
+  for (const c of HOLDINGS_COLUMNS) {
+    if (!c.tip) continue;
+    assert.ok(dict[c.tip], `${c.key}'s tip has no Dutch entry`);
+  }
+});

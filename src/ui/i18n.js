@@ -369,6 +369,34 @@ const DICT = {
     'Fees, withheld dividend tax and interest paid, added together — what holding this account has cost you. Each is easy to ignore alone, which is the argument for the sum.':
       'Kosten, ingehouden dividendbelasting en betaalde rente bij elkaar — wat het aanhouden van deze rekening je heeft gekost. Elk is los makkelijk te negeren, en dat is juist het argument voor de som.',
 
+    // --- the column-header explanations (US-93), same discipline one table on ---
+    'Name and symbol, with the colour this position keeps in every chart. The arrow opens the columns hidden at this width.':
+      'Naam en symbool, met de kleur die deze positie in elke grafiek houdt. Het pijltje opent de kolommen die op deze breedte verborgen zijn.',
+    'Units held today. Options and other contracts count contracts, not the shares they cover.':
+      'Aantal stuks vandaag. Opties en andere contracten tellen contracten, niet de aandelen die ze dekken.',
+    'What one unit is worth today: the position’s value divided by the units held, in euros.':
+      'Wat één stuk vandaag waard is: de waarde van de positie gedeeld door het aantal stuks, in euro’s.',
+    'Every euro that ever went into buying this position, fees included — all time, whatever range is selected.':
+      'Elke euro die ooit in het kopen van deze positie ging, inclusief kosten — over de hele historie, welke periode je ook kiest.',
+    'Every euro selling ever returned, after fees — all time, whatever range is selected.':
+      'Elke euro die verkopen ooit opleverde, na kosten — over de hele historie, welke periode je ook kiest.',
+    'Bought (all time) divided by the units bought. Not the running cost of what remains after sales — this project deliberately picks no cost-basis convention.':
+      'Gekocht (all time) gedeeld door het aantal gekochte stuks. Niet de lopende kostprijs van wat er na verkopen over is — dit project kiest bewust geen kostprijsconventie.',
+    'What the position is worth today — units held times the last known price, in euros. It does not follow the selected range.':
+      'Wat de positie vandaag waard is — aantal stuks maal de laatst bekende koers, in euro’s. Dit volgt de gekozen periode niet.',
+    'Splits what the position is worth today into the part that is money you put in and the part it made. Its “paid in” is net: every sale takes money back out. A different question from “% of bought”, whose denominator is gross and follows the selected range.':
+      'Verdeelt wat de positie vandaag waard is in het deel dat jouw inleg is en het deel dat hij verdiende. De “inleg” is hier netto: elke verkoop haalt er geld uit. Een andere vraag dan “% of bought”, waarvan de noemer bruto is en de gekozen periode volgt.',
+    'Price result over the selected range: how the value moved, minus what you put in or took out. Dividend is not in here — it has its own column, and reaches the account result through the cash row.':
+      'Koersresultaat over de gekozen periode: hoe de waarde bewoog, min wat je erin stopte of eruit haalde. Dividend zit hier niet in — dat heeft zijn eigen kolom en telt via de cash-regel mee in het rekeningresultaat.',
+    'Dividend that actually landed from this instrument, net — gross minus the tax withheld at source. All time, whatever range is selected.':
+      'Dividend dat daadwerkelijk binnenkwam uit dit instrument, netto — bruto min de ingehouden bronbelasting. Over de hele historie, welke periode je ook kiest.',
+    'The Result over the selected range, divided by every euro that went in during that same range — gross, so sales do not shrink the denominator. A different question from “Paid in vs grown”, which splits today’s value and whose “paid in” is net.':
+      'Het Resultaat over de gekozen periode, gedeeld door elke euro die er in diezelfde periode in ging — bruto, dus verkopen verkleinen de noemer niet. Een andere vraag dan “Paid in vs grown”, dat de waarde van vandaag verdeelt en waarvan de “inleg” netto is.',
+    'This position’s value as a share of today’s whole account — positions plus cash.':
+      'De waarde van deze positie als aandeel van de hele rekening vandaag — posities plus cash.',
+    'The currency the instrument trades in; foreign values are converted at rates learned from your own conversions and trades. “est.” marks an instrument with no price history, held at the last price it traded at.':
+      'De valuta waarin het instrument handelt; vreemde valuta worden omgerekend tegen koersen geleerd uit je eigen wissels en transacties. “est.” markeert een instrument zonder koershistorie, dat blijft staan op de laatst betaalde koers.',
+
     // --- annualised return ---------------------------------------------------
     'Annualised return': 'Rendement per jaar',
     'My money': 'Mijn geld',
