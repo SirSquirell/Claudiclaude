@@ -16,6 +16,46 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.60.0] — 2026-08-20
+
+Three stories from the 2026-08-20 tester round, all display: the Positions table explains its own
+columns, closed positions get their own bar, and every modal closes where a reader looks first.
+**No resync needed** — nothing about what is stored or fetched changed.
+
+### Added
+
+- **Every Positions column explains itself** (US-93). Hover or focus a header and the shared
+  tooltip states what the number is, its denominator and its window — the question that caused the
+  story was "% of bought" and "paid in vs grown" printing two different percentages on one row with
+  the answer living in code comments. A tap on a header still sorts, so touch reaches the same
+  texts through the column chooser, which now lists the load-bearing columns too (checked,
+  disabled — they cannot be hidden, but their explanations must not be hover-only). The texts are
+  declared once beside the column list, verified against the engine — Result is price-only,
+  Dividend is net of withheld tax — and complete in both languages, with tests pinning all of it.
+
+- **Closed positions answer "what came out against what went in"** (US-94). The *Paid in vs grown*
+  cell of a closed row was a dash by decision — a closed position has no value to split, and
+  US-82 records the wrong bar that dash prevents. It now carries the flow variant the owner chose:
+  bought (€) against sold plus net dividend, whole-life, as a bar plus the sentence "got back
+  {pct}% of what went in". One pure model (`flowModel`) drives the row and the share card; its bar
+  geometry reuses `splitModel`'s tested arithmetic. Open positions are untouched to the digit, the
+  stock bar stays provably away from closed cards, and a position nothing was ever paid into (an
+  expired written option) keeps its dash — a ratio over zero is not a percentage.
+
+- **The share sheet and the diagnostics dialog close with a ✕ top-right** (US-95, variant A — the
+  owner's pick). The action rows keep only verbs: *Copy image* and *Download* on the sheet, *Copy
+  report* on the dialog; *Close* and *Hide* are gone (`docs/RETIRED.md` records the frozen id).
+  The ✕ goes through the same close path as Escape and the backdrop — same animation, reduced
+  motion included — sits last in the DOM so opening never focuses "leave", and carries a
+  translated accessible name through a new `data-i18n-aria` pass plus the Escape hint in its
+  `title`.
+
+### Fixed
+
+- **US-11b's heading said "new" over a delivery note from 0.14.0.** Bookkeeping only: the
+  transport half of the bug-report story shipped as the clipboard export and its entry has said so
+  since, while the heading kept advertising open work. The heading now agrees with its own foot.
+
 ## [0.59.0] — 2026-08-20
 
 A euro option's contract size is not an exchange rate. **No resync needed** — the raw data was

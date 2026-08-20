@@ -1,36 +1,52 @@
-# Wat er nieuw is — 0.59.0
+# Wat er nieuw is — 0.60.0
 
 Wat er verandert ten opzichte van de vorige versie, in gewone taal. Alleen deze release: de
 volledige geschiedenis staat in [CHANGELOG.md](CHANGELOG.md), installeren doe je met
 [INSTALL.md](INSTALL.md).
 
-> **Hoef je te resyncen voor deze versie? Nee.** De opgeslagen gegevens waren altijd al goed; de
-> pagina rekent bij het openen opnieuw en de correctie staat er dan meteen. Kom je van een versie
-> vóór 0.51.0, dan geldt de correctie uit die release nog wél: één keer **Wipe & resync**. Zie
-> [CHANGELOG.md](CHANGELOG.md) onder 0.51.0. Kom je van vóór 0.54.0, dan is één gewone "Sync now"
-> nodig voor de Today-tegel.
+> **Hoef je te resyncen voor deze versie? Nee** — alleen weergave; er verandert niets aan wat er
+> wordt opgeslagen of opgehaald. Kom je van 0.58.0 of eerder en handel je in opties, dan zit de
+> grote totaalcorrectie in 0.59.0 — ook zonder resync, gewoon de pagina openen. Kom je van vóór
+> 0.51.0, dan geldt die correctie nog wél: één keer **Wipe & resync**. Zie
+> [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
-## Handel je in opties? Dan klopte je totaal niet — nu wel
+## De kolomkoppen van de Posities-tabel leggen zichzelf uit
 
-Een optiecontract gaat over 100 aandelen (soms 10, soms een ander aantal). Bij een optie die in
-euro's noteert wisselt er dus per contract 100× de premie van eigenaar, en precies die factor werd
-door de extensie op twee plekken tegelijk toegepast: één keer als contractgrootte — terecht — en
-één keer als "wisselkoers", omdat dezelfde verhouding tussen gehandeld en afgerekend bedrag er
-voor de koersencontrole uitzag als een vreemde valuta.
+Waarom is "% of bought" +18,98 % terwijl dezelfde rij bij "paid in vs grown" 28 % gegroeid zegt?
+Dat was een echte vraag, en het antwoord stond nergens op het scherm. Nu wel: ga met de muis op
+een kolomkop staan (of geef hem toetsenbordfocus) en er verschijnt een toelichting die zegt wat
+het getal is, waardoor het gedeeld wordt en over welke periode het gaat — hele historie of de
+gekozen periode, want dát verschil was de verwarring.
 
-Het gevolg, op het eerste account met veel euro-opties waarop dit zichtbaar werd: geschreven puts
-telden 10× tot 100× te zwaar mee (en die staan negatief), het totaal lag ruim **€ 170.000 onder**
-wat DEGIRO zelf rapporteerde, de grafiek dook diep in de min, en er stond een rode melding over
-honderden "verkeerd afgerekende" transacties waar geen valuta aan te pas kwam.
+Klikken sorteert nog steeds en slepen herordent nog steeds. Op een touchscreen is tikken al bezet
+(dat sorteert), dus daar vind je dezelfde teksten in de **Kolommen**-kiezer — die toont nu ook de
+vier vaste kolommen, aangevinkt en niet uitzetbaar, zodat juist hún uitleg niet alleen voor
+muisgebruikers is.
 
-Vanaf deze versie wordt de contractgrootte eerst uit de verhouding weggedeeld; alleen wat er dán
-nog overblijft kan een wisselkoers zijn. Op dat account viel het verschil met DEGIRO daarmee terug
-van −€ 171.601,63 naar −€ 239,83 — het restant is koersruis (een verouderde SEK-koers en opties
-waarvoor DEGIRO geen koershistorie levert), en het totaalresultaat komt nu vrijwel exact uit op
-DEGIRO's eigen "Totaal W/V". De onterechte rode melding is weg; de controle blijft gewoon werken
-voor instrumenten die écht in de verkeerde valuta geboekt staan.
+Twee dingen die de teksten rechtzetten omdat ze makkelijk verkeerd te raden zijn: **Result is
+alleen koersresultaat** (dividend heeft zijn eigen kolom en telt via de cash-regel mee in het
+rekeningresultaat), en **Dividend is netto** — bruto min de ingehouden bronbelasting.
 
-**Wat moet je doen?** Niets — de pagina openen is genoeg. Zie je daarna nog steeds een verschil
-met DEGIRO in het rood, dan is dat een echt verschil: stuur het bugrapport in.
+## Gesloten posities: wat kwam eruit tegenover wat erin ging
+
+De kolom *Paid in vs grown* was bij gesloten posities altijd een streepje — terecht, want een
+gesloten positie is niets meer waard, dus er valt niets te verdelen. Maar de zinvolle vraag is bij
+een gesloten positie een andere, en die wordt nu beantwoord: **kreeg je meer terug dan je erin
+stopte?** Elke gesloten rij toont een balk met de zin *"kreeg 92 % terug van wat erin ging"* (of
+161 %) — gekocht tegenover verkocht plus dividend, over de hele looptijd van de positie.
+
+De deelkaart van zo'n positie tekent dezelfde balk uit hetzelfde model, dus rij en kaart kunnen
+elkaar niet tegenspreken. Open posities zijn tot op het cijfer onveranderd, en een positie waar
+nooit geld in ging — een uitgeschreven optie die waardeloos afliep — houdt het streepje: een
+percentage van nul is geen percentage.
+
+## Sluiten zit nu rechtsboven
+
+*"why is the close not on the right top"* — terechte vraag. Het deelvenster en de verbindingscheck
+sluiten nu met een **✕ rechtsboven**, zoals de strip en de toast op de DEGIRO-pagina dat al deden.
+De knoppenrij onderin houdt alleen nog acties over: *Kopieer afbeelding* en *Downloaden* in het
+deelvenster, *Kopieer rapport* in de check. Escape en klikken naast het venster werken zoals
+altijd — de ✕ is dezelfde uitgang op de plek waar je hem zoekt, ook met het toetsenbord, in beide
+talen.
