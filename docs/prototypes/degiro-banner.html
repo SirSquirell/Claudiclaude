@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Asteria op de brokerpagina — banner-POC</title>
+<style>
+  /* POC only. De "brokerpagina" hieronder is nadrukkelijk nep — generiek grijs,
+     verzonnen cijfers, geen echt merk — want de vraag is niet hoe DEGIRO eruitziet
+     maar hoe weinig onze banner ervan af mag snoepen. Kies A, B of C. */
+  :root {
+    --bg: #f2f3f5; --panel: #ffffff; --line: #d9dde3; --ink: #24292f; --ink2: #6a737d;
+    --broker: #2b5c8a;
+    /* Asteria's eigen twee waarden, geleend uit styles.css zodat de banner er
+       als óns ding uitziet, niet als iets van de broker. */
+    --ast: #b8532f; --ast-ink: #ffffff; --card: #1d2129; --card-ink: #e8edf3; --card-muted: #9aa4b1;
+    --ok: #3f9d63; --warn: #c98a2b; --err: #c04545;
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: var(--bg); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+
+  /* ------------------------------------------------ de POC-regelaars boven -- */
+  .controls {
+    position: sticky; top: 0; z-index: 100; background: #fff; border-bottom: 1px solid var(--line);
+    padding: 12px 20px; display: flex; gap: 18px; flex-wrap: wrap; align-items: flex-start;
+  }
+  .controls h1 { font-size: 15px; margin: 0 0 2px; flex-basis: 100%; }
+  .controls .sub { color: var(--ink2); font-size: 12px; flex-basis: 100%; margin-bottom: 4px; }
+  .cgroup { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .cgroup b { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--ink2); margin-right: 2px; }
+  .cbtn {
+    background: #fff; border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px;
+    font-size: 12px; cursor: pointer; color: var(--ink);
+  }
+  .cbtn[aria-pressed="true"] { border-color: var(--ast); color: var(--ast); font-weight: 600; }
+
+  /* ------------------------------------------------- nep-brokerpagina ------ */
+  .broker-top { background: var(--broker); color: #fff; padding: 10px 20px; display: flex; gap: 16px; align-items: center; }
+  .broker-top .logo { font-weight: 700; letter-spacing: .02em; }
+  .broker-top nav { display: flex; gap: 14px; font-size: 13px; opacity: .85; }
+  .broker-main { max-width: 1080px; margin: 18px auto; padding: 0 20px; display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
+  .bpanel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; }
+  .bpanel h2 { font-size: 13px; margin: 0 0 10px; color: var(--ink2); font-weight: 600; }
+  table.fake { border-collapse: collapse; width: 100%; font-size: 13px; }
+  table.fake th { text-align: left; color: var(--ink2); font-weight: 600; font-size: 11px; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  table.fake td { padding: 7px 8px; border-bottom: 1px solid #eceef1; }
+  table.fake td.num, table.fake th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .fakebtn { background: var(--broker); border: 0; color: #fff; border-radius: 4px; padding: 6px 14px; font-size: 12px; cursor: pointer; }
+  .muted { color: var(--ink2); }
+  .filler { height: 60vh; }
+
+  /* =====================================================================
+     De banner zelf. In het echt: één shadow-DOM-host, injecteert niets
+     anders, leest niets van de pagina; alle data komt uit het status-
+     bericht aan de service worker. Hier gewoon DOM, zelfde vormen.
+     ===================================================================== */
+
+  /* Gedeeld: het kaartje dat A (uitgeklapt) en B (toast) allebei tonen. */
+  .ast-card {
+    position: fixed; right: 18px; bottom: 18px; z-index: 50;
+    background: var(--card); color: var(--card-ink); border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.28); padding: 13px 15px; width: 300px;
+    font-size: 13px; line-height: 1.4;
+  }
+  .ast-card .row1 { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
+  .ast-card .mark { width: 18px; height: 18px; flex: none; }
+  .ast-card b.name { font-size: 13px; letter-spacing: .01em; }
+  .ast-card .close {
+    margin-left: auto; background: none; border: 0; color: var(--card-muted); cursor: pointer;
+    font-size: 15px; line-height: 1; padding: 2px 4px; border-radius: 5px;
+  }
+  .ast-card .close:hover { color: var(--card-ink); background: rgba(255,255,255,.08); }
+  .ast-card .status { color: var(--card-muted); font-size: 12px; margin-bottom: 10px; display: flex; gap: 6px; align-items: center; }
+  .ast-card .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+  .dot.ok { background: var(--ok); } .dot.warn { background: var(--warn); } .dot.err { background: var(--err); }
+  .ast-card .acts { display: flex; gap: 8px; }
+  .ast-card .primary {
+    background: var(--ast); color: var(--ast-ink); border: 0; border-radius: 8px;
+    padding: 7px 12px; font-size: 12.5px; font-weight: 600; cursor: pointer;
+  }
+  .ast-card .secondary {
+    background: none; color: var(--card-ink); border: 1px solid rgba(255,255,255,.22); border-radius: 8px;
+    padding: 7px 12px; font-size: 12.5px; cursor: pointer;
+  }
+  .ast-card .secondary[disabled] { opacity: .55; cursor: default; }
+  .ast-card .foot { color: var(--card-muted); font-size: 10.5px; margin-top: 9px; }
+
+  /* A — de chip: altijd aanwezig, ingeklapt tot merkteken + statusstip. */
+  #chip {
+    position: fixed; right: 18px; bottom: 18px; z-index: 50;
+    display: flex; align-items: center; gap: 7px;
+    background: var(--card); color: var(--card-ink); border: 0; border-radius: 999px;
+    padding: 8px 12px 8px 9px; cursor: pointer; box-shadow: 0 6px 18px rgba(0,0,0,.22);
+    font: inherit; font-size: 12px;
+  }
+  #chip .mark { width: 16px; height: 16px; }
+  #chip .dot { width: 7px; height: 7px; border-radius: 50%; }
+  #chip:hover { box-shadow: 0 8px 22px rgba(0,0,0,.3); }
+
+  /* B — de toast: zelfde kaart, schuift binnen na laden. */
+  .slide-in { animation: slidein 260ms var(--ease-out); }
+  @keyframes slidein { from { transform: translateY(12px); opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .slide-in { animation: none; } }
+
+  [hidden] { display: none !important; }
+
+  .note { max-width: 1080px; margin: 10px auto 40px; padding: 14px 16px; border: 1px dashed var(--line);
+    border-radius: 10px; color: var(--ink2); font-size: 12.5px; background: #fff; }
+  .note b { color: var(--ink); }
+</style>
+</head>
+<body>
+
+<div class="controls">
+  <h1>Asteria op de brokerpagina — drie karakters voor één banner</h1>
+  <div class="sub">De grijze pagina hieronder is een nep-broker met verzonnen cijfers. De banner rechtsonder is het voorstel.
+  Wissel variant en toestand; klik ook op de banner zelf (uitklappen, sync, sluiten — alles doet het).</div>
+  <div class="cgroup" role="group" aria-label="Variant">
+    <b>Variant</b>
+    <button class="cbtn" data-v="A" aria-pressed="true">A · Chip, altijd aanwezig</button>
+    <button class="cbtn" data-v="B" aria-pressed="false">B · Toast bij elk bezoek</button>
+    <button class="cbtn" data-v="C" aria-pressed="false">C · Stil tot er iets is</button>
+  </div>
+  <div class="cgroup" role="group" aria-label="Toestand">
+    <b>Toestand</b>
+    <button class="cbtn" data-s="fresh" aria-pressed="true">bijgewerkt (vandaag)</button>
+    <button class="cbtn" data-s="stale" aria-pressed="false">verouderd (12 dagen)</button>
+    <button class="cbtn" data-s="error" aria-pressed="false">sync mislukt</button>
+    <button class="cbtn" data-s="first" aria-pressed="false">net geïnstalleerd</button>
+  </div>
+  <div class="cgroup"><button class="cbtn" id="reset">Reset (weggeklikt vergeten)</button></div>
+</div>
+
+<!-- ------------------------------ nep-broker ------------------------------ -->
+<div class="broker-top">
+  <span class="logo">BROKER</span>
+  <nav><span>Portefeuille</span><span>Orders</span><span>Overboeken</span><span>Inbox</span></nav>
+</div>
+<div class="broker-main">
+  <div class="bpanel">
+    <h2>Portefeuille (verzonnen)</h2>
+    <table class="fake">
+      <tr><th>Product</th><th class="num">Aantal</th><th class="num">Koers</th><th class="num">Waarde</th><th></th></tr>
+      <tr><td>Nova Semiconductors</td><td class="num">34</td><td class="num">182,40</td><td class="num">6.201,60</td><td><button class="fakebtn">Verkoop</button></td></tr>
+      <tr><td>Delta Shipping</td><td class="num">120</td><td class="num">14,86</td><td class="num">1.783,20</td><td><button class="fakebtn">Verkoop</button></td></tr>
+      <tr><td>Borealis Foods</td><td class="num">55</td><td class="num">41,02</td><td class="num">2.256,10</td><td><button class="fakebtn">Verkoop</button></td></tr>
+      <tr><td>Quanta Grid</td><td class="num">18</td><td class="num">240,10</td><td class="num">4.321,80</td><td><button class="fakebtn">Verkoop</button></td></tr>
+    </table>
+    <p class="muted">Waarom die knoppen hier staan: de banner mag hier <em>nooit</em> voor hangen. Rechtsonder is de
+    enige hoek zonder broker-acties.</p>
+  </div>
+  <div class="bpanel"><h2>Orderboek</h2><p class="muted">— leeg —</p></div>
+</div>
+<div class="filler"></div>
+
+<div class="note" id="tradeoffs">
+  <b>Wat vaststaat, welke variant ook wint:</b> rechtsonder, klein, verschuift niets op de pagina, leest niets van de
+  pagina (alle tekst komt uit het status-bericht van de eigen service worker), toont zich nooit op een losgekoppeld
+  account (US-79), en <em>Sync nu</em> verschijnt alleen als hij iets toevoegt — de extensie synct al vanzelf zodra je
+  een brokertab opent, dus meestal is de eerlijke boodschap "bijgewerkt", niet "druk op sync".<br><br>
+  <b>A</b> is er altijd, maar ingeklapt zo groot als een duim: merkteken + statusstip; klikken klapt het kaartje uit.
+  Nooit een verrassing, wel permanent een pixel of tachtig van de hoek.
+  <b>B</b> komt bij elk bezoek even binnen met de status en de twee acties; wegklikken = twee weken stil. Het meest
+  zichtbaar — en het snelst irritant als je dagelijks handelt.
+  <b>C</b> is er alleen als er iets te melden is: eerste run ("Asteria doet het — kijk hier"), data verouderd, of sync
+  mislukt. Bij een gezonde installatie zie je níets — het gemis dat je noemde ("vergeet dat de plugin bestaat") vangt
+  hij dan alleen bij problemen, niet als reclame.
+</div>
+
+<!-- A: chip -->
+<button id="chip" hidden aria-label="Asteria — portefeuillegeschiedenis">
+  <svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.6 6.9L22 12l-7.4 3.1L12 22l-2.6-6.9L2 12l7.4-3.1z" fill="var(--ast)"/></svg>
+  <span class="dot ok" id="chip-dot"></span>
+</button>
+
+<!-- het kaartje (A uitgeklapt, B, C) -->
+<div class="ast-card" id="card" hidden role="dialog" aria-label="Asteria">
+  <div class="row1">
+    <svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.6 6.9L22 12l-7.4 3.1L12 22l-2.6-6.9L2 12l7.4-3.1z" fill="var(--ast)"/></svg>
+    <b class="name">Asteria</b>
+    <button class="close" id="card-close" aria-label="Sluiten">✕</button>
+  </div>
+  <div class="status"><span class="dot ok" id="card-dot"></span><span id="card-status">…</span></div>
+  <div class="acts">
+    <button class="primary" id="act-open">Open je analyse</button>
+    <button class="secondary" id="act-sync" hidden>Sync nu</button>
+  </div>
+  <div class="foot" id="card-foot">Leest alleen je eigen sessie mee; niets verlaat je browser.</div>
+</div>
+
+<script>
+'use strict';
+/* POC-logica: dezelfde toestandsmachine die het echte content script zou
+   draaien, maar met nepgetallen in plaats van het status-bericht. */
+const el = (id) => document.getElementById(id);
+const state = { variant: 'A', status: 'fresh', dismissed: false, chipOpen: false, syncing: false };
+
+const STATUS = {
+  fresh:  { dot: 'ok',   line: 'Bijgewerkt tot vandaag.',                        sync: false },
+  stale:  { dot: 'warn', line: 'Laatste sync: 12 dagen geleden.',                sync: true },
+  error:  { dot: 'err',  line: 'Sync mislukt — sessie verlopen? Log in en probeer opnieuw.', sync: true },
+  first:  { dot: 'ok',   line: 'Geïnstalleerd en aan het werk — je eerste analyse staat klaar.', sync: false },
+};
+
+function render() {
+  document.querySelectorAll('[data-v]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === state.variant)));
+  document.querySelectorAll('[data-s]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.s === state.status)));
+
+  const s = STATUS[state.status];
+  el('card-dot').className = `dot ${s.dot}`;
+  el('chip-dot').className = `dot ${s.dot}`;
+  el('card-status').textContent = state.syncing ? 'Bezig met syncen…' : s.line;
+  el('act-sync').hidden = !s.sync;
+  el('act-sync').disabled = state.syncing;
+  el('act-sync').textContent = state.syncing ? 'Bezig…' : 'Sync nu';
+
+  // Wie is er zichtbaar?
+  const showCard =
+    state.variant === 'A' ? state.chipOpen
+    : state.variant === 'B' ? !state.dismissed
+    : /* C */ !state.dismissed && state.status !== 'fresh'; // stil zolang alles klopt
+  el('card').hidden = !showCard;
+  el('chip').hidden = !(state.variant === 'A' && !state.chipOpen);
+  el('card').classList.toggle('slide-in', state.variant !== 'A');
+}
+
+el('chip').addEventListener('click', () => { state.chipOpen = true; render(); });
+el('card-close').addEventListener('click', () => {
+  if (state.variant === 'A') state.chipOpen = false; // A klapt in, verdwijnt nooit
+  else state.dismissed = true;                        // B/C: veertien dagen stil (in het echt chrome.storage)
+  render();
+});
+el('act-open').addEventListener('click', () => alert('In het echt: opent de analyse-pagina van de extensie (bestaand openApp-bericht).'));
+el('act-sync').addEventListener('click', () => {
+  state.syncing = true; render();
+  setTimeout(() => { state.syncing = false; state.status = 'fresh'; state.chipOpen = state.variant === 'A' ? state.chipOpen : true; render(); }, 1400);
+});
+
+document.querySelectorAll('[data-v]').forEach((b) => b.addEventListener('click', () => {
+  state.variant = b.dataset.v; state.dismissed = false; state.chipOpen = false; render();
+}));
+document.querySelectorAll('[data-s]').forEach((b) => b.addEventListener('click', () => {
+  state.status = b.dataset.s; state.syncing = false; render();
+}));
+el('reset').addEventListener('click', () => { state.dismissed = false; state.chipOpen = false; render(); });
+
+render();
+</script>
+</body>
+</html>

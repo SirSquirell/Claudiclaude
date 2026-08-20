@@ -5997,4 +5997,72 @@ it ships.
 
 ---
 
-**Next free number: US-91.**
+## US-91 — Asteria zichtbaar op de brokerpagina zelf *(refined — POC staat, de eigenaar kiest)*
+
+> *"ik wil ook dat we op de giro site zelf een kleine banner zetten zovan, je heb Asteria installed
+> of thanks for using, en dan sync now en analyze your data als call to actions? otherwise the user
+> might forget to use the plugin"* — de eigenaar, 2026-08-20.
+
+Het probleem is echt en het is niet de sync: de extensie synct al vanzelf (elk uur via de alarm, en
+opportunistisch zodra een DEGIRO-tab klaar is met laden — `sw.js`, `tabs.onUpdated`). Wat ontbreekt
+is *herinnering*: de analyse bestaat, is bijgewerkt, en niemand ziet haar tenzij hij aan het
+puzzelstukje-icoon denkt. De banner is dus een geheugensteun met één primaire actie — **Open je
+analyse** — en een sync-knop alleen wanneer die iets toevoegt (verouderd of mislukt), want "druk op
+sync" suggereren terwijl de sync al gebeurd is, is theater.
+
+### Wat vaststaat, welke variant ook wint
+
+1. **Eén content script op `trader.degiro.nl`, één shadow-DOM-host, en verder niets.** Het leest
+   niets van de pagina, raakt niets van de pagina aan, en zijn enige databron is het bestaande
+   `status`-bericht aan de service worker (`lastSyncAt`, `lastError`, `syncing`, `disconnected` —
+   alles wat de tekst nodig heeft bestaat al). Geen bedrag, geen accountgegeven, geen naam in de
+   banner: statusregel en twee knoppen, meer niet — het is UI die op andermans pagina staat.
+2. **Nooit voor de broker-UI hangen.** Rechtsonder, klein, verschuift geen layout, en de acties van
+   de broker (koop/verkoop) blijven overal klikbaar. Een overlay die een orderknop bedekt is de
+   enige manier waarop dit feature echte schade kan doen.
+3. **De acties zijn bestaande berichten**: *Open je analyse* → `openApp`; *Sync nu* → `sync`, met de
+   uitkomst in de banner (bezig → bijgewerkt / mislukt) zonder één verzonnen getal.
+4. **Losgekoppeld is stil** (US-79): wie zijn account bevroor, vroeg om niet gevolgd te worden — dan
+   ook geen banner.
+5. **Wegklikken wordt onthouden** (`chrome.storage.local`, een voorkeur zoals het thema) en komt
+   nooit in een export of foutrapport (rule 7-reflex).
+6. **Rule 9 blijft onaangeraakt**: de banner leest geen sessie, raakt geen cookie aan — hij praat
+   alleen met de eigen service worker.
+
+### De open vraag: welk karakter heeft hij — POC en een keuze
+
+**`docs/prototypes/degiro-banner.html`** — één zelfstandige pagina, nep-brokerpagina met verzonnen
+cijfers, alle drie de varianten klikbaar met werkende toestanden (bijgewerkt / verouderd / mislukt /
+net geïnstalleerd, sync-verloop, wegklikken):
+
+- **A · Chip, altijd aanwezig** — ingeklapt merkteken + statusstip rechtsonder; klik klapt het
+  kaartje uit. Nooit een verrassing, maar permanent ~80px van de hoek bezet.
+- **B · Toast bij elk bezoek** — schuift binnen met status en beide acties; wegklikken is twee weken
+  stil. Maximale herinnering, snelst irritant voor wie dagelijks handelt.
+- **C · Stil tot er iets is** — geen UI zolang alles klopt; verschijnt bij eerste run, verouderde
+  data of een mislukte sync. Minst opdringerig, maar herinnert alleen bij problemen.
+
+Sub-vragen voor dezelfde keuzeronde: hoe lang blijft weggeklikt weg (veertien dagen?), en welke taal
+spreekt hij (de taalvoorkeur van de app-pagina is voor een content script onbereikbaar —
+`navigator.language`, of NL omdat DEGIRO NL is?).
+
+### Acceptatiecriteria (variant-onafhankelijk)
+
+- **AC1** Het content script injecteert uitsluitend zijn eigen shadow-DOM-host en leest niets van de
+  pagina; alle getoonde tekst is herleidbaar tot het `status`-bericht.
+- **AC2** Geen layoutverschuiving, geen overlap met broker-acties, `prefers-reduced-motion`
+  gerespecteerd, en op een losgekoppeld account verschijnt niets.
+- **AC3** *Open je analyse* opent de app-pagina; *Sync nu* toont bezig → uitkomst en verschijnt
+  alleen wanneer de status erom vraagt.
+- **AC4** Wegklikken overleeft een herstart per de gekozen variant-regel en staat in geen export.
+- **AC5** De banner bevat geen bedrag, geen accountnummer, geen naam — ook niet ter begroeting.
+
+### Niet gebouwd vóór de keuze
+
+Zelfde afspraak als US-87: de POC is het ontwerp, de eigenaar kiest, en pas dan komt er een bouwplan
+gemeten tegen de code van dat moment. Manifest-wijziging (content script) hoort bij de bouw, niet
+bij deze refinement.
+
+---
+
+**Next free number: US-92.**
