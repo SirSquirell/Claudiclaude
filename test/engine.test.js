@@ -2386,6 +2386,40 @@ test('observations that disagree with each other are not measuring a currency', 
   assert.ok(w.detail.unresolved[0].spread > 1.6);
 });
 
+test('a euro option settles at its contract size, and that is not an exchange rate', () => {
+  /**
+   * US-96, rebuilt synthetically — rule 7 keeps real values out of `test/`. A
+   * derivative in the base currency settles at `price × quantity × contractSize`,
+   * so every euro option trade showed `settled / traded` of exactly its contract
+   * size. That ratio passed the implied-FX spread guard (a contract size is
+   * constant, which is more consistent than any real rate), and the valuation
+   * then multiplied by it twice: once as the contract size, once as the "rate".
+   * On a real account three written euro puts came out 10× to 100× their true
+   * negative value and the total sat €171 601,63 under DEGIRO's.
+   */
+  const r = computePortfolio({
+    products: { 1: { id: '1', name: 'X P50.00', currency: 'EUR', productType: 'OPTION', vwdId: '900' } },
+    prices: { 900: { start: '2024-01-01', stepDays: 1, points: [{ offsetDays: 0, close: 2 }, { offsetDays: 90, close: 2 }] } },
+    transactions: [
+      // Two written contracts, premium 2,00, contract size 100: each settles
+      // at 100× price × quantity, plus the fee.
+      { date: '2024-01-01', productId: '1', quantity: -1, price: 2, currency: 'EUR', fee: -0.75, totalBase: 199.25 },
+      { date: '2024-02-01', productId: '1', quantity: -1, price: 2, currency: 'EUR', fee: -0.75, totalBase: 199.25 },
+    ],
+    cashRows: [{ date: '2024-01-01', description: 'Deposit', change: 1000, currency: 'EUR', category: 'DEPOSIT' }],
+    today: '2024-03-01',
+  });
+
+  assert.ok(
+    !r.warnings.some((x) => x.code === 'settled-amount-mismatch'),
+    'the contract size explains the whole ratio, so there is no mismatch to report',
+  );
+  const held = r.byProduct.find((p) => String(p.productId) === '1');
+  assert.equal(held.contractSize, 100, 'the size is still measured from the trades');
+  // −2 contracts × 2,00 × 100 — once, not squared into −40 000.
+  assert.ok(Math.abs(held.current - -400) < 1, `expected about −400, got ${held.current}`);
+});
+
 test('an ordinary euro instrument is untouched by any of this', () => {
   const r = computePortfolio({
     products: { 1: { id: '1', name: 'A', currency: 'EUR', vwdId: '900' } },

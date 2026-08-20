@@ -6351,4 +6351,47 @@ nergens anders in de app bestaat zou een losse belofte zijn.
 
 ---
 
-**Next free number: US-96.**
+## US-96 — A euro option's contract size read as an exchange rate, twice applied *(built, 0.59.0)*
+
+> Renumbered from US-93 during the land: a parallel session claimed US-93 on `main` (de
+> kolomkop-toelichting) while this fix was on its transport branch — the number moved, the story
+> did not. Same collision, same resolution, as US-94/US-95 the same day.
+
+> *"we are really not compatible with his margin calls i think?"* — the owner, forwarding the
+> first heavy-options account: reconstructed total **€ −47.491,36** against DEGIRO's
+> **€ 124.110,28**, off by **€ −171.601,63**, the whole-history chart dipping to −€ 1,4 million,
+> and a red `settled-amount-mismatch` naming 301 trades across 135 instruments.
+
+The margin guess was reasonable and wrong — the negative cash balance reconciled to within fifty
+cents. The evidence pointed one layer down: every one of the 301 flagged trades was a euro option,
+`positionsAgree` was true, and the per-instrument ratios read 100, 10, 9.87 — contract sizes, not
+prices.
+
+Two mechanisms measured the same number and both applied it. A derivative settles at
+`price × quantity × contractSize`, so `deriveContractSizes` correctly measured 10 for the Adyen
+puts and 100 for the BMW put. But the same trades then hit 0.39.0's settled-amount check, whose
+premise is that for a euro instrument settled equals traded and any consistent ratio between them
+is a currency conversion in disguise. A contract size is *perfectly* consistent — more so than any
+real rate — so it passed the spread guard built to refuse disagreeing evidence, and the valuation
+multiplied `q × price × shares × implied`: the contract size squared. Three written euro puts came
+out 10× to 100× their true negative value, which is the whole €171 601,63; the flagged euro
+options that have since been closed got the same treatment on the days they were held, which is
+the −€ 1,4 million dip.
+
+The fix is one factor in one line, in the settled-amount scan: divide the measured contract size
+out of `settled / traded` before asking whether a currency-sized ratio remains. What the contract
+size explains is not a mismatch; what survives the division is what a currency actually looks
+like. The genuinely mislabelled-currency case (US: a share settling at 0,851) keeps its behaviour
+untouched — a share's contract size is 1 — and a foreign-in-disguise *option* still resolves:
+either the size measurement absorbs the factor whole, or it refuses to round and the implied-rate
+path handles `size × rate` as before.
+
+Replayed against the reporting account's export: total € 123.870,44 against DEGIRO's € 124.110,28
+— the residual −€ 239,83 is a stale SEK rate plus last-traded-versus-close on options DEGIRO
+carries no series for; the false warning is gone; all-time result +€ 65.401,69 beside DEGIRO's own
+Totaal W/V of +€ 64.962,44. History minimum € 799,48 (day one) instead of −€ 1,4 million.
+**No resync** — raw stores were right all along; the page recomputes on open.
+
+---
+
+**Next free number: US-97.**

@@ -1143,6 +1143,19 @@ export function computePortfolio(input) {
    * The tolerance is deliberately wide. This is hunting for a currency-sized
    * discrepancy, not auditing rounding, and a narrow band would fire on every
    * account over fractional shares and fee models nobody has modelled.
+   *
+   * **The contract size is divided out first.** A derivative in the base
+   * currency settles at `price × quantity × contractSize`, so a euro option
+   * with a measured size of 100 settles at exactly 100× what it "traded" for —
+   * the same ratio a currency would produce, on a trade where no currency is
+   * involved. Before this, every such trade was flagged, the size passed the
+   * spread guard below (a contract size is constant, which is more consistent
+   * than any real rate), and the valuation then multiplied by it *twice*: once
+   * as the contract size, once as the "rate". On one real account that put
+   * three written euro puts at 10× to 100× their true (negative) value and the
+   * total €171 601,63 under what DEGIRO reported. What survives the division is
+   * the part the contract size does not explain — which is what a currency
+   * actually looks like.
    */
   const settledMismatches = [];
   /** productId -> the dated conversions its own trades state. See below. */
@@ -1150,7 +1163,7 @@ export function computePortfolio(input) {
   for (const t of transactions) {
     const ccy = products[t.productId]?.currency ?? t.currency ?? baseCurrency;
     if (ccy !== baseCurrency) continue;
-    const traded = Math.abs(t.price * t.quantity);
+    const traded = Math.abs(t.price * t.quantity) * unitsOf(t.productId);
     const settled = Math.abs((t.totalBase ?? 0) - (t.fee ?? 0));
     if (!(traded > 0) || !(settled > 0)) continue;
     const r = settled / traded;
