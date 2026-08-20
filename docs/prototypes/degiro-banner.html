@@ -104,6 +104,37 @@
   @keyframes slidein { from { transform: translateY(12px); opacity: 0; } }
   @media (prefers-reduced-motion: reduce) { .slide-in { animation: none; } }
 
+  /* D — de strip: permanent bovenaan, duwt de pagina omlaag (bedekt nooit).
+     De keuze van de eigenaar, 2026-08-20: "gewoon continu een strip aan de top
+     van 't scherm — zolang de plugin er is, neemt hij die plek in". */
+  #strip {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 60; height: 34px;
+    background: var(--card); color: var(--card-ink);
+    display: flex; align-items: center; gap: 10px; padding: 0 12px;
+    font-size: 12.5px; box-shadow: 0 1px 6px rgba(0,0,0,.25);
+  }
+  #strip .mark { width: 15px; height: 15px; flex: none; }
+  #strip b { letter-spacing: .01em; font-size: 12.5px; }
+  #strip .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+  #strip .line { color: var(--card-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #strip .sp { flex: 1; }
+  #strip .primary {
+    background: var(--ast); color: var(--ast-ink); border: 0; border-radius: 6px;
+    padding: 5px 11px; font-size: 12px; font-weight: 600; cursor: pointer; flex: none;
+  }
+  #strip .secondary {
+    background: none; color: var(--card-ink); border: 1px solid rgba(255,255,255,.22); border-radius: 6px;
+    padding: 5px 11px; font-size: 12px; cursor: pointer; flex: none;
+  }
+  #strip .secondary[disabled] { opacity: .55; cursor: default; }
+  #strip .close {
+    background: none; border: 0; color: var(--card-muted); cursor: pointer;
+    font-size: 14px; line-height: 1; padding: 4px 6px; border-radius: 5px; flex: none;
+  }
+  #strip .close:hover { color: var(--card-ink); background: rgba(255,255,255,.08); }
+  body.strip-on { margin-top: 34px; } /* de duw: de pagina schuift omlaag, niets raakt bedekt */
+  body.strip-on .controls { top: 34px; } /* alleen POC-chroom; de echte pagina heeft dit niet */
+
   [hidden] { display: none !important; }
 
   .note { max-width: 1080px; margin: 10px auto 40px; padding: 14px 16px; border: 1px dashed var(--line);
@@ -119,9 +150,10 @@
   Wissel variant en toestand; klik ook op de banner zelf (uitklappen, sync, sluiten — alles doet het).</div>
   <div class="cgroup" role="group" aria-label="Variant">
     <b>Variant</b>
-    <button class="cbtn" data-v="A" aria-pressed="true">A · Chip, altijd aanwezig</button>
+    <button class="cbtn" data-v="A" aria-pressed="false">A · Chip, altijd aanwezig</button>
     <button class="cbtn" data-v="B" aria-pressed="false">B · Toast bij elk bezoek</button>
     <button class="cbtn" data-v="C" aria-pressed="false">C · Stil tot er iets is</button>
+    <button class="cbtn" data-v="D" aria-pressed="true">D · Strip bovenaan — de keuze</button>
   </div>
   <div class="cgroup" role="group" aria-label="Toestand">
     <b>Toestand</b>
@@ -156,17 +188,30 @@
 <div class="filler"></div>
 
 <div class="note" id="tradeoffs">
-  <b>Wat vaststaat, welke variant ook wint:</b> rechtsonder, klein, verschuift niets op de pagina, leest niets van de
-  pagina (alle tekst komt uit het status-bericht van de eigen service worker), toont zich nooit op een losgekoppeld
-  account (US-79), en <em>Sync nu</em> verschijnt alleen als hij iets toevoegt — de extensie synct al vanzelf zodra je
-  een brokertab opent, dus meestal is de eerlijke boodschap "bijgewerkt", niet "druk op sync".<br><br>
-  <b>A</b> is er altijd, maar ingeklapt zo groot als een duim: merkteken + statusstip; klikken klapt het kaartje uit.
-  Nooit een verrassing, wel permanent een pixel of tachtig van de hoek.
-  <b>B</b> komt bij elk bezoek even binnen met de status en de twee acties; wegklikken = twee weken stil. Het meest
-  zichtbaar — en het snelst irritant als je dagelijks handelt.
-  <b>C</b> is er alleen als er iets te melden is: eerste run ("Asteria doet het — kijk hier"), data verouderd, of sync
-  mislukt. Bij een gezonde installatie zie je níets — het gemis dat je noemde ("vergeet dat de plugin bestaat") vangt
-  hij dan alleen bij problemen, niet als reclame.
+  <b>De keuze is gemaakt (2026-08-20): variant D.</b> De eigenaar wil "gewoon continu een strip aan de top van 't
+  scherm — zolang de plugin er is, neemt hij die plek in". Wegklikken geldt tot de volgende browserstart; de taal
+  volgt de browser. A, B en C blijven hier staan als de afgewezen alternatieven.<br><br>
+  <b>Wat vaststaat, welke variant ook won:</b> klein, leest niets van de pagina (alle tekst komt uit het
+  status-bericht van de eigen service worker), toont zich nooit op een losgekoppeld account (US-79), en <em>Sync
+  nu</em> verschijnt alleen als hij iets toevoegt — de extensie synct al vanzelf zodra je een brokertab opent, dus
+  meestal is de eerlijke boodschap "bijgewerkt", niet "druk op sync". De strip <em>duwt</em> de pagina omlaag in
+  plaats van eroverheen te hangen: bedekken van broker-acties is de enige echte schade die dit feature kan doen.<br><br>
+  <b>A</b> is er altijd, maar ingeklapt zo groot als een duim; klikken klapt het kaartje uit.
+  <b>B</b> komt bij elk bezoek even binnen; wegklikken = een tijd stil.
+  <b>C</b> is er alleen als er iets te melden is — minst opdringerig, vangt "vergeten dat de plugin bestaat" het minst.
+  <b>D · de strip</b> is maximaal aanwezig zonder ooit iets te bedekken, en draagt status + beide acties permanent.
+</div>
+
+<!-- D: de strip (de keuze) -->
+<div id="strip" hidden role="region" aria-label="Asteria">
+  <svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.6 6.9L22 12l-7.4 3.1L12 22l-2.6-6.9L2 12l7.4-3.1z" fill="var(--ast)"/></svg>
+  <b>Asteria</b>
+  <span class="dot ok" id="strip-dot"></span>
+  <span class="line" id="strip-status">…</span>
+  <span class="sp"></span>
+  <button class="primary" id="strip-open">Open je analyse</button>
+  <button class="secondary" id="strip-sync" hidden>Sync nu</button>
+  <button class="close" id="strip-close" aria-label="Sluiten tot de volgende browserstart" title="Weg tot de volgende browserstart">✕</button>
 </div>
 
 <!-- A: chip -->
@@ -195,7 +240,7 @@
 /* POC-logica: dezelfde toestandsmachine die het echte content script zou
    draaien, maar met nepgetallen in plaats van het status-bericht. */
 const el = (id) => document.getElementById(id);
-const state = { variant: 'A', status: 'fresh', dismissed: false, chipOpen: false, syncing: false };
+const state = { variant: 'D', status: 'fresh', dismissed: false, chipOpen: false, syncing: false };
 
 const STATUS = {
   fresh:  { dot: 'ok',   line: 'Bijgewerkt tot vandaag.',                        sync: false },
@@ -209,20 +254,29 @@ function render() {
   document.querySelectorAll('[data-s]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.s === state.status)));
 
   const s = STATUS[state.status];
+  const line = state.syncing ? 'Bezig met syncen…' : s.line;
   el('card-dot').className = `dot ${s.dot}`;
   el('chip-dot').className = `dot ${s.dot}`;
-  el('card-status').textContent = state.syncing ? 'Bezig met syncen…' : s.line;
-  el('act-sync').hidden = !s.sync;
-  el('act-sync').disabled = state.syncing;
-  el('act-sync').textContent = state.syncing ? 'Bezig…' : 'Sync nu';
+  el('strip-dot').className = `dot ${s.dot}`;
+  el('card-status').textContent = line;
+  el('strip-status').textContent = line;
+  for (const id of ['act-sync', 'strip-sync']) {
+    el(id).hidden = !s.sync;
+    el(id).disabled = state.syncing;
+    el(id).textContent = state.syncing ? 'Bezig…' : 'Sync nu';
+  }
 
   // Wie is er zichtbaar?
   const showCard =
     state.variant === 'A' ? state.chipOpen
     : state.variant === 'B' ? !state.dismissed
-    : /* C */ !state.dismissed && state.status !== 'fresh'; // stil zolang alles klopt
+    : state.variant === 'C' ? !state.dismissed && state.status !== 'fresh' // stil zolang alles klopt
+    : false;
+  const showStrip = state.variant === 'D' && !state.dismissed;
   el('card').hidden = !showCard;
   el('chip').hidden = !(state.variant === 'A' && !state.chipOpen);
+  el('strip').hidden = !showStrip;
+  document.body.classList.toggle('strip-on', showStrip); // de duw omlaag
   el('card').classList.toggle('slide-in', state.variant !== 'A');
 }
 
@@ -232,11 +286,16 @@ el('card-close').addEventListener('click', () => {
   else state.dismissed = true;                        // B/C: veertien dagen stil (in het echt chrome.storage)
   render();
 });
-el('act-open').addEventListener('click', () => alert('In het echt: opent de analyse-pagina van de extensie (bestaand openApp-bericht).'));
-el('act-sync').addEventListener('click', () => {
+const openApp = () => alert('In het echt: opent de analyse-pagina van de extensie (bestaand openApp-bericht).');
+const runSync = () => {
   state.syncing = true; render();
   setTimeout(() => { state.syncing = false; state.status = 'fresh'; state.chipOpen = state.variant === 'A' ? state.chipOpen : true; render(); }, 1400);
-});
+};
+el('act-open').addEventListener('click', openApp);
+el('strip-open').addEventListener('click', openApp);
+el('act-sync').addEventListener('click', runSync);
+el('strip-sync').addEventListener('click', runSync);
+el('strip-close').addEventListener('click', () => { state.dismissed = true; render(); }); // tot de volgende browserstart
 
 document.querySelectorAll('[data-v]').forEach((b) => b.addEventListener('click', () => {
   state.variant = b.dataset.v; state.dismissed = false; state.chipOpen = false; render();

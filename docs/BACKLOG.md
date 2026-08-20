@@ -5997,7 +5997,7 @@ it ships.
 
 ---
 
-## US-91 — Asteria zichtbaar op de brokerpagina zelf *(refined — POC staat, de eigenaar kiest)*
+## US-91 — Asteria zichtbaar op de brokerpagina zelf *(built, 0.57.0 — variant D, de eigen inbreng van de eigenaar)*
 
 > *"ik wil ook dat we op de giro site zelf een kleine banner zetten zovan, je heb Asteria installed
 > of thanks for using, en dan sync now en analyze your data als call to actions? otherwise the user
@@ -6057,11 +6057,57 @@ spreekt hij (de taalvoorkeur van de app-pagina is voor een content script onbere
 - **AC4** Wegklikken overleeft een herstart per de gekozen variant-regel en staat in geen export.
 - **AC5** De banner bevat geen bedrag, geen accountnummer, geen naam — ook niet ter begroeting.
 
-### Niet gebouwd vóór de keuze
+### De keuze — D, een strip bovenaan; eigen inbreng van de eigenaar
 
-Zelfde afspraak als US-87: de POC is het ontwerp, de eigenaar kiest, en pas dan komt er een bouwplan
-gemeten tegen de code van dat moment. Manifest-wijziging (content script) hoort bij de bouw, niet
-bij deze refinement.
+> *"ja ik zou gwn continue een strip aan de top van t scherm willen hebben en dat als hij [de]
+> plugin detecteerd hij die plek inneemt ;P"* — de eigenaar, 2026-08-20. Sub-keuzes uit dezelfde
+> ronde: weggeklikt blijft weg **tot de volgende browserstart**, en de taal **volgt de browser**
+> (`navigator.language` — nl → Nederlands, anders Engels).
+
+Geen van de drie aangeboden varianten dus, maar een vierde: **permanent, de volle breedte,
+bovenaan**. "Detecteert" is vanzelf waar — het content script bestaat alleen als de extensie
+geïnstalleerd is, dus de strip verschijnen ís de detectie. De POC draagt de strip nu als variant D,
+naast de drie afgewezen alternatieven. Eén vaststaand punt scherpt de keuze aan in plaats van hem
+tegen te spreken: de strip **duwt de pagina omlaag** (marge op `<html>`) in plaats van eroverheen te
+hangen — punt 2 wordt daarmee "bedekt nooit iets" in plaats van "verschuift geen layout", want een
+topstrip verschuift per definitie.
+
+### Bouwplan — gemeten tegen de code van 0.56.0
+
+- **Pure helft: `src/lib/bannermodel.js`**, getest in `test/banner.test.js`. `pickLang(navLang)` →
+  `'nl' | 'en'`; `bannerModel({ lastSyncAt, lastError, syncing, disconnected, now, lang })` →
+  `{ show, tone: 'ok'|'warn'|'err', line, showSync }`. Regels: `disconnected` → `show: false`;
+  `syncing` → bezig-regel, geen knop; `lastError != null` → mislukt-regel + knop (een geslaagde
+  sync zet `lastError` op `null` — `sync.js:655` — dus dit ís "laatste poging mislukt");
+  `lastSyncAt === 0` → eerste-run-regel, geen knop (de opportunistische sync loopt al); ouder dan
+  **3 dagen** → verouderd-regel met het aantal dagen + knop; anders → bijgewerkt-regel, geen knop.
+- **Content script**: `src/content/boot.js` (klassiek, drie regels: dynamische import van de eigen
+  module-URL) en `src/content/banner.js` (de module: leest `chrome.storage.session` voor het
+  wegklikken, vraagt `status` aan de service worker, bouwt één shadow-DOM-host bovenaan, zet
+  `margin-top` op `<html>` ter hoogte van de strip en herstelt die bij sluiten). Acties:
+  *Open je analyse* → `openApp`; *Sync nu* → `sync` met `force: true` (wat de popup ook stuurt),
+  daarna status opnieuw ophalen en de regel bijwerken. Geen enkele leesactie op de pagina zelf.
+- **Wegklikken tot browserstart**: `chrome.storage.session` (leeft per browsersessie, overleeft een
+  service-worker-herstart, sterft met de browser — precies de gekozen semantiek). De service worker
+  zet bij install/startup `setAccessLevel({ accessLevel: 'TRUSTED_AND_UNTRUSTED_CONTEXTS' })`,
+  anders mag een content script er niet bij.
+- **Manifest**: `content_scripts` op `https://trader.degiro.nl/*` (`document_idle`) en
+  `web_accessible_resources` voor de twee modulebestanden, beperkt tot datzelfde origin. Geen
+  nieuwe permission — `storage` is er al.
+- **Verificatie**: de demo kan geen content script laden, dus headless tegen een mockpagina met een
+  `chrome`-stub: strip aanwezig in shadow DOM, pagina omlaag geduwd en hersteld na sluiten,
+  sync-knop alleen bij verouderd/mislukt, berichten kloppen, nul paginafouten. **Wat alleen de
+  eigenaar kan zien**: hoe de strip zich verhoudt tot DEGIRO's échte koppagina (een `position:
+  fixed`-header van de broker schuift niet mee met de marge-duw) — dat is de eerste vraag bij de
+  volgende echte sessie, en zo nodig een vervolg-story op dat bewijs.
+
+### Stop conditions
+
+- Als de duw-omlaag op de mockpagina al niet schoon te krijgen is (springende layout, dubbele
+  scrollbalk), stop en meld het — dan is overlappen-met-hoge-z-index de terugvaloptie en dat is een
+  nieuwe afweging, geen stille wissel.
+- Geen scope voorbij deze story: geen instellingenpaneel, geen frequentieregeling, geen tweede
+  plek voor de strip. Wat onderweg opduikt wordt een backlog-entry onder het volgende vrije nummer.
 
 ---
 

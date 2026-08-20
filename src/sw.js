@@ -32,6 +32,17 @@ self.addEventListener('unhandledrejection', (e) => {
   recordError('worker-unhandled-rejection', e.reason);
 });
 
+/**
+ * US-91: de strip op de brokerpagina bewaart zijn weggeklikt-tot-browserstart
+ * in `chrome.storage.session`, en een content script mag daar pas bij nadat
+ * de worker het toegangsniveau heeft verruimd. Op module-niveau, niet in
+ * onInstalled: de worker wordt tussen twee berichten afgebroken en dit moet
+ * na elke herstart opnieuw gelden.
+ */
+chrome.storage?.session
+  ?.setAccessLevel?.({ accessLevel: 'TRUSTED_AND_UNTRUSTED_CONTEXTS' })
+  ?.catch?.((err) => recordError('session-access-level', err));
+
 chrome.runtime.onInstalled.addListener(() => {
   chrome.alarms.create(SYNC.alarmName, { periodInMinutes: SYNC.alarmPeriodMinutes });
 });
