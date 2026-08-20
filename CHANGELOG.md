@@ -16,6 +16,20 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.58.0] — 2026-08-20
+
+The toast joins the strip. **No resync needed** — display only.
+
+### Added
+
+- **A toast, bottom-right on trader.degiro.nl, beside 0.57.0's strip** (US-92 — the owner wants
+  both). It slides in on page load with the same status line and the same actions as the strip —
+  one model decides both, so they cannot disagree, and a sync started from either updates both.
+  It clears itself after 12 seconds (two standing notices would be one too many); touching it
+  cancels that, and its ✕ hides it until the next browser start — independently of the strip's ✕,
+  each in its own flag. Reduced motion drops the slide, keeps the content. A disconnected account
+  (US-79) still shows neither, and with both dismissed the script goes fully quiet.
+
 ## [0.57.0] — 2026-08-20
 
 Asteria shows itself on the broker page. **No resync needed** — nothing about what is stored or
