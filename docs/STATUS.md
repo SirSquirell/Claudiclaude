@@ -6,73 +6,58 @@ a bad place to find out *where things stand*. This is the index.
 **Last updated at 0.56.0.** It had been stale since 0.21.0 once, which is fifteen
 releases — if it looks stale again, trust the CHANGELOG and fix this.
 
-## Light scan, 2026-08-19
+## Light scan, 2026-08-20
 
-A routine sweep, not an audit: branches, GitHub issues/PRs, backlog consistency, an export/rule-
-compliance spot-check, and a browser design pass. Nothing fixed directly; one optimization refined
-as a story, same treatment as US-83 below. This supersedes the 2026-08-18 entry it replaces — its
-branch cleanup and design fix are both still on `main`, listed under *Unmerged work* and in the
-*Shipped* table (`cashChart`'s tick formatter) further down.
+A routine sweep, not an audit: branches, GitHub issues/PRs, backlog consistency, a rule-compliance
+spot-check and a headless browser pass. **Nothing found, and nothing changed but this file** — the
+third scan in a row with no unlanded work. This supersedes the 2026-08-19 entry it replaces; that
+scan's one product, **US-90**, was built and shipped the same day (0.55.0) and sits in the *Shipped*
+table below.
 
-**Branches.** All 24 remote `claude/*` branches plus `poc` re-checked against `main`, independently
-of yesterday's audit. One branch is new since then, `degiro-reconciliation-issues-7t3iyc` — it is a
-zero-diff snapshot of `main`'s own history, same as several others already on the delete list, not
-new work. Every other branch matches yesterday's read exactly: either zero/near-zero diff against
-`main`, or an old pre-rewrite snapshot (`app.js`, `styles.css`, `charts.js` have all moved on)
-carrying nothing `main` is missing. **No unlanded story found, again.** Full branch-by-branch table
-kept out of this file (it would just repeat yesterday's) — see the delete list under *Unmerged work*
-below, now with `degiro-reconciliation-issues-7t3iyc` added to the *fully contained, delete without
-looking* line. Still can't delete from here — the git proxy refuses `push --delete` — so it stays
-GitHub-UI cleanup for the owner, not code.
+**Branches.** All 25 remote `claude/*` branches plus `poc` re-checked against `main`. One branch is
+new since yesterday, `claude/aan-de-slag-c57smb` — it points at `main`'s own release commit
+(`0060a4b`, 0.56.0), zero diff, an empty harness-created branch, not work. Added to the *delete
+without looking* line under *Unmerged work* below. Every other branch matches yesterday's read.
+**No unlanded story found, again.** Branch deletion is still GitHub-UI cleanup for the owner — the
+git proxy refuses `push --delete`. This scan's own session branch (`claude/aan-de-slag-wen7bc`) is
+transport per the CLAUDE.md branch policy: it carries this commit to `main` and then joins the same
+delete list.
 
-**GitHub.** Zero open issues. One open PR, **#8** ("0.46.1 — 'Today' uses DEGIRO's own live day
-result"), base `main@a29a11d` from when `main` was still at 0.44.1 — five releases and two rewrites
-ago. Its fix (sum `todayPlBase` directly into `todayPl`) is the *same bug* **US-88** later diagnosed
-more precisely (`todayPlBase` is the negative start-of-day reference, not a day delta) and fixed
-correctly as `value + todayPlBase`, shipped in 0.54.0. PR #8's approach would reintroduce the −100 %
-fabrication US-88 just fixed. Recommend closing it as superseded rather than merging; left open,
-report-only, since closing someone else's PR is a step further than this scan's remit.
+**GitHub.** Zero open issues. One open PR, **#8**, byte-for-byte where yesterday's scan left it
+(last touched 2026-08-17): its approach would reintroduce the −100 % fabrication US-88 fixed in
+0.54.0. The recommendation stands unchanged — close as superseded, owner's call, not this scan's.
 
-**Backlog consistency.** `docs/BACKLOG.md`: no duplicate or skipped story numbers (the `US-35`/`b`/
-`c`/`d` cluster is deliberate variants, not a collision); *Next free number* line matched reality
-(`US-90`) before this run added **US-90** itself, now correctly `US-91`. `US-87` is still marked
-*(refined — variant B picked, ready to build)* and its code — sort chips, no drag, no column-click
-sort — matches that exactly in the browser; nothing claims *(built)* that main doesn't have.
+**Backlog consistency.** `node tools/check-backlog.mjs`: 57 stories, highest US-91, next free
+US-92, every heading states its state. No duplicate or skipped numbers. A parallel session landed
+**US-91** (Asteria on the broker page, refined with a POC — the owner picks a variant) on `main`
+*during* this scan, which is the branch policy working as intended: the story went straight to
+`main` and claimed its number there, so this scan saw it the moment it fetched, instead of
+discovering a duplicate US-91 on a stray branch a week from now.
 
-**Rule compliance / security.** Spot-checked the same six things as yesterday and found the same
-result: export allowlist (`store.js`'s `EXPORTABLE_META`) still default-deny; `throttledFetch` still
-the one queue, still no 401/403 retry; `session.js` still persists only derived IDs
-(`intAccount`/`userToken`/`displayName`), never the cookie; `engine.js` still has no `fetch`/
-`chrome.*`/`indexedDB`/`Date.now()`; every `innerHTML` site in `src/ui/` still routes data through
-`esc()`; `manifest.json`'s permissions (`storage`, `unlimitedStorage`, `alarms`, `cookies`) and host
-permissions (`trader.degiro.nl`, `charting.vwdservices.com`) are still the minimum the two rules
-need, CSP still `script-src 'self'; object-src 'self'`. Nothing found.
+**Rule compliance / security.** The same six spot checks as the two previous scans, same result:
+export allowlist (`store.js`'s `EXPORTABLE_META`) still default-deny; `throttledFetch` still the
+one fetch path (no `fetch(` anywhere else under `src/lib/` or `src/sw.js`), still no 401/403 retry;
+`session.js` still reads the cookie per request and persists only derived IDs; `engine.js` still
+pure — the one grep hit on the purity pattern is the word "fetched" inside a user-facing message
+string, not a call; the data-interpolating `innerHTML` sites spot-checked (`rail-state`, notices,
+tiles) all route data through `esc()`; `manifest.json` permissions and CSP unchanged and minimal.
+Nothing found.
 
-**Design pass** (`apple-design` skill, browser-verified at 1440/380 × light/dark via Playwright on
-Overview and Holdings — no page errors, no horizontal page overflow either size or theme). Holdings
-at 380px flagged one thing worth checking rather than reporting: `getBoundingClientRect` found a
-728px-wide `<table>` inside a 380px viewport. Traced it — the table sits in a `.table-scroll`
-container with `overflow-x: auto`, exactly the "wide content scrolls in its own box" pattern, and the
-document's own `scrollWidth` never exceeds its `clientWidth` at either breakpoint. Not a repeat of
-the tile-collapsed-to-zero or menu-under-chart defects this pass has caught before — correctly
-contained, not a leak. No violation of `docs/redesign/DESIGN-BRIEF.md` §8's one-flat-container-depth
-rule found; no translucency, no stacked light-on-light surfaces.
+**Browser pass**, lighter than yesterday's design pass on purpose (that one was a fresh
+`apple-design` review; repeating it a day later on an unchanged UI would re-measure the same
+pixels): Overview and Holdings at 1440/380 px × light/dark, headless Chromium — no page errors, no
+console errors, no horizontal page overflow at either size or theme.
 
-**Optimization.** Same shape as US-83, one module over: `combine.js`'s `carryStocksForward` calls
-`r.days.indexOf(day)` — a full linear scan of a broker's own ~2 000-day calendar — inside a loop that
-already runs once per day of the combined calendar, making it O(n²) per broker part when the `Map`
-it needs (`day → index`, the same pattern `combineResults` already builds for the *combined* calendar
-four lines above the call site) would make it O(n). Currently unreachable by any real account — no
-synced account has a second broker yet — so this is a real, easily-avoided duplicate scan sitting in
-already-tested code, not a symptom of one. Refined as **US-90** rather than fixed inline, same
-reasoning as US-83: a pure-module change earns a story with acceptance criteria, not a patch slipped
-into a routine scan.
+**Optimization sweep**, looking for the US-83/US-90 shape now that both are fixed: one `.indexOf(`
+remains under `src/lib/` (`report.js:504`), a `filter((c, i, all) => all.indexOf(c) === i)` dedupe
+over a report's own category list — bounded to the handful of cash categories, run once per report,
+not a per-day scan of a calendar. Not the shape, not a story.
 
-`npm test` (557/557), `npm run palette` and `node tools/check-leaks.mjs` all clean, before and after
-adding the US-90 entry (docs-only change, nothing to re-test).
+`npm test` (563/563, which includes the palette, type-scale, leak and backlog checks) green before
+this entry; docs-only change, nothing to re-test after.
 
-No new broker surfaced worth scoping — the multi-broker sequence's blocker is unchanged from the table
-below (a Trading 212 Network-tab capture, which this environment cannot produce).
+No new broker surfaced worth scoping — the multi-broker sequence's blocker is unchanged from the
+table below (a Trading 212 Network-tab capture, which this environment cannot produce).
 
 ## Unattended build — US-39 … US-45, on `main`
 
@@ -231,11 +216,13 @@ live-day-result fix rebased on (was stranded as a 0.46.1), and the apple-fluid p
 The policy that keeps it this way is in [CLAUDE.md](../CLAUDE.md): **work lands on `main`; a POC
 lives on the one `poc` branch until it is promoted or dropped.**
 
-**The delete list, measured on 2026-08-19** so nobody has to re-derive it. This environment's git
-proxy refuses `git push --delete`, so it is a one-time job in GitHub's UI. `main` and `poc` stay
-(`poc` currently equals `main`).
+**The delete list, measured on 2026-08-19 and re-checked 2026-08-20** so nobody has to re-derive
+it. This environment's git proxy refuses `git push --delete`, so it is a one-time job in GitHub's
+UI. `main` and `poc` stay (`poc` currently equals `main`).
 
-*Fully contained in `main` — delete without looking:* `eager-cannon-b3ncc4`,
+*Fully contained in `main` — delete without looking:* `aan-de-slag-c57smb` (new on 08-20; empty,
+points at `main`'s own 0.56.0 commit), `aan-de-slag-wen7bc` (this scan's transport branch —
+deletable once its commit is on `main`), `eager-cannon-b3ncc4`,
 `degiro-reconciliation-issues-7t3iyc` (new since the 08-18 audit; zero diff against `main`, same as
 the rest of this line), `hoi-jft2cv`, `popup-0470`, `readme-0460`, `refine-0470c`,
 `remaining-build-items-05dbxv`, `status-0460-cleanup`, `ui-overhaul-user-stories-odcw7i`,
