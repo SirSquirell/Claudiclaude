@@ -725,6 +725,50 @@ button.primary:hover {
   font: inherit;
 }
 
+/*
+ * US-95, variant A: the ✕ every modal carries, top-right, where a reader looks
+ * first — the same idiom as the strip's and the toast's (US-91/92). Visually
+ * 28px (the ::before circle), a 44px hit target (the button itself). Press
+ * feedback comes from the global button:active rule; hover gets the same
+ * quiet circle the strip's ✕ draws, on this stylesheet's own tokens so both
+ * themes carry it. Last in each dialog's DOM, so Tab walks the content first.
+ */
+.sheet-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  background: none;
+  border: 0;
+  border-radius: 50%;
+  color: var(--text-secondary);
+  font-size: 15px;
+  line-height: 1;
+}
+.sheet-close::before {
+  content: '✕';
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  transition: background var(--t-press) var(--ease-out), color var(--t-press) var(--ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .sheet-close:hover::before {
+    background: var(--surface-3);
+    color: var(--text-primary);
+  }
+}
+.sheet-close:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .modal::backdrop {
   background: rgba(10, 14, 18, 0.45);
   /*

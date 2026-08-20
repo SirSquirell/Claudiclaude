@@ -91,6 +91,13 @@ export function applyStatic(root = document) {
     if (!el.dataset.enTitle) el.dataset.enTitle = el.getAttribute('title') ?? '';
     el.setAttribute('title', t(el.dataset.enTitle));
   }
+  // Same contract for the accessible name (US-95): a ✕ drawn by CSS has no
+  // text for [data-i18n] to translate, and an aria-label left in English on a
+  // Dutch page is untranslated UI a sighted reviewer never sees.
+  for (const el of root.querySelectorAll('[data-i18n-aria]')) {
+    if (!el.dataset.enAria) el.dataset.enAria = el.getAttribute('aria-label') ?? '';
+    el.setAttribute('aria-label', t(el.dataset.enAria));
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -152,6 +159,7 @@ const DICT = {
       'Dit is de naam die DEGIRO bij de rekening heeft staan; dat kan je volledige naam zijn.',
     'This position is not inside the selected period.': 'Deze positie valt niet binnen de gekozen periode.',
     Close: 'Sluiten',
+    'Close (Esc)': 'Sluiten (Esc)',
     Download: 'Downloaden',
     'Image saved.': 'Afbeelding opgeslagen.',
     'Could not export the image': 'De afbeelding kon niet worden geëxporteerd',

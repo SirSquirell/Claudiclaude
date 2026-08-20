@@ -499,11 +499,15 @@
         </div>
         <div class="actions" style="margin-top: 12px">
           <button id="btn-copy-diag" type="button" data-i18n>Copy report</button>
-          <button id="btn-hide-diag" type="button" data-i18n>Hide</button>
         </div>
         <p class="hint" style="margin-top: 8px">
           Safe to share: statuses, counts and field names only — no session id, account number or amounts.
         </p>
+        <!-- US-95, variant A: the exit lives where every modal puts it. Last in
+             the DOM on purpose — Tab walks the content first, and the focus a
+             showModal() gives the first focusable never lands on "leave". -->
+        <button type="button" class="sheet-close" id="btn-diag-x"
+          data-i18n-aria aria-label="Close" data-i18n-title title="Close (Esc)"></button>
       </dialog>
 
       <!--
@@ -554,8 +558,11 @@
         <div class="actions" style="margin-top: 12px">
           <button id="btn-share-copy" type="button" data-i18n>Copy image</button>
           <button id="btn-share-download" type="button" data-i18n>Download</button>
-          <button id="btn-share-close" type="button" data-i18n>Close</button>
         </div>
+        <!-- US-95, variant A: the action row keeps only verbs; the exit is the
+             ✕, last in the DOM so opening never focuses "leave" first. -->
+        <button type="button" class="sheet-close" id="btn-share-x"
+          data-i18n-aria aria-label="Close" data-i18n-title title="Close (Esc)"></button>
       </dialog>
 
 

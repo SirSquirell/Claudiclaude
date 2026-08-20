@@ -142,3 +142,33 @@ test('the ledger and the app do not contradict each other', () => {
   );
   assert.deepEqual(both, [], 'declared retired in docs/RETIRED.md but still in app.html');
 });
+
+test('US-95 — every modal carries the ✕, and the action rows hold only verbs', () => {
+  /**
+   * Variant A, the owner's pick: the exit lives top-right and the buttons
+   * below are verbs. Pinned at the source like the ledger above, because the
+   * failure mode is the same silent kind — a future dialog edit that drops
+   * the ✕ or sneaks the Close button back leaves three exits again on one
+   * modal and one on the other, and nothing else would notice.
+   */
+  const html = read('../src/ui/app.html');
+  const app = read('../src/ui/app.js');
+
+  for (const [dialog, x] of [['share-sheet', 'btn-share-x'], ['diagnostics', 'btn-diag-x']]) {
+    const from = html.indexOf(`id="${dialog}"`);
+    const body = html.slice(from, html.indexOf('</dialog>', from));
+    assert.match(body, new RegExp(`class="sheet-close" id="${x}"`), `${dialog} carries its ✕`);
+    // Last in the DOM: nothing but the button's own markup after it, so Tab
+    // walks the content first and opening never focuses "leave".
+    const afterX = body.slice(body.indexOf(x));
+    assert.ok(!/<(button|input|select|a )/.test(afterX.slice(afterX.indexOf('>') + 1)), `${x} is the last control in ${dialog}`);
+    // Translated accessible name and the shortcut hint, through the static pass.
+    assert.match(body.slice(body.indexOf(x) - 200, body.indexOf(x) + 200), /data-i18n-aria/);
+  }
+  assert.ok(!html.includes('btn-share-close'), 'the Close verb left the sheet’s action row');
+  assert.ok(!html.includes('btn-hide-diag'), 'Hide left the diagnostics row (see docs/RETIRED.md)');
+
+  // Both ✕ go through the existing close paths — no new way out.
+  assert.match(app, /\$\('#btn-share-x'\)\.addEventListener\('click', closeShareSheet\)/);
+  assert.match(app, /\$\('#btn-diag-x'\)\.addEventListener\('click', \(\) => closeModal\(\$\('#diagnostics'\)\)\)/);
+});

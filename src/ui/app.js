@@ -788,7 +788,9 @@ function showShareSheet() {
       state.share.tileLabel = e.target.value;
       paintSharePreview();
     });
-    $('#btn-share-close').addEventListener('click', closeShareSheet);
+    // US-95, variant A: the ✕ is the exit, through the same path as Escape and
+    // the backdrop — the action row below keeps only verbs.
+    $('#btn-share-x').addEventListener('click', closeShareSheet);
     // Escape and the backdrop both go through the same path, so there is one
     // way out and it looks the same however it was taken.
     dlg.addEventListener('cancel', (e) => {
@@ -1915,7 +1917,9 @@ function wireActions() {
     if (await copy(state.diagnostics)) notice('ok', 'Report copied to the clipboard.');
   });
 
-  $('#btn-hide-diag').addEventListener('click', () => closeModal($('#diagnostics')));
+  // US-95: same ✕, same style class, same close path as the sheet's — every
+  // modal, not one (US-57's lesson). Hide left the action row with it.
+  $('#btn-diag-x').addEventListener('click', () => closeModal($('#diagnostics')));
 
   $('#btn-export').addEventListener('click', async (e) => {
     e.target.disabled = true;

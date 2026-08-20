@@ -38,6 +38,12 @@ a decision somebody can disagree with later.
 
 ## Retired
 
+- `btn-hide-diag` → RETIRED: superseded by the ✕ top-right of the diagnostics dialog
+  (`btn-diag-x`, US-95 variant A — the owner's pick), because the exit belongs where every modal
+  puts it and the action row should hold only verbs; *Copy report* stays, and the ✕ closes through
+  the same path as Escape and the backdrop, so nothing about how the dialog closes changed — only
+  where the reader finds it.
+
 - `products-sort` → RETIRED: superseded by sorting in the column headers themselves (US-87 —
   click a header cycles descending/ascending/natural, with the active column and direction shown
   in the header), because two mechanisms for one question is one too many: the three chips could

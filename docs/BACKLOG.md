@@ -6282,7 +6282,7 @@ voor elke rij leeg is.
 
 ---
 
-## US-95 — De sheet krijgt een ✕ rechtsboven *(new, refined — keuze: variant A)*
+## US-95 — De sheet krijgt een ✕ rechtsboven *(built, 0.60.0 — variant A)*
 
 > *"also why is the close not on the right top"* — dezelfde testronde, 2026-08-20.
 
