@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Share-sheet — sluitknop-POC</title>
+<style>
+  /* POC only. Synthetische data, geen Chrome-API's, geen engine — de look leent
+     de donkere tokens van de app, de sluit-affordance is het voorstel.
+     Kies Huidig, A of B. */
+  :root {
+    color-scheme: dark;
+    --page: #0d1116;
+    --surface-1: #141920;
+    --surface-2: #1b222b;
+    --surface-3: #232b35;
+    --text-primary: #e8edf3;
+    --text-secondary: #98a3b0;
+    --text-muted: #6b7683;
+    --border: #232b35;
+    --border-strong: #333d49;
+    --pos: #63a6f6;
+    --accent: #e08355;
+    --shadow-float: 0 16px 40px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.4);
+    --radius: 0.625rem;
+    --radius-sm: 0.375rem;
+    --radius-pill: 999px;
+    --pad: 1.25rem;
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --t-press: 120ms;
+    --t-surface: 140ms;
+    --t-surface-out: 110ms;
+    --sheet-blur: 14px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--page); color: var(--text-primary);
+    font: 0.9375rem/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    padding: 24px; -webkit-font-smoothing: antialiased;
+  }
+  h1 { font-size: 17px; margin: 0 0 2px; letter-spacing: -0.01em; }
+  .sub { color: var(--text-muted); font-size: 12.5px; margin-bottom: 18px; max-width: 62rem; }
+  .sub b { color: var(--text-secondary); }
+
+  /* variantkiezer — zelfde patroon als de tabel-POC */
+  .variants { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  .variant {
+    background: var(--surface-1); border: 1px solid var(--border); color: var(--text-primary);
+    border-radius: 10px; padding: 10px 14px; cursor: pointer; text-align: left;
+    max-width: 320px; font: inherit;
+    transition: transform 140ms var(--ease-out), border-color 140ms ease;
+  }
+  .variant b { display: block; font-size: 13px; }
+  .variant span { color: var(--text-muted); font-size: 11.5px; }
+  .variant:active { transform: scale(0.98); }
+  .variant[aria-pressed="true"] { border-color: var(--accent); background: var(--surface-2); }
+  @media (hover: hover) and (pointer: fine) { .variant:hover { border-color: var(--border-strong); } }
+
+  /* een stukje context: de rij waar de sheet vandaan komt (oorzaak → gevolg) */
+  .row {
+    display: flex; align-items: center; gap: 14px; max-width: 46rem;
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 10px 14px; font-size: 13px;
+  }
+  .row .name { flex: 1; }
+  .row .name i { font-style: normal; color: var(--text-muted); margin-left: 6px; }
+  .row .pos { color: var(--pos); font-variant-numeric: tabular-nums; }
+
+  button {
+    font: inherit; font-size: 0.7188rem; font-weight: 600;
+    color: var(--text-primary); background: var(--surface-1);
+    border: 1px solid var(--border-strong); border-radius: var(--radius-pill);
+    padding: 9px 16px; cursor: pointer;
+    transition: background var(--t-press) var(--ease-out), border-color var(--t-press) var(--ease-out),
+                transform 100ms ease-out;
+  }
+  button:active { transform: scale(0.97); }
+  @media (hover: hover) and (pointer: fine) { button:hover { background: var(--surface-2); } }
+  .snap { padding: 6px 10px; border-radius: var(--radius-sm); }
+
+  /* --- de sheet, zoals in de app ----------------------------------------- */
+  dialog.modal {
+    max-width: min(46rem, calc(100vw - 2rem)); width: 100%;
+    border: 1px solid var(--border-strong); border-radius: var(--radius);
+    background: var(--surface-1); color: var(--text-primary);
+    box-shadow: var(--shadow-float); padding: var(--pad); font: inherit;
+    position: relative;
+  }
+  dialog.modal::backdrop {
+    background: rgba(10, 14, 18, 0.45);
+    transition: opacity var(--t-surface) var(--ease-out),
+                display var(--t-surface) allow-discrete,
+                overlay var(--t-surface) allow-discrete;
+    opacity: 1;
+  }
+  @starting-style { dialog.modal::backdrop { opacity: 0; } }
+  dialog.modal:not([open])::backdrop {
+    opacity: 0;
+    transition: opacity var(--t-surface-out) var(--ease-out),
+                display var(--t-surface-out) allow-discrete,
+                overlay var(--t-surface-out) allow-discrete;
+  }
+  dialog h2 { margin: 0; font-size: 1.0625rem; letter-spacing: -0.01em; padding-right: 2.5rem; }
+
+  .share-body { display: grid; grid-template-columns: minmax(0, 1fr) 13rem; gap: var(--pad); align-items: start; margin-top: 0.75rem; }
+  .share-preview {
+    display: grid; place-items: center; min-height: 16rem; padding: 0.75rem;
+    border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2);
+  }
+  .card {
+    width: 320px; aspect-ratio: 16/10; background: #10151c; border-radius: 10px;
+    padding: 18px; display: flex; flex-direction: column; box-shadow: 0 1px 2px rgba(0,0,0,.4);
+  }
+  .card .brand { font-size: 10px; letter-spacing: .12em; color: var(--text-muted); }
+  .card .iname { font-weight: 600; margin-top: 8px; }
+  .card .sym { color: var(--text-muted); font-size: 11px; }
+  .card .pct { color: var(--pos); font-size: 26px; font-weight: 700; letter-spacing: -0.02em; }
+  .card .on { color: var(--text-muted); font-size: 11px; }
+  .card svg { margin: auto 0 6px; width: 100%; }
+  .card .prov { color: var(--text-muted); font-size: 9.5px; }
+  .controls { display: grid; gap: 0.875rem; min-width: 0; }
+  .field { display: grid; gap: 0.375rem; }
+  .field-label { font-size: 0.75rem; color: var(--text-muted); letter-spacing: 0.07em; text-transform: uppercase; }
+  .group { display: flex; gap: 6px; }
+  .group button[aria-pressed="true"] { border-color: var(--accent); }
+  select {
+    font: inherit; font-size: 0.8125rem; color: var(--text-primary);
+    background: var(--surface-2); border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm); padding: 7px 9px; width: 100%; min-width: 0;
+  }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+
+  /*
+   * Het voorstel: de ✕. Visueel 28 px, raakvlak 44 px (de padding is het
+   * raakvlak) — reactie op pointer-down, niet pas op de klik. Zelfde idioom
+   * als het kruisje dat de strip en de toast al hebben (US-91/92).
+   */
+  .sheet-close {
+    position: absolute; top: 8px; right: 8px;
+    width: 44px; height: 44px; padding: 0;
+    display: grid; place-items: center;
+    background: none; border: 0; border-radius: 50%;
+    color: var(--text-secondary); font-size: 15px; line-height: 1; font-weight: 400;
+  }
+  .sheet-close::before {
+    content: "✕"; display: grid; place-items: center;
+    width: 28px; height: 28px; border-radius: 50%;
+    transition: background var(--t-press) var(--ease-out), color var(--t-press) var(--ease-out);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .sheet-close:hover::before { background: rgba(255, 255, 255, 0.08); color: var(--text-primary); }
+  }
+  .sheet-close:active { transform: scale(0.92); }
+  .sheet-close:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* variantgedrag: Huidig = geen ✕; A = ✕, geen Close-knop; B = allebei */
+  dialog[data-variant="huidig"] .sheet-close { display: none; }
+  dialog[data-variant="a"] #btn-close { display: none; }
+
+  .note {
+    max-width: 62rem; margin-top: 20px; padding: 12px 14px;
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius);
+    font-size: 12.5px; color: var(--text-secondary);
+  }
+  .note h2 { font-size: 13px; margin: 0 0 6px; color: var(--text-primary); }
+  .note ul { margin: 6px 0 0; padding-left: 18px; }
+  .note li { margin-bottom: 5px; }
+  .note li:last-child { margin-bottom: 0; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .variant, button, .sheet-close { transition: none; }
+  }
+  @media (max-width: 640px) { .share-body { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+  <h1>Share-sheet: waar woont “sluiten”?</h1>
+  <p class="sub">
+    Testervraag: <b>“waarom zit de sluitknop niet rechtsboven?”</b> De sheet sluit vandaag op drie
+    manieren — de Close-knop onderin, Escape en een klik op de achtergrond — maar de plek waar een
+    lezer als eerste kijkt is leeg. Kies een variant en open de sheet met ⧉. Escape en de
+    achtergrond blijven in elke variant werken; alles gaat door één en hetzelfde sluitpad.
+  </p>
+
+  <div class="variants" role="group" aria-label="Varianten">
+    <button type="button" class="variant" data-pick="huidig" aria-pressed="false">
+      <b>Huidig — nulmeting</b>
+      <span>Close onderin, tussen de acties. Geen ✕.</span>
+    </button>
+    <button type="button" class="variant" data-pick="a" aria-pressed="true">
+      <b>A — ✕ rechtsboven, onderin alleen acties</b>
+      <span>De actierij houdt alleen werkwoorden over: Copy image en Download.</span>
+    </button>
+    <button type="button" class="variant" data-pick="b" aria-pressed="false">
+      <b>B — ✕ rechtsboven én Close blijft</b>
+      <span>Twee uitgangen die hetzelfde doen, voor wie de ✕ niet ziet.</span>
+    </button>
+  </div>
+
+  <div class="row">
+    <span class="name">Borealis Clean Water ETF <i>BCW</i></span>
+    <span class="pos">+€ 1.234,56</span>
+    <button type="button" class="snap" id="open" title="Share this position" aria-label="Share this position">⧉</button>
+  </div>
+
+  <dialog class="modal" id="sheet" data-variant="a">
+    <h2>Share this position</h2>
+    <div class="share-body">
+      <div class="share-preview">
+        <div class="card">
+          <span class="brand">📈 ASTERIA</span>
+          <span class="iname">Borealis Clean Water ETF</span>
+          <span class="sym">BCW</span>
+          <span class="pct">+23.4%</span>
+          <span class="on">on the money put in</span>
+          <svg viewBox="0 0 280 60" height="60" aria-hidden="true">
+            <polyline fill="none" stroke="#63a6f6" stroke-width="2" stroke-linejoin="round"
+              points="0,44 20,40 40,46 60,38 80,42 100,30 120,34 140,24 160,28 180,18 200,26 220,14 240,20 260,8 280,12"/>
+          </svg>
+          <span class="prov">Alex’ position<br>2022-01-15 → 2026-08-20<br>DEGIRO · 2026-08-20 · reconciled to the cent · v0.58.0</span>
+        </div>
+      </div>
+      <div class="controls">
+        <div class="field"><span class="field-label">Shape</span>
+          <div class="group"><button type="button">1:1</button><button type="button" aria-pressed="true">16:9</button><button type="button">4:3</button></div>
+        </div>
+        <div class="field"><span class="field-label">Theme</span>
+          <div class="group"><button type="button">Light</button><button type="button" aria-pressed="true">Dark</button></div>
+        </div>
+        <div class="field"><span class="field-label">Amounts</span>
+          <div class="group"><button type="button" aria-pressed="true">Hidden</button><button type="button">Shown</button></div>
+        </div>
+        <div class="field"><label class="field-label" for="nm">Name on the card</label>
+          <select id="nm"><option>First name</option><option>Nobody</option></select>
+        </div>
+      </div>
+    </div>
+    <div class="actions">
+      <button type="button" id="btn-copy">Copy image</button>
+      <button type="button" id="btn-dl">Download</button>
+      <button type="button" id="btn-close">Close</button>
+    </div>
+    <!--
+      Laatste in de DOM, visueel rechtsboven: Tab loopt eerst langs de inhoud en
+      de acties, en de focus landt bij openen niet op “weggaan”. aria-label en
+      title dragen ook de sneltoets, zodat de ✕ Escape leert.
+    -->
+    <button type="button" class="sheet-close" id="btn-x" aria-label="Sluiten" title="Sluiten (Esc)"></button>
+  </dialog>
+
+  <div class="note">
+    <h2>Wat hier is toegepast, en waarom</h2>
+    <ul>
+      <li><b>Vertrouwdheid.</b> De extensie heeft dit patroon al: de strip en de toast op
+        trader.degiro.nl sluiten met een ✕ in de hoek (US-91/92). Twee oppervlakken die op elkaar
+        lijken moeten zich hetzelfde gedragen — de sheet is nu de uitzondering, en dat is precies
+        wat de tester voelde.</li>
+      <li><b>Eenvoud: acties zijn werkwoorden.</b> “Copy image” en “Download” <em>maken</em> iets;
+        “Close” is de kamer verlaten. In variant A houdt de actierij alleen de werkwoorden over,
+        en woont de uitgang waar elke modal hem legt. Wegwijzer-vraag beantwoord: <em>hoe kom ik
+        hier weg?</em> — rechtsboven, zoals overal.</li>
+      <li><b>Respons.</b> De ✕ reageert op pointer-down (schaal 0.92, 100 ms), niet pas op de
+        klik. Visueel 28 px, raakvlak 44 px. Hover-cirkel identiek aan het kruisje van de strip.</li>
+      <li><b>Eén sluitpad.</b> De ✕ roept hetzelfde <code>closeShareSheet</code> aan als Escape en
+        de achtergrond — de bestaande discipline (app.js): één weg naar buiten, hoe je hem ook
+        neemt. De materialize-animatie (US-57: blur en schaal samen, omgekeerd pad bij sluiten,
+        reduced motion = korte fade) blijft ongemoeid.</li>
+      <li><b>Elke modal, niet één.</b> US-57's les geldt hier ook: wat gekozen wordt, krijgt de
+        diagnostics-dialog ook — diens “Hide” onderin heeft dezelfde vraag.</li>
+      <li><b>Geen sleep-om-te-sluiten.</b> Dit is een desktop-extensiedialog zonder aanraak-idioom;
+        een sheet-gebaar zou een belofte zijn die de rest van de app nergens doet.</li>
+    </ul>
+  </div>
+
+<script>
+  const dlg = document.getElementById('sheet');
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // materialize() uit app.js, één-op-één: blur en schaal samen, sluiten is
+  // hetzelfde pad achterstevoren, en een heropening annuleert de lopende sluiting.
+  function materialize(open) {
+    if (typeof dlg.animate !== 'function') return Promise.resolve();
+    for (const a of dlg.getAnimations()) a.cancel();
+    const shut = reduced ? { opacity: 0 } : { opacity: 0, transform: 'scale(0.94)', filter: 'blur(var(--sheet-blur, 14px))'.replace('var(--sheet-blur, 14px)', '14px') };
+    const shown = reduced ? { opacity: 1 } : { opacity: 1, transform: 'scale(1)', filter: 'blur(0px)' };
+    const anim = dlg.animate(open ? [shut, shown] : [shown, shut], {
+      duration: reduced ? 120 : 260,
+      easing: 'cubic-bezier(0.22, 0.61, 0.36, 1)',
+      fill: 'both',
+    });
+    return anim.finished;
+  }
+  function openSheet() {
+    if (!dlg.open) dlg.showModal();
+    materialize(true).catch(() => {});
+  }
+  function closeSheet() {
+    if (!dlg.open) return;
+    materialize(false).then(() => dlg.close()).catch(() => {});
+  }
+
+  document.getElementById('open').addEventListener('click', openSheet);
+  document.getElementById('btn-close').addEventListener('click', closeSheet);
+  document.getElementById('btn-x').addEventListener('click', closeSheet);
+  // Escape en de backdrop gaan door hetzelfde pad — één weg naar buiten.
+  dlg.addEventListener('cancel', (e) => { e.preventDefault(); closeSheet(); });
+  dlg.addEventListener('click', (e) => { if (e.target === dlg) closeSheet(); });
+
+  // De nep-acties doen niets; dicht gaat de sheet er niet van. Dat is de echte
+  // app ook zo: kopiëren sluit niet, zodat je door kunt naar Download.
+  document.getElementById('btn-copy').addEventListener('click', () => {});
+  document.getElementById('btn-dl').addEventListener('click', () => {});
+
+  for (const b of document.querySelectorAll('.variant')) {
+    b.addEventListener('click', () => {
+      for (const o of document.querySelectorAll('.variant')) o.setAttribute('aria-pressed', String(o === b));
+      dlg.dataset.variant = b.dataset.pick;
+      openSheet(); // meteen laten zien wat er gekozen is
+    });
+  }
+</script>
+</body>
+</html>

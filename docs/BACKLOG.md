@@ -6229,4 +6229,101 @@ opduikt wordt een eigen entry onder het volgende vrije nummer.
 
 ---
 
-**Next free number: US-94.**
+## US-94 — Paid in vs grown voor gesloten posities: ingelegd vs eruit gekomen *(new, refined — richting gekozen door de eigenaar, nog niet gebouwd)*
+
+> *"waarom ziet hij niet overal paid vs grown ook voor closed holdings"* — testervraag via de
+> eigenaar, 2026-08-20; op het stroom-voorstel hieronder: *"Dit vind ik wel cool!"*
+
+Het streepje bij gesloten posities is een **beslissing, geen gat** — en de reden blijft staan. De
+balk beantwoordt een voorraadvraag ("van wat dit nu waard is, hoeveel is inleg en hoeveel
+aangroei?", invariant `value = paidIn + result`), en een gesloten positie is €0 waard: er valt
+niets te splitsen. Toen de share-card er tóch één tekende, zei hij *"100% of what you paid in is
+gone"* over een verkoop met 20% verlies — het US-82-defect dat de card het streepje van de tabel
+liet overnemen (`lib/snapshot.js`, commentaar bij `split`). Die balk komt **niet** terug.
+
+Wat er wél komt is een **andere balk met een eigen noemer**: de stroomvariant, alles-de-tijd.
+Voor een gesloten positie is de zinvolle vraag niet "waar bestaat de waarde uit" maar "wat kwam
+eruit tegenover wat erin ging": **gekocht (€) tegenover verkocht + dividend (€)**, als balk met de
+zin *"je kreeg 92% terug van wat je inlegde"* (of 108%). De data ligt per positie klaar — `bought`,
+`sold` en `dividend` zijn all-time scalars uit de engine; er is geen cost-basis-conventie nodig en
+de engine blijft onaangeraakt.
+
+Twee dingen die de story moet bewaken, allebei al eerder als defect langsgekomen:
+
+1. **De zin benoemt zijn eigen noemer.** De balk zegt bij gesloten posities iets ánders dan bij
+   open (gerealiseerde uitkomst i.p.v. huidige samenstelling) — dezelfde discipline die US-89 aan
+   windowed cards oplegde: een balk die op een andere noemer staat, zegt dat er ook bij.
+2. **Card en tabel uit één model.** US-52 tilde de rekensom naar `splitModel`; de gesloten variant
+   krijgt hetzelfde: één pure functie (naast of in `splitModel`), getest, en zowel de rij als de
+   share-card tekenen daaruit — geen tweede waarheid.
+
+Het voegt geen nieuwe informatie toe — **Result** en **% of bought** zeggen het al als getal — maar
+leesbaarheid is precies waar deze kolom voor bestaat, en de *Closed*-filter toont nu een kolom die
+voor elke rij leeg is.
+
+### Acceptatiecriteria
+
+- **AC1** Een gesloten positie toont in *Paid in vs grown* een balk plus zin op basis van
+  `bought` vs `sold + dividend` (alles-de-tijd); de zin benoemt die noemer expliciet.
+- **AC2** Open posities zijn ongewijzigd, tot op de digit — de bestaande `splitModel`-uitkomsten
+  en hun tests blijven staan.
+- **AC3** De share-card van een gesloten positie tekent dezelfde balk uit hetzelfde model als de
+  rij (en het US-82-gedrag — geen voorraadbalk voor gesloten — blijft aantoonbaar weg).
+- **AC4** Sorteren op de kolom werkt ook voor gesloten rijen, op de eigen ratio (eruit/erin), en
+  mengt de twee betekenissen niet stilzwijgend: de sort blijft per rij consistent met wat de cel
+  toont.
+- **AC5** Getest op de fixtures' twee gesloten posities (één met winst, één met verlies — daar
+  zijn ze voor, US-82) en zichtbaar in `npm run demo`.
+
+### Stop condition
+
+- Geen herontwerp van de open-balk, geen kolom erbij, geen windowed variant van de stroom-balk:
+  alles-de-tijd of niets. Wat onderweg opduikt wordt een entry onder het volgende vrije nummer.
+
+---
+
+## US-95 — De sheet krijgt een ✕ rechtsboven *(new, refined — POC gebouwd, de eigenaar kiest)*
+
+> *"also why is the close not on the right top"* — dezelfde testronde, 2026-08-20.
+
+Geen beslissing die dit tegenhoudt, gewoon nooit gebouwd: de share-sheet (en de
+diagnostics-dialog) sluiten via de knop onderin, Escape en de backdrop — drie uitgangen, alle drie
+door één pad (`app.js`, de `cancel`-handler zegt het letterlijk) — maar de hoek waar een lezer als
+eerste kijkt is leeg. De extensie heeft het patroon nota bene al: de strip en de toast op de
+brokerpagina sluiten met een ✕ (US-91/92). Twee oppervlakken die op elkaar lijken moeten zich
+hetzelfde gedragen; de sheet is de uitzondering, en dat is precies wat de tester voelde.
+
+De POC — **`docs/prototypes/share-sheet-close.html`**, zelfstandig, synthetische data, de
+materialize-animatie van US-57 nagebouwd — zet drie varianten naast elkaar:
+
+- **Huidig** — nulmeting: Close onderin, geen ✕.
+- **A — ✕ rechtsboven, onderin alleen acties** — de actierij houdt alleen werkwoorden over (*Copy
+  image*, *Download*); de uitgang woont waar elke modal hem legt. Visueel 28 px, raakvlak 44 px,
+  reactie op pointer-down, hover-cirkel identiek aan het kruisje van de strip, als laatste in de
+  DOM zodat Tab eerst langs de inhoud loopt, `title="Sluiten (Esc)"` leert en passant de
+  sneltoets.
+- **B — ✕ én Close blijft** — twee uitgangen die hetzelfde doen, voor wie de ✕ niet ziet.
+
+Wat vaststaat, welke variant ook wint: de ✕ gaat door hetzelfde sluitpad als Escape en de
+backdrop; de materialize-animatie en het reduced-motion-gedrag blijven ongemoeid; en — US-57's
+les — **elke modal, niet één**: de diagnostics-dialog krijgt dezelfde behandeling als de sheet.
+Geen sleep-om-te-sluiten: dit is een desktopdialog zonder aanraak-idioom, en een gebaar dat
+nergens anders in de app bestaat zou een losse belofte zijn.
+
+### Acceptatiecriteria (variant-onafhankelijk, bij de bouw aan te scherpen op de keuze)
+
+- **AC1** De gekozen sluit-affordance sluit de sheet via hetzelfde pad als Escape en de backdrop,
+  met de bestaande animatie, ook onder reduced motion.
+- **AC2** De diagnostics-dialog gedraagt zich identiek aan de sheet.
+- **AC3** De ✕ is met toetsenbord bereikbaar, draagt een `aria-label`, en de focus landt bij
+  openen niet op "weggaan".
+- **AC4** `npm run demo` laat het zien zonder extensie of login.
+
+### Stop condition
+
+- Alleen de sluit-affordance: geen herindeling van de actierij voorbij wat de gekozen variant
+  vraagt, geen nieuw modal-gedrag, geen gebaren.
+
+---
+
+**Next free number: US-96.**
