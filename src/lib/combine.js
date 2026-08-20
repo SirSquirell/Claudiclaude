@@ -139,7 +139,6 @@ export function combineResults(parts) {
     (p.result.warnings ?? []).map((w) => ({ ...w, broker: p.broker })),
   );
   out.brokers = usable.map(brokerSummary);
-  out.computedAt = new Date().toISOString();
 
   return out;
 }

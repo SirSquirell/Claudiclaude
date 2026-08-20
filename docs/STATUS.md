@@ -3,58 +3,73 @@
 `docs/BACKLOG.md` is 2 000 lines of reasoning and evidence, which is the right place for *why* and
 a bad place to find out *where things stand*. This is the index.
 
-**Last updated at 0.60.0.** It had been stale since 0.21.0 once, which is fifteen
+**Last updated at 0.60.1.** It had been stale since 0.21.0 once, which is fifteen
 releases — if it looks stale again, trust the CHANGELOG and fix this.
 
-## Light scan, 2026-08-20
+## Light scan, 2026-08-20 (second pass)
 
-A routine sweep, not an audit: branches, GitHub issues/PRs, backlog consistency, a rule-compliance
-spot-check and a headless browser pass. **Nothing found, and nothing changed but this file** — the
-third scan in a row with no unlanded work. This supersedes the 2026-08-19 entry it replaces; that
-scan's one product, **US-90**, was built and shipped the same day (0.55.0) and sits in the *Shipped*
-table below.
+A second routine sweep the same day — the first one (0.60.0, committed 20:11 UTC) found nothing
+and this one found two, both small enough to fix inline rather than write up as stories. This
+supersedes that entry.
 
-**Branches.** All 25 remote `claude/*` branches plus `poc` re-checked against `main`. One branch is
-new since yesterday, `claude/aan-de-slag-c57smb` — it points at `main`'s own release commit
-(`0060a4b`, 0.56.0), zero diff, an empty harness-created branch, not work. Added to the *delete
-without looking* line under *Unmerged work* below. Every other branch matches yesterday's read.
-**No unlanded story found, again.** Branch deletion is still GitHub-UI cleanup for the owner — the
-git proxy refuses `push --delete`. This scan's own session branch (`claude/aan-de-slag-wen7bc`) is
-transport per the CLAUDE.md branch policy: it carries this commit to `main` and then joins the same
-delete list.
+**Branches.** All 18 remote `claude/*` branches plus `poc` re-checked against `main` (a5e4225,
+0.60.0 at fetch time), by diff content rather than commit count — `git rev-list` overcounts on this
+repo's rebased histories (one branch showed "88 ahead" while its actual diff against `main` was
+19 205 deletions and 0 unique files). Every branch: zero files absent from `main`, and every diff
+against `main` is net deletions — no unmerged story anywhere. The nine branches the 2026-08-19 audit
+flagged for owner cleanup (`aan-de-slag-*`, `eager-cannon-b3ncc4`, `degiro-reconciliation-issues-*`,
+`hoi-jft2cv`, `popup-0470`, `readme-0460`, `refine-0470c`, `remaining-build-items-*`,
+`status-0460-cleanup`, `ui-overhaul-user-stories-*`, `v47-bug-2jcvd3`) are gone from the remote —
+the owner appears to have done the GitHub-UI cleanup. `degiro-portfolio-spike-7x5d4h` is gone too.
+This session's own branch, `claude/eager-cannon-7cxe6h`, is transport per the branch policy and
+carries this commit to `main`.
 
-**GitHub.** Zero open issues. One open PR, **#8**, byte-for-byte where yesterday's scan left it
-(last touched 2026-08-17): its approach would reintroduce the −100 % fabrication US-88 fixed in
-0.54.0. The recommendation stands unchanged — close as superseded, owner's call, not this scan's.
+**GitHub.** Zero open issues, matching the first pass. One open PR, **#8**, still untouched since
+2026-08-17 — same recommendation as every prior scan: close as superseded (US-88 already fixed what
+it re-proposes), owner's call.
 
-**Backlog consistency.** `node tools/check-backlog.mjs`: 57 stories, highest US-91, next free
-US-92, every heading states its state. No duplicate or skipped numbers. A parallel session landed
-**US-91** (Asteria on the broker page, refined with a POC — the owner picks a variant) on `main`
-*during* this scan, which is the branch policy working as intended: the story went straight to
-`main` and claimed its number there, so this scan saw it the moment it fetched, instead of
-discovering a duplicate US-91 on a stray branch a week from now.
+**Backlog consistency.** `node tools/check-backlog.mjs`: 62 stories, highest US-96, next free
+US-97 — matches the *Next free number* line at the foot of `docs/BACKLOG.md`. No duplicate or
+skipped numbers, no heading that disagrees with the Shipped table below.
 
-**Rule compliance / security.** The same six spot checks as the two previous scans, same result:
-export allowlist (`store.js`'s `EXPORTABLE_META`) still default-deny; `throttledFetch` still the
-one fetch path (no `fetch(` anywhere else under `src/lib/` or `src/sw.js`), still no 401/403 retry;
-`session.js` still reads the cookie per request and persists only derived IDs; `engine.js` still
-pure — the one grep hit on the purity pattern is the word "fetched" inside a user-facing message
-string, not a call; the data-interpolating `innerHTML` sites spot-checked (`rail-state`, notices,
-tiles) all route data through `esc()`; `manifest.json` permissions and CSP unchanged and minimal.
-Nothing found.
+**Rule compliance / security**, same six spot checks as prior scans, same clean result on five —
+export allowlist still default-deny, `throttledFetch` still the one fetch path with no 401/403
+retry, `session.js` still write-nothing, `innerHTML` sites still routed through `esc()`, manifest
+permissions unchanged — **except the sixth: `engine.js` was not fully pure.** Two occurrences of
+`computedAt: new Date().toISOString()` (`computePortfolio`'s result and its empty-history fallback)
+read the wall clock inside the one module rule 1 requires to be pure, and a third in `combine.js`
+did the same. All three were dead output — `grep` found no reader anywhere in `src/` or `test/` —
+so this was a scan-safe fix rather than a backlog story: deleted in all three places, `npm test`
+still 579/579 after. Nothing else in the five-scan run of this check has ever found anything, so
+it is worth stating plainly this time it did.
 
-**Browser pass**, lighter than yesterday's design pass on purpose (that one was a fresh
-`apple-design` review; repeating it a day later on an unchanged UI would re-measure the same
-pixels): Overview and Holdings at 1440/380 px × light/dark, headless Chromium — no page errors, no
-console errors, no horizontal page overflow at either size or theme.
+**Design pass** (`apple-design` skill loaded first, per the brief in `docs/redesign/DESIGN-BRIEF.md`
+§8 — flat containers, no translucency, no shadows on nested elements, none of which this scan
+touched or needed to). Every section (Overview, Performance, Composition, Income & cost, Holdings,
+Outlook, Notices) driven headless at 1440/380 px × light/dark: no page errors, no console errors,
+no horizontal overflow anywhere. One real defect, found by measuring bounding boxes rather than
+eyeballing a screenshot (the same discipline the task brief asks for, because three prior scans'
+green tests missed exactly this shape of bug): **`.card-head > div { flex: 1 1 220px }`**
+(`styles.css`, written for the title-and-hint block beside a panel's controls) also matches every
+`.group` segmented control, because a `.group` is a bare `div` too. Four toggles were growing to
+fill the row instead of hugging their own buttons — Positions' *Table/Share* (422px of dead track
+at 1440px), Transactions' *This range/Everything* (355px), and Performance's chart-type and
+annualised-return toggles (119px and 344px) — each rendering as a stretched pill with visible empty
+space instead of a tight segmented control. `.card-head > .group { flex: 0 0 auto }` fixes all four
+at once; re-measured at 3px (padding only) on each, screenshotted before and after to confirm, no
+regression on the controls that were already correct (`range-group`, `outlook-horizon`,
+`outlook-rates` stayed at 3px throughout).
 
-**Optimization sweep**, looking for the US-83/US-90 shape now that both are fixed: one `.indexOf(`
-remains under `src/lib/` (`report.js:504`), a `filter((c, i, all) => all.indexOf(c) === i)` dedupe
-over a report's own category list — bounded to the handful of cash categories, run once per report,
-not a per-day scan of a calendar. Not the shape, not a story.
+**Optimization sweep**, repeating the US-83/US-90 shape check across `src/lib/` and `src/ui/`: still
+just the one `.indexOf(` at `report.js:504`, still bounded to the handful of cash categories, still
+not the shape. The `.indexOf(` calls in `app.js` (drag-and-drop, month-cell selection) are all
+against short, user-built arrays inside click handlers, not a per-day or per-row scan. No new
+finding this pass.
 
-`npm test` (563/563, which includes the palette, type-scale, leak and backlog checks) green before
-this entry; docs-only change, nothing to re-test after.
+`npm test` 579/579, `npm run palette` zero collisions in both themes, `node tools/check-leaks.mjs`
+clean, all three re-run after the fixes above, before this commit. Released as **0.60.1** — both
+fixes are display-only or dead-code, so no resync and no `WHATS-NEW.md` entry (nothing changed that
+a reader needs to know before their next sync); `CHANGELOG.md` carries both.
 
 No new broker surfaced worth scoping — the multi-broker sequence's blocker is unchanged from the
 table below (a Trading 212 Network-tab capture, which this environment cannot produce).

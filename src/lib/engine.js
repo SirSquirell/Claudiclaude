@@ -1975,7 +1975,6 @@ export function computePortfolio(input) {
     contracts: contractReport,
     reconciliation,
     warnings,
-    computedAt: new Date().toISOString(),
   };
 }
 
@@ -2782,7 +2781,6 @@ function emptyResult(today, warnings) {
     stats: { unclassified: 0, categoryTotals: {}, transactions: 0, cashRows: 0 },
     reconciliation: null,
     warnings: [...warnings, { level: 'info', code: 'no-data', message: 'No transactions or cash movements yet.' }],
-    computedAt: new Date().toISOString(),
   };
 }
 

@@ -16,6 +16,25 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.60.1] — 2026-08-20
+
+A routine scan's own findings, both display: no resync needed — nothing about what is stored or
+fetched changed.
+
+### Fixed
+
+- **A segmented control's track stretched past its buttons, leaving a dead-space tail on the
+  pill.** `.card-head > div { flex: 1 1 220px }` was written for the title-and-hint block beside a
+  panel's controls, but a `.group` toggle is also a bare `div` and caught the same rule — Positions'
+  *Table/Share*, Transactions' *This range/Everything*, and both Performance view toggles grew to
+  fill the row instead of hugging their own buttons (118–422px of empty track measured at 1440px).
+  `.card-head > .group { flex: 0 0 auto }` gives the control back its own size; the heading text
+  beside it still grows as intended.
+- **`engine.js` read the wall clock.** `computedAt: new Date().toISOString()` on the result object
+  broke the module's own purity rule and was never read by anything in `src/` or a test — dead
+  output stamped with the one clock call the module promises not to make. Removed from
+  `computePortfolio`, its empty-history fallback, and the same pattern in `combine.js`.
+
 ## [0.60.0] — 2026-08-20
 
 Three stories from the 2026-08-20 tester round, all display: the Positions table explains its own

@@ -2224,6 +2224,16 @@ td.neg { color: var(--neg); }
   flex: 1 1 220px;
 }
 
+/* A segmented control caught the rule above too, since it is also a bare
+ * `div`: `.group`'s track stretched to fill the row instead of hugging its
+ * buttons, leaving a dead-space tail on the pill (Table/Share, This
+ * range/Everything, and both Performance view toggles, measured 118-422px
+ * of empty track at 1440px). A control is not the growing element in a
+ * card-head; the heading text beside it is. */
+.card-head > .group {
+  flex: 0 0 auto;
+}
+
 .card h2,
 .card p.hint {
   overflow-wrap: anywhere;
