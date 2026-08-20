@@ -181,12 +181,15 @@ function carryStocksForward(out, parts, index, n) {
   for (const part of parts) {
     const r = part.result;
     const own = new Set(r.days);
+    // Built once per part, so the lookup below is O(1) instead of a fresh
+    // linear scan of this broker's whole calendar on every overlapping day.
+    const ownIndex = new Map(r.days.map((d, i) => [d, i]));
     const first = index.get(r.days[0]);
     const held = Object.fromEntries(STOCKS.map((k) => [k, 0]));
     for (let j = 0; j < n; j++) {
       const day = out.days[j];
       if (own.has(day)) {
-        const i = r.days.indexOf(day);
+        const i = ownIndex.get(day);
         for (const k of STOCKS) held[k] = r[k]?.[i] ?? 0;
       } else if (j > first) {
         // Before this broker's first day it contributes nothing at all, which

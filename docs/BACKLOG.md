@@ -5940,7 +5940,7 @@ keeps saying so uncapped, because for a short that is the truth.
 
 ---
 
-## US-90 — `carryStocksForward` re-scans a broker's whole calendar to find one day *(refined, ready to build)*
+## US-90 — `carryStocksForward` re-scans a broker's whole calendar to find one day *(built, 0.55.0)*
 
 Found on the 2026-08-19 light scan, not from a defect report — the same shape as US-83, one module
 over. `combine.js`'s `carryStocksForward` walks the combined n-day union calendar once per broker

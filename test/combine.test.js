@@ -14,6 +14,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { computePortfolio } from '../src/lib/engine.js';
+import { daysBetween } from '../src/lib/dates.js';
 import { classifyCashRow } from '../src/lib/classify.js';
 import { combineResults, combinedReturnPct } from '../src/lib/combine.js';
 
@@ -294,6 +295,53 @@ test('a deposit is never carried forward as a repeated flow', () => {
   const c = combineResults([{ broker: 'a', result: a }, { broker: 'b', result: b }]);
   assert.equal(round(c.netExternal.reduce((x, y) => x + y, 0)), 1500, 'exactly what went in, once');
   assert.equal(c.cumulativeDeposited.at(-1), 1500);
+});
+
+test('US-90: two realistic calendars, partially overlapping, still sum exactly', () => {
+  // AC3. Hundreds of days through the real engine, in the three regimes the
+  // carry-forward has to get right: A alone, both, and B alone with A's last
+  // stocks carried. Written against the `indexOf` implementation first, so the
+  // map lookup that replaced it is measured against the same numbers rather
+  // than trusted to produce them.
+  const build = (productId, firstDay, today, deposit, qty, price, closeAt) => {
+    const nDays = daysBetween(firstDay, today) + 1;
+    const cash = [
+      { id: `${productId}-dep`, date: firstDay, description: 'Storting', change: deposit, currency: 'EUR' },
+      { id: `${productId}-buy`, date: firstDay, description: 'Koop', change: -(qty * price), currency: 'EUR' },
+    ].map((row) => ({ ...row, category: classifyCashRow(row) }));
+    return computePortfolio({
+      transactions: [{ id: `${productId}-t`, date: firstDay, productId, quantity: qty, price, currency: 'EUR', totalBase: -(qty * price), feeBase: 0 }],
+      cashRows: cash,
+      products: { [productId]: { id: productId, name: productId, symbol: productId, currency: 'EUR', vwdId: productId } },
+      prices: { [productId]: { start: firstDay, points: Array.from({ length: nDays }, (_, i) => ({ offsetDays: i, close: closeAt(i) })) } },
+      today,
+      liveTotal: null,
+    });
+  };
+
+  // A starts first and stops syncing in March 2025; B starts five months later
+  // and runs to the end. Daily-varying prices, so a lookup that lands one day
+  // off produces a different value rather than the same flat number.
+  const a = build('AAA', '2024-01-01', '2025-03-31', 10000, 100, 50, (i) => 50 + (i % 7) - 3);
+  const b = build('BBB', '2024-06-03', '2025-08-31', 5000, 40, 100, (i) => 100 + (i % 5) - 2);
+
+  const c = combineResults([{ broker: 'a', result: a }, { broker: 'b', result: b }]);
+
+  assert.equal(c.days.length, daysBetween('2024-01-01', '2025-08-31') + 1, 'the union calendar is continuous');
+
+  for (let j = 0; j < c.days.length; j++) {
+    const dayIso = c.days[j];
+    const fromA = dayIso <= a.days.at(-1) ? a.value[daysBetween(a.days[0], dayIso)] : a.value.at(-1);
+    const fromB = dayIso < b.days[0] ? 0 : b.value[daysBetween(b.days[0], dayIso)];
+    assert.equal(c.value[j], round(fromA + fromB), `value on ${dayIso}`);
+  }
+
+  // Rule 6 on the combined view: the last value is exactly the parts' last
+  // values, to the cent, and the deposits were counted once each.
+  assert.equal(c.totals.value, round(a.value.at(-1) + b.value.at(-1)));
+  assert.equal(round(c.netExternal.reduce((x, y) => x + y, 0)), 15000);
+  assert.equal(c.cumulativeDeposited.at(-1), 15000);
+  assert.equal(c.totals.totalPnl, round(c.totals.value - 15000));
 });
 
 const round = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
