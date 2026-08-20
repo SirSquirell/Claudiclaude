@@ -6111,4 +6111,39 @@ topstrip verschuift per definitie.
 
 ---
 
-**Next free number: US-92.**
+## US-92 — De toast erbij: B naast D *(built, 0.58.0)*
+
+> *"ik wil de strip en de toast svp vind beide goed"* — de eigenaar, 2026-08-20, één release na
+> US-91.
+
+De strip (US-91, variant D) blijft de blijvende aanwezigheid; variant B uit dezelfde POC komt erbij
+als binnenkomst-nudge rechtsonder. Twee oppervlakken, één brein: beide tekenen exact dezelfde regel
+uit `bannermodel.js`, dus er kan geen tweede waarheid ontstaan — de toast is louter een tweede
+plek waar hetzelfde staat.
+
+Eén ontwerpbeslissing die de combinatie draaglijk maakt, hier vastgelegd omdat de eigenaar hem niet
+expliciet vroeg: **de toast ruimt zichzelf op na 12 seconden.** Twee permanente meldingen naast
+elkaar is dubbelop; de toast zonder auto-hide zou precies dat zijn. Aanraken (pointer erin of erop)
+annuleert de timer — een melding die verdwijnt terwijl je hem leest is erger dan geen melding — en
+zonder kruisje is hij er bij de volgende paginalading gewoon weer. Het kruisje is de echte keuze en
+heeft dezelfde semantiek als dat van de strip: weg tot de volgende browserstart, in een **eigen**
+vlag (`toastDismissed` naast `bannerDismissed`), zodat de twee onafhankelijk wegklikbaar zijn.
+
+Alles wat bij US-91 vaststond geldt onverkort: één shadow-DOM-host, niets van de pagina gelezen,
+losgekoppeld (US-79) toont geen van beide, de duw-marge hoort bij de strip alleen, en de toast
+respecteert `prefers-reduced-motion` (geen inschuif-animatie, wel dezelfde inhoud).
+
+### Acceptatiecriteria
+
+- **AC1** Strip en toast tonen dezelfde statusregel, dezelfde toon en dezelfde knoppen, uit
+  hetzelfde model — een sync gestart vanuit het ene oppervlak werkt de regel in beide bij.
+- **AC2** De toast verdwijnt vanzelf na de auto-hide; aanraken annuleert dat; het kruisje zet de
+  eigen sessievlag en laat de strip staan (en andersom).
+- **AC3** Losgekoppeld toont geen van beide; beide vlaggen gezet toont geen van beide en stuurt
+  dan ook geen status-bericht.
+- **AC4** De duw-marge staat er alleen wanneer de strip er staat, en gaat netjes terug bij diens
+  kruisje.
+
+---
+
+**Next free number: US-93.**
