@@ -6282,7 +6282,7 @@ voor elke rij leeg is.
 
 ---
 
-## US-95 — De sheet krijgt een ✕ rechtsboven *(new, refined — POC gebouwd, de eigenaar kiest)*
+## US-95 — De sheet krijgt een ✕ rechtsboven *(new, refined — keuze: variant A)*
 
 > *"also why is the close not on the right top"* — dezelfde testronde, 2026-08-20.
 
@@ -6310,19 +6310,44 @@ les — **elke modal, niet één**: de diagnostics-dialog krijgt dezelfde behand
 Geen sleep-om-te-sluiten: dit is een desktopdialog zonder aanraak-idioom, en een gebaar dat
 nergens anders in de app bestaat zou een losse belofte zijn.
 
-### Acceptatiecriteria (variant-onafhankelijk, bij de bouw aan te scherpen op de keuze)
+### De keuze — A
 
-- **AC1** De gekozen sluit-affordance sluit de sheet via hetzelfde pad als Escape en de backdrop,
-  met de bestaande animatie, ook onder reduced motion.
-- **AC2** De diagnostics-dialog gedraagt zich identiek aan de sheet.
-- **AC3** De ✕ is met toetsenbord bereikbaar, draagt een `aria-label`, en de focus landt bij
-  openen niet op "weggaan".
+> *"voor de poc kies ik A"* — de eigenaar, 2026-08-20.
+
+✕ rechtsboven, en de actierij houdt alleen werkwoorden over. Concreet, op beide modals:
+
+- **Share-sheet**: de *Close*-knop verdwijnt uit de actierij; *Copy image* en *Download* blijven.
+  De ✕ zoals de POC hem tekent: visueel 28 px, raakvlak 44 px, hover-cirkel identiek aan het
+  kruisje van de strip, reactie op pointer-down, als laatste in de DOM (Tab loopt eerst langs de
+  inhoud, de focus landt bij openen niet op "weggaan"), `title` draagt de Escape-sneltoets.
+- **Diagnostics-dialog**: *Hide* verdwijnt op dezelfde manier; *Copy report* blijft als enige
+  actie, de ✕ sluit. Zelfde markup, zelfde stijlklasse, zelfde sluitpad (`closeModal`).
+
+### Bouwplan — gemeten tegen de code van 0.58.0
+
+- `src/ui/app.html`: één ✕-knop per dialog, als laatste kind; de knoppen `#btn-share-close` en
+  `#btn-hide-diag` gaan eruit.
+- `src/ui/styles.css`: één `.sheet-close`-klasse (de POC-stijl, op de bestaande tokens).
+- `src/ui/app.js`: de ✕ wijst naar het bestaande `closeShareSheet` resp.
+  `closeModal($('#diagnostics'))` — geen nieuw sluitpad, de `cancel`-handlers blijven de enige
+  andere weg naar binnen.
+- Teksten (`aria-label`, `title`) via `tr()`, beide talen — zoals elke UI-tekst.
+
+### Acceptatiecriteria
+
+- **AC1** De ✕ sluit de sheet via hetzelfde pad als Escape en de backdrop, met de bestaande
+  animatie, ook onder reduced motion.
+- **AC2** De actierij van de sheet bevat alleen nog *Copy image* en *Download*; die van de
+  diagnostics-dialog alleen nog *Copy report*; beide dialogs dragen dezelfde ✕ en gedragen zich
+  identiek.
+- **AC3** De ✕ is met toetsenbord bereikbaar, draagt een vertaalde `aria-label`, en de focus
+  landt bij openen niet op "weggaan".
 - **AC4** `npm run demo` laat het zien zonder extensie of login.
 
 ### Stop condition
 
-- Alleen de sluit-affordance: geen herindeling van de actierij voorbij wat de gekozen variant
-  vraagt, geen nieuw modal-gedrag, geen gebaren.
+- Alleen de sluit-affordance: geen herindeling van de actierij voorbij wat variant A vraagt,
+  geen nieuw modal-gedrag, geen gebaren.
 
 ---
 
