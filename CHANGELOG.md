@@ -16,6 +16,24 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.55.0] — 2026-08-20
+
+One invisible refinement. **No resync needed** — nothing about what is stored, fetched or shown
+changed, and no number on any screen moves.
+
+### Changed
+
+- **`carryStocksForward` looks a broker's day up instead of rescanning its calendar** (US-90).
+  The multi-broker combination called `r.days.indexOf(day)` — a fresh linear scan of that broker's
+  whole calendar — on nearly every day of the combined one, O(n²) per broker part on a ~2 000-day
+  history. A `Map(day → index)`, built once per part, makes it O(n). Behaviour is pinned rather
+  than assumed: the new test (two engine-built calendars, ~600-day union, partial overlap, one
+  broker starting later and one stopping early) was written and passed against the old
+  implementation first, and every number survived the swap unchanged. Unreachable by any real
+  account today — no synced account holds a second broker — which is exactly why it was fixed as a
+  story with acceptance criteria (same treatment as US-83) and not left to run for the first time
+  on somebody's real data.
+
 ## [0.54.0] — 2026-08-19
 
 ### Fixed

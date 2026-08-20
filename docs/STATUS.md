@@ -3,7 +3,7 @@
 `docs/BACKLOG.md` is 2 000 lines of reasoning and evidence, which is the right place for *why* and
 a bad place to find out *where things stand*. This is the index.
 
-**Last updated at 0.54.0.** It had been stale since 0.21.0 once, which is fifteen
+**Last updated at 0.55.0.** It had been stale since 0.21.0 once, which is fifteen
 releases — if it looks stale again, trust the CHANGELOG and fix this.
 
 ## Light scan, 2026-08-19
@@ -177,6 +177,7 @@ person.** This is the gate that is open.
 | US-58 | **The type scale is size-bucketed and measured** — `npm run type`, wired into `npm test` | 0.47.0 |
 | US-57 | **The share sheet arrives as an object** — materialize on open, the same path backwards on close, and the four shapes as a strip you can flick | 0.47.0 |
 | US-83 | The engine groups transactions by product once, instead of rescanning the list per product; the cash chart's axis formats its dates like every other chart | 0.49.0 |
+| US-90 | `carryStocksForward` looks a broker's day up in a `Map` instead of rescanning its calendar per day — O(n) instead of O(n²) per broker part. Behaviour pinned before the swap: the new ~600-day two-calendar test passed against the old `indexOf` first, numbers identical after | 0.55.0 |
 | — | **Two defects found by the browser passes**: the chart readouts had no translations at all (the same gap US-60 found in the popup), and `npm run palette` identified the dark theme as the last `:root` block in the file | 0.47.0 |
 | US-66 | **Click and drag are told apart by the hand, not the history.** Eight pixels of travel, checked before the momentum — a twitch carries a velocity, and the projection turned it into a throw. Plus the `touch-action` the canvas never had | 0.47.0 |
 | US-67 | **A hover affordance is an enhancement, not the usable state.** The row share button no longer sits at 45 % forever on a touch pointer, and the 🙃 tap no longer leaves the button rotated | 0.47.0 |
