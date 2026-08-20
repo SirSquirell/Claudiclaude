@@ -16,6 +16,35 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.56.0] — 2026-08-20
+
+The Positions table becomes yours. **No resync needed** — display and preferences only; no stored
+or fetched data changed.
+
+### Added
+
+- **Sort the Positions table by any column, from its header** (US-87, variant B — the owner's
+  pick). Click a header: numeric columns cycle descending → ascending → natural order, text
+  columns ascending → descending → natural; the active column and direction show in the header
+  (arrow plus `aria-sort`); ties break on name so equal values never jitter; re-sorting is
+  instant, never animated. Natural order is windowed result descending — exactly what the old
+  default chip showed, so a reader with nothing persisted sees the table they always saw.
+- **Rearrange columns by dragging their headers**, with a live drop indicator. Instrument stays
+  anchored first and the share action last; the cash row stays pinned below the positions so the
+  Result column keeps summing to the account's result (US-49). Five pixels of travel decide
+  drag-versus-click.
+- **Both persist** — order and sort live in `localStorage` beside the column chooser's hidden set
+  and the theme, per install, and never enter an export or a bug report. Storage is sanitised on
+  read: unknown columns are dropped, missing ones appended, the anchors forced, and a sort on a
+  column you have since hidden is cleared. Hiding the sorted column via the chooser clears the
+  sort — an order driven by something invisible is a mystery order.
+
+### Removed
+
+- **The Largest/Best/Worst sort chips** — redundant the moment every header sorts: they could
+  only ever sort on two of the table's thirteen columns. One mechanism, not two. Ledgered in
+  `docs/RETIRED.md`; the default view is unchanged.
+
 ## [0.55.0] — 2026-08-20
 
 One invisible refinement. **No resync needed** — nothing about what is stored, fetched or shown

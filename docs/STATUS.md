@@ -3,7 +3,7 @@
 `docs/BACKLOG.md` is 2 000 lines of reasoning and evidence, which is the right place for *why* and
 a bad place to find out *where things stand*. This is the index.
 
-**Last updated at 0.55.0.** It had been stale since 0.21.0 once, which is fifteen
+**Last updated at 0.56.0.** It had been stale since 0.21.0 once, which is fifteen
 releases — if it looks stale again, trust the CHANGELOG and fix this.
 
 ## Light scan, 2026-08-19
@@ -202,6 +202,7 @@ person.** This is the gate that is open.
 | US-86 | **Feature-loss audit since 0.42, by measurement**: both UIs served and inventoried headless. All charts, tables and toolbar actions survive; the one real loss — per-product Bought/Sold, dropped by US-49's unresolved "or drop" — is restored as optional columns that fold first | 0.53.0 |
 | US-88 | **The Today tile fabricated −100 % on every account with positions.** `todayPlBase` is the negative start-of-day reference (measured to the cent on two accounts), not a day figure; the day is `value + todayPlBase` and is now read that way. One ordinary sync refreshes it | 0.54.0 |
 | US-89 | **A windowed share card counts the opening value as stake.** "−212,91 % on the money put in" on a long became −20,22 % "on what was in it"; longs bottom at −100 %, written options still tell their uncapped truth, all-time cards byte-identical | 0.54.0 |
+| US-87 | **The Positions table becomes yours** (variant B, the owner's pick): click a header to sort — descending/ascending/natural, ties on name, instant — drag a header to reorder against a live drop indicator, and both persist beside the chooser's hidden set. Instrument anchored first, the action last, the cash row pinned. The Largest/Best/Worst chips retired (`docs/RETIRED.md`); the default view unchanged. Verified headless in the demo, wide and narrow | 0.56.0 |
 | US-82 | **The demo account has two closed positions**, one sold at a profit (the only thing that reaches *all gain — more came out than went in*) and one at a loss with its largest day on its own sale day. The **Closed** and **All** filters finally have rows; `npm run fixtures` is deterministic again. Its browser pass immediately found two share-sheet layout defects | 0.48.0 |
 | US-35b | **Optimism Mode, turned up on request.** The replacement tiles existed after all (this row said "never built" for two releases); on the owner's *"nog meer over de top"* it gained two news crawls, eighteen tiles — four of them real measurements, including the share of days spent below the account's own peak — a rocket, a spinning switch and a breathing stamp. Absurdity is the safety mechanism, so more of it is strictly better; every figure is still the reader's own, and nothing downstream can see any of it | 0.50.0 |
 
