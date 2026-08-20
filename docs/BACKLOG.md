@@ -6146,4 +6146,87 @@ respecteert `prefers-reduced-motion` (geen inschuif-animatie, wel dezelfde inhou
 
 ---
 
-**Next free number: US-93.**
+## US-93 — De kolomkop legt zichzelf uit *(new, refined)*
+
+> *"Zou wel lekker zijn als we een soort hover effect hebben op de kolom namen met toelichting?"*
+> — de eigenaar, 2026-08-20, direct nadat hij moest vragen waarom "% of bought" (+18,98 %) een
+> ander percentage is dan de 28 % "grown" op dezelfde rij.
+
+Het antwoord op die vraag bestond — andere noemer (bruto-inleg over het venster tegenover de
+huidige waarde), netto tegenover bruto, venster tegenover all-time — maar het stond in
+code-commentaar bij `moneyInOver` en in een chatantwoord: nergens waar de lezer van het getal
+kijkt. Dat is woordelijk het argument waarmee `TILE_TIPS` er kwam (*"a number on a dashboard is
+an assertion"*, `app.js`): de tegels leggen zichzelf uit, de kolommen van de Positions-tabel nog
+niet. Dit is dezelfde story, één tabel verderop.
+
+### Wat er al ligt — gemeten tegen 0.58.0
+
+- **Eén gedeeld tooltip-element**, `wireTips` (`app.js:3294`): `position: fixed`, hover én
+  toetsenbordfocus én tik, Escape sluit, en het ontsnapt aan overflow-clipping — precies het
+  probleem dat een tabelkop ook heeft. Er komt dus **geen tweede implementatie**; de root-lijst
+  in `wireTips` is een besliste lijst (het commentaar bij `app.js:3332` zegt dat met zoveel
+  woorden) en `#holdings thead` wordt de derde entry.
+- **De kop is al een knop.** Klik sorteert, slepen herordent (US-87), en de kop wordt bij elke
+  render herbouwd — de gedelegeerde listeners van `wireTips` vangen dat herbouwen al op.
+- **US-67 staat er nog**: een affordance die alleen een muis beantwoordt, beantwoordt niemand op
+  een touchscreen. En op een kop is een tik al bezet — die sorteert. De kop zelf kan op touch dus
+  geen toelichting dragen; er moet een tweede weg naar dezelfde tekst zijn.
+
+### Ontwerp
+
+1. **`data-tip` op de bestaande `.col-head`-knop.** Hover en focus tonen de toelichting via het
+   gedeelde element; klik blijft sorteren. Bij `dragstart` (het US-87-pad) verdwijnt de tip en
+   blijft hij weg tot de drop — een tooltip die met een gesleepte kop meereist is ruis.
+2. **Geen "i"-knopje per kop.** Veertien extra knoppen in een rij die al klikt én sleept, terwijl
+   de breedte-drop (US-61) om elke pixel vecht. De tegels hebben het knopje omdat hun label
+   verder niets doet; de kop doet al twee dingen.
+3. **Touch gaat via de column chooser (US-61).** Die toont per kolom al een rij; elke rij krijgt
+   dezelfde `data-tip`, en het bestaande tik-pad van `wireTips` toont hem. Zo is geen enkele
+   toelichting hover-only.
+4. **De bron is één tabel: een `tip` naast elk `label` in `HOLDINGS_COLUMNS`** (`columns.js`).
+   Kop, chooser en detail-expand lopen al over die ene lijst, dus één bron kan niet desynchroniseren.
+   Een kolom zonder tekst valt op (het `TILE_TIPS`-argument); alleen de actiekolom heeft er bewust
+   geen.
+5. **Elke tekst noemt zijn noemer en zijn venster** — all-time of de geselecteerde periode. Dat
+   ontbrak, en dat wás de vraag van 2026-08-20. Engels als sleutel, Nederlands in `i18n.js`, via
+   `tr()`, zoals elke UI-tekst.
+
+### Conceptteksten — bij bouw te verifiëren tegen `engine.js` (AC4)
+
+De refinement heeft twee valkuilen al gemeten, en de teksten moeten ze benoemen in plaats van ze
+te herhalen:
+
+- **Result per rij is alleen koersresultaat.** Het per-product-`pnl` (`engine.js:1348`) is
+  waardebeweging minus eigen aan- en verkopen; dividend zit er *niet* in — dat staat in de
+  Dividend-kolom en telt via de cash-rij in het accountresultaat. Een toelichting die "inclusief
+  dividend" beweert is erger dan geen toelichting.
+- **Dividend (all time) is netto**: bruto plus de (negatieve) bronbelasting (`engine.js:813`).
+- **% of bought** deelt het vensterresultaat door alles wat er *in dat venster* bruto in ging
+  (`moneyInOver`, `snapshot.js:156`) — verkopen verlagen die noemer niet. **Paid in vs grown**
+  verdeelt wat de positie *nu* waard is, en zijn "paid in" is netto: elke verkoop haalt er geld
+  uit. Twee vragen, twee noemers; de teksten moeten dat verschil dragen, want dit is de kolom
+  die de story veroorzaakte.
+
+### Acceptatiecriteria
+
+- **AC1** Hover en toetsenbordfocus op een kolomkop tonen de toelichting via het bestaande
+  gedeelde element; Escape sluit; klik sorteert nog, slepen herordent nog, en tijdens een sleep
+  verschijnt geen tip.
+- **AC2** Elke toelichting is op een touchscreen bereikbaar (via de chooser) — niets is
+  hover-only (US-67).
+- **AC3** Elke kolom behalve de actiekolom heeft een tekst; elke tekst bij een getal noemt zijn
+  noemer en zijn venster; de bron is één tabel in `columns.js`; beide talen compleet.
+- **AC4** Elke bewering in een tekst is geverifieerd tegen de engine — met name: geen dividend in
+  Result, dividend netto, % of bought bruto over het venster.
+- **AC5** `npm run demo` laat het geheel zien zonder Chrome-API's; de US-87-tests
+  (sorteren/slepen) blijven groen.
+
+### Buiten scope
+
+Geen tips op andere tabellen (transacties, maandgrid — die hebben `title`-attributen waar nodig),
+geen tips in de datacellen zelf, `TILE_TIPS` verhuist niet, geen instelbaarheid. Wat onderweg
+opduikt wordt een eigen entry onder het volgende vrije nummer.
+
+---
+
+**Next free number: US-94.**
