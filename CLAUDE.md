@@ -127,6 +127,9 @@ mean what they assumed. If it would not change what they do, it is a `CHANGELOG.
 ```
 manifest.json           MV3
 src/sw.js               service worker: alarms, message router. Owns no state.
+src/content/            US-91: the strip on trader.degiro.nl — a classic boot shim
+                        plus one module. Reads nothing from the page; its text is
+                        decided in src/lib/bannermodel.js (pure, tested).
 src/lib/config.js       every URL, version number and tuning constant. Pure data.
 src/lib/dates.js        ISO 'YYYY-MM-DD' helpers, all UTC. Never local-time getters.
 src/lib/classify.js     cash-movement rule table. Pure.

@@ -16,6 +16,24 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.57.0] — 2026-08-20
+
+Asteria shows itself on the broker page. **No resync needed** — nothing about what is stored or
+fetched changed; this is a reminder, not a data change.
+
+### Added
+
+- **A slim strip at the top of trader.degiro.nl** (US-91, the owner's own variant D): the Asteria
+  mark, a one-line status, and *Open your analysis*. It pushes the page down rather than covering
+  anything, reads nothing from the page (every word comes from the extension's own status), and
+  shows *Sync now* only when it adds something — the last attempt failed, or the data is older
+  than three days; the extension already syncs itself the rest of the time. The ✕ hides it until
+  the next browser start. Language follows the browser (Dutch or English); a disconnected account
+  (US-79) shows nothing at all. New in the manifest: a content script on `trader.degiro.nl` — the
+  first one this extension has — plus the two module files it imports; no new permissions.
+  **Not yet seen against DEGIRO's real logged-in page** (verified headless on a mock): if the
+  broker's own header sits fixed at the top, the strip may overlap it — report what you see.
+
 ## [0.56.0] — 2026-08-20
 
 The Positions table becomes yours. **No resync needed** — display and preferences only; no stored
