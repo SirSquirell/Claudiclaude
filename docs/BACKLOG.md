@@ -1718,7 +1718,7 @@ vanilla stack, where the chart rules above already live.
 
 ---
 
-## US-11b — Get a defect into the backlog without a screenshot *(new, the transport half)*
+## US-11b — Get a defect into the backlog without a screenshot *(built, 0.14.0 — as the clipboard export; see the delivery note at the end of this entry)*
 
 **As a tester I want a problem I hit to arrive somewhere it can be refined, without taking
 screenshots and without sending my portfolio.**
