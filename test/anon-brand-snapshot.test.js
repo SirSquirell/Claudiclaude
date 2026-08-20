@@ -6,7 +6,7 @@ import { MASK, hasDigits, maskEur, maskQty, maskSigned } from '../src/lib/anon.j
 import { DOTS, DOT_R, LINE, MIN_LOCKUP_HEIGHT, STAR, STROKE_W, VIEWBOX, markWidth } from '../src/ui/brand.js';
 import {
   CARD_MIN_SHORT_EDGE_SHARE, CARD_MIN_TYPE_PX, CARD_RENDER_MIN_PX, FORMATS, PROVENANCE_FIELDS,
-  SCORECARD_FIELDS, SNAPSHOT_FIELDS, cardMetrics, scoreCardModel, splitModel,
+  SCORECARD_FIELDS, SNAPSHOT_FIELDS, cardMetrics, flowModel, scoreCardModel, splitModel,
   formatById, moneyInOver, onScreenPx, ownerLine, positionSpan, provenanceLine, returnOnMoneyIn,
   snapshotModel, sparkline,
 } from '../src/lib/snapshot.js';
@@ -395,8 +395,9 @@ test('the card and the holdings row report the same result for a closed position
   assert.equal(m.pct, (rowResult / moneyInOver(p.paidIn, 0, to)) * 100);
   assert.equal(m.pct, 20);
 
-  // And no bar, because there is no position left to split. The row has always
-  // printed a dash here; the card now does the same rather than splitting zero.
+  // And no stock bar, because there is no position left to split. The row has
+  // always printed a dash here; the card agrees rather than splitting zero —
+  // US-82's behaviour, still provably absent with US-94 beside it.
   assert.equal(m.split, null);
 });
 
@@ -894,8 +895,11 @@ test('AC5 — a motion story moved no value and added no field', () => {
    * Pinned as literal lists rather than as "unchanged", because a test that
    * compares a thing to itself passes whatever the thing becomes.
    */
+  // `flow` joined with US-94 — a data story growing the card on purpose, which
+  // is exactly what this pin is for: the list changes in a commit that says so,
+  // never as a side effect.
   assert.deepEqual([...SNAPSHOT_FIELDS], [
-    'name', 'symbol', 'period', 'pct', 'pctBasis', 'amount', 'split', 'spark', 'provenance', 'owner',
+    'name', 'symbol', 'period', 'pct', 'pctBasis', 'amount', 'split', 'flow', 'spark', 'provenance', 'owner',
   ]);
   assert.deepEqual([...SCORECARD_FIELDS], [
     'label', 'figure', 'caption', 'tone', 'period', 'provenance', 'owner',
@@ -968,4 +972,71 @@ test('US-89 — an all-time card is untouched: money-in basis, original sentence
   assert.equal(m.pctBasis, 'money-in');
   assert.ok(Math.abs(m.pct - (-200 / 400) * 100) < 0.01);
   assert.equal(m.split.key, '{lost}% of what you paid in is gone');
+});
+
+// ---------------------------------------------------------------------------
+// US-94 — the closed position's flow bar: what came out against what went in
+// ---------------------------------------------------------------------------
+
+test('US-94 — the flow model states the realised outcome, all time', () => {
+  // Bought 1000, sold 900, 20 dividend: 92% came back. The bar geometry is
+  // splitModel's own (of what went in, the part that returned vs the loss), so
+  // the states the renderers already colour keep working.
+  const loss = flowModel(1000, 900, 20);
+  assert.equal(loss.vars.pct, 92);
+  assert.equal(loss.state, 'underwater');
+  assert.equal(loss.keptPct, 92);
+  // The sentence names its denominator. No window tag, measured: the card
+  // clips at its column and "· all time" fell off; a finished position's
+  // "what went in" can only read whole-life anyway.
+  assert.match(loss.key, /what went in/);
+
+  // Sold above cost, dividend on top: over 100%, said as-is, bar in profit shape.
+  const gain = flowModel(1000, 1050, 30);
+  assert.equal(gain.vars.pct, 108);
+  assert.equal(gain.state, 'grown');
+
+  // Nothing ever paid in — an expired written option — has no denominator.
+  assert.equal(flowModel(0, 250), null);
+
+  // Same key set as the split, so the two renderers can share a drawing path.
+  assert.deepEqual(Object.keys(loss).sort(), ['keptPct', 'key', 'lostPct', 'state', 'vars']);
+});
+
+test('US-94 — the card of a closed position carries the flow, an open one does not', () => {
+  const days = ['2024-01-01', '2024-01-02', '2024-01-03'];
+  const closed = snapshotModel({
+    name: 'X', days, qty: [5, 5, 0], pnl: [0, 40, 60], paidIn: [500, 500, -100],
+    bought: 500, sold: 580, dividend: 20,
+  });
+  assert.equal(closed.split, null, 'the stock bar stays away from a closed position');
+  assert.deepEqual(closed.flow, flowModel(500, 580, 20), 'one model, the row and the card');
+  assert.equal(closed.flow.vars.pct, 120);
+
+  const open = snapshotModel({
+    name: 'X', days, qty: [5, 5, 5], pnl: [0, 40, 60], paidIn: [500, 500, 500],
+    bought: 500, sold: 0, dividend: 0,
+  });
+  assert.equal(open.flow, null, 'an open position keeps the stock bar and nothing else');
+  assert.ok(open.split, 'unchanged by US-94');
+
+  // Percentages and words, no amount: US-46 does not govern it.
+  const masked = snapshotModel({
+    name: 'X', days, qty: [5, 5, 0], pnl: [0, 40, 60], paidIn: [500, 500, -100],
+    bought: 500, sold: 580, dividend: 20, anonymized: true,
+  });
+  assert.deepEqual(masked.flow, closed.flow);
+  assert.equal(masked.amount, null);
+
+  // A caller without the scalars gets no bar, never one built from guesses.
+  const bare = snapshotModel({ name: 'X', days, qty: [5, 5, 0], pnl: [0, 40, 60], paidIn: [500, 500, -100] });
+  assert.equal(bare.flow, null);
+});
+
+test('US-94 — the flow sentence has a Dutch entry', async () => {
+  // The key reaches tr() as data, invisible to the literal-scan test.
+  const i18n = await import('../src/ui/i18n.js');
+  const dict = i18n.__dictForTest?.().nl;
+  if (!dict) return;
+  assert.ok(dict[flowModel(100, 90).key]);
 });

@@ -369,6 +369,10 @@ const DICT = {
     'Fees, withheld dividend tax and interest paid, added together — what holding this account has cost you. Each is easy to ignore alone, which is the argument for the sum.':
       'Kosten, ingehouden dividendbelasting en betaalde rente bij elkaar — wat het aanhouden van deze rekening je heeft gekost. Elk is los makkelijk te negeren, en dat is juist het argument voor de som.',
 
+    // --- the closed position's flow bar (US-94) --------------------------------
+    'got back {pct}% of what went in':
+      'kreeg {pct}% terug van wat erin ging',
+
     // --- the column-header explanations (US-93), same discipline one table on ---
     'Name and symbol, with the colour this position keeps in every chart. The arrow opens the columns hidden at this width.':
       'Naam en symbool, met de kleur die deze positie in elke grafiek houdt. Het pijltje opent de kolommen die op deze breedte verborgen zijn.',

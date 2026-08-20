@@ -44,7 +44,7 @@ import { isSameRun } from '../lib/sync.js';
 import { ADAPTERS, connected as connectedBrokers } from '../lib/brokers/index.js';
 import { LANGS, applyStatic, getLang, missing as missingTranslations, setLang, t as tr } from './i18n.js';
 import { THEMES, alpha, applyAnonymize, applyTheme, fmtEurCents, fmtPct, fmtPrice, fmtQty, fmtSigned, getAnonymize, getTheme, onThemeChange, setAnonymize, setTheme, tokens, withAnonymize } from './theme.js';
-import { FORMATS, moneyInOver, ownerLine, positionSpan, scoreCardModel, snapshotModel, splitModel } from '../lib/snapshot.js';
+import { FORMATS, flowModel, moneyInOver, ownerLine, positionSpan, scoreCardModel, snapshotModel, splitModel } from '../lib/snapshot.js';
 import { HOLDINGS_COLUMNS, baseHidden, cycleSort, droppableByPriority, optionalColumns, orderedColumns } from './columns.js';
 import { brokerMarkSvg, lockupSvg, markSvg } from './brand.js';
 import { copySnapshot, downloadSnapshot, drawScoreCard, drawSnapshot, tokensForTheme } from './snapshot.js';
@@ -498,6 +498,11 @@ function shareModel() {
     qty: p.qty,
     pnl: p.pnl,
     paidIn: p.paidIn,
+    // US-94: the all-time flow scalars, so a closed position's card can draw
+    // what came out against what went in — same model as the table row.
+    bought: p.bought,
+    sold: p.sold,
+    dividend: p.dividend,
     window: { from: w.from, to: w.to },
     /**
      * The sheet's own switch, not the page's. `getAnonymize()` decides what is on
@@ -4655,7 +4660,13 @@ function renderHoldings(r, composition, compColours, t, from, to) {
     sold: (p) => p.sold ?? 0,
     avgPaid: (p) => ((p.boughtQty ?? 0) > 0 && p.bought > 0 ? p.bought / p.boughtQty : -Infinity),
     value: (p) => p.current,
-    split: (p) => p.current / Math.max(p.paidIn?.at(-1) ?? 0, 0.01),
+    // Open rows sort on what the cell shows (value over net paid in); closed
+    // rows on their own flow ratio, out over in (US-94) — each row consistent
+    // with its cell, the two meanings never silently mixed. A closed row with
+    // nothing ever paid in shows a dash and sorts last, like every other dash.
+    split: (p) => (open(p)
+      ? p.current / Math.max(p.paidIn?.at(-1) ?? 0, 0.01)
+      : (p.bought > 0.005 ? ((p.sold ?? 0) + (p.dividend ?? 0)) / p.bought : -Infinity)),
     result: (p) => sumWindow(p.pnl, from, to),
     dividend: (p) => p.dividend ?? 0,
     pctBought: (p) => {
@@ -4702,13 +4713,22 @@ function renderHoldings(r, composition, compColours, t, from, to) {
    * the words. Do not put a branch back in — the three states, the percentages
    * and the under-water scaling are decided in one place, with the test.
    */
+  const barInner = (model) => {
+    const words = tr(model.key, model.vars);
+    return `<span class="bar" title="${esc(words)}"><i style="width:${model.keptPct}%"></i>`
+      + `<em class="${model.state === 'underwater' ? 'down' : 'up'}" style="width:${model.lostPct}%"></em></span>`
+      + ` <span class="muted">${esc(words)}</span>`;
+  };
   const splitInner = (p) => {
     const paid = p.paidIn?.at(-1) ?? 0;
-    const split = splitModel(paid, p.current - paid);
-    const words = tr(split.key, split.vars);
-    return `<span class="bar" title="${esc(words)}"><i style="width:${split.keptPct}%"></i>`
-      + `<em class="${split.state === 'underwater' ? 'down' : 'up'}" style="width:${split.lostPct}%"></em></span>`
-      + ` <span class="muted">${esc(words)}</span>`;
+    return barInner(splitModel(paid, p.current - paid));
+  };
+  // US-94: a closed position's cell answers the flow question instead — what
+  // came back out against what went in, all time, from the same model the
+  // share card draws. `null` (nothing ever paid in) keeps the dash.
+  const flowInner = (p) => {
+    const flow = flowModel(p.bought, p.sold, p.dividend);
+    return flow ? barInner(flow) : dash;
   };
   const resultInner = (v) => `<span class="${v > 0.005 ? 'pos' : v < -0.005 ? 'neg' : 'muted'}">${esc(fmtSigned(v))}</span>`;
 
@@ -4739,7 +4759,7 @@ function renderHoldings(r, composition, compColours, t, from, to) {
     price: (p) => (open(p) ? esc(unitPrice(p, p.qty.at(-1))) : dash),
     avgPaid: (p) => esc(averagePaid(p)),
     value: (p) => (open(p) ? esc(fmtEurCents(p.current)) : dash),
-    split: (p) => (open(p) ? splitInner(p) : dash),
+    split: (p) => (open(p) ? splitInner(p) : flowInner(p)),
     result: (p) => resultInner(sumWindow(p.pnl, from, to)),
     dividend: (p) => (Math.abs(p.dividend ?? 0) > 0.005 ? esc(fmtEurCents(p.dividend)) : dash),
     pctBought: (p) => {

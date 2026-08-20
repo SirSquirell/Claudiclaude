@@ -180,7 +180,12 @@ export function drawSnapshot(model, t = tokens(), { format = '16:9' } = {}) {
    * always safe to post: it discloses the *shape* of a position and nothing
    * about its size.
    */
-  if (model.split) {
+  // US-94: `flow` is the closed position's bar — what came out against what
+  // went in, all time. Mutually exclusive with `split` by construction, same
+  // shape and the same `splitModel` states, so one drawing path serves both;
+  // only the sentence differs, and it names its own denominator and window.
+  const bar = model.split ?? model.flow;
+  if (bar) {
     y += m.gapSplit;
     const barW = colW;
     ctx.save();
@@ -191,11 +196,11 @@ export function drawSnapshot(model, t = tokens(), { format = '16:9' } = {}) {
     // Clipped to the pill so the two segments meet square inside a rounded
     // track, which is what the table's `overflow: hidden` does with CSS.
     ctx.clip();
-    const kept = (model.split.keptPct / 100) * barW;
+    const kept = (bar.keptPct / 100) * barW;
     ctx.fillStyle = t.muted;
     ctx.fillRect(PAD, y - m.splitBarH, kept, m.splitBarH);
-    ctx.fillStyle = model.split.state === 'underwater' ? t.neg : t.pos;
-    ctx.fillRect(PAD + kept, y - m.splitBarH, (model.split.lostPct / 100) * barW, m.splitBarH);
+    ctx.fillStyle = bar.state === 'underwater' ? t.neg : t.pos;
+    ctx.fillRect(PAD + kept, y - m.splitBarH, (bar.lostPct / 100) * barW, m.splitBarH);
     ctx.restore();
 
     /**
@@ -204,11 +209,11 @@ export function drawSnapshot(model, t = tokens(), { format = '16:9' } = {}) {
      * in those words — printing it twice on a card this small is not thoroughness,
      * it is a card that looks broken.
      */
-    if (model.split.state !== 'free') {
+    if (bar.state !== 'free') {
       y += m.gapSplitWords;
       ctx.fillStyle = t.textSecondary;
       ctx.font = `400 ${m.type.caption}px ${FONT_TEXT}`;
-      ctx.fillText(clip(ctx, tr(model.split.key, model.split.vars), colW), PAD, y);
+      ctx.fillText(clip(ctx, tr(bar.key, bar.vars), colW), PAD, y);
     }
   }
 

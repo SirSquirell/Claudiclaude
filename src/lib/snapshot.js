@@ -35,7 +35,7 @@
  * somebody remembers. The 0.10.0 export leaked three fields exactly that way.
  */
 export const SNAPSHOT_FIELDS = Object.freeze([
-  'name', 'symbol', 'period', 'pct', 'pctBasis', 'amount', 'split', 'spark', 'provenance', 'owner',
+  'name', 'symbol', 'period', 'pct', 'pctBasis', 'amount', 'split', 'flow', 'spark', 'provenance', 'owner',
 ]);
 
 /**
@@ -284,6 +284,45 @@ export function splitModel(paid, grown, { windowed = false } = {}) {
 }
 
 /**
+ * US-94 — the flow bar for a closed position: what came out against what went in.
+ *
+ * The stock bar above splits what a position *is worth*, and a closed position
+ * is worth nothing — there is nothing to split, which is why the row printed a
+ * dash and why US-82 took the wrongly-drawn stock bar off the closed card. That
+ * decision stands. This is a **different bar with its own denominator**: over
+ * the whole history, every euro that went in (`bought`) against every euro that
+ * came back out (`sold` plus net `dividend`). All-time by definition — the
+ * flows of a closed position are finished — and the sentence says so, the same
+ * discipline US-89 imposed on windowed cards: a bar standing on a different
+ * denominator says that beside it.
+ *
+ * No cost-basis convention anywhere: `bought`, `sold` and `dividend` are the
+ * engine's own all-time scalars, and their ratio is a statement of fact.
+ *
+ * The bar's geometry is `splitModel`'s, deliberately — of what came back, the
+ * part that is your own money against the profit (`grown`); of what went in,
+ * the part that returned against the loss (`underwater`). Same tested
+ * three-branch arithmetic, same states the two renderers already colour, no
+ * second truth. Only the words are the flow's own. `free` cannot occur: the
+ * guard keeps `bought` positive.
+ *
+ * `null` when nothing was ever paid in — an expired written option, say, where
+ * money only ever came out. A ratio over zero is not a percentage, and the dash
+ * is the honest cell (rule: no figure looks more confident than it is).
+ */
+export function flowModel(bought, sold, dividend = 0) {
+  if (!(bought > 0.005)) return null;
+  const back = (sold ?? 0) + (dividend ?? 0);
+  const bar = splitModel(bought, back - bought);
+  const pct = Math.round((back / bought) * 100);
+  // No window tag in the sentence, measured rather than omitted: the card
+  // clips this line at its column and "· all time" was exactly what fell off.
+  // A closed position's flows are finished, so "what went in" can only read
+  // whole-life — the tag said nothing the words do not.
+  return { ...bar, key: 'got back {pct}% of what went in', vars: { pct } };
+}
+
+/**
  * The percentage, and why it is this one.
  *
  * `value = paidIn + result` holds exactly at every point for a single
@@ -406,6 +445,11 @@ export function snapshotModel({
   qty = [],
   pnl = [],
   paidIn = [],
+  // US-94: the all-time flow scalars, for the closed position's bar. Optional —
+  // a caller without them gets `flow: null`, never a bar built from guesses.
+  bought = 0,
+  sold = 0,
+  dividend = 0,
   window: win = null,
   anonymized = false,
   owner = null,
@@ -495,6 +539,15 @@ export function snapshotModel({
     // The opening value is part of "yours" here for the same reason it is part
     // of the stake above: inside the window, value = (opening + net in) + grown.
     split: span && Math.abs(qty[span.to] ?? 0) > 1e-9 ? splitModel(openingValue + netIn, result, { windowed: openingValue > 0.005 }) : null,
+    /**
+     * US-94, the closed complement: mutually exclusive with `split` by
+     * construction — a position is worth something or it is finished. All-time
+     * scalars whatever the window, because the flows of a closed position are
+     * finished; its sentence names that, so the one all-time figure on a
+     * windowed card cannot masquerade as windowed. Percentages and words like
+     * the split, so US-46 does not govern it either.
+     */
+    flow: span && Math.abs(qty[span.to] ?? 0) <= 1e-9 ? flowModel(bought, sold, dividend) : null,
     spark: drawable ? sparkline(series) : [],
     /**
      * Normalised here rather than trusted from the caller, so the only two

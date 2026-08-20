@@ -6229,7 +6229,7 @@ opduikt wordt een eigen entry onder het volgende vrije nummer.
 
 ---
 
-## US-94 — Paid in vs grown voor gesloten posities: ingelegd vs eruit gekomen *(new, refined — richting gekozen door de eigenaar, nog niet gebouwd)*
+## US-94 — Paid in vs grown voor gesloten posities: ingelegd vs eruit gekomen *(built, 0.60.0)*
 
 > *"waarom ziet hij niet overal paid vs grown ook voor closed holdings"* — testervraag via de
 > eigenaar, 2026-08-20; op het stroom-voorstel hieronder: *"Dit vind ik wel cool!"*
