@@ -16,6 +16,32 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.59.0] — 2026-08-20
+
+A euro option's contract size is not an exchange rate. **No resync needed** — the raw data was
+right all along; the page recomputes from it on the next open and the correction is in.
+
+### Fixed
+
+- **Euro options were valued through their contract size twice** (US-96). A derivative settles at
+  price × quantity × contract size, so on an option booked in euros every trade shows
+  `settled / traded` of exactly its contract size. That is the same ratio a mislabelled currency
+  produces, and 0.39.0's resolution for those — value the instrument through the rate its own
+  trades state — read it as one: a contract size is constant, so it sailed through the
+  consistency guard that stops real disagreeing rates. The valuation then multiplied by the
+  contract size twice, once as the size and once as the "rate". On the first heavy option
+  account this hit, three written euro puts came out 10× to 100× their true (negative) value:
+  the reconstructed total sat **€ 171 601,63 under** what DEGIRO reported, the whole-history
+  chart dipped to −€ 1,4 million, and 301 trades across 135 instruments were flagged
+  `settled-amount-mismatch` when not one of them involved a currency. The check now divides the
+  measured contract size out before asking whether a currency-sized ratio remains — what
+  survives the division is what a currency actually looks like. On that account the difference
+  against DEGIRO fell from −€ 171 601,63 to −€ 239,83 (stale SEK rate plus last-traded-versus-
+  close on options DEGIRO carries no series for), the false warning disappeared, and the
+  all-time result landed within price noise of DEGIRO's own total-W/V figure. The genuine
+  mislabelled-currency case keeps its behaviour: a share's contract size is 1, so its ratio is
+  untouched.
+
 ## [0.58.0] — 2026-08-20
 
 The toast joins the strip. **No resync needed** — display only.

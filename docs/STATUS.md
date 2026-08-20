@@ -3,7 +3,7 @@
 `docs/BACKLOG.md` is 2 000 lines of reasoning and evidence, which is the right place for *why* and
 a bad place to find out *where things stand*. This is the index.
 
-**Last updated at 0.58.0.** It had been stale since 0.21.0 once, which is fifteen
+**Last updated at 0.59.0.** It had been stale since 0.21.0 once, which is fifteen
 releases — if it looks stale again, trust the CHANGELOG and fix this.
 
 ## Light scan, 2026-08-20
@@ -190,6 +190,7 @@ person.** This is the gate that is open.
 | US-87 | **The Positions table becomes yours** (variant B, the owner's pick): click a header to sort — descending/ascending/natural, ties on name, instant — drag a header to reorder against a live drop indicator, and both persist beside the chooser's hidden set. Instrument anchored first, the action last, the cash row pinned. The Largest/Best/Worst chips retired (`docs/RETIRED.md`); the default view unchanged. Verified headless in the demo, wide and narrow | 0.56.0 |
 | US-91 | **The strip on the broker page** (variant D, the owner's own): Asteria's mark, one status line and *Open your analysis* at the top of trader.degiro.nl, pushing the page down, never covering it. *Sync now* only when the last attempt failed or data is >3 days old; ✕ hides until the next browser start; a disconnected account shows nothing. First content script in the manifest; reads nothing from the page. Verified headless on a mock — **not yet seen against DEGIRO's real fixed header**, which is the first question for the next live session | 0.57.0 |
 | US-92 | **The toast joins the strip** ("vind beide goed"): the same status and actions bottom-right on page load, from the same model, so the two cannot disagree. Auto-clears after 12 s, touching cancels that, its ✕ dismisses independently of the strip's; with both dismissed the script goes fully quiet. Twenty headless checks on the mock | 0.58.0 |
+| US-96 | **A euro option's contract size read as an exchange rate, and was applied twice.** The first heavy-options account reconstructed € −47.491,36 against DEGIRO's € 124.110,28: every euro option trade settles at price × quantity × contract size, and that constant ratio passed the settled-amount check's consistency guard as a "rate", squaring the factor on written puts. The size is now divided out before the currency question is asked; the account lands € 239,83 from DEGIRO (price noise), the false 301-trade warning is gone, no resync | 0.59.0 |
 | US-82 | **The demo account has two closed positions**, one sold at a profit (the only thing that reaches *all gain — more came out than went in*) and one at a loss with its largest day on its own sale day. The **Closed** and **All** filters finally have rows; `npm run fixtures` is deterministic again. Its browser pass immediately found two share-sheet layout defects | 0.48.0 |
 | US-35b | **Optimism Mode, turned up on request.** The replacement tiles existed after all (this row said "never built" for two releases); on the owner's *"nog meer over de top"* it gained two news crawls, eighteen tiles — four of them real measurements, including the share of days spent below the account's own peak — a rocket, a spinning switch and a breathing stamp. Absurdity is the safety mechanism, so more of it is strictly better; every figure is still the reader's own, and nothing downstream can see any of it | 0.50.0 |
 

@@ -1,32 +1,36 @@
-# Wat er nieuw is — 0.58.0
+# Wat er nieuw is — 0.59.0
 
 Wat er verandert ten opzichte van de vorige versie, in gewone taal. Alleen deze release: de
 volledige geschiedenis staat in [CHANGELOG.md](CHANGELOG.md), installeren doe je met
 [INSTALL.md](INSTALL.md).
 
-> **Hoef je te resyncen voor deze versie? Nee** — alleen weergave. Kom je van een versie vóór
-> 0.51.0, dan geldt de correctie uit die release nog wél: één keer **Wipe & resync**. Zie
+> **Hoef je te resyncen voor deze versie? Nee.** De opgeslagen gegevens waren altijd al goed; de
+> pagina rekent bij het openen opnieuw en de correctie staat er dan meteen. Kom je van een versie
+> vóór 0.51.0, dan geldt de correctie uit die release nog wél: één keer **Wipe & resync**. Zie
 > [CHANGELOG.md](CHANGELOG.md) onder 0.51.0. Kom je van vóór 0.54.0, dan is één gewone "Sync now"
 > nodig voor de Today-tegel.
 
 ---
 
-## Naast de strip nu ook een toast op de DEGIRO-pagina
+## Handel je in opties? Dan klopte je totaal niet — nu wel
 
-Sinds 0.57.0 staat er een smalle Asteria-strip bovenaan trader.degiro.nl; daar komt nu een
-**toast** bij — een klein donker kaartje dat rechtsonder binnenschuift als de pagina laadt, met
-dezelfde statusregel en dezelfde knoppen (**Open je analyse**, en **Sync nu** alleen als dat iets
-toevoegt).
+Een optiecontract gaat over 100 aandelen (soms 10, soms een ander aantal). Bij een optie die in
+euro's noteert wisselt er dus per contract 100× de premie van eigenaar, en precies die factor werd
+door de extensie op twee plekken tegelijk toegepast: één keer als contractgrootte — terecht — en
+één keer als "wisselkoers", omdat dezelfde verhouding tussen gehandeld en afgerekend bedrag er
+voor de koersencontrole uitzag als een vreemde valuta.
 
-De toast ruimt zichzelf na een seconde of twaalf op, zodat er niet blijvend twee meldingen staan.
-Ga je er met de muis op staan, dan blijft hij — een kaartje dat verdwijnt terwijl je het leest is
-erger dan geen kaartje. Zijn kruisje werkt net als dat van de strip: weg tot de volgende
-browserstart, en de twee staan los van elkaar — de toast wegklikken laat de strip staan, en
-andersom.
+Het gevolg, op het eerste account met veel euro-opties waarop dit zichtbaar werd: geschreven puts
+telden 10× tot 100× te zwaar mee (en die staan negatief), het totaal lag ruim **€ 170.000 onder**
+wat DEGIRO zelf rapporteerde, de grafiek dook diep in de min, en er stond een rode melding over
+honderden "verkeerd afgerekende" transacties waar geen valuta aan te pas kwam.
 
-Strip en toast lezen allebei uit dezelfde bron, dus ze kunnen elkaar niet tegenspreken; een sync
-gestart vanuit de een werkt de regel in allebei bij. Een losgekoppeld account ziet nog steeds geen
-van beide, en er verlaat nog steeds niets je browser.
+Vanaf deze versie wordt de contractgrootte eerst uit de verhouding weggedeeld; alleen wat er dán
+nog overblijft kan een wisselkoers zijn. Op dat account viel het verschil met DEGIRO daarmee terug
+van −€ 171.601,63 naar −€ 239,83 — het restant is koersruis (een verouderde SEK-koers en opties
+waarvoor DEGIRO geen koershistorie levert), en het totaalresultaat komt nu vrijwel exact uit op
+DEGIRO's eigen "Totaal W/V". De onterechte rode melding is weg; de controle blijft gewoon werken
+voor instrumenten die écht in de verkeerde valuta geboekt staan.
 
-De kanttekening van 0.57.0 blijft staan: dit is headless getest op een nagebouwde pagina, nog niet
-op DEGIRO's echte ingelogde scherm — zie je de strip over DEGIRO's eigen menubalk vallen, meld het.
+**Wat moet je doen?** Niets — de pagina openen is genoeg. Zie je daarna nog steeds een verschil
+met DEGIRO in het rood, dan is dat een echt verschil: stuur het bugrapport in.
