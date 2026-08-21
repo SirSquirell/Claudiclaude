@@ -1087,6 +1087,16 @@ button.primary:hover {
   .menu-wrap > button {
     width: auto;
   }
+
+  /* The trigger sits at the right end of a wrapped row here, not at the foot
+     of a column, so a menu that still grows from its own left edge runs off
+     the right of the viewport. Growing from the right edge of the trigger
+     keeps it the same distance from where it was, whichever way it opens. */
+  .menu {
+    left: auto;
+    right: 0;
+    transform-origin: bottom right;
+  }
 }
 
 

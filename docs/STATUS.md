@@ -3,8 +3,74 @@
 `docs/BACKLOG.md` is 2 000 lines of reasoning and evidence, which is the right place for *why* and
 a bad place to find out *where things stand*. This is the index.
 
-**Last updated at 0.60.1.** It had been stale since 0.21.0 once, which is fifteen
+**Last updated at 0.60.2.** It had been stale since 0.21.0 once, which is fifteen
 releases — if it looks stale again, trust the CHANGELOG and fix this.
+
+## Light scan, 2026-08-21
+
+**Branches.** The nine-plus-one the 2026-08-20 scan reported as gone from the remote —
+`aan-de-slag-*`, `eager-cannon-b3ncc4`, `degiro-reconciliation-issues-*`, `hoi-jft2cv`,
+`popup-0470`, `readme-0460`, `refine-0470c`, `remaining-build-items-*`, `status-0460-cleanup`,
+`ui-overhaul-user-stories-*`, `v47-bug-2jcvd3`, `degiro-portfolio-spike-7x5d4h` — are **back** on
+the remote today, alongside the ones that were never reported gone. All 28 `claude/*` branches plus
+`poc` re-checked the same way as every prior scan (diff content, not `git rev-list`, which still
+overcounts on this repo's rebased histories): zero files in any branch that are absent from `main`,
+and every diff collapses to net deletions once `main`'s own stale local ref is corrected first —
+this session's local `main` had drifted to 3e58412 (0.44.1) while `origin/main` was already at
+d6289c7 (0.60.1), which briefly made `HEAD` itself look 98 files diverged from "main" until
+`git branch -f main origin/main` fixed the ref. Worth naming plainly since it is the opposite of
+last time's finding: no unmerged story on any branch, but the "owner did GitHub-UI cleanup" read
+from 2026-08-20 does not hold up today — those branches exist on the remote right now, whatever
+reason. Not touched, per the standing rule that branch deletion is the owner's call.
+
+**GitHub.** Zero open issues. One open PR, **#8**, still untouched since 2026-08-17 — same
+recommendation as every prior scan: close as superseded (US-88 already fixed what it re-proposes),
+owner's call.
+
+**Backlog consistency.** `node tools/check-backlog.mjs`: 62 stories, highest US-96, next free
+US-97 — matches the *Next free number* line at the foot of `docs/BACKLOG.md`. No duplicate or
+skipped numbers, no heading that disagrees with the Shipped table below.
+
+**Rule compliance / security**, same spot checks as prior scans, all clean: `engine.js` has no
+`Date.now`/`new Date`/`fetch`/`chrome.*`/`indexedDB` (the 0.60.1 fix held), `degiro.js` is still the
+only module with a live `fetch(`, 401/403 still return without retry, `session.js`'s `resolveSession`
+still never persists the session cookie itself — only the stable, non-credential `intAccount` /
+`userToken` / `displayName` it reads from `/pa/secure/client` are cached, exactly as the module's
+own comment says — the export allowlist (`SNAPSHOT_FIELDS` in `snapshot.js`, the equivalent in
+`report.js`) is still a `pick`, not a scrub, and manifest permissions are unchanged
+(`storage`, `unlimitedStorage`, `alarms`, `cookies`; host permissions limited to
+`trader.degiro.nl` and `charting.vwdservices.com`).
+
+**Design pass** (`apple-design` skill loaded first, per `docs/redesign/DESIGN-BRIEF.md` §8 — flat
+containers, no translucency, none of which this scan touched). Driven headless at 1440/380 px ×
+light/dark, but this time clicking through every interactive control on every section — nav tabs,
+range/granularity toggles, the sync button, and everything inside the "More" menu (language, theme,
+connection check, export, disconnect, wipe & resync) — because the last three scans' "no horizontal
+overflow" checks only measured the resting page, and the task brief's own warning ("green tests have
+passed here three times over a menu drawn under a chart...") is specifically about a bug that only
+exists while something is open. It found one: **at 380px, opening the rail's "More" menu overflowed
+the viewport by 157px**, with no way to reach the language, theme or disconnect/wipe controls inside
+it. Below the `60em` breakpoint the rail stacks to the top and `.rail-foot` becomes a wrapping row,
+so the "More" trigger no longer sits at the foot of a column — it sits at the end of a row, at
+roughly x=308 on a 380px screen. `.menu`'s `left: 0` (relative to its own trigger) grows the panel
+rightward from there regardless, and its `max-width: min(22rem, 100vw - 1.5rem)` bounds the panel's
+*own* width, not its distance from the right edge of the viewport, so the two combined still ran the
+panel off-screen. Fixed with two lines in the same `60em` breakpoint that already flips the rail
+layout: `.menu { left: auto; right: 0; transform-origin: bottom right }`, so the panel grows from the
+trigger's right edge — where the trigger actually is — instead of its left. Re-verified: the full
+20-control click-through at 380px and 1440px, light and dark, now measures zero overflow and zero
+console/page errors throughout. Confirmed in both languages (EN default, NL via the in-menu toggle)
+and both themes via screenshot. Released as **0.60.2**, display-only, no resync, no `WHATS-NEW.md`
+entry (same reasoning as 0.60.1's fixes: nothing changed about what is stored or fetched).
+
+**Optimization sweep**, repeating the US-83/US-90 shape check: the same `.indexOf(` calls as every
+prior pass — `report.js:504` bounded to the handful of cash categories, the rest in `app.js` against
+short, user-built arrays inside click handlers. No new finding.
+
+`npm test` 579/579, `npm run palette` zero collisions in both themes, `node tools/check-leaks.mjs`
+clean, all three re-run after the fix above, before this commit.
+
+No new broker surfaced worth scoping — unchanged from the table below.
 
 ## Light scan, 2026-08-20 (second pass)
 

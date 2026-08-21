@@ -16,6 +16,19 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.60.2] — 2026-08-21
+
+A routine scan's own finding, display only: no resync needed.
+
+### Fixed
+
+- **The rail's "More" menu opened off the right edge of the screen at narrow widths.** Stacked
+  below 60em, the trigger sits at the end of a wrapped `.rail-foot` row rather than at the foot of
+  a column, so `.menu`'s `left: 0` grew the panel rightward from wherever that row placed the
+  button — at 380px it landed 157px past the viewport edge, with no way to reach its own language,
+  theme or account-reset controls. `.menu { left: auto; right: 0 }` in that breakpoint grows the
+  panel from the trigger's right edge instead, which is where the trigger actually is.
+
 ## [0.60.1] — 2026-08-20
 
 A routine scan's own findings, both display: no resync needed — nothing about what is stored or
