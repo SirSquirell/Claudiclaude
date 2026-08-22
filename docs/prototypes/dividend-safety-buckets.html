@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Dividend safety buckets — the US-109 PoC screen</title>
+<!--
+  Standalone prototype for US-109 (E4-2), the one screen the dividend/income
+  layer (US-102 to US-109, docs/BACKLOG.md) is meant to prove before anything
+  else in that set gets built: what percentage of *income*, not value and not
+  position count, sits in each dividend-safety bucket.
+
+  It forces four other stories in that set to actually work together:
+    - US-105  ISIN matching + attention list  -> the "not assessed" wedge
+    - US-106  effective withholding rate       -> the gross/net split per position
+    - US-107  one gross/net switch, everywhere -> the toggle below
+    - US-108  the safety score and its buckets -> what the donut is sliced by
+
+  The backlog's own PoC scope note says "vijf van Jaspers echte posities" --
+  that is overridden here on purpose. CLAUDE.md rule 7's corollary is explicit:
+  no value copied out of a real account may enter a file like this one. Every
+  position, company name, score and euro figure below is invented, shaped to
+  make the point (one position alone carries over a third of the account's
+  *income* while sitting in "zeer onzeker" -- exactly the concentration an
+  ordinary tracker hides), and no real account was read to produce it.
+
+  No table, no calendar, no Notices -- the backlog scope note excludes them
+  from this PoC on purpose. Just the donut, the switch, and the attention
+  list, because that is what US-109's acceptance criteria actually ask for.
+
+  Pure functions below (`bucketOf`, `incomeByBucket`, `pct`) are the shape
+  `engine.js` and the dividend-tab UI would need; lift them verbatim rather
+  than re-deriving them.
+-->
+<style>
+  :root {
+    --page:#f5f1ea; --surface:#fffdfa; --sunk:#f7f2ea; --ink:#141d27;
+    --ink-2:#5a6774; --ink-3:#8b97a3; --border:#e3dbcd; --accent:#b8532f;
+    --pos:#0b5fc4; --neg:#c02434; --grid:#eae2d5;
+    --sans:system-ui,-apple-system,'Segoe UI',sans-serif;
+    --mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+    --serif:'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme=light]) {
+      --page:#0d151d; --surface:#141e28; --sunk:#1a2531; --ink:#e8eef4;
+      --ink-2:#9aa8b8; --ink-3:#6d7b8a; --border:#273544; --accent:#e08355;
+      --pos:#63a6f6; --neg:#f4737f; --grid:#212e3c;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--page); color: var(--ink); font-family: var(--sans);
+    line-height: 1.6; margin: 0 auto; max-width: 60rem;
+    padding: clamp(1.25rem, 4vw, 3rem);
+  }
+  h1 { font-family: var(--serif); font-size: clamp(1.6rem,1.2rem+2vw,2.4rem);
+       line-height:1.1; letter-spacing:-.02em; margin:0 0 .4rem; }
+  .lede { color: var(--ink-2); margin: 0 0 1.75rem; max-width: 66ch; }
+  .modes { display:flex; flex-wrap:wrap; gap:.5rem; margin-bottom:1.25rem; align-items:center; }
+  .modes .sep { width:1px; height:1.4rem; background:var(--border); margin:0 .25rem; }
+  button {
+    font: inherit; font-size:.85rem; cursor:pointer; padding:.45rem .9rem;
+    border-radius:999px; border:1px solid var(--border);
+    background:var(--surface); color:var(--ink-2);
+  }
+  button:hover { border-color: var(--accent); color: var(--ink); }
+  button[aria-pressed=true] { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .layout { display:grid; grid-template-columns: 20rem 1fr; gap:1.5rem; align-items:start; }
+  @media (max-width: 44rem) { .layout { grid-template-columns: 1fr; } }
+  .card { background:var(--surface); border:1px solid var(--border);
+          border-radius:.75rem; padding:1.1rem; }
+  canvas { width:100%; height:auto; display:block; }
+  .legend { display:grid; gap:.5rem; font-size:.82rem; margin-top:1rem; }
+  .legend .row { display:flex; align-items:center; gap:.55rem; }
+  .legend .row.dim { opacity:.7; }
+  .swatch { display:inline-block; width:.7rem; height:.7rem; border-radius:2px; flex:none; }
+  .legend .name { color:var(--ink); }
+  .legend .val { margin-left:auto; font-variant-numeric:tabular-nums; color:var(--ink-2); }
+  .facts { display:grid; grid-template-columns:repeat(auto-fit,minmax(9.5rem,1fr));
+           gap:1px; background:var(--border); border:1px solid var(--border);
+           border-radius:.6rem; overflow:hidden; margin:1.25rem 0; }
+  .fact { background:var(--surface); padding:.7rem .9rem; }
+  .fact b { display:block; font-size:1.25rem; font-variant-numeric:tabular-nums; }
+  .fact span { font-size:.7rem; text-transform:uppercase; letter-spacing:.1em; color:var(--ink-3); }
+  .attention { border-left:3px solid var(--ink-3); background:var(--surface);
+         padding:.9rem 1.15rem; border-radius:0 .5rem .5rem 0; margin-top:1.25rem; }
+  .attention p { margin:.3rem 0; max-width:66ch; }
+  .attention ul { margin:.4rem 0 0; padding-left:1.2rem; color:var(--ink-2); }
+  h2 { font-family:var(--serif); font-size:1.2rem; margin:2rem 0 .5rem; }
+  pre { background:var(--sunk); border:1px solid var(--border); border-radius:.5rem;
+        padding:.85rem 1rem; overflow-x:auto; font-family:var(--mono); font-size:.78rem;
+        line-height:1.55; }
+  code { font-family:var(--mono); font-size:.85em; }
+</style>
+</head>
+<body>
+
+<h1>What percentage of your income can disappear, and where</h1>
+<p class="lede">
+  Five invented positions, shaped to make the point Simply Safe Dividends makes and this project
+  doesn't yet: a position's share of <b>value</b> and its share of <b>income</b> are different
+  numbers, and the gap between them is exactly where concentration hides. All data below is
+  synthetic — no real account was read to build this (CLAUDE.md rule 7).
+</p>
+
+<div class="modes" id="modes"></div>
+
+<div class="layout">
+  <div class="card">
+    <canvas id="donut" width="480" height="480"></canvas>
+  </div>
+  <div>
+    <div class="facts" id="facts"></div>
+    <div class="card">
+      <div class="legend" id="legend"></div>
+    </div>
+    <div class="attention" id="attention"></div>
+  </div>
+</div>
+
+<h2>The functions, ready to lift</h2>
+<p>Pure, no I/O — <code>bucketOf</code> and <code>incomeByBucket</code> are exactly what US-108's
+score and US-109's donut need from the engine side.</p>
+<pre id="src"></pre>
+
+<script>
+// --- the data --------------------------------------------------------------
+// Invented. grossIncome is annual, in euro. withheldTax is negative, annual,
+// in euro -- the same sign convention engine.js already uses for dividendTax.
+// safetyScore is 0-100, or null when the position isn't in the reference
+// bundle yet (US-105's unmatched case).
+const POSITIONS = [
+  { name: 'Vaste Kern Water NV',      country: 'NL', grossIncome:  540, withheldTax:  -81,  safetyScore: 88 },   // very safe
+  { name: 'Meridian Digital Trust',   country: 'US', grossIncome:  860, withheldTax: -258,  safetyScore: 15 },   // very unsafe -- the concentration this screen exists to surface
+  { name: 'Halcyon Consumer Staples', country: 'US', grossIncome:  410, withheldTax:  -61.5,safetyScore: 65 },   // safe
+  { name: 'Norderney Reederei AG',    country: 'DE', grossIncome:  310, withheldTax:  -78,  safetyScore: 48 },   // borderline
+  { name: 'Trentham Resources plc',   country: 'GB', grossIncome:  275, withheldTax:    0,  safetyScore: null }, // not yet in the reference bundle
+];
+
+// --- the buckets, per US-108's own bands ------------------------------------
+const BUCKETS = [
+  { id: 'veryUnsafe', label: 'Zeer onzeker',  min: 0,  max: 20,  color: '#c02434' },
+  { id: 'unsafe',     label: 'Onzeker',       min: 21, max: 40,  color: '#e0703f' },
+  { id: 'borderline', label: 'Twijfelachtig', min: 41, max: 60,  color: '#d9a827' },
+  { id: 'safe',       label: 'Zeker',         min: 61, max: 80,  color: '#4f8a3d' },
+  { id: 'verySafe',   label: 'Zeer zeker',    min: 81, max: 100, color: '#0b5fc4' },
+];
+const UNASSESSED = { id: 'unassessed', label: 'Niet beoordeeld', color: '#8b97a3' };
+
+/** A score of `null` never lands in a bucket by guessing -- rule 4, applied to a score. */
+function bucketOf(safetyScore) {
+  if (safetyScore == null) return UNASSESSED.id;
+  const b = BUCKETS.find((b) => safetyScore >= b.min && safetyScore <= b.max);
+  return b ? b.id : UNASSESSED.id;
+}
+
+/**
+ * Income per bucket, gross or net. Net is `gross + withheldTax` (already
+ * negative) -- the same identity engine.js's own dividend figures use, never
+ * a second, independently-computed "net" that could disagree with it.
+ */
+function incomeByBucket(positions, { net }) {
+  const totals = new Map();
+  for (const p of positions) {
+    const income = net ? p.grossIncome + p.withheldTax : p.grossIncome;
+    const key = bucketOf(p.safetyScore);
+    totals.set(key, (totals.get(key) ?? 0) + income);
+  }
+  return totals;
+}
+
+function pct(part, whole) {
+  return whole > 0 ? (part / whole) * 100 : 0;
+}
+
+// --- rendering ---------------------------------------------------------------
+
+const money = (n) => '€ ' + Math.round(n).toLocaleString('nl-NL');
+
+function render(net) {
+  const totals = incomeByBucket(POSITIONS, { net });
+  const order = [...BUCKETS, UNASSESSED];
+  const total = order.reduce((a, b) => a + (totals.get(b.id) ?? 0), 0);
+  const unassessedIncome = totals.get(UNASSESSED.id) ?? 0;
+
+  drawDonut(order.map((b) => ({ color: b.color, value: totals.get(b.id) ?? 0 })), total);
+
+  document.getElementById('legend').innerHTML = order.map((b) => {
+    const v = totals.get(b.id) ?? 0;
+    if (v <= 0) return '';
+    const dim = b.id === UNASSESSED.id ? ' dim' : '';
+    return `<div class="row${dim}">
+      <span class="swatch" style="background:${b.color}"></span>
+      <span class="name">${b.label}</span>
+      <span class="val">${money(v)} &middot; ${pct(v, total).toFixed(1)}%</span>
+    </div>`;
+  }).join('');
+
+  document.getElementById('facts').innerHTML = `
+    <div class="fact"><b>${money(total)}</b><span>${net ? 'Netto jaarinkomen' : 'Bruto jaarinkomen'}</span></div>
+    <div class="fact"><b>${pct(unassessedIncome, total).toFixed(1)}%</b><span>Van inkomen niet beoordeeld</span></div>
+    <div class="fact"><b>${POSITIONS.length}</b><span>Posities</span></div>
+  `;
+
+  const unassessedPositions = POSITIONS.filter((p) => p.safetyScore == null);
+  document.getElementById('attention').innerHTML = unassessedPositions.length
+    ? `<p><b>${unassessedPositions.length} positie(s) en ${pct(unassessedIncome, total).toFixed(1)}%
+       van je inkomen niet beoordeeld</b> — nog niet in de referentiebundel (US-105).</p>
+       <ul>${unassessedPositions.map((p) => `<li>${p.name} (${p.country}) — ${money(net ? p.grossIncome + p.withheldTax : p.grossIncome)}/jaar</li>`).join('')}</ul>`
+    : '<p>Alle posities zijn beoordeeld.</p>';
+}
+
+function drawDonut(segments, total) {
+  const c = document.getElementById('donut');
+  const ctx = c.getContext('2d');
+  const cx = c.width / 2, cy = c.height / 2, r = 200, inner = 120;
+  ctx.clearRect(0, 0, c.width, c.height);
+  let start = -Math.PI / 2;
+  for (const seg of segments) {
+    if (seg.value <= 0) continue;
+    const frac = seg.value / total;
+    const end = start + frac * Math.PI * 2;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, r, start, end);
+    ctx.closePath();
+    ctx.fillStyle = seg.color;
+    ctx.fill();
+    start = end;
+  }
+  // punch the hole -- reads as a donut, not a pie, matching the app's chart voice
+  ctx.globalCompositeOperation = 'destination-out';
+  ctx.beginPath();
+  ctx.arc(cx, cy, inner, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+// --- the mode switch (US-107: one switch, everywhere) -----------------------
+let netMode = false;
+function paintModes() {
+  document.getElementById('modes').innerHTML = `
+    <button id="btn-gross" aria-pressed="${!netMode}">Bruto</button>
+    <button id="btn-net" aria-pressed="${netMode}">Netto</button>
+    <span class="sep"></span>
+    <span style="color:var(--ink-3); font-size:.82rem;">E4-2 &middot; income by safety bucket</span>
+  `;
+  document.getElementById('btn-gross').onclick = () => { netMode = false; paintModes(); render(netMode); };
+  document.getElementById('btn-net').onclick = () => { netMode = true; paintModes(); render(netMode); };
+}
+
+document.getElementById('src').textContent =
+  bucketOf.toString() + '\n\n' + incomeByBucket.toString();
+
+paintModes();
+render(netMode);
+</script>
+</body>
+</html>
