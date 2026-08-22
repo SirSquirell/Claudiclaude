@@ -6465,13 +6465,26 @@ schedule, cached, and it has to answer to the same rules as everything else here
   ("you beat the S&P 500 by 4,2 pp") is a new kind of statement leaving the page in a screenshot,
   and earns the same scrutiny every other on-screen figure gets.
 
-### Three kinds of entry in one picker, and they are not the same amount of work
+### Four presets and a free-text field, and they are not the same amount of work
+
+> "die andere etf moet dan gewoon zijn wat wij hebben voorgezet dus dat is nasdaq sp500 prop en
+> tdiv" — the owner, 2026-08-22.
+
+The picker is not "S&P 500 or type your own." It's four named presets plus a free-text field for
+anything not on that list:
 
 | Entry | Fetch | Notes |
 |---|---|---|
 | **S&P 500** (default) | New, scheduled | Needs a total-return series — see below |
-| **Any other ETF/ticker** | New, on demand | Fetched the first time it's picked, then cached like any other raw store |
+| **NASDAQ** (index or `QQQ`-style tracker — confirm which with the owner before building) | New, scheduled | Same total-vs-price trap as S&P 500 |
+| **TDIV** (VanEck Developed Markets Dividend Leaders) | New, scheduled | The natural benchmark for US-98's dividend/ROI split — a real dividend-focused ETF to check our own dividend-heavy accounts against, which is what the original ask's *"obv de tdiv"* was pointing at |
 | **PROP** | None | Already an owned instrument; its price series is already fetched and stored |
+| **Anything else, typed in** | New, on demand | Fetched the first time it's picked, then cached like any other raw store |
+
+The four presets are fetched and refreshed on the same daily schedule as the account's own prices,
+so they're instant the first time a reader opens the picker — no "fetching…" spinner for the
+common case. A typed-in ticker is the only one that fetches on demand, per the open-ended case
+below.
 
 **S&P 500's own trap:** "S&P 500" in casual use almost always means **price** return, but the
 honest comparison is **total** return (dividends reinvested) — our own portfolio return already
@@ -6592,6 +6605,13 @@ A toggle or a two-line KPI, matching the Euro/Return% and time-/money-weighted t
 already carries three times over (US-31): **Total return** (today's figure, unchanged) and
 **Price return** (derived), shown together — the same reasoning US-31 used for its two returns:
 two answers to two questions is not a contradiction as long as the reader knows which is which.
+
+**This is also what the original ask's *"obv de tdiv"* was pointing at**, now that it's clear TDIV
+is a ticker (VanEck Developed Markets Dividend Leaders), not shorthand: once US-97's preset picker
+exists, this split reads better next to TDIV's own price-return/total-return split than in
+isolation — a dividend-led account can see whether it out-yields a real dividend ETF, not just
+whether its own price return is small. Sequencing note, same as US-99: this needs nothing from
+US-97 to ship the derived split itself, only gains a companion once US-97's TDIV preset exists.
 
 ### Traps
 
@@ -6738,4 +6758,103 @@ adds no new arithmetic, only a new, more visible place to read it from.
 
 ---
 
-**Next free number: US-101.**
+---
+
+## US-101 — prulwerk.nl: hosting the app off the extension, with a server-side benchmark cache *(new, refined)*
+
+> "zou met een website onze opties worden vergroot?" — "de website bewaart jouw data in de sessie
+> daarbuiten niet" — "ik denk dat alles client side is behalve dus de tracking van sp500 of de
+> andere etfs ofzo? dat zou natuurlijk wel kunnen worden bewaard" — the owner, 2026-08-22.
+
+As the owner, I want the app reachable from `prulwerk.nl` instead of only from the installed
+extension, and I want to know up front exactly which part of that is allowed to remember anything
+between visits and which part must not.
+
+**Deferred, deliberately.** *"de website poc kunnen we later doen"* — the owner, same call. This
+story is refined so the decision is on paper, not so it is picked up next. When it is, it starts
+life on the repo's one `poc` branch, like every other proof of concept here — nothing about it is
+*finished* until it is promoted into `main` or dropped.
+
+### The decision so far
+
+Two genuinely different things sit under one domain, and the story exists to keep them from ever
+blurring into each other:
+
+1. **The UI, as a static site.** Same `src/ui/` code, served from a URL instead of
+   `chrome-extension://`. The extension is still the only thing that ever touches DEGIRO — reads
+   the cookie, runs the throttled fetch, computes the portfolio — exactly as rule 9 requires;
+   nothing about that changes. Portfolio data reaches the `prulwerk.nl` tab only by the extension
+   relaying it into that one allowlisted origin (`chrome.runtime` → `postMessage`, the origin
+   pinned in the manifest so it cannot become an open relay to any page), and it lives only in
+   that tab's JS memory / `sessionStorage` — **never** in a request the site's own server can see,
+   never written to a server disk. This is the half that has to preserve rule 9 exactly, and the
+   half AC1 below exists to keep honest.
+2. **A small backend for the one thing that is legitimately public: the benchmark/ETF price cache
+   US-97 needs.** This one is *allowed* to persist, because it is never personal data — a ticker
+   and its daily closes, identical for every visitor, shared rather than refetched per browser.
+
+### Why this is its own story rather than a line inside US-97
+
+US-97 was written assuming each browser runs its own throttled fetch and its own per-user cache.
+Moving that fetch server-side changes *who* runs rule 5's queue (the server, once, for everyone —
+not each browser), *where* rule 2's "raw store" lives (a server-side table, not each user's
+IndexedDB), and opens a new abuse surface (a public endpoint that fetches whatever ticker it's
+asked for is also a free proxy for anyone who finds it). None of that touches DEGIRO or personal
+data, so it does not reopen rule 9 — but it is infrastructure this project has never had before,
+and it earns the same "written down before it's built" treatment SPEC's other amendments get,
+rather than arriving as a quiet implementation detail of US-97.
+
+### Build sketch
+
+- **Static UI mirror.** `src/ui/` served as-is from `prulwerk.nl` (or a subdomain — per
+  `prulwerk-admin`'s Cloudflare/DNS conventions for the zone). No server-rendered state, no
+  session cookie of its own — the same "no auth, ever" posture rule 9 already commits the
+  extension to, just restated for a second surface.
+- **Benchmark backend**, on its own subdomain: on a request for a ticker not yet cached, fetch it
+  once, store the raw daily closes (rule 2's own convention, just on a server instead of in
+  IndexedDB), and serve the cache to every later visitor. A nightly job refreshes every
+  already-requested ticker — the shared queue rule 5 always wanted, now genuinely singular instead
+  of one per browser.
+- **Abuse guard** on the "new ticker" path: validate against a real lookup before fetching, and
+  rate-limit it — a public endpoint that blindly fetches any string it's handed is a cost problem
+  for the domain, not a privacy one, but it is still this story's problem to close.
+
+### The nightly audit
+
+Once this is real, deployed infrastructure — a second surface to keep secure, distinct from the
+extension — set up a Routine: cron, nightly, off-hours, running the `security-review` skill
+against the site's repo and deployed configuration on a fixed cadence, independent of when a
+feature happens to ship, reporting findings back rather than only being looked at during a PR.
+This is the right-sized version of the ISO conversation earlier in this backlog: not
+certification — no agent can grant that, and a personal domain doesn't need an ISMS — but a
+repeatable, automated check that catches drift between the moments a human actually looks (a
+stray permissive CORS header, a forgotten rate limit, an env var that leaked into a build).
+
+**Not created yet.** There is nothing deployed for a nightly audit to look at, so standing up the
+Routine now would audit an empty repository. This story records the mechanism and the cadence so
+that the moment the site exists, turning it on is one `create_trigger` call, not a decision made
+from scratch.
+
+### Acceptance criteria
+
+- **AC1** No request leaving the hosted UI's tab carries portfolio or account data in any form —
+  verified by inspecting the tab's actual network traffic, not by reading the code and assuming.
+  The only things the site's own server ever sees are static assets and benchmark-ticker requests.
+- **AC2** The benchmark cache is keyed only by ticker and date; a test/schema check proves no
+  DEGIRO-specific field (account id, session id, holding) can reach that table.
+- **AC3** The nightly Routine runs `security-review` against the site's repo and deployed config
+  on a fixed schedule, independent of feature pushes, and its findings are reported rather than
+  silently dropped.
+- **AC4** The ticker-add path survives a burst-request test without turning into an open proxy —
+  rate limit and lookup validation both exercised.
+
+### Stop condition
+
+If this ever grows toward the server seeing even transient portfolio data — e.g. a "shareable
+public dashboard link" that renders server-side — that is a new, bigger decision that reopens
+rule 9 by name and needs the same explicit sign-off US-97 got. It must never arrive as a quiet
+extension of this story's infrastructure.
+
+---
+
+**Next free number: US-102.**
