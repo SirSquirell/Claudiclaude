@@ -6396,33 +6396,56 @@ Totaal W/V of +€ 64.962,44. History minimum € 799,48 (day one) instead of �
 
 ---
 
-## Four requests from the 2026-08-22 tester call *(new, refined)*
+## Four requests from the 2026-08-22 tester call *(refined, then refined again the same day)*
 
-All four came out of one call and share more plumbing than they look like they do. Two of them
-(US-98, US-100) and most of a third (US-99) need nothing this codebase does not already have.
-One (US-97) runs straight into SPEC §7's *"no benchmarks"* stop, and the S&P 500 half of US-99's
-"what if" sentence is gated on that same decision. Read US-97 first — it is the one that needs the
-owner before it needs a keyboard.
+All four came out of one call and share more plumbing than they look like they do. US-97 ran
+straight into SPEC §7's *"no benchmarks"* stop; put to the owner the same day, it came back
+**decided** — approved, and broadened from "an S&P 500 button" into a general benchmark picker
+(S&P 500 default, any ETF typed in and fetched on demand, PROP folded in as a third entry, see
+former US-100). That decision also unblocks the S&P-500/ETF half of US-99's "what if" sentence,
+which had been waiting on it. US-98 needed no decision at all and is unchanged. Read US-97 first —
+it is now the one the other two lean on for data, not the one waiting on a decision.
 
 ---
 
-## US-97 — Compare to the S&P 500: total ROI over time and over a chosen period *(new, needs a scope decision)*
+## US-97 — Compare to a benchmark: S&P 500 by default, any ETF on toggle *(decided, refined further — needs a SPEC amendment before it's built)*
 
-> "compare knop voor sp 500, ze willen de totale ROI kunnen vergelijken met S&P500 over tijd, en
-> specifieke perioden."
+> "SP 500 compare mag wel of je moet kunnen toggelen naar een andere etf die dan dynamisch wordt
+> opgehaald" — "compare to prop mag als 'etf' optie naast dus compare to SP 500" — the owner,
+> 2026-08-22.
 
-As an investor, I want a button that draws my portfolio's return next to the S&P 500's, over the
-whole history and over whatever period is selected, so I can tell whether I am beating the market
-or riding it.
+As an investor, I want a button that draws my portfolio's return next to a benchmark's — S&P 500
+by default, but switchable to any other ETF I type in, fetched on the spot — over the whole
+history and over whatever period is selected, so I can tell whether I am beating the market,
+beating some other index I care about, or riding it.
 
-### This runs straight into SPEC §7
+### Decided: broader than the original ask, and PROP moved out of hiding
+
+Two changes from the first refinement, both the owner's call, not mine:
+
+1. **Not one fixed index.** A toggle with S&P 500 pre-selected, and a free-text field that fetches
+   whatever ticker is typed in — "dynamically", i.e. on demand, the first time it is chosen, not a
+   pre-loaded catalog.
+2. **PROP sits in the same picker as S&P 500**, not quarantined inside Optimism Mode. The
+   Compare-to-PROP button from the first refinement (US-100) is **folded into this story** as one
+   built-in entry in the same list — see below for what that changes about its honesty
+   obligations now that it is a peer of a real benchmark rather than a joke behind a gate.
+
+### This still runs straight into SPEC §7, now for a wider claim
 
 *"Stop after 7. No multi-account support, no benchmarks, no tax reporting…"* — benchmarks are
 explicitly out of scope, and unlike "no multi-account" (superseded for multi-broker at 0.26.0),
-"no benchmarks" has never been amended. That is not a build detail to route around; it is a scope
-call only the owner can make, the same way the 0.26.0 amendment was written down before US-22
-started. **Recommendation: if approved, SPEC.md §7 gets the same treatment — "Amended, `<version>`:
-'no benchmarks' is superseded for the S&P 500 case; see US-97" — before this story is picked up.**
+"no benchmarks" has never been amended. The owner approving the *feature* in chat is not the same
+document event as the SPEC amendment rule 8 and the branch policy both lean on — **the amendment
+now has to describe the general capability, not just S&P 500**, since arbitrary-ticker comparison
+is a materially bigger promise than one named index:
+
+> **Proposed text for SPEC.md §7:** *"Amended, `<version>`: 'no benchmarks' is superseded — a
+> portfolio-return comparison against a chosen index or ETF (S&P 500 total return by default,
+> any other ticker on request, plus the account's own PROP holding as a standing joke entry) is
+> now in scope; see US-97 in `docs/BACKLOG.md`."*
+
+Land this line before or in the same commit as the first line of code, the way 0.26.0 did it.
 
 ### Why it is a bigger addition than the button suggests
 
@@ -6442,46 +6465,89 @@ schedule, cached, and it has to answer to the same rules as everything else here
   ("you beat the S&P 500 by 4,2 pp") is a new kind of statement leaving the page in a screenshot,
   and earns the same scrutiny every other on-screen figure gets.
 
-### Which series, and the trap in picking one
+### Three kinds of entry in one picker, and they are not the same amount of work
 
-"S&P 500" in casual use almost always means **price** return, but the honest comparison is
-**total** return (dividends reinvested) — our own portfolio return already includes dividends
-(rule 3), so comparing it to a price-only index silently flatters us. Needs a source with a
-total-return variant (e.g. a `^SP500TR`-style series) and a provider decision, spiked the way
-SPEC §8e already prescribes: confirm the real response shape before writing a parser, the same
-discipline `ENDPOINT-REPORT.md` holds DEGIRO's endpoints to.
+| Entry | Fetch | Notes |
+|---|---|---|
+| **S&P 500** (default) | New, scheduled | Needs a total-return series — see below |
+| **Any other ETF/ticker** | New, on demand | Fetched the first time it's picked, then cached like any other raw store |
+| **PROP** | None | Already an owned instrument; its price series is already fetched and stored |
 
-### Build sketch, once the scope decision lands
+**S&P 500's own trap:** "S&P 500" in casual use almost always means **price** return, but the
+honest comparison is **total** return (dividends reinvested) — our own portfolio return already
+includes dividends (rule 3), so a price-only index silently flatters us. Needs a source with a
+total-return variant (e.g. a `^SP500TR`-style series). Whatever the default fetch, the same
+provider has to answer for **arbitrary** tickers too, not just the one it was picked for —
+spike both cases together, the way SPEC §8e already prescribes: confirm the real response shape
+for a known-good ticker and an unknown one before writing the parser.
+
+### The dynamic-ETF fetch is the part that actually grows the surface
+
+A single hardcoded index is one new fetch call. "Any ETF, dynamically" is a small feature of its
+own hiding inside this one:
+
+- **No symbol search, no autocomplete, no catalog — rule 8.** A free-text ticker field that
+  fetches on submit is the whole of v1. A searchable instrument picker is exactly the kind of
+  "nobody asked for this option yet" surface rule 8 exists to keep out; add it only if testers
+  ask for it after using the plain field.
+- **Rule 5, on a second host.** The new provider is not DEGIRO, so it cannot lock a DEGIRO account,
+  but it still gets **one throttled queue of its own** — no scatter-fetching a ticker on every
+  keystroke, one request per submitted symbol, cached from then on.
+- **A typo or an unlisted ticker is `not found`, never a guess.** The same discipline classify.js
+  applies to an unrecognised cash row (rule 4) applies here: an unresolvable symbol is shown as
+  unresolved, never silently substituted for the default or estimated from something adjacent.
+- **Rule 2, unchanged in spirit.** Every fetched series is a raw store per symbol, keyed by ticker;
+  the comparison recomputes from the raw closes on open, exactly like the account's own history.
+
+**PROP, now that it sits beside a real benchmark rather than behind Optimism Mode's gate, picks up
+a different obligation: it must say plainly what it is.** The comparison itself is honest — real
+portfolio return against PROP's real, measured return, nobody's numbers invented — but the label
+has to say "PROP (your own holding)" or equivalent, never dressed as a market index. That is the
+whole of what rule 6 asks of it once it is a feature rather than a joke: the number must not lie,
+and a silly benchmark presented as if it were a serious one would be exactly that.
+
+### Build sketch
 
 - `windowReturnPct(result, from, to)` already computes our own chained return over any window; the
-  identical function over the index's own close series gives its return over the identical
-  window — one function, two inputs, no new return arithmetic.
+  identical function over the benchmark's own close series gives its return over the identical
+  window — one function, two inputs (ours, the chosen benchmark's), no new return arithmetic,
+  whichever entry is picked.
 - The existing range selector *is* "specific periods" — reuse it rather than adding a second date
   picker.
-- Portfolio-% and index-% legitimately share one y-axis (both are returns); portfolio-€ and
-  index-% must never be the two lines on one chart — that would be the two-scales mistake the
-  chart rules already forbid, in a new shape.
-- The KPI line above the chart states the gap in words ("+4,2 pp vs S&P 500"), not only the plot.
+- Portfolio-% and benchmark-% legitimately share one y-axis (both are returns); portfolio-€ and
+  benchmark-% must never be the two lines on one chart — the two-scales mistake the chart rules
+  already forbid, in a new shape.
+- The KPI line above the chart states the gap in words ("+4,2 pp vs S&P 500", "+11 pp vs PROP"),
+  not only the plot.
+- One picker, one code path: S&P 500, a typed ticker, and PROP are three *inputs* to the same
+  comparison function, not three features.
 
 ### Open decisions
 
-- ☐ Provider and exact series (spike first).
-- ☐ SPEC.md amendment text and version.
+- ☐ Provider for the S&P 500 total-return series **and** for arbitrary tickers — ideally the same
+  one, so there is one fetch module rather than two (spike first).
 - ☐ Return-based comparison only, or value-based in €? **Recommendation: return-based only** — a
-  €-vs-€ comparison drags in an FX question (the index is priced in USD) this project does not
-  otherwise need to answer.
-- ☐ Where the button lives. **Recommendation:** beside the existing range controls, so it inherits
+  €-vs-€ comparison drags in an FX question (most ETFs are priced outside EUR) this project does
+  not otherwise need to answer.
+- ☐ Where the picker lives. **Recommendation:** beside the existing range controls, so it inherits
   the period selector rather than duplicating it.
+- ☐ Exact PROP label wording, so it reads as a labelled curiosity rather than a hedge on the S&P
+  500 entry beside it.
 
-### Acceptance criteria (once scoped)
+### Acceptance criteria
 
-- **AC1** The comparison is total-return S&P 500 against our own chained return, both in %, same
-  window, one shared axis.
-- **AC2** The index series is a new raw store, fetched once a day through its own throttled path,
-  never inline during render.
-- **AC3** A stale or unreachable index feed shows "S&P 500 unavailable," never a silent fallback or
-  an estimated figure — rule 4's spirit, applied to a new data source.
-- **AC4** SPEC.md carries the dated, named amendment, in the shape 0.26.0 already set.
+- **AC1** The comparison is total-return for S&P 500, the chosen ticker's own return for any other
+  entry, and PROP's own measured return for that entry — all against our own chained return, all
+  in %, same window, one shared axis.
+- **AC2** Every fetched benchmark series is its own raw store, fetched through one throttled path
+  of its own; the default (S&P 500) refreshes on the daily alarm, a user-typed ticker fetches once
+  on selection and is cached from then on — never re-fetched inline during render.
+- **AC3** An unresolvable ticker shows "not found," never a silent fallback, a guess, or an
+  estimated figure — rule 4's spirit, applied to a new data source.
+- **AC4** The PROP entry's label states it is the account's own holding, not a market index, at
+  every place the comparison is shown or shared.
+- **AC5** SPEC.md carries the dated, named amendment, describing the general capability (default
+  index, any ticker, PROP), in the shape 0.26.0 already set.
 
 ---
 
@@ -6551,64 +6617,77 @@ two answers to two questions is not a contradiction as long as the reader knows 
 
 ---
 
-## US-99 — Lossporn: a shareable top 10, and a "what if" line on the worst of them *(new, refined)*
+## US-99 — Lossporn: a shareable top 10, and a "what if" line on the worst of them *(refined again — what ships, what never will, and the path to the rest)*
 
 > "We moeten ook Lossporn goed sharable maken, een top 10 beste en slechtste trades. Bij de
 > slechtste posities zou je kunnen zeggen obv het moment van kopen een zinnetje van als je dit had
-> geinvesteerd in (een ander bedrijf of sp500) dan was het nu Y waard."
+> geinvesteerd in (een ander bedrijf of sp500) dan was het nu Y waard." — "zou je 99 kunnen
+> refinenen naar iets wat wel kan en wat bewust niet kan en hoe we wel alles kunnen krijgen?" —
+> the owner, 2026-08-22.
 
-### First correction: "trades" has to mean closed positions, not sales
+### What this can do — no wall, no new decision, ships as asked
 
-US-53 already fought this exact fight and won it the hard way: this project **refuses to compute
-a per-sale realized gain**, because that needs a cost-basis convention (FIFO or average cost) the
-project has deliberately never adopted — `test/describe.test.js` fails the build if `engine.js`
-grows one. A "top 10 trades" ranked by per-sale profit would reopen precisely that wall.
+- **A top 10 (and bottom 10) of closed positions, ranked by lifetime result.** Almost everything
+  needed already exists: sorting holdings by windowed result, descending, is already the default
+  view (`renderHoldings`); the *Closed* filter already exists (US-50). This is a **Closed +
+  all-time-result, top/bottom 10** slice of a list the app already knows how to produce.
+  **Rank by % return on money in, not €** — a €50 gain on a €100 position and a €4 000 gain on a
+  €50 000 position are not comparable "lossporn"; % is what makes a top 10 across wildly different
+  position sizes fair. Show € alongside, not instead.
+- **Fully shareable, today's machinery.** The share sheet, the four `FORMATS`, the score-card model
+  (US-54) and the anonymize state are all built. This is a new card *shape* — ten rows instead of
+  one figure — inside the existing pipeline, not a new subsystem.
+- **The "what if" sentence, against PROP, another held instrument, S&P 500, or any ETF —
+  now that US-97 is decided.** The counterfactual needs a price series for whatever it is being
+  compared against; US-97's fetch module (S&P 500, any typed ticker, PROP) is exactly that series,
+  for exactly the same three kinds of entry. One function,
+  `counterfactualValue(buys, priceSeries, fromDate, toDate)`, fed whichever series US-97's picker
+  resolved, reused by both stories. **Sequencing, not scope, is the only thing left**: land US-97's
+  fetch module first (even before its UI), and this sentence has everything it needs on day one.
 
-What the engine already computes, cost-basis-free, is a **closed position's whole-lifetime
-result** (`realised` in `engine.js`, and per-product `sum(p.pnl)` where the final quantity is
-~0) — everything that happened to that instrument from first buy to last sell. That is what a
-top 10 has to rank, and it is honest in exactly the way US-53 insisted the per-sale figure could
-not be: no convention chosen, because a fully closed position is worth zero at both ends and its
-trades are all there is.
+  The arithmetic: for every buy in the closed position, grow its euro amount at the chosen
+  benchmark's own return from that buy's date to the position's close date, and sum across the
+  position's buys. Pure, and the same shape as `windowReturnPct` chained over a sub-range.
 
-### Almost everything else already exists
+### What this deliberately cannot do — and won't, without a separate, named decision
 
-Sorting holdings by windowed result, descending, is already the default view (`renderHoldings`);
-the *Closed* filter already exists (US-50); the share sheet, the four `FORMATS`, the score-card
-model (US-54) and the anonymize/Optimism-Mode quarantine are all built. So this is a **Closed +
-all-time-result, top/bottom 10** view rendered as one shareable score-card listing ten rows
-instead of one figure — a new card *shape* inside the existing share machinery, not a new
-subsystem.
+- **A top 10 ranked by per-sale realized profit — "trades" read completely literally.** US-53
+  already fought this exact fight and won it the hard way: this project **refuses to compute a
+  per-sale realized gain**, because that needs a cost-basis convention (FIFO or average cost) it
+  has deliberately never adopted, and `test/describe.test.js` **fails the build** if `engine.js`
+  grows one. This is not a missing feature; it is a wall the project put up on purpose, twice
+  (US-27 trap 1, US-53's AC0), because every trustworthy per-holding number on this page depends
+  on no such convention existing. A literal "top 10 sales" would tear that down to rank a joke
+  feature.
+- **A live/serious market-index label for PROP.** Now that PROP sits beside S&P 500 in the same
+  picker (US-97), it is a real, honestly-computed comparison — but it will never be presented as a
+  benchmark in the financial sense (rule 6): the label always says it is the account's own holding.
 
-**Rank by % return on money in, not €.** A €50 gain on a €100 position and a €4 000 gain on a
-€50 000 position are not comparable "lossporn"; % is what makes a top 10 across wildly different
-position sizes fair. Show € alongside, not instead.
+### How to actually get "everything" — the honest path, not a workaround
 
-### The "what if" sentence is two builds wearing one sentence
+**Most of "top 10 trades" is already inside "top 10 closed positions."** For the common case — one
+buy, held, one sell — a closed position's lifetime result *is* the trade's result; the two only
+diverge on a position built or unwound across several buys or partial sells, which is a minority
+of most accounts' history. So shipping the closed-position version first is not a compromise
+version of the ask; it is the ask, minus the one slice that needs a convention nobody has agreed
+to yet.
 
-- **"What if you'd put it in [another holding] instead"** needs no new data — we already hold
-  that instrument's own price series, for the same reason PROP's is already stored (US-100).
-  Buildable now.
-- **"What if you'd put it in the S&P 500 instead"** needs the benchmark series US-97 is gated on.
-  Not buildable until that scope decision lands.
+**If literal per-sale ranking is still wanted after seeing that**, the path is not a flag or a
+special case bolted onto this story — it is opening the option US-53 already named and left on the
+table: **a new story that adopts a cost-basis convention (FIFO or average cost) as a SPEC-level
+decision**, named, with its consequences written down, the same way the multi-broker amendment was.
+That story, once and if it exists, is what a genuine "top 10 trades" — as opposed to "top 10
+positions" — would be built on. Nothing here should reach for it quietly.
 
-**Recommendation: ship the sentence now, against PROP or another already-held instrument, and add
-the S&P 500 as a second option the moment US-97's data exists** — one function,
-`counterfactualValue(buys, priceSeries, fromDate, toDate)`, reused by both. The ask itself says
-this is *"vooral leuk voor de prop easter egg"* — the PROP-only version delivers the fun part
-without waiting on a SPEC amendment.
+### Where honesty still applies, now that PROP is not hiding
 
-The arithmetic: for every buy in the closed position, grow its euro amount at the counterfactual
-instrument's own return from that buy's date to the position's close date, and sum across the
-position's buys. Pure, and the same shape as `windowReturnPct` chained over a sub-range — a new
-input series, not a new return primitive.
-
-### Where the joke quarantine applies, and where it does not
-
-The top-10 card itself is a **real** figure and renders under Optimism Mode's rules exactly like
-every other real figure (US-54 AC6: with the mode on, a shared card shows the real number, never
-the cheerful one). The "what if" sentence, in its PROP form, *is* the joke, and inherits
-US-35b/US-35d's existing quarantine: on screen, and never in the export or the bug report.
+The top-10 card is a **real** figure and, if Optimism Mode is on, renders under its rule that a
+shared card always shows the real number, never the cheerful one (US-54 AC6) — that part is
+unchanged. The "what if against PROP" sentence is no longer the joke-quarantine case US-35b/US-35d
+built (that quarantine was for *invented* figures standing in for real ones); it is now a real,
+correctly-computed comparison against a labelled curiosity, so it follows US-97's AC4 labelling
+rule rather than a hide-from-export rule. What still must never happen is presenting it as if PROP
+were a legitimate benchmark — the label carries that weight, not a quarantine.
 
 ### Acceptance criteria
 
@@ -6618,73 +6697,44 @@ US-35b/US-35d's existing quarantine: on screen, and never in the export or the b
   already does (`name.localeCompare`).
 - **AC3** The top-10 card renders through the existing share sheet at every `FORMATS` size, and
   obeys the existing anonymize state and Optimism Mode's real-number rule (US-54 AC6).
-- **AC4** The "what if" sentence against another held instrument or PROP ships without depending
-  on US-97; the S&P 500 option stays absent until that story's data exists — never a hardcoded or
-  estimated index value standing in for it.
-- **AC5** The PROP "what if" sentence never reaches the export or the bug report; a test pins this
-  the same way the frown quarantine is pinned.
+- **AC4** The "what if" sentence supports PROP, another held instrument, S&P 500, and any typed
+  ETF — all through the one counterfactual function, all sourced from US-97's fetch module; no
+  duplicate fetch path introduced here.
+- **AC5** Any PROP-flavoured "what if" sentence carries the US-97 AC4 label ("your own holding")
+  wherever it is shown or shared — never presented as a market benchmark.
+- **AC6** A test proves the closed-position ranking and the literal per-trade ranking give
+  identical results on a fixture with only single-buy/single-sell positions, and diverge only on a
+  fixture with a partial sell — documenting exactly how much of "everything" is already covered.
 
 ### Stop condition
 
 If € (not %) turns out to be what is actually wanted after seeing both, that is a one-line sort-key
-change — take it back to the owner as a decision, do not ship both.
+change — take it back to the owner as a decision, do not ship both. If literal per-sale ranking
+turns out to matter enough to justify a cost-basis convention, that is a new story with "cost
+basis" in its title, opened deliberately — never smuggled in here as an edge case.
 
 ---
 
-## US-100 — A "Compare to PROP" button on the total portfolio *(new, refined)*
+## US-100 — A "Compare to PROP" button on the total portfolio *(superseded by US-97, 2026-08-22 — folded in as a picker entry)*
 
-> "Compare to prop knop op je totale portfolio."
+> "Compare to prop knop op je totale portfolio." — then, the same call: "compare to prop mag als
+> 'etf' optie naast dus compare to SP 500."
 
-### What this is: US-35d's counterfactual, promoted from one tile to the whole portfolio
+The first refinement recommended keeping this inside Optimism Mode's quarantine, on the reasoning
+that a "Compare to PROP" button sitting beside a real "Compare to S&P 500" button would read as a
+serious feature by its placement alone. **The owner decided the opposite, deliberately, after
+seeing that argument** — PROP goes in the same picker as S&P 500 and any other ETF, as one entry
+among several, not behind a separate gate.
 
-Optimism Mode already computes, per account, "what PROP still owes you" for the account's single
-worst holding. This asks for the portfolio-wide version, explicitly: **if every deposit the
-account ever made had gone into PROP instead, what would it be worth today** — the same
-`counterfactualValue` primitive US-99 needs, applied to every deposit rather than to one
-position's buys.
+This story's content — `counterfactualValue` applied to the account's own deposits against PROP's
+own price series — now lives in US-97, as the third row of its "three kinds of entry" table, with
+one adjustment the promotion requires: since it is no longer behind Optimism Mode's "never leaves
+the machine" quarantine, it instead carries US-97 AC4's plain label ("your own holding, not a
+market index") everywhere it is shown or shared. See US-97 for the acceptance criteria that now
+cover this.
 
-**Zero new I/O.** PROP is (or was) a real holding; its price series is already fetched and stored
-like any other instrument's.
-
-### Whether this lives inside Optimism Mode or beside it — worth the owner's five minutes
-
-US-35's design brief is that the joke has to be *unmistakable in a screenshot* and must *never
-persist*. A "Compare to PROP" **button** sitting in the normal UI next to a real "Compare to
-S&P 500" button reads as a serious feature by its placement alone, whatever its content —
-precisely what the frown gate, the stamp and the screenshot-proofing exist to prevent.
-
-**Recommendation: keep it inside Optimism Mode**, as a specific instance of the counterfactual
-machinery already gated there — same stamp, same "never leaves the machine" quarantine, same
-off-by-default — rather than a peer control living outside the quarantine it needs. It also means
-`subjectOf(r)` and the PROP-naming plumbing are reused rather than re-derived for a standalone
-control.
-
-### Build sketch
-
-- `counterfactualValue` (US-99) applied to the account's own deposit events (the account-level
-  equivalent of a position's buys) against PROP's close series, from each deposit's date to today.
-- Rendered as one more tile inside the existing Optimism Mode surface (the tile wall, or as the
-  companion figure beside "What PROP still owes you") — not a new screen.
-- Same copy register as the rest of Optimism Mode: names PROP directly, English inside the Dutch
-  page (US-35b's decided convention).
-
-### Acceptance criteria
-
-- **AC1** Uses every real deposit and PROP's real price series — no synthetic "average buy," so
-  the figure is honest within the joke.
-- **AC2** Renders only inside Optimism Mode, under the existing PROP gate, never as a standalone
-  control outside it.
-- **AC3** Never reaches the export, the bug report, or any tile outside the quarantine — same test
-  shape as the existing frown-quarantine tests.
-- **AC4** An account that never held PROP does not show a broken or empty version — "empty state
-  cannot occur, the gate saw to it," the same property US-35d already has.
-
-### Stop condition
-
-If the owner decides this should be a real, always-visible feature rather than a joke, it stops
-being US-100 and becomes an instance of "compare to any other holding" instead (US-99's building
-block) — build that, not a special-cased PROP button living outside the quarantine it was
-designed to need.
+No number left this story that Optimism Mode's own PROP tiles do not also compute; folding it in
+adds no new arithmetic, only a new, more visible place to read it from.
 
 ---
 
