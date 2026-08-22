@@ -6394,4 +6394,298 @@ Totaal W/V of +€ 64.962,44. History minimum € 799,48 (day one) instead of �
 
 ---
 
-**Next free number: US-97.**
+---
+
+## Four requests from the 2026-08-22 tester call *(new, refined)*
+
+All four came out of one call and share more plumbing than they look like they do. Two of them
+(US-98, US-100) and most of a third (US-99) need nothing this codebase does not already have.
+One (US-97) runs straight into SPEC §7's *"no benchmarks"* stop, and the S&P 500 half of US-99's
+"what if" sentence is gated on that same decision. Read US-97 first — it is the one that needs the
+owner before it needs a keyboard.
+
+---
+
+## US-97 — Compare to the S&P 500: total ROI over time and over a chosen period *(new, needs a scope decision)*
+
+> "compare knop voor sp 500, ze willen de totale ROI kunnen vergelijken met S&P500 over tijd, en
+> specifieke perioden."
+
+As an investor, I want a button that draws my portfolio's return next to the S&P 500's, over the
+whole history and over whatever period is selected, so I can tell whether I am beating the market
+or riding it.
+
+### This runs straight into SPEC §7
+
+*"Stop after 7. No multi-account support, no benchmarks, no tax reporting…"* — benchmarks are
+explicitly out of scope, and unlike "no multi-account" (superseded for multi-broker at 0.26.0),
+"no benchmarks" has never been amended. That is not a build detail to route around; it is a scope
+call only the owner can make, the same way the 0.26.0 amendment was written down before US-22
+started. **Recommendation: if approved, SPEC.md §7 gets the same treatment — "Amended, `<version>`:
+'no benchmarks' is superseded for the S&P 500 case; see US-97" — before this story is picked up.**
+
+### Why it is a bigger addition than the button suggests
+
+Every number on this page today is either DEGIRO's own data or a pure function of it. An index
+price series is neither — a new external source, fetched from somewhere that is not DEGIRO, on a
+schedule, cached, and it has to answer to the same rules as everything else here:
+
+- **Rule 1** — `engine.js` stays pure. The index series is fetched in `sync.js` or a new
+  `src/lib/benchmark.js` shaped like `degiro.js` (a thin fetch wrapper, no logic), and handed into
+  engine functions as a plain array, exactly like `close`/`days` already are.
+- **Rule 2** — only raw responses are persisted truth. Store the raw daily closes for the index,
+  not a precomputed "S&P return" — recompute the comparison on open, like everything else.
+- **Rule 5** — a second host is not a second violation of "one throttled queue," but it must not
+  become a second *unthrottled* path either. An index close changes once a day; fetch it once a
+  day off the existing alarm, cache it, never re-fetch inside a render.
+- **Rule 7** — the index series carries no personal data, but a derived claim shown on screen
+  ("you beat the S&P 500 by 4,2 pp") is a new kind of statement leaving the page in a screenshot,
+  and earns the same scrutiny every other on-screen figure gets.
+
+### Which series, and the trap in picking one
+
+"S&P 500" in casual use almost always means **price** return, but the honest comparison is
+**total** return (dividends reinvested) — our own portfolio return already includes dividends
+(rule 3), so comparing it to a price-only index silently flatters us. Needs a source with a
+total-return variant (e.g. a `^SP500TR`-style series) and a provider decision, spiked the way
+SPEC §8e already prescribes: confirm the real response shape before writing a parser, the same
+discipline `ENDPOINT-REPORT.md` holds DEGIRO's endpoints to.
+
+### Build sketch, once the scope decision lands
+
+- `windowReturnPct(result, from, to)` already computes our own chained return over any window; the
+  identical function over the index's own close series gives its return over the identical
+  window — one function, two inputs, no new return arithmetic.
+- The existing range selector *is* "specific periods" — reuse it rather than adding a second date
+  picker.
+- Portfolio-% and index-% legitimately share one y-axis (both are returns); portfolio-€ and
+  index-% must never be the two lines on one chart — that would be the two-scales mistake the
+  chart rules already forbid, in a new shape.
+- The KPI line above the chart states the gap in words ("+4,2 pp vs S&P 500"), not only the plot.
+
+### Open decisions
+
+- ☐ Provider and exact series (spike first).
+- ☐ SPEC.md amendment text and version.
+- ☐ Return-based comparison only, or value-based in €? **Recommendation: return-based only** — a
+  €-vs-€ comparison drags in an FX question (the index is priced in USD) this project does not
+  otherwise need to answer.
+- ☐ Where the button lives. **Recommendation:** beside the existing range controls, so it inherits
+  the period selector rather than duplicating it.
+
+### Acceptance criteria (once scoped)
+
+- **AC1** The comparison is total-return S&P 500 against our own chained return, both in %, same
+  window, one shared axis.
+- **AC2** The index series is a new raw store, fetched once a day through its own throttled path,
+  never inline during render.
+- **AC3** A stale or unreachable index feed shows "S&P 500 unavailable," never a silent fallback or
+  an estimated figure — rule 4's spirit, applied to a new data source.
+- **AC4** SPEC.md carries the dated, named amendment, in the shape 0.26.0 already set.
+
+---
+
+## US-98 — Dividend tracker, and price return vs. total return *(new, refined — no scope decision needed)*
+
+> "Dividend tracker + een roi tracker die dan kan checken obv de tdiv eentje voor de koers en
+> eentje van de total returns."
+
+Two related asks: a dedicated view of dividend income over time, and splitting "how much of my
+return is price moving vs. dividends landing" into two named numbers instead of one blended one.
+
+### This needs no new data and no new I/O
+
+Every input exists today. Dividend rows are classified (`classify.js`: `DIVIDEND`, `DIVIDEND_TAX`),
+summed daily (`dividendGross`, `dividendTax` in `engine.js`), and already rolled up per year
+(`incomeByYear`) and per product, all-time (US-50's Dividend column). The split this asks for is
+exactly what US-33's Outlook section already worked out and never shipped on its own:
+
+```
+dividend yield ≈ dividend income over the period ÷ average value over the period
+price growth   ≈ total time-weighted return − dividend yield
+```
+
+**The same double-counting trap US-33 named applies here, and it is the one thing to get right.**
+Our measured total return (`windowReturnPct`) already contains dividends — a dividend is internal
+(rule 3), so it sits inside `pnl` already. Price return must be *derived by subtraction*, never
+computed a second, independent way, or a rounding gap between two measurements of the same thing
+will read as a bug.
+
+### Dividend tracker — the shape
+
+A third chart, not a table upgrade, alongside the two that already exist (value including cash,
+period P/L): dividend income per period, using the same bucketing the P/L bars already use
+(`aggregatePnl`/`candleSeries` fed `dividendGross`/`dividendTax` instead of `pnl` — the
+granularity and range-selector code is shared, not rebuilt). One y-axis per chart means this is
+its own chart, not a second scale bolted onto the P/L bars. Two bars per period (gross, tax
+withheld) reuses the stacking the month grid already draws for other pairs.
+
+### ROI tracker — the shape
+
+A toggle or a two-line KPI, matching the Euro/Return% and time-/money-weighted toggles this page
+already carries three times over (US-31): **Total return** (today's figure, unchanged) and
+**Price return** (derived), shown together — the same reasoning US-31 used for its two returns:
+two answers to two questions is not a contradiction as long as the reader knows which is which.
+
+### Traps
+
+- **A short window with one large dividend produces nonsense** — a special dividend inside a
+  narrow window can push the derived yield above the window's total return, making "price return"
+  negative on a flat month. Needs a stated minimum window, in the spirit of US-31's under-a-year
+  annualisation guard.
+- **The per-year split (US-30) is unambiguous; an arbitrary windowed split is not** — the average-
+  value denominator has to be computed over the exact selected range, not the calendar year it
+  falls inside.
+
+### Acceptance criteria
+
+- **AC1** Price return is derived by subtraction from the measured total return and the measured
+  dividend yield; a test proves an account whose entire return is dividends derives ~0 % price
+  return — the same property US-33 already specifies for its own Outlook split; extend that test
+  rather than writing a second one.
+- **AC2** The dividend chart shares the P/L chart's range selector, granularity and bucketing
+  functions — no second charting code path.
+- **AC3** Below a stated minimum window, only the single measured total return shows — no split.
+- **AC4** Total return and price return are both named in words wherever either appears — never a
+  bare "return."
+
+---
+
+## US-99 — Lossporn: a shareable top 10, and a "what if" line on the worst of them *(new, refined)*
+
+> "We moeten ook Lossporn goed sharable maken, een top 10 beste en slechtste trades. Bij de
+> slechtste posities zou je kunnen zeggen obv het moment van kopen een zinnetje van als je dit had
+> geinvesteerd in (een ander bedrijf of sp500) dan was het nu Y waard."
+
+### First correction: "trades" has to mean closed positions, not sales
+
+US-53 already fought this exact fight and won it the hard way: this project **refuses to compute
+a per-sale realized gain**, because that needs a cost-basis convention (FIFO or average cost) the
+project has deliberately never adopted — `test/describe.test.js` fails the build if `engine.js`
+grows one. A "top 10 trades" ranked by per-sale profit would reopen precisely that wall.
+
+What the engine already computes, cost-basis-free, is a **closed position's whole-lifetime
+result** (`realised` in `engine.js`, and per-product `sum(p.pnl)` where the final quantity is
+~0) — everything that happened to that instrument from first buy to last sell. That is what a
+top 10 has to rank, and it is honest in exactly the way US-53 insisted the per-sale figure could
+not be: no convention chosen, because a fully closed position is worth zero at both ends and its
+trades are all there is.
+
+### Almost everything else already exists
+
+Sorting holdings by windowed result, descending, is already the default view (`renderHoldings`);
+the *Closed* filter already exists (US-50); the share sheet, the four `FORMATS`, the score-card
+model (US-54) and the anonymize/Optimism-Mode quarantine are all built. So this is a **Closed +
+all-time-result, top/bottom 10** view rendered as one shareable score-card listing ten rows
+instead of one figure — a new card *shape* inside the existing share machinery, not a new
+subsystem.
+
+**Rank by % return on money in, not €.** A €50 gain on a €100 position and a €4 000 gain on a
+€50 000 position are not comparable "lossporn"; % is what makes a top 10 across wildly different
+position sizes fair. Show € alongside, not instead.
+
+### The "what if" sentence is two builds wearing one sentence
+
+- **"What if you'd put it in [another holding] instead"** needs no new data — we already hold
+  that instrument's own price series, for the same reason PROP's is already stored (US-100).
+  Buildable now.
+- **"What if you'd put it in the S&P 500 instead"** needs the benchmark series US-97 is gated on.
+  Not buildable until that scope decision lands.
+
+**Recommendation: ship the sentence now, against PROP or another already-held instrument, and add
+the S&P 500 as a second option the moment US-97's data exists** — one function,
+`counterfactualValue(buys, priceSeries, fromDate, toDate)`, reused by both. The ask itself says
+this is *"vooral leuk voor de prop easter egg"* — the PROP-only version delivers the fun part
+without waiting on a SPEC amendment.
+
+The arithmetic: for every buy in the closed position, grow its euro amount at the counterfactual
+instrument's own return from that buy's date to the position's close date, and sum across the
+position's buys. Pure, and the same shape as `windowReturnPct` chained over a sub-range — a new
+input series, not a new return primitive.
+
+### Where the joke quarantine applies, and where it does not
+
+The top-10 card itself is a **real** figure and renders under Optimism Mode's rules exactly like
+every other real figure (US-54 AC6: with the mode on, a shared card shows the real number, never
+the cheerful one). The "what if" sentence, in its PROP form, *is* the joke, and inherits
+US-35b/US-35d's existing quarantine: on screen, and never in the export or the bug report.
+
+### Acceptance criteria
+
+- **AC1** Ranking uses each closed position's all-time result, never a per-sale figure; a test
+  extends US-53's `describe.test.js` guard rather than adding a parallel one.
+- **AC2** Ranked by % on money in, € shown alongside; ties break the way the holdings table
+  already does (`name.localeCompare`).
+- **AC3** The top-10 card renders through the existing share sheet at every `FORMATS` size, and
+  obeys the existing anonymize state and Optimism Mode's real-number rule (US-54 AC6).
+- **AC4** The "what if" sentence against another held instrument or PROP ships without depending
+  on US-97; the S&P 500 option stays absent until that story's data exists — never a hardcoded or
+  estimated index value standing in for it.
+- **AC5** The PROP "what if" sentence never reaches the export or the bug report; a test pins this
+  the same way the frown quarantine is pinned.
+
+### Stop condition
+
+If € (not %) turns out to be what is actually wanted after seeing both, that is a one-line sort-key
+change — take it back to the owner as a decision, do not ship both.
+
+---
+
+## US-100 — A "Compare to PROP" button on the total portfolio *(new, refined)*
+
+> "Compare to prop knop op je totale portfolio."
+
+### What this is: US-35d's counterfactual, promoted from one tile to the whole portfolio
+
+Optimism Mode already computes, per account, "what PROP still owes you" for the account's single
+worst holding. This asks for the portfolio-wide version, explicitly: **if every deposit the
+account ever made had gone into PROP instead, what would it be worth today** — the same
+`counterfactualValue` primitive US-99 needs, applied to every deposit rather than to one
+position's buys.
+
+**Zero new I/O.** PROP is (or was) a real holding; its price series is already fetched and stored
+like any other instrument's.
+
+### Whether this lives inside Optimism Mode or beside it — worth the owner's five minutes
+
+US-35's design brief is that the joke has to be *unmistakable in a screenshot* and must *never
+persist*. A "Compare to PROP" **button** sitting in the normal UI next to a real "Compare to
+S&P 500" button reads as a serious feature by its placement alone, whatever its content —
+precisely what the frown gate, the stamp and the screenshot-proofing exist to prevent.
+
+**Recommendation: keep it inside Optimism Mode**, as a specific instance of the counterfactual
+machinery already gated there — same stamp, same "never leaves the machine" quarantine, same
+off-by-default — rather than a peer control living outside the quarantine it needs. It also means
+`subjectOf(r)` and the PROP-naming plumbing are reused rather than re-derived for a standalone
+control.
+
+### Build sketch
+
+- `counterfactualValue` (US-99) applied to the account's own deposit events (the account-level
+  equivalent of a position's buys) against PROP's close series, from each deposit's date to today.
+- Rendered as one more tile inside the existing Optimism Mode surface (the tile wall, or as the
+  companion figure beside "What PROP still owes you") — not a new screen.
+- Same copy register as the rest of Optimism Mode: names PROP directly, English inside the Dutch
+  page (US-35b's decided convention).
+
+### Acceptance criteria
+
+- **AC1** Uses every real deposit and PROP's real price series — no synthetic "average buy," so
+  the figure is honest within the joke.
+- **AC2** Renders only inside Optimism Mode, under the existing PROP gate, never as a standalone
+  control outside it.
+- **AC3** Never reaches the export, the bug report, or any tile outside the quarantine — same test
+  shape as the existing frown-quarantine tests.
+- **AC4** An account that never held PROP does not show a broken or empty version — "empty state
+  cannot occur, the gate saw to it," the same property US-35d already has.
+
+### Stop condition
+
+If the owner decides this should be a real, always-visible feature rather than a joke, it stops
+being US-100 and becomes an instance of "compare to any other holding" instead (US-99's building
+block) — build that, not a special-cased PROP button living outside the quarantine it was
+designed to need.
+
+---
+
+**Next free number: US-101.**
