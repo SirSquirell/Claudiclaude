@@ -6564,59 +6564,17 @@ and a silly benchmark presented as if it were a serious one would be exactly tha
 
 ---
 
-## US-98 — Dividend tracker, and price return vs. total return *(growing — a full tab, scope not final)*
+## US-98 — Price return vs. total return *(scope narrowed — the dividend-tracker half moved to US-102+)*
+
+The dividend-tracker ambition this story originally carried outgrew it: Jasper pointed at Simply
+Safe Dividends, the owner had Cowork read it, and a full feature analysis came back — nine epics,
+two blocking assumptions, a three-layer architecture. That is now **US-102 onward**, refined
+below, and it is explicitly *only* the dividend piece; the price-return/total-return split kept
+its own scope throughout and was never part of that comparison. What follows in this story is
+unchanged from the original refinement.
 
 > "Dividend tracker + een roi tracker die dan kan checken obv de tdiv eentje voor de koers en
-> eentje van de total returns." — then, the same day: "dividend tracker gaat wel echt een aparte
-> tab zijn binnen de plugin/website" — "let op dat dat nog veel groter wordt met ook nog
-> subpages denk ik" — the owner, 2026-08-22, after a tester (Jasper) pointed at an existing
-> dividend-tracker product and the owner had Claude Cowork read that site for reference.
-
-### This is no longer "a chart and a toggle" — hold the line on what follows
-
-> "weet trouwens niet eens zeker of t n subtab is, is allemaal tbd, ik stuur je zo de input van
-> cowork hierover dan kun je 98 daar op laten aansluiten voor enkel het dividend stuk" — the
-> owner, 2026-08-22.
-
-What's written below this note — the price-return/total-return split, the income chart — is still
-correct and still buildable exactly as described, and stays scoped separately from whatever comes
-next. What has *not* landed yet is the **container**: whether the dividend material becomes its
-own top-level tab, a subpage of something else, or stays inside Overview is genuinely undecided —
-**TBD**, the owner's own word, not a placeholder for "tab" read too literally from the first
-message. Nothing in this backlog should assume a navigation shape until the competitor research
-that's about to land actually asks for one.
-
-**Deliberately not scoped further here yet.** The feature list is being pulled from a live
-competitor site in a separate Cowork session, for the *dividend piece specifically* — the
-price-return/total-return split above is not in scope for that comparison. Writing navigation
-structure now would be a guess dressed as a decision, which is exactly what
-`ENDPOINT-REPORT.md`'s "single-sourced, marked as such" discipline exists to prevent elsewhere in
-this project. What's true regardless of what that research contains or where it ends up living:
-
-- **Every number in it still has to survive rules 1–4.** A dividend-tracker product built for a
-  general audience will show things this project's own rules already forbid without a fight —
-  yield-on-cost against an invented cost basis (the US-53 wall, again), projected future dividend
-  income presented as fact rather than as a labelled projection (US-33's whole design brief), or a
-  payout calendar that guesses at a company's next dividend date. Reading the competitor's feature
-  list is useful; copying its epistemics is not — flag each borrowed feature against the rule it
-  would have to clear before it goes in this backlog as an AC.
-- **A new sub-navigation layer is a UI-architecture decision in its own right**, independent of
-  which dividend features end up inside it — worth its own short design pass (how a subpage is
-  addressed, whether it's a URL-level route or in-memory tab state, how it behaves on
-  `npm run demo`) rather than inheriting whatever shape the first subpage happens to need.
-- **Rule 8 still applies to the harvest from that research.** "A competitor has it" is a real
-  signal (this is not a guess — it's Jasper's ask plus a sourced product to point at, which is a
-  stronger provenance than most items in this backlog get), but it is not automatic inclusion.
-  Each candidate subpage earns its place by answering a story or a defect, same as everything
-  else — "it exists elsewhere" is the reason to look, not the reason to build.
-
-**Next step, once the Cowork read-through is done:** bring the feature list back here as its own
-refinement pass, scoped to the dividend piece only — what the competitor shows, which of it clears
-rules 1–4, and only then a proposed home for it (own tab, subpage, or folded into what's below) —
-before any acceptance criteria are written. The price-return/total-return split below is not part
-of that comparison and keeps its own scope regardless of where the dividend material lands.
-
-### The two pieces already refined, unchanged
+> eentje van de total returns." — the owner.
 
 Two related asks: a dedicated view of dividend income over time, and splitting "how much of my
 return is price moving vs. dividends landing" into two named numbers instead of one blended one.
@@ -6683,6 +6641,268 @@ US-97 to ship the derived split itself, only gains a companion once US-97's TDIV
 - **AC3** Below a stated minimum window, only the single measured total return shows — no split.
 - **AC4** Total return and price return are both named in words wherever either appears — never a
   bare "return."
+
+---
+
+## US-102 to US-109 — A dividend & income layer, after Simply Safe Dividends *(new, refined from Cowork's feature analysis, 2026-08-22)*
+
+> "als je meer context wil check deze site, die heeft de functionaliteiten die ik wil" —
+> simplysafedividends.com/demo — the owner, relaying Jasper's recommendation and a Cowork
+> feature-analysis document (v2, superseding a v1 that wrongly assumed CSV import and a backend).
+
+Simply Safe Dividends (SSD) is not a portfolio tracker with dividends bolted on — it is a **risk
+monitor for an income stream**: which part of next year's dividend income can disappear, and
+where. That is a second axis on top of what this project already does (reconstructing what
+happened, checked against DEGIRO's own totals); SSD is prospective, this project is retrospective.
+That difference is the actual reason to build any of this, not "a competitor has a nicer table."
+
+### The architecture cut runs along the data line, not the UI line
+
+Three layers, and the middle one is new for this project:
+
+- **Layer A — local, in the extension.** Everything computable from DEGIRO plus close prices
+  already fetched. Stays in IndexedDB, never leaves the browser. Net dividend income per position
+  and per year, per-position effective withholding rate, income concentration, the
+  forecast-vs-actual comparison.
+- **Layer B — a static, read-only bundle on `asteria.prulwerk.nl`.** Per-ISIN reference data
+  (dividend history, announced payouts with ex/pay dates, payout ratio, net debt/EBITDA, dividend
+  streak, sector, issuer's country of incorporation, withholding-tax rate, the safety score),
+  generated by a **scheduled GitHub Action** and published as JSON on GitHub Pages. The extension
+  downloads the whole bundle and computes locally against it.
+
+  **Why a static bundle and not an API**, and why this is not the same shape as US-97's benchmark
+  fetch even though both live on `prulwerk.nl`: an API answering "give me data for these specific
+  ISINs" leaks the *composition of a portfolio* to a server the moment it's asked — a ticker
+  someone picked to compare against (US-97) reveals nothing about what they hold; a batch of ISINs
+  someone's extension just requested reveals almost exactly what they hold. Publishing the whole
+  bundle and letting every installation download all of it sidesteps that leak entirely, at the
+  cost of the bundle growing with the ISIN list rather than per query — an explicit, accepted
+  trade favouring privacy over bandwidth, and it costs nothing to run (no server, no uptime
+  promise, no accounts).
+- **Layer C — not built.** A backend with user accounts, storing other people's financial
+  positions, is out — see the "will not build" table below. This is not a technical call; it is
+  the same reasoning as rule 9, extended to a hypothetical server this project has never needed.
+
+### Two assumptions block everything past the architecture, and one is already answered
+
+**A1 — does DEGIRO's data already carry withholding tax per dividend, and does this codebase
+already extract it? Answered, by reading the code rather than guessing:**
+
+Yes, structurally. Every classified cash row (`classify.js`) already carries `productId`, `date`,
+`change` and a `category` of either `DIVIDEND` or `DIVIDEND_TAX` — the fields a per-position,
+per-payment net/gross/tax split needs are already on the raw row. What is *not* built yet:
+`engine.js`'s `dividendByProduct` (`engine.js:823–844`) currently **nets** both categories into one
+running total per product — exactly the right call for the existing "Dividend (all time)" column,
+which is deliberately net (`engine.js:813`'s own comment says so) — but it means gross and tax are
+not available *separately* per position today. Splitting that one `Map` into two (or a `{gross,
+tax}` pair) is the whole of the gap: **no new DEGIRO data is needed, only a small engine change**,
+and E8-1 below is scoped on that basis. What still wants verifying against a real capture, per this
+project's own `ENDPOINT-REPORT.md` discipline: whether a `DIVIDEND` row and its paired
+`DIVIDEND_TAX` row reliably share a date (same-day or next-business-day) so per-*payment* pairing
+is reliable, not just per-position-per-year. **Not yet checked against a real account.**
+
+**A2 — is there a source for EU-covering dividend history and fundamentals, free or cheap, and may
+it legally be re-published inside a static bundle? Open — not run.** This is an external spike
+(three real ISINs across AMS/XETRA/NYSE, checking coverage, rate limits, cost, and specifically
+**re-publication licensing**, since Layer B re-publishes whatever it fetches) that this session
+hasn't done. It needs a decision on provider before E9-1 can close, and it gates everything from
+E4 onward — a negative answer here doesn't kill the story, it shrinks it to Layer A alone (a net
+dividend overview, no score, no forecast), which the owner's brief already anticipated as the
+fallback. **Offering to run this spike is on the table; say the word and I'll do it as its own
+pass, since it involves a licensing judgement worth getting right rather than fast.**
+
+### Scope table, ported from the feature analysis
+
+Legend: **A** local/extension, **B** via the static bundle, **LATER** valuable but not now, **UIT**
+not building. Only the rows already turned into full stories below (E9-2, E9-3, E8-1, E8-2, E4-1,
+E4-2) have acceptance criteria yet — the rest wait on A2 and on the PoC below, per rule 8: writing
+acceptance criteria ahead of a working PoC is exactly the "guess dressed as a decision" this
+project keeps refusing to do.
+
+| Epic | Feature | Verdict |
+|---|---|---|
+| Income | Income Calendar (30 days) | B |
+| Income | Year Ahead (income per month) | B |
+| Income | Dividend Growth (5y) | A |
+| Income | Forecast met herbeleggingsaannames | LATER — hoort op de Outlook-pagina (US-33), niet hier |
+| Risk | Diversification naar sector/land, op inkomen | A + B |
+| Risk | Recession Performance (2008, 2020) | LATER |
+| Risk | S&P credit rating per holding | UIT — betaalde licentie |
+| Valuation | Timeliness (rendement vs. eigen 5j-gemiddelde) | B |
+| Valuation | Fair value chart, analistenprojecties | UIT — betaalde data |
+| Table | Instelbare kolommen (dividend-metrics) | A + B, uitbreiding van de bestaande Holdings-pagina |
+| Table | Company page | A + B |
+| Alerts | Notice bij dividendwijziging of bucketwissel | A + B, als bestaand Notices-item |
+| Alerts | E-mail en maandrecap | UIT — vereist een backend |
+| Input | CSV-import | LATER — pas bouwen als de DEGIRO-scrape ooit breekt |
+| Input | Handmatige invoer | Verplaatst — scenario op de Outlook-pagina, geen invoerflow |
+| Input | Meerdere rekeningen, bonds, CD's, closed-end funds | UIT |
+| Research | Screener, idea lists, model portfolios, nieuwsbrief | UIT — buiten scope of grenst aan beleggingsadvies |
+
+### The PoC target, per the feature analysis's own recommendation
+
+Not a PoC of this whole backlog — one screen: **US-109 (E4-2)**, the donut showing what percentage
+of *income* (not value, not position count) sits in each safety bucket. That one screen forces
+US-104, US-105, US-108 and US-107 to all actually work; everything past it is comparatively
+mechanical. Scope: five of a real tester's positions, a hand-built bundle if A2 hasn't landed a
+source yet, one donut, one attention-list, the gross/net toggle. No calendar, no table, no Notices.
+
+---
+
+### US-102 — A1, closed: the withholding-tax fields already exist *(spike, answered)*
+
+See "Two assumptions" above for the full answer. Recorded as its own story because it is exactly
+the kind of finding this backlog pins rather than lets evaporate into a chat log (the same reason
+US-96's contract-size finding gets a full write-up instead of a one-line changelog entry).
+
+- **AC1** `engine.js` keeps a per-product gross dividend and a per-product withheld tax as two
+  numbers (or a `{gross, tax}` pair), not only their net — additive to `dividendByProduct`, not a
+  replacement of it, since the existing "Dividend (all time)" column depends on the net figure.
+- **AC2** A test on a fixture with two dividend payments on the same instrument in different years
+  proves the split sums back to the existing net figure exactly — the guardrail that keeps this
+  from becoming a second, disagreeing measurement of the same thing.
+- **AC3** Whether `DIVIDEND`/`DIVIDEND_TAX` pairs reliably share a date is checked against one real
+  capture before any per-*payment* (not just per-position-per-year) feature relies on it; until
+  then, per-year is the safe granularity.
+
+### US-103 — A2, open: a licensable EU dividend-data source *(spike, not run)*
+
+As refined above. **Acceptance criteria for the spike itself:**
+
+- **AC1** Three real ISINs from an actual tester portfolio, one each on Amsterdam, Xetra and NYSE.
+- **AC2** Per source: five years of dividend history, next announced payout with ex/pay date,
+  payout ratio, net debt/EBITDA — plus, explicitly, **coverage, rate limits, cost, and whether its
+  terms permit re-publishing the fetched data inside a static bundle anyone can download.** The
+  licensing question is not a footnote; Layer B's entire design depends on the answer being yes.
+- **AC3** A written conclusion: a chosen provider, or a documented "no source clears this," which
+  under section 6's own logic means Layer B (and everything gated on it) does not get built and
+  this story's scope shrinks to Layer A alone.
+
+### US-104 — The bundle pipeline (E9-2) *(new, refined — depends on US-103)*
+
+As a builder, I want a scheduled GitHub Action that fetches per-ISIN reference data and publishes
+it as JSON on `asteria.prulwerk.nl`, so the extension gets fundamentals without a backend — the
+same `pipeline/` + `data/` + weekly-workflow shape already running for `Teamkiezeer`, applied here.
+
+- **AC1** Input is an ISIN list checked into the repo (grows only as real holdings need it — never
+  a proactive whole-market crawl, per rule 8); output is versioned JSON on the site.
+- **AC2** Every record carries an `asOf` date, shown in the UI wherever that record's data is used.
+- **AC3** A field the source doesn't have is explicit `null` — never `0`, never an estimated
+  midpoint. This is rule 4's own discipline (an unclassified cash row is `UNKNOWN`, not guessed),
+  restated for a market-data field instead of a cash row.
+- **AC4** A failed run fails loudly and does not publish a half-written bundle.
+- **AC5** The bundle is one file or a small, fixed number of them — the extension never requests
+  per-ISIN, which is the whole point of Layer B.
+
+### US-105 — ISIN matching and an attention list (E9-3) *(new, refined — depends on US-104)*
+
+> As Jasper, I want to see which of my positions aren't in the reference data, so I know the
+> income forecast is incomplete rather than trusting a number that looks complete and isn't.
+
+Named in the source document as the single most important story in the whole set, and correctly:
+the dangerous failure mode here isn't an error message, it's a plausible total that's silently
+missing three positions — precisely rule 6's "off by a cent and the whole history is suspect,"
+applied to a forecast instead of a reconciliation.
+
+- **AC1** Matching on ISIN, with ticker+MIC as a fallback alias.
+- **AC2** Unmatched positions are named, individually, in an attention list — never silently
+  excluded from a total.
+- **AC3** Every screen that shows a total sourced from Layer B states "x posities en y% van je
+  inkomen niet beoordeeld" beside it, not in a separate diagnostics screen nobody opens.
+
+### US-106 — Effective withholding rate per position (E8-1) *(new, refined — depends on US-102, US-104)*
+
+> As Jasper, I want the effective withholding-tax rate per holding, so his income forecast is net
+> rather than structurally too optimistic for anything that isn't US paper.
+
+- **AC1** Rate sourced from the *issuer's country of incorporation* in the Layer B bundle — **not**
+  the ISIN's own country prefix, which names where a security is registered, not who withholds.
+  The ISIN prefix is fallback-only and marked uncertain when used as one.
+  covers at minimum NL, US, DE, FR, BE, CH, GB.
+- **AC2** A per-account toggle for whether a valid W-8BEN is on file (15% vs. 30% on US paper).
+- **AC3** Reclaimable vs. practically-lost withholding shown as separate figures, not netted into
+  one "tax paid" number — a reader deciding whether to bother reclaiming needs both.
+- **AC4** Manually overridable per position, with a note field — Layer B's country data can be
+  wrong or missing, and this is the same "never silently guess, let the reader correct it" pattern
+  rule 4 already uses for cash-row classification.
+
+### US-107 — A gross/net switch, everywhere (E8-2) *(new, refined — depends on US-106)*
+
+> As Jasper, I want one switch between gross and net income that applies everywhere at once, so
+> what he sees matches what actually lands on his account.
+
+- **AC1** One switch governs the KPI row, the calendar, Year Ahead, the growth report and the
+  holdings table — never a screen left showing gross while the rest shows net.
+- **AC2** The choice persists across sessions.
+- **AC3** Every figure it touches carries a caption naming which assumptions are in effect (W-8BEN
+  on file or not, reclaimable vs. lost) — the same "name both answers" discipline US-31 already
+  uses for time- vs. money-weighted return.
+
+### US-108 — A safety score per holding (E4-1) *(new, refined — depends on US-103, US-104)*
+
+> As Jasper, I want a 0–100 score with a bucket label per holding, so he can see at a glance which
+> dividends are shaky.
+
+- **AC1** Five buckets, SSD's own bands: very unsafe 0–20, unsafe 21–40, borderline 41–60, safe
+  61–80, very safe 81–100.
+- **AC2** Named, weighted ingredients: payout ratio on free cash flow, net debt/EBITDA, consecutive
+  years paid, cuts in 2008–09 and 2020, sector cyclicality, earnings volatility — REITs scored on
+  AFFO, banks/insurers on their own ratios, or explicitly flagged "model does not fit."
+  Insufficient data yields **"cannot be determined," never a guessed middle value** — the same
+  refusal rule 4 already applies elsewhere, restated for a score instead of a classification.
+- **AC3** The reasoning behind any single score is inspectable in the UI: which input is dragging
+  it down, and when it was last recalculated.
+- **AC4** **Not called "Safety Score," and no accuracy track record is claimed anywhere near it.**
+  SSD's own number rests on ten years of measured data plus an analyst overlay on top of purchased
+  data; this project has neither, and rule 6 — the numbers do not lie — means publishing the
+  scoring rules is fine, publishing an unmeasured accuracy claim is not.
+
+### US-109 — Income by safety bucket, the PoC screen (E4-2) *(new, refined — depends on US-105, US-107, US-108)*
+
+> As Jasper, I want to see what percentage of my *annual income* sits in each safety bucket, so he
+> can see risk at income level instead of at position level.
+
+Five percent of a portfolio's *value* sitting in one wobbly high-yield REIT can be ten percent of
+its *income* — the exact gap an ordinary tracker hides, and the reason this is the one screen
+worth building before anything else in this set: it forces the bundle, the matching, the score and
+the gross/net switch to all actually work together.
+
+- **AC1** A donut by percentage of **income**, not value and not position count.
+- **AC2** Click-through from any slice to the positions inside it.
+- **AC3** An explicit line — "x% van je inkomen kan niet worden beoordeeld" — fed by US-105's
+  attention list, never silently dropped from the 100%.
+- **AC4** Respects the gross/net switch (US-107).
+
+### What this deliberately will not build
+
+| Not building | Why |
+|---|---|
+| A backend with user accounts | Storing other people's financial positions is a GDPR processor role and an uptime promise, on a project one person maintains. Layer B solves the data problem without it. |
+| A per-user, per-ISIN query API | Leaks portfolio composition to the server that answers it — the whole reason Layer B is a downloadable bundle instead. |
+| Email alerts, a monthly recap | Needs a backend. Becomes a Notices item instead — the page already exists. |
+| Live sync for brokers other than DEGIRO | One broker is the one thing this project maintains well; a second is its own story if anyone asks (see multi-broker's own 0.26.0 amendment). |
+| Model portfolios, curated idea lists | Concrete buy suggestions to third parties edges into investment advice. |
+| Analyst notes, a newsletter | That is SSD's actual business model and the human labour behind it — out of scope by nature, not by cost. |
+| S&P credit ratings, fair value, analyst consensus | Paid data licences. |
+| A claimed track record on this project's own score | No measured data exists to back one — publish the scoring rules, not an accuracy percentage. |
+
+**The accepted trade-off:** building this inside the DEGIRO extension makes the dividend layer
+DEGIRO-only, on purpose — the automatically-net dividend data this project already reconstructs is
+the one piece a broker-agnostic CSV tool cannot match, and that edge is worth more than covering
+every broker on day one.
+
+### Build order
+
+1. US-102 is closed. Run US-103 next — it gates everything past Layer A.
+2. If US-103 lands a source: US-104, then US-105.
+3. Build US-109 (the PoC screen) per the scope above and show it to Jasper before anything else in
+   this set — it's also the fastest way to find out whether the product is wanted at all.
+4. Only then the remaining must-have rows from the scope table above, each refined into its own
+   story the way US-104 to US-109 were, not before.
+
+If US-103 comes back negative, this shrinks to Layer A alone — a net dividend overview with no
+score and no forecast. Still more than exists today, but a smaller, different story, and half of
+this section's scope table goes with it.
 
 ---
 
@@ -6906,4 +7126,4 @@ extension of this story's infrastructure.
 
 ---
 
-**Next free number: US-102.**
+**Next free number: US-110.**
