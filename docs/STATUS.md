@@ -3,8 +3,82 @@
 `docs/BACKLOG.md` is 2 000 lines of reasoning and evidence, which is the right place for *why* and
 a bad place to find out *where things stand*. This is the index.
 
-**Last updated at 0.60.3.** It had been stale since 0.21.0 once, which is fifteen
+**Last updated at 0.61.0.** It had been stale since 0.21.0 once, which is fifteen
 releases — if it looks stale again, trust the CHANGELOG and fix this.
+
+## Light scan, 2026-08-22 (second pass)
+
+**Branches.** 30 remote `claude/*` branches plus `poc`, checked by diff content against `main`
+(8159200, 0.61.0) rather than commit count — `git rev-list` still overcounts on this repo's rebased
+histories, as every prior scan found. 29 of the 30 collapse to net deletions against current `main`;
+the two with new files each turned out to be already-superseded drafts —
+`degiro-portfolio-spike-7x5d4h`'s `tools/trading212-r1/probe.js` (84 lines) is an early draft of what
+`main` already has as `spike.js` (216 lines) plus its own test and README, and
+`claude/eager-cannon-b3ncc4` is the same stray-branch pattern as `eager-cannon-islvb3` before it: one
+commit from a prior scan run, stranded on its own throwaway branch, whose finding (the `cashChart`
+axis fix) is already on `main`.
+
+**One branch is real, unlanded work: `claude/feature-requests-user-stories-u0rxdl`.** Net +1 146
+lines against `main`, including a new file (`docs/prototypes/dividend-safety-buckets.html`, a working
+POC with real derived scores, not asserted ones). It refines four requests from a 2026-08-22 tester
+call: a benchmark-compare feature (S&P 500 default, any ETF fetched on demand, PROP folded in as a
+peer entry — explicitly flagged there as running into SPEC §7's "no benchmarks" and needing an
+amendment before it can be built) and a dividend & income layer (income by dividend-safety bucket).
+**Its story numbers collide with `main`:** it calls the benchmark feature US-97 and continues to
+US-109, but `main` already shipped a *different* US-97 (the asteria.prulwerk.nl demo button, 0.61.0)
+and its own next free number is US-98. This is not a fast-forward or a clean docs merge — it is real
+design work that needs renumbering and an owner decision on the SPEC amendment before it can land, so
+it was not merged this run. Flagging it rather than guessing at new numbers, per rule 8 and the
+branch policy's own reason for existing (two sessions already collided on US-66 and US-76 by each
+numbering against a `main` they could see).
+
+Every other branch — `aan-de-slag-*`, `account-total-bug-veh3bv`, `apple-fluid-poc`,
+`bought-waarde-percentage-if39gn`, `bug-report-pbvnjs`, `danny-portfolio-degiro-compat-0iwoyd`,
+`degiro-reconciliation-issues-7t3iyc`, `hoi-jft2cv`, `latest-version-main-gc8x7z`,
+`multi-broker-build`, `multi-broker-poc`, `new-user-story-iu926r`, `paid-vs-grown-*`, `popup-0470`,
+`portfolio-visualization-testing-xs5ck4`, `readme-0460`, `refine-0470*`,
+`remaining-build-items-05dbxv`, `status-0460-cleanup`, `sync-status-text-alignment-hnas3e`,
+`ui-overhaul-user-stories-odcw7i`, `v47-*` — is either fully contained in `main` already or an old
+pre-rewrite snapshot with no unique file `main` lacks. None can be deleted from here (the git proxy
+still refuses it); GitHub-UI cleanup is the owner's, not this scan's.
+
+**GitHub.** Zero open issues — nothing to reconcile against `main`. One open PR, **#8**, still
+untouched since 2026-08-17, ninth scan in a row: same recommendation as always, close as superseded
+(US-88 already fixed what it re-proposes), owner's call.
+
+**Backlog consistency.** `node tools/check-backlog.mjs`: 63 stories, highest US-97, next free US-98 —
+matches the foot of `docs/BACKLOG.md`, no duplicate or skipped numbers on `main` itself (the collision
+above is between `main` and a branch, not within `main`).
+
+**Rule compliance / security**, same spot checks as every prior scan, all clean: `EXPORTABLE_META` in
+`store.js` is still an allowlist, not a denylist; `throttledFetch` is still the one queue and still
+does not retry 401/403; `session.js`'s `resolveSession` still writes nothing but the cookie-derived
+`intAccount`/`userToken`/`displayName`/`urls`, never the session id itself.
+
+**Design pass** (`apple-design` skill loaded first). Driven headless via Playwright at 1440/380 px ×
+light/dark: all six nav tabs, the "More" menu, and a Holdings-table row click. Zero page/console
+errors and zero horizontal overflow in every state checked. No inconsistency found against
+`docs/redesign/DESIGN-BRIEF.md` §8 (no translucency, one flat container depth held everywhere). First
+scan in a while with nothing to fix — the last several already caught what there was (the cash-chart
+axis, the 380px "More" menu overflow, the live-sync status line, the popup's alignment).
+
+**Optimization.** Re-checked `engine.js`'s two passes over `productIds` (building each product's
+price series, then auditing it against its trades) against the US-83/US-90 shape — they are two
+distinct single passes over different work, not a repeated rescan. No new finding; nothing warranting
+a story.
+
+No new broker surfaced worth scoping — unchanged from the table below (still gated on a Trading 212
+Network-tab capture this environment cannot produce).
+
+**One small fix.** `package.json`'s `version` had been bumped in lockstep with `manifest.json` on
+every release back through 0.60.3 — the last two commits (US-97's demo button and the static-page
+hosting change, both folded into `manifest.json`'s 0.61.0) broke that pattern and left `package.json`
+one release behind. Nothing reads `package.json`'s version at runtime, so this was cosmetic rather
+than a live bug, but it is the kind of drift that misleads whoever checks "what version is this"
+from the wrong file. Bumped to `0.61.0` to match; this `STATUS.md` header updated to match.
+
+`npm test` 580/580, `npm run palette` zero collisions in both themes, `node tools/check-leaks.mjs`
+clean, re-run after the version bump above.
 
 ## Owner's screenshots, 2026-08-22
 
