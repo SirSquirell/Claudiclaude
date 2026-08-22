@@ -22,6 +22,12 @@ import { bannerModel, bannerText, pickLang } from '../lib/bannermodel.js';
 
 const HEIGHT = 34; // px — de duw en de strip zijn per definitie even hoog
 const TOAST_AUTO_HIDE_MS = 12000;
+/** Hoe vaak we de worker opnieuw vragen zolang hij "bezig" antwoordt. Twee
+ *  seconden: een sync duurt seconden tot minuten, en de vraag is goedkoop
+ *  (`getStatus` raakt het netwerk niet) maar niet gratis — hij wekt de worker. */
+const SYNC_POLL_MS = 2000;
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function main() {
   if (window !== window.top) return; // nooit in een iframe van de broker
@@ -144,6 +150,37 @@ function mount(model, t, lang, want) {
   const previousMargin = document.documentElement.style.marginTop;
   if (want.strip) document.documentElement.style.marginTop = `${HEIGHT}px`;
 
+  /**
+   * Blijven vragen zolang de worker "bezig" antwoordt, en repainten bij het
+   * eerste antwoord dat dat niet is — geslaagd, mislukt of losgekoppeld.
+   *
+   * Eén lus per strip (`following`), want `apply` wordt ook door de sync-knop
+   * aangeroepen. Stopt zodra de host weg is: de gebruiker die het kruisje
+   * indrukt heeft ook gezegd dat hij niets meer wil, en een lus die tegen een
+   * verwijderde shadow root praat wekt de worker voor niemand.
+   */
+  let following = false;
+  async function follow() {
+    if (following) return;
+    following = true;
+    try {
+      for (;;) {
+        await sleep(SYNC_POLL_MS);
+        if (!host.isConnected) return;
+        const res = await chrome.runtime.sendMessage({ type: 'status' }).catch(() => null);
+        if (!res?.ok) return; // worker weg: de regel staat op "bezig" en dat is het eerlijkste wat we weten
+        const fields = statusFields(res.data);
+        if (fields.syncing) continue;
+        const next = bannerModel({ ...fields, now: Date.now(), lang });
+        if (!next.show) return; // losgekoppeld tijdens de run: niets meer te zeggen
+        apply(next);
+        return;
+      }
+    } finally {
+      following = false;
+    }
+  }
+
   const apply = (m) => {
     for (const dot of root.querySelectorAll('.dot')) dot.className = `dot ${m.tone}`;
     for (const line of root.querySelectorAll('.line')) line.textContent = m.line;
@@ -153,6 +190,13 @@ function mount(model, t, lang, want) {
       btn.textContent = t.sync;
     }
     for (const btn of root.querySelectorAll('.open')) btn.textContent = t.open;
+    // "Bezig met syncen…" was het enige wat de strip kon zeggen en niet kon
+    // intrekken: de status wordt eenmaal gelezen, en de sync die hem "bezig"
+    // liet zeggen is de opportunistische run die precies bij het laden van
+    // deze tab begon — meestal seconden later klaar. De regel bleef dan een
+    // run melden die niet meer liep, tot je de pagina verversde. Elke toestand
+    // die zichzelf niet meer wijzigt vraagt niets; deze wel, dus die volgen we.
+    if (m.syncing) follow();
   };
   apply(model);
 

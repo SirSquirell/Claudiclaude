@@ -2014,6 +2014,16 @@ body.popup {
   color: var(--text-primary);
 }
 
+/* The lockup is an inline `<svg>`, so its box was a *line* box: 31,3px tall for
+   a 24px mark, the extra 7px hanging underneath as a descender that is not
+   there. `align-items: center` then centred the row on that phantom, and the
+   build number landed 3,6px below the middle of the wordmark it sits beside —
+   the header read as two things that had missed each other. A flex box wraps
+   the mark exactly, so what is centred is what is drawn. */
+.popup-head #lockup {
+  display: flex;
+}
+
 .popup-head .version {
   margin-top: 0;
 }
@@ -2077,6 +2087,14 @@ body.popup #tiles:empty + .spark {
 body.popup .actions {
   flex-direction: column;
   gap: 8px;
+  /* And separated from the status line above it, which it was not: `.actions`
+     carries no margin of its own because in the app it sits in a header row
+     with a card's worth of space under it, while here the sentence is directly
+     above the buttons. Measured at 320px, `#status` ended at y=96,5 and "Sync
+     nu" began at y=96,4 — the text touching the primary button is what made the
+     whole panel look mis-set. 14px is the popup's own rhythm (the header's
+     margin, the sparkline's). */
+  margin-top: 14px;
 }
 
 /*

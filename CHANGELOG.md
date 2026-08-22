@@ -16,6 +16,35 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.60.3] — 2026-08-22
+
+Two things the owner saw in two screenshots. Both display: no resync needed — nothing about what
+is stored or fetched changed.
+
+### Fixed
+
+- **The strip on the DEGIRO page kept saying "Bezig met syncen…" after the sync had finished.**
+  It was telling the truth at the moment it was drawn and then never again: the strip reads the
+  worker's status once, when the page loads, and the run it was reporting is the opportunistic sync
+  that starts on that same tab load — usually over seconds later. So the answer to "is it actually
+  syncing?" was *it was, when the page loaded*, and the line stayed until the page was reloaded,
+  which is indistinguishable from a sync that hung. A progress line now has to say it is one
+  (`bannerModel` returns `syncing`), and while the worker keeps answering "busy" the strip asks
+  again every 2 s and repaints on the first answer that is not — up to date, failed, or
+  disconnected. Nothing polls when the line is not about a running sync, and the loop stops the
+  moment both surfaces are dismissed. The figures were never affected; only the sentence about them
+  was wrong.
+
+- **In the popup, the status line touched the button underneath it, and the build number sat below
+  the wordmark instead of beside it.** Two independent misfits in the same 320px panel. `.actions`
+  carries no margin because in the app it sits in a header row with a card's worth of space under
+  it — here the sentence is directly above the buttons, so at 320px `#status` ended at y=96,5 and
+  "Sync nu" began at 96,4: zero gap, in every popup state, which is what made the whole panel look
+  mis-set. And `#lockup` held an inline `<svg>`, so its box was a *line* box — 31,3px tall for a
+  24px mark, the extra 7px an imaginary descender — and `align-items: center` dutifully centred the
+  header on that, putting the version 3,6px below the middle of the wordmark. 14px of the popup's
+  own rhythm above the actions, and a flex box that wraps the mark exactly.
+
 ## [0.60.2] — 2026-08-21
 
 A routine scan's own finding, display only: no resync needed.

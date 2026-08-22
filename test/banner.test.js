@@ -50,6 +50,22 @@ test('US-91 — bezig: de bezig-regel en geen knop, ook bovenop een fout', () =>
   assert.deepEqual([m.tone, m.showSync, m.line], ['ok', false, bannerText('en').syncing]);
 });
 
+test('US-91 — alleen de bezig-toestand is als voortgang gemarkeerd', () => {
+  // De strip leest de status eenmaal bij het laden en moet weten welke regel
+  // hij later moet intrekken: die van een lopende run, en geen andere. Zonder
+  // deze vlag bleef "Bezig met syncen…" staan nadat de sync klaar was — de
+  // enige regel hier die over iets gaat wat nog verandert.
+  assert.equal(bannerModel({ syncing: true, lastSyncAt: 0, now: NOW, lang: 'nl' }).syncing, true);
+  for (const state of [
+    { lastSyncAt: 0 },
+    { lastSyncAt: NOW - 2 * 60 * 60 * 1000 },
+    { lastSyncAt: NOW - 12 * DAY },
+    { lastError: { message: 'x' }, lastSyncAt: NOW - DAY },
+  ]) {
+    assert.ok(!bannerModel({ ...state, now: NOW, lang: 'nl' }).syncing, JSON.stringify(state));
+  }
+});
+
 test('US-91 — eerste run (nog nooit gesynct): aan het werk, geen knop', () => {
   // De opportunistische sync draait al zodra de tab laadt; de strip hoeft er
   // niet om te vragen.

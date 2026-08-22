@@ -3,8 +3,35 @@
 `docs/BACKLOG.md` is 2 000 lines of reasoning and evidence, which is the right place for *why* and
 a bad place to find out *where things stand*. This is the index.
 
-**Last updated at 0.60.2.** It had been stale since 0.21.0 once, which is fifteen
+**Last updated at 0.60.3.** It had been stale since 0.21.0 once, which is fifteen
 releases — if it looks stale again, trust the CHANGELOG and fix this.
+
+## Owner's screenshots, 2026-08-22
+
+Two screenshots and two questions, both answered in **0.60.3** — see `CHANGELOG.md` for the full
+reasoning. Worth keeping here because one of them is a class of defect the scans do not look for.
+
+**"If it says *bezig met syncen*, is it actually syncing?"** It was — `getStatus`'s `syncing` is the
+in-flight promise in `sync.js`, so it cannot be stale in the other direction (a worker that dies
+loses the promise and reports *not* syncing). What was wrong is that the strip reads the status once
+per page load and the opportunistic sync it was reporting starts on that same load, so the line
+outlived the run it described. Fixed by following a running sync while it runs and repainting once
+it ends. The design lesson: every scan so far has measured the *resting* page — 0.60.2's finding was
+a control that had to be opened to be wrong, and this one is a line that had to be *waited on* to be
+wrong. A state that changes after the paint is a third thing to look for.
+
+**Text alignment in the popup.** Measured headless at 320px rather than judged by eye, which is what
+turned "a bit wacky" into two numbers: the status line's box ended 0,1px *below* where the primary
+button began (`.actions` has no margin of its own — it inherits its spacing from the app's header
+row, which the popup does not have), and the version number sat 3,6px below the wordmark's centre
+because `#lockup`'s inline `<svg>` gave the flex row a 31,3px line box for a 24px mark. Both fixed
+in the popup block of `styles.css`; re-measured at 14px of separation and a header box that equals
+its mark, light and dark, empty state and with data.
+
+`npm test` 580/580 (one new case: only the busy state is marked as progress), `npm run palette`
+zero collisions, `node tools/check-leaks.mjs` clean. The strip's own follow loop was verified in
+headless Chromium against a stubbed worker — three status calls to go from "busy" to "up to date",
+then silence, and no further calls after both surfaces are dismissed.
 
 ## Light scan, 2026-08-21
 

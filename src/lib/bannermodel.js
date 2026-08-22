@@ -72,7 +72,12 @@ export function bannerText(lang) {
 export function bannerModel({ lastSyncAt = 0, lastError = null, syncing = false, disconnected = false, now, lang = 'en' }) {
   if (disconnected) return { show: false };
   const t = bannerText(lang);
-  if (syncing) return { show: true, tone: 'ok', line: t.syncing, showSync: false };
+  // `syncing` komt er ook weer uit: "Bezig met syncen…" is een voortgangsregel,
+  // en wie hem tekent moet weten dat het er een is — anders kan hij niet
+  // opnieuw vragen. De strip leest de status eenmaal bij het laden van de
+  // pagina en daarna nooit meer, dus zonder dit bleef hij een run melden die
+  // seconden later al klaar was.
+  if (syncing) return { show: true, tone: 'ok', line: t.syncing, showSync: false, syncing: true };
   if (lastError != null) return { show: true, tone: 'err', line: t.error, showSync: true };
   if (!lastSyncAt) return { show: true, tone: 'ok', line: t.first, showSync: false };
   const days = Math.floor((now - lastSyncAt) / DAY_MS);
