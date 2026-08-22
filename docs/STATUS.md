@@ -18,19 +18,22 @@ the two with new files each turned out to be already-superseded drafts —
 commit from a prior scan run, stranded on its own throwaway branch, whose finding (the `cashChart`
 axis fix) is already on `main`.
 
-**One branch is real, unlanded work: `claude/feature-requests-user-stories-u0rxdl`.** Net +1 146
-lines against `main`, including a new file (`docs/prototypes/dividend-safety-buckets.html`, a working
-POC with real derived scores, not asserted ones). It refines four requests from a 2026-08-22 tester
-call: a benchmark-compare feature (S&P 500 default, any ETF fetched on demand, PROP folded in as a
-peer entry — explicitly flagged there as running into SPEC §7's "no benchmarks" and needing an
-amendment before it can be built) and a dividend & income layer (income by dividend-safety bucket).
-**Its story numbers collide with `main`:** it calls the benchmark feature US-97 and continues to
-US-109, but `main` already shipped a *different* US-97 (the asteria.prulwerk.nl demo button, 0.61.0)
-and its own next free number is US-98. This is not a fast-forward or a clean docs merge — it is real
-design work that needs renumbering and an owner decision on the SPEC amendment before it can land, so
-it was not merged this run. Flagging it rather than guessing at new numbers, per rule 8 and the
-branch policy's own reason for existing (two sessions already collided on US-66 and US-76 by each
-numbering against a `main` they could see).
+**`claude/feature-requests-user-stories-u0rxdl` reconciled, 2026-08-22.** Its numbering collided with
+`main` (it called the benchmark feature US-97, continuing to US-109; `main` had already shipped a
+*different* US-97 — the asteria.prulwerk.nl demo button, 0.61.0). The collision was mechanical, not a
+design conflict — the branch's own US-100 was already marked superseded and folded into its US-97 —
+so it was renumbered by shifting everything from there onward by one slot into `main`'s actual free
+range: benchmark-compare → **US-98**, price-vs-total-return → **US-99**, lossporn → **US-100**,
+prulwerk.nl hosting (deferred) → **US-101**, the dividend & income layer keeps **US-102–US-109**
+unchanged. Landed as text on `main` exactly as refined — nothing here is built, and US-98 still needs
+the SPEC §7 amendment it names before any code follows. The working POC
+(`docs/prototypes/dividend-safety-buckets.html`) came over with it, referenced from US-109 where it
+belongs. **Not reconciled: the branch's ~88 files of source changes** (`engine.js`, `snapshot.js`,
+new `motion.js`/`describe.js`/`report.js`/`theme.js` modules, etc.) — this branch forked from `main`
+at 0.60.3 and kept developing in parallel, so that code has not been read end to end against what
+shipped on `main` since, and some of it likely reimplements stories `main` already built differently
+(US-87, US-91, and others). Read it side by side with `main` before cherry-picking any of it; nothing
+was merged from it this run.
 
 Every other branch — `aan-de-slag-*`, `account-total-bug-veh3bv`, `apple-fluid-poc`,
 `bought-waarde-percentage-if39gn`, `bug-report-pbvnjs`, `danny-portfolio-degiro-compat-0iwoyd`,

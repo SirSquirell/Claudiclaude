@@ -6457,4 +6457,810 @@ eigen nummer wanneer hij aan de beurt is.
 
 ---
 
-**Next free number: US-98.**
+## US-98 — Compare to a benchmark: S&P 500 by default, any ETF on toggle *(decided, refined further — needs a SPEC amendment before it's built)*
+
+> "SP 500 compare mag wel of je moet kunnen toggelen naar een andere etf die dan dynamisch wordt
+> opgehaald" — "compare to prop mag als 'etf' optie naast dus compare to SP 500" — the owner,
+> 2026-08-22.
+
+As an investor, I want a button that draws my portfolio's return next to a benchmark's — S&P 500
+by default, but switchable to any other ETF I type in, fetched on the spot — over the whole
+history and over whatever period is selected, so I can tell whether I am beating the market,
+beating some other index I care about, or riding it.
+
+### Decided: broader than the original ask, and PROP moved out of hiding
+
+Two changes from the first refinement, both the owner's call, not mine:
+
+1. **Not one fixed index.** A toggle with S&P 500 pre-selected, and a free-text field that fetches
+   whatever ticker is typed in — "dynamically", i.e. on demand, the first time it is chosen, not a
+   pre-loaded catalog.
+2. **PROP sits in the same picker as S&P 500**, not quarantined inside Optimism Mode. The
+   Compare-to-PROP button from the first refinement is **folded into this story** as one
+   built-in entry in the same list — see below for what that changes about its honesty
+   obligations now that it is a peer of a real benchmark rather than a joke behind a gate.
+
+### This still runs straight into SPEC §7, now for a wider claim
+
+*"Stop after 7. No multi-account support, no benchmarks, no tax reporting…"* — benchmarks are
+explicitly out of scope, and unlike "no multi-account" (superseded for multi-broker at 0.26.0),
+"no benchmarks" has never been amended. The owner approving the *feature* in chat is not the same
+document event as the SPEC amendment rule 8 and the branch policy both lean on — **the amendment
+now has to describe the general capability, not just S&P 500**, since arbitrary-ticker comparison
+is a materially bigger promise than one named index:
+
+> **Proposed text for SPEC.md §7:** *"Amended, `<version>`: 'no benchmarks' is superseded — a
+> portfolio-return comparison against a chosen index or ETF (S&P 500 total return by default,
+> any other ticker on request, plus the account's own PROP holding as a standing joke entry) is
+> now in scope; see US-98 in `docs/BACKLOG.md`."*
+
+Land this line before or in the same commit as the first line of code, the way 0.26.0 did it.
+
+### Why it is a bigger addition than the button suggests
+
+Every number on this page today is either DEGIRO's own data or a pure function of it. An index
+price series is neither — a new external source, fetched from somewhere that is not DEGIRO, on a
+schedule, cached, and it has to answer to the same rules as everything else here:
+
+- **Rule 1** — `engine.js` stays pure. The index series is fetched in `sync.js` or a new
+  `src/lib/benchmark.js` shaped like `degiro.js` (a thin fetch wrapper, no logic), and handed into
+  engine functions as a plain array, exactly like `close`/`days` already are.
+- **Rule 2** — only raw responses are persisted truth. Store the raw daily closes for the index,
+  not a precomputed "S&P return" — recompute the comparison on open, like everything else.
+- **Rule 5** — a second host is not a second violation of "one throttled queue," but it must not
+  become a second *unthrottled* path either. An index close changes once a day; fetch it once a
+  day off the existing alarm, cache it, never re-fetch inside a render.
+- **Rule 7** — the index series carries no personal data, but a derived claim shown on screen
+  ("you beat the S&P 500 by 4,2 pp") is a new kind of statement leaving the page in a screenshot,
+  and earns the same scrutiny every other on-screen figure gets.
+
+### Four presets and a free-text field, and they are not the same amount of work
+
+> "die andere etf moet dan gewoon zijn wat wij hebben voorgezet dus dat is nasdaq sp500 prop en
+> tdiv" — the owner, 2026-08-22.
+
+The picker is not "S&P 500 or type your own." It's four named presets plus a free-text field for
+anything not on that list:
+
+| Entry | Fetch | Notes |
+|---|---|---|
+| **S&P 500** (default) | New, scheduled | Needs a total-return series — see below |
+| **NASDAQ** (index or `QQQ`-style tracker — confirm which with the owner before building) | New, scheduled | Same total-vs-price trap as S&P 500 |
+| **TDIV** (VanEck Developed Markets Dividend Leaders) | New, scheduled | The natural benchmark for US-99's dividend/ROI split — a real dividend-focused ETF to check our own dividend-heavy accounts against, which is what the original ask's *"obv de tdiv"* was pointing at |
+| **PROP** | None | Already an owned instrument; its price series is already fetched and stored |
+| **Anything else, typed in** | New, on demand | Fetched the first time it's picked, then cached like any other raw store |
+
+The four presets are fetched and refreshed on the same daily schedule as the account's own prices,
+so they're instant the first time a reader opens the picker — no "fetching…" spinner for the
+common case. A typed-in ticker is the only one that fetches on demand, per the open-ended case
+below.
+
+**S&P 500's own trap:** "S&P 500" in casual use almost always means **price** return, but the
+honest comparison is **total** return (dividends reinvested) — our own portfolio return already
+includes dividends (rule 3), so a price-only index silently flatters us. Needs a source with a
+total-return variant (e.g. a `^SP500TR`-style series). Whatever the default fetch, the same
+provider has to answer for **arbitrary** tickers too, not just the one it was picked for —
+spike both cases together, the way SPEC §8e already prescribes: confirm the real response shape
+for a known-good ticker and an unknown one before writing the parser.
+
+### The dynamic-ETF fetch is the part that actually grows the surface
+
+A single hardcoded index is one new fetch call. "Any ETF, dynamically" is a small feature of its
+own hiding inside this one:
+
+- **No symbol search, no autocomplete, no catalog — rule 8.** A free-text ticker field that
+  fetches on submit is the whole of v1. A searchable instrument picker is exactly the kind of
+  "nobody asked for this option yet" surface rule 8 exists to keep out; add it only if testers
+  ask for it after using the plain field.
+- **Rule 5, on a second host.** The new provider is not DEGIRO, so it cannot lock a DEGIRO account,
+  but it still gets **one throttled queue of its own** — no scatter-fetching a ticker on every
+  keystroke, one request per submitted symbol, cached from then on.
+- **A typo or an unlisted ticker is `not found`, never a guess.** The same discipline classify.js
+  applies to an unrecognised cash row (rule 4) applies here: an unresolvable symbol is shown as
+  unresolved, never silently substituted for the default or estimated from something adjacent.
+- **Rule 2, unchanged in spirit.** Every fetched series is a raw store per symbol, keyed by ticker;
+  the comparison recomputes from the raw closes on open, exactly like the account's own history.
+
+**PROP, now that it sits beside a real benchmark rather than behind Optimism Mode's gate, picks up
+a different obligation: it must say plainly what it is.** The comparison itself is honest — real
+portfolio return against PROP's real, measured return, nobody's numbers invented — but the label
+has to say "PROP (your own holding)" or equivalent, never dressed as a market index. That is the
+whole of what rule 6 asks of it once it is a feature rather than a joke: the number must not lie,
+and a silly benchmark presented as if it were a serious one would be exactly that.
+
+### Build sketch
+
+- `windowReturnPct(result, from, to)` already computes our own chained return over any window; the
+  identical function over the benchmark's own close series gives its return over the identical
+  window — one function, two inputs (ours, the chosen benchmark's), no new return arithmetic,
+  whichever entry is picked.
+- The existing range selector *is* "specific periods" — reuse it rather than adding a second date
+  picker.
+- Portfolio-% and benchmark-% legitimately share one y-axis (both are returns); portfolio-€ and
+  benchmark-% must never be the two lines on one chart — the two-scales mistake the chart rules
+  already forbid, in a new shape.
+- The KPI line above the chart states the gap in words ("+4,2 pp vs S&P 500", "+11 pp vs PROP"),
+  not only the plot.
+- One picker, one code path: S&P 500, a typed ticker, and PROP are three *inputs* to the same
+  comparison function, not three features.
+
+### Open decisions
+
+- ☐ Provider for the S&P 500 total-return series **and** for arbitrary tickers — ideally the same
+  one, so there is one fetch module rather than two (spike first).
+- ☐ Return-based comparison only, or value-based in €? **Recommendation: return-based only** — a
+  €-vs-€ comparison drags in an FX question (most ETFs are priced outside EUR) this project does
+  not otherwise need to answer.
+- ☐ Where the picker lives. **Recommendation:** beside the existing range controls, so it inherits
+  the period selector rather than duplicating it.
+- ☐ Exact PROP label wording, so it reads as a labelled curiosity rather than a hedge on the S&P
+  500 entry beside it.
+
+### Acceptance criteria
+
+- **AC1** The comparison is total-return for S&P 500, the chosen ticker's own return for any other
+  entry, and PROP's own measured return for that entry — all against our own chained return, all
+  in %, same window, one shared axis.
+- **AC2** Every fetched benchmark series is its own raw store, fetched through one throttled path
+  of its own; the default (S&P 500) refreshes on the daily alarm, a user-typed ticker fetches once
+  on selection and is cached from then on — never re-fetched inline during render.
+- **AC3** An unresolvable ticker shows "not found," never a silent fallback, a guess, or an
+  estimated figure — rule 4's spirit, applied to a new data source.
+- **AC4** The PROP entry's label states it is the account's own holding, not a market index, at
+  every place the comparison is shown or shared.
+- **AC5** SPEC.md carries the dated, named amendment, describing the general capability (default
+  index, any ticker, PROP), in the shape 0.26.0 already set.
+
+---
+
+## US-99 — Price return vs. total return *(scope narrowed — the dividend-tracker half moved to US-102+)*
+
+The dividend-tracker ambition this story originally carried outgrew it: Jasper pointed at Simply
+Safe Dividends, the owner had Cowork read it, and a full feature analysis came back — nine epics,
+two blocking assumptions, a three-layer architecture. That is now **US-102 onward**, refined
+below, and it is explicitly *only* the dividend piece; the price-return/total-return split kept
+its own scope throughout and was never part of that comparison. What follows in this story is
+unchanged from the original refinement.
+
+> "Dividend tracker + een roi tracker die dan kan checken obv de tdiv eentje voor de koers en
+> eentje van de total returns." — the owner.
+
+Two related asks: a dedicated view of dividend income over time, and splitting "how much of my
+return is price moving vs. dividends landing" into two named numbers instead of one blended one.
+
+### This needs no new data and no new I/O
+
+Every input exists today. Dividend rows are classified (`classify.js`: `DIVIDEND`, `DIVIDEND_TAX`),
+summed daily (`dividendGross`, `dividendTax` in `engine.js`), and already rolled up per year
+(`incomeByYear`) and per product, all-time (US-50's Dividend column). The split this asks for is
+exactly what US-33's Outlook section already worked out and never shipped on its own:
+
+```
+dividend yield ≈ dividend income over the period ÷ average value over the period
+price growth   ≈ total time-weighted return − dividend yield
+```
+
+**The same double-counting trap US-33 named applies here, and it is the one thing to get right.**
+Our measured total return (`windowReturnPct`) already contains dividends — a dividend is internal
+(rule 3), so it sits inside `pnl` already. Price return must be *derived by subtraction*, never
+computed a second, independent way, or a rounding gap between two measurements of the same thing
+will read as a bug.
+
+### Dividend tracker — the shape
+
+A third chart, not a table upgrade, alongside the two that already exist (value including cash,
+period P/L): dividend income per period, using the same bucketing the P/L bars already use
+(`aggregatePnl`/`candleSeries` fed `dividendGross`/`dividendTax` instead of `pnl` — the
+granularity and range-selector code is shared, not rebuilt). One y-axis per chart means this is
+its own chart, not a second scale bolted onto the P/L bars. Two bars per period (gross, tax
+withheld) reuses the stacking the month grid already draws for other pairs.
+
+### ROI tracker — the shape
+
+A toggle or a two-line KPI, matching the Euro/Return% and time-/money-weighted toggles this page
+already carries three times over (US-31): **Total return** (today's figure, unchanged) and
+**Price return** (derived), shown together — the same reasoning US-31 used for its two returns:
+two answers to two questions is not a contradiction as long as the reader knows which is which.
+
+**This is also what the original ask's *"obv de tdiv"* was pointing at**, now that it's clear TDIV
+is a ticker (VanEck Developed Markets Dividend Leaders), not shorthand: once US-98's preset picker
+exists, this split reads better next to TDIV's own price-return/total-return split than in
+isolation — a dividend-led account can see whether it out-yields a real dividend ETF, not just
+whether its own price return is small. Sequencing note, same as US-100: this needs nothing from
+US-98 to ship the derived split itself, only gains a companion once US-98's TDIV preset exists.
+
+### Traps
+
+- **A short window with one large dividend produces nonsense** — a special dividend inside a
+  narrow window can push the derived yield above the window's total return, making "price return"
+  negative on a flat month. Needs a stated minimum window, in the spirit of US-31's under-a-year
+  annualisation guard.
+- **The per-year split (US-30) is unambiguous; an arbitrary windowed split is not** — the average-
+  value denominator has to be computed over the exact selected range, not the calendar year it
+  falls inside.
+
+### Acceptance criteria
+
+- **AC1** Price return is derived by subtraction from the measured total return and the measured
+  dividend yield; a test proves an account whose entire return is dividends derives ~0 % price
+  return — the same property US-33 already specifies for its own Outlook split; extend that test
+  rather than writing a second one.
+- **AC2** The dividend chart shares the P/L chart's range selector, granularity and bucketing
+  functions — no second charting code path.
+- **AC3** Below a stated minimum window, only the single measured total return shows — no split.
+- **AC4** Total return and price return are both named in words wherever either appears — never a
+  bare "return."
+
+---
+
+## US-100 — Lossporn: a shareable top 10, and a "what if" line on the worst of them *(refined again — what ships, what never will, and the path to the rest)*
+
+> "We moeten ook Lossporn goed sharable maken, een top 10 beste en slechtste trades. Bij de
+> slechtste posities zou je kunnen zeggen obv het moment van kopen een zinnetje van als je dit had
+> geinvesteerd in (een ander bedrijf of sp500) dan was het nu Y waard." — "zou je 99 kunnen
+> refinenen naar iets wat wel kan en wat bewust niet kan en hoe we wel alles kunnen krijgen?" —
+> the owner, 2026-08-22.
+
+### What this can do — no wall, no new decision, ships as asked
+
+- **A top 10 (and bottom 10) of closed positions, ranked by lifetime result.** Almost everything
+  needed already exists: sorting holdings by windowed result, descending, is already the default
+  view (`renderHoldings`); the *Closed* filter already exists (US-50). This is a **Closed +
+  all-time-result, top/bottom 10** slice of a list the app already knows how to produce.
+  **Rank by % return on money in, not €** — a €50 gain on a €100 position and a €4 000 gain on a
+  €50 000 position are not comparable "lossporn"; % is what makes a top 10 across wildly different
+  position sizes fair. Show € alongside, not instead.
+- **Fully shareable, today's machinery.** The share sheet, the four `FORMATS`, the score-card model
+  (US-54) and the anonymize state are all built. This is a new card *shape* — ten rows instead of
+  one figure — inside the existing pipeline, not a new subsystem.
+- **The "what if" sentence, against PROP, another held instrument, S&P 500, or any ETF —
+  now that US-98 is decided.** The counterfactual needs a price series for whatever it is being
+  compared against; US-98's fetch module (S&P 500, any typed ticker, PROP) is exactly that series,
+  for exactly the same three kinds of entry. One function,
+  `counterfactualValue(buys, priceSeries, fromDate, toDate)`, fed whichever series US-98's picker
+  resolved, reused by both stories. **Sequencing, not scope, is the only thing left**: land US-98's
+  fetch module first (even before its UI), and this sentence has everything it needs on day one.
+
+  The arithmetic: for every buy in the closed position, grow its euro amount at the chosen
+  benchmark's own return from that buy's date to the position's close date, and sum across the
+  position's buys. Pure, and the same shape as `windowReturnPct` chained over a sub-range.
+
+### What this deliberately cannot do — and won't, without a separate, named decision
+
+- **A top 10 ranked by per-sale realized profit — "trades" read completely literally.** US-53
+  already fought this exact fight and won it the hard way: this project **refuses to compute a
+  per-sale realized gain**, because that needs a cost-basis convention (FIFO or average cost) it
+  has deliberately never adopted, and `test/describe.test.js` **fails the build** if `engine.js`
+  grows one. This is not a missing feature; it is a wall the project put up on purpose, twice
+  (US-27 trap 1, US-53's AC0), because every trustworthy per-holding number on this page depends
+  on no such convention existing. A literal "top 10 sales" would tear that down to rank a joke
+  feature.
+- **A live/serious market-index label for PROP.** Now that PROP sits beside S&P 500 in the same
+  picker (US-98), it is a real, honestly-computed comparison — but it will never be presented as a
+  benchmark in the financial sense (rule 6): the label always says it is the account's own holding.
+
+### How to actually get "everything" — the honest path, not a workaround
+
+**Most of "top 10 trades" is already inside "top 10 closed positions."** For the common case — one
+buy, held, one sell — a closed position's lifetime result *is* the trade's result; the two only
+diverge on a position built or unwound across several buys or partial sells, which is a minority
+of most accounts' history. So shipping the closed-position version first is not a compromise
+version of the ask; it is the ask, minus the one slice that needs a convention nobody has agreed
+to yet.
+
+**If literal per-sale ranking is still wanted after seeing that**, the path is not a flag or a
+special case bolted onto this story — it is opening the option US-53 already named and left on the
+table: **a new story that adopts a cost-basis convention (FIFO or average cost) as a SPEC-level
+decision**, named, with its consequences written down, the same way the multi-broker amendment was.
+That story, once and if it exists, is what a genuine "top 10 trades" — as opposed to "top 10
+positions" — would be built on. Nothing here should reach for it quietly.
+
+### Where honesty still applies, now that PROP is not hiding
+
+The top-10 card is a **real** figure and, if Optimism Mode is on, renders under its rule that a
+shared card always shows the real number, never the cheerful one (US-54 AC6) — that part is
+unchanged. The "what if against PROP" sentence is no longer the joke-quarantine case US-35b/US-35d
+built (that quarantine was for *invented* figures standing in for real ones); it is now a real,
+correctly-computed comparison against a labelled curiosity, so it follows US-98's AC4 labelling
+rule rather than a hide-from-export rule. What still must never happen is presenting it as if PROP
+were a legitimate benchmark — the label carries that weight, not a quarantine.
+
+### Acceptance criteria
+
+- **AC1** Ranking uses each closed position's all-time result, never a per-sale figure; a test
+  extends US-53's `describe.test.js` guard rather than adding a parallel one.
+- **AC2** Ranked by % on money in, € shown alongside; ties break the way the holdings table
+  already does (`name.localeCompare`).
+- **AC3** The top-10 card renders through the existing share sheet at every `FORMATS` size, and
+  obeys the existing anonymize state and Optimism Mode's real-number rule (US-54 AC6).
+- **AC4** The "what if" sentence supports PROP, another held instrument, S&P 500, and any typed
+  ETF — all through the one counterfactual function, all sourced from US-98's fetch module; no
+  duplicate fetch path introduced here.
+- **AC5** Any PROP-flavoured "what if" sentence carries the US-98 AC4 label ("your own holding")
+  wherever it is shown or shared — never presented as a market benchmark.
+- **AC6** A test proves the closed-position ranking and the literal per-trade ranking give
+  identical results on a fixture with only single-buy/single-sell positions, and diverge only on a
+  fixture with a partial sell — documenting exactly how much of "everything" is already covered.
+
+### Stop condition
+
+If € (not %) turns out to be what is actually wanted after seeing both, that is a one-line sort-key
+change — take it back to the owner as a decision, do not ship both. If literal per-sale ranking
+turns out to matter enough to justify a cost-basis convention, that is a new story with "cost
+basis" in its title, opened deliberately — never smuggled in here as an edge case.
+
+---
+
+## US-101 — prulwerk.nl: hosting the app off the extension, with a server-side benchmark cache *(new, refined)*
+
+> "zou met een website onze opties worden vergroot?" — "de website bewaart jouw data in de sessie
+> daarbuiten niet" — "ik denk dat alles client side is behalve dus de tracking van sp500 of de
+> andere etfs ofzo? dat zou natuurlijk wel kunnen worden bewaard" — the owner, 2026-08-22.
+
+As the owner, I want the app reachable from `prulwerk.nl` instead of only from the installed
+extension, and I want to know up front exactly which part of that is allowed to remember anything
+between visits and which part must not.
+
+**Deferred, deliberately.** *"de website poc kunnen we later doen"* — the owner, same call. This
+story is refined so the decision is on paper, not so it is picked up next. When it is, it starts
+life on the repo's one `poc` branch, like every other proof of concept here — nothing about it is
+*finished* until it is promoted into `main` or dropped.
+
+### The decision so far
+
+Two genuinely different things sit under one domain, and the story exists to keep them from ever
+blurring into each other:
+
+1. **The UI, as a static site.** Same `src/ui/` code, served from a URL instead of
+   `chrome-extension://`. The extension is still the only thing that ever touches DEGIRO — reads
+   the cookie, runs the throttled fetch, computes the portfolio — exactly as rule 9 requires;
+   nothing about that changes. Portfolio data reaches the `prulwerk.nl` tab only by the extension
+   relaying it into that one allowlisted origin (`chrome.runtime` → `postMessage`, the origin
+   pinned in the manifest so it cannot become an open relay to any page), and it lives only in
+   that tab's JS memory / `sessionStorage` — **never** in a request the site's own server can see,
+   never written to a server disk. This is the half that has to preserve rule 9 exactly, and the
+   half AC1 below exists to keep honest.
+2. **A small backend for the one thing that is legitimately public: the benchmark/ETF price cache
+   US-98 needs.** This one is *allowed* to persist, because it is never personal data — a ticker
+   and its daily closes, identical for every visitor, shared rather than refetched per browser.
+
+### Why this is its own story rather than a line inside US-98
+
+US-98 was written assuming each browser runs its own throttled fetch and its own per-user cache.
+Moving that fetch server-side changes *who* runs rule 5's queue (the server, once, for everyone —
+not each browser), *where* rule 2's "raw store" lives (a server-side table, not each user's
+IndexedDB), and opens a new abuse surface (a public endpoint that fetches whatever ticker it's
+asked for is also a free proxy for anyone who finds it). None of that touches DEGIRO or personal
+data, so it does not reopen rule 9 — but it is infrastructure this project has never had before,
+and it earns the same "written down before it's built" treatment SPEC's other amendments get,
+rather than arriving as a quiet implementation detail of US-98.
+
+### Build sketch
+
+- **Static UI mirror.** `src/ui/` served as-is from `prulwerk.nl` (or a subdomain — per
+  `prulwerk-admin`'s Cloudflare/DNS conventions for the zone). No server-rendered state, no
+  session cookie of its own — the same "no auth, ever" posture rule 9 already commits the
+  extension to, just restated for a second surface.
+- **Benchmark backend**, on its own subdomain: on a request for a ticker not yet cached, fetch it
+  once, store the raw daily closes (rule 2's own convention, just on a server instead of in
+  IndexedDB), and serve the cache to every later visitor. A nightly job refreshes every
+  already-requested ticker — the shared queue rule 5 always wanted, now genuinely singular instead
+  of one per browser.
+- **Abuse guard** on the "new ticker" path: validate against a real lookup before fetching, and
+  rate-limit it — a public endpoint that blindly fetches any string it's handed is a cost problem
+  for the domain, not a privacy one, but it is still this story's problem to close.
+
+### The nightly audit
+
+Once this is real, deployed infrastructure — a second surface to keep secure, distinct from the
+extension — set up a Routine: cron, nightly, off-hours, running the `security-review` skill
+against the site's repo and deployed configuration on a fixed cadence, independent of when a
+feature happens to ship, reporting findings back rather than only being looked at during a PR.
+This is the right-sized version of the ISO conversation earlier in this backlog: not
+certification — no agent can grant that, and a personal domain doesn't need an ISMS — but a
+repeatable, automated check that catches drift between the moments a human actually looks (a
+stray permissive CORS header, a forgotten rate limit, an env var that leaked into a build).
+
+**Not created yet.** There is nothing deployed for a nightly audit to look at, so standing up the
+Routine now would audit an empty repository. This story records the mechanism and the cadence so
+that the moment the site exists, turning it on is one `create_trigger` call, not a decision made
+from scratch.
+
+### Acceptance criteria
+
+- **AC1** No request leaving the hosted UI's tab carries portfolio or account data in any form —
+  verified by inspecting the tab's actual network traffic, not by reading the code and assuming.
+  The only things the site's own server ever sees are static assets and benchmark-ticker requests.
+- **AC2** The benchmark cache is keyed only by ticker and date; a test/schema check proves no
+  DEGIRO-specific field (account id, session id, holding) can reach that table.
+- **AC3** The nightly Routine runs `security-review` against the site's repo and deployed config
+  on a fixed schedule, independent of feature pushes, and its findings are reported rather than
+  silently dropped.
+- **AC4** The ticker-add path survives a burst-request test without turning into an open proxy —
+  rate limit and lookup validation both exercised.
+
+### Stop condition
+
+If this ever grows toward the server seeing even transient portfolio data — e.g. a "shareable
+public dashboard link" that renders server-side — that is a new, bigger decision that reopens
+rule 9 by name and needs the same explicit sign-off US-98 got. It must never arrive as a quiet
+extension of this story's infrastructure.
+
+---
+
+## US-102 to US-109 — A dividend & income layer, after Simply Safe Dividends *(new, refined from Cowork's feature analysis, 2026-08-22)*
+
+> "als je meer context wil check deze site, die heeft de functionaliteiten die ik wil" —
+> simplysafedividends.com/demo — the owner, relaying Jasper's recommendation and a Cowork
+> feature-analysis document (v2, superseding a v1 that wrongly assumed CSV import and a backend).
+
+Simply Safe Dividends (SSD) is not a portfolio tracker with dividends bolted on — it is a **risk
+monitor for an income stream**: which part of next year's dividend income can disappear, and
+where. That is a second axis on top of what this project already does (reconstructing what
+happened, checked against DEGIRO's own totals); SSD is prospective, this project is retrospective.
+That difference is the actual reason to build any of this, not "a competitor has a nicer table."
+
+### The architecture cut runs along the data line, not the UI line
+
+Three layers, and the middle one is new for this project:
+
+- **Layer A — local, in the extension.** Everything computable from DEGIRO plus close prices
+  already fetched. Stays in IndexedDB, never leaves the browser. Net dividend income per position
+  and per year, per-position effective withholding rate, income concentration, the
+  forecast-vs-actual comparison.
+- **Layer B — a static, read-only bundle on `asteria.prulwerk.nl`.** Per-ISIN reference data
+  (dividend history, announced payouts with ex/pay dates, payout ratio, net debt/EBITDA, dividend
+  streak, sector, issuer's country of incorporation, withholding-tax rate, the safety score),
+  generated by a **scheduled GitHub Action** and published as JSON on GitHub Pages. The extension
+  downloads the whole bundle and computes locally against it.
+
+  **Why a static bundle and not an API**, and why this is not the same shape as US-98's benchmark
+  fetch even though both live on `prulwerk.nl`: an API answering "give me data for these specific
+  ISINs" leaks the *composition of a portfolio* to a server the moment it's asked — a ticker
+  someone picked to compare against (US-98) reveals nothing about what they hold; a batch of ISINs
+  someone's extension just requested reveals almost exactly what they hold. Publishing the whole
+  bundle and letting every installation download all of it sidesteps that leak entirely, at the
+  cost of the bundle growing with the ISIN list rather than per query — an explicit, accepted
+  trade favouring privacy over bandwidth, and it costs nothing to run (no server, no uptime
+  promise, no accounts).
+- **Layer C — not built.** A backend with user accounts, storing other people's financial
+  positions, is out — see the "will not build" table below. This is not a technical call; it is
+  the same reasoning as rule 9, extended to a hypothetical server this project has never needed.
+
+### Two assumptions block everything past the architecture, and one is already answered
+
+**A1 — does DEGIRO's data already carry withholding tax per dividend, and does this codebase
+already extract it? Answered, by reading the code rather than guessing:**
+
+Yes, structurally. Every classified cash row (`classify.js`) already carries `productId`, `date`,
+`change` and a `category` of either `DIVIDEND` or `DIVIDEND_TAX` — the fields a per-position,
+per-payment net/gross/tax split needs are already on the raw row. What is *not* built yet:
+`engine.js`'s `dividendByProduct` (`engine.js:823–844`) currently **nets** both categories into one
+running total per product — exactly the right call for the existing "Dividend (all time)" column,
+which is deliberately net (`engine.js:813`'s own comment says so) — but it means gross and tax are
+not available *separately* per position today. Splitting that one `Map` into two (or a `{gross,
+tax}` pair) is the whole of the gap: **no new DEGIRO data is needed, only a small engine change**,
+and E8-1 below is scoped on that basis. What still wants verifying against a real capture, per this
+project's own `ENDPOINT-REPORT.md` discipline: whether a `DIVIDEND` row and its paired
+`DIVIDEND_TAX` row reliably share a date (same-day or next-business-day) so per-*payment* pairing
+is reliable, not just per-position-per-year. **Not yet checked against a real account.**
+
+**A2 — is there a source for EU-covering dividend history and fundamentals, free, and may it
+legally be re-published inside a static bundle? Answered — see US-103.** The owner ruled out any
+paid vendor outright ("ja ik zet niets commercieel in he!"), which settles the question rather than
+narrowing it: GLEIF (free, CC0) fully solves the withholding-rate half; SEC EDGAR (free, public
+domain) fully solves the fuller fundamentals half **for US-listed holdings only**; EU-listed
+fundamentals have no free, redistribution-clear API and fall back to a manually-curated table,
+scoped to real holdings, per US-104.
+
+### Scope table, ported from the feature analysis
+
+Legend: **A** local/extension, **B** via the static bundle, **LATER** valuable but not now, **UIT**
+not building. Only the rows already turned into full stories below (E9-2, E9-3, E8-1, E8-2, E4-1,
+E4-2) have acceptance criteria yet — the rest wait on A2 and on the PoC below, per rule 8: writing
+acceptance criteria ahead of a working PoC is exactly the "guess dressed as a decision" this
+project keeps refusing to do.
+
+| Epic | Feature | Verdict |
+|---|---|---|
+| Income | Income Calendar (30 days) | B |
+| Income | Year Ahead (income per month) | B |
+| Income | Dividend Growth (5y) | A |
+| Income | Forecast met herbeleggingsaannames | LATER — hoort op de Outlook-pagina (US-33), niet hier |
+| Risk | Diversification naar sector/land, op inkomen | A + B |
+| Risk | Recession Performance (2008, 2020) | LATER |
+| Risk | S&P credit rating per holding | UIT — betaalde licentie |
+| Valuation | Timeliness (rendement vs. eigen 5j-gemiddelde) | B |
+| Valuation | Fair value chart, analistenprojecties | UIT — betaalde data |
+| Table | Instelbare kolommen (dividend-metrics) | A + B, uitbreiding van de bestaande Holdings-pagina |
+| Table | Company page | A + B |
+| Alerts | Notice bij dividendwijziging of bucketwissel | A + B, als bestaand Notices-item |
+| Alerts | E-mail en maandrecap | UIT — vereist een backend |
+| Input | CSV-import | LATER — pas bouwen als de DEGIRO-scrape ooit breekt |
+| Input | Handmatige invoer | Verplaatst — scenario op de Outlook-pagina, geen invoerflow |
+| Input | Meerdere rekeningen, bonds, CD's, closed-end funds | UIT |
+| Research | Screener, idea lists, model portfolios, nieuwsbrief | UIT — buiten scope of grenst aan beleggingsadvies |
+
+### The PoC target, per the feature analysis's own recommendation
+
+Not a PoC of this whole backlog — one screen: **US-109 (E4-2)**, the donut showing what percentage
+of *income* (not value, not position count) sits in each safety bucket. That one screen forces
+US-104, US-105, US-108 and US-107 to all actually work; everything past it is comparatively
+mechanical. Scope: five of a real tester's positions, a hand-built bundle if A2 hasn't landed a
+source yet, one donut, one attention-list, the gross/net toggle. No calendar, no table, no Notices.
+
+---
+
+### US-102 — A1, closed: the withholding-tax fields already exist *(spike, answered)*
+
+See "Two assumptions" above for the full answer. Recorded as its own story because it is exactly
+the kind of finding this backlog pins rather than lets evaporate into a chat log (the same reason
+US-96's contract-size finding gets a full write-up instead of a one-line changelog entry).
+
+- **AC1** `engine.js` keeps a per-product gross dividend and a per-product withheld tax as two
+  numbers (or a `{gross, tax}` pair), not only their net — additive to `dividendByProduct`, not a
+  replacement of it, since the existing "Dividend (all time)" column depends on the net figure.
+- **AC2** A test on a fixture with two dividend payments on the same instrument in different years
+  proves the split sums back to the existing net figure exactly — the guardrail that keeps this
+  from becoming a second, disagreeing measurement of the same thing.
+- **AC3** Whether `DIVIDEND`/`DIVIDEND_TAX` pairs reliably share a date is checked against one real
+  capture before any per-*payment* (not just per-position-per-year) feature relies on it; until
+  then, per-year is the safe granularity.
+
+### US-103 — A2, answered: nothing commercial, ever — which splits this cleanly in three *(spike, provider research done 2026-08-22)*
+
+> "Doe wel even een analyse hoe we aan de juiste data komen. Er worden veel datapunten beloofd,
+> dan kan t vannacht gebouwd worden." — then, on seeing EODHD's paid tier proposed: **"ja ik zet
+> niets commercieel in he!"** — the owner, 2026-08-22.
+
+**Decided, and it is not a soft preference: no paid data vendor, at any price, ever.** The
+previous pass in this story recommended EODHD's commercial tier (€19.99–99.99/month) as the one
+source found whose terms plainly permit redistribution. That recommendation is withdrawn. It was
+the right reading of "cheap and legal," and the owner's actual bar is stricter than that — this
+project has never had a running cost or a vendor dependency, and it stays that way. Checked against
+six candidate providers' published terms (search results, dated 2026-08-22 — the egress proxy
+blocked direct fetches to `gleif.org`/`eodhd.com`, so treat this as **single-sourced from search
+snippets, marked as such**, the same discipline `ENDPOINT-REPORT.md` holds DEGIRO's own endpoints
+to). It splits in three, not two:
+
+**1. Withholding rate (E8-1, US-106) — fully solved, free, forever.** GLEIF's LEI reference data
+and its daily ISIN-to-LEI relationship files are **CC0 1.0 Universal** — public-domain-equivalent,
+built for open reuse. This is the one data point US-106 needs. Unaffected by the "no commercial"
+rule because there is no vendor here to be commercial with. **Build tonight, as already scoped.**
+
+**2. US-listed holdings' fundamentals (payout ratio, debt, dividend history) — fully solved, free,
+forever, for the US leg of a portfolio only.** **SEC EDGAR's XBRL Company Facts API** is a US
+government work: public domain, free, no API key, explicitly redistributable. It carries the
+structured financial facts (total debt, EBITDA components, payout-relevant figures) filed by every
+SEC filer, and covers a name like the PoC's *Meridian Digital Trust* or *Halcyon Consumer Staples*
+completely. **This is real, free coverage — just only for US-listed instruments.**
+
+**3. EU-listed holdings' fundamentals — genuinely unsolved by any free, redistribution-clear API
+found so far.** This is the honest gap, not a rounding error: Jasper's account (like the PoC's
+*Vaste Kern Water NV*, *Norderney Reederei AG*, *Trentham Resources plc*) is mostly non-US names,
+and every vendor checked either gates redistribution behind a paid plan (Financial Modeling Prep,
+Finnhub, Twelve Data, and now EODHD is out on the owner's own terms) or has no clear license at all
+(Stooq, Alpha Vantage's free tier — same commercial-gate pattern, 25 calls/day, redistribution
+explicitly requires contacting the vendor). Euronext's and Deutsche Börse's own corporate-actions
+data are themselves commercial products, not open APIs, so "go to the source" doesn't shortcut this
+for EU exchanges the way EDGAR does for the US.
+
+| Provider | Covers | Free tier | Redistribution | Verdict |
+|---|---|---|---|---|
+| GLEIF | Jurisdiction only, global | Yes, unlimited | CC0 — always fine | **Use — E8-1 is solved** |
+| SEC EDGAR | US filers only | Yes, unlimited | Public domain — always fine | **Use — solves the US leg of E4-1/E9-2** |
+| Financial Modeling Prep | Global | Yes | Paid agreement required | Out |
+| Finnhub | Global | Yes | Paid plan required | Out |
+| Twelve Data | Global | Yes | Paid add-on required | Out |
+| Alpha Vantage | Global | Yes, 25/day | Paid licensing required | Out |
+| EODHD | Global | 20/day | Paid commercial tier only | **Out — ruled out by the owner directly, not by price** |
+| Stooq | Global | Yes | No clear license | Out — too uncertain to build on |
+| Euronext / Deutsche Börse own data | EU exchanges | No | N/A | Out — their own corporate-actions data is a paid product |
+
+**What's actually left for the EU gap, all free, none of them a vendor contract:**
+
+- **A curated, manually-maintained table for the ISINs actually held** — the same shape US-104
+  AC1 already committed to ("input is an ISIN list checked into the repo, grows only as real
+  holdings need it," never a whole-market crawl). Payout ratio and net debt/EBITDA read off each
+  company's own published annual report or investor-relations page, by a person, periodically —
+  slow per-instrument, genuinely free, and legally clean because it's reading a primary public
+  disclosure rather than republishing a vendor's compiled dataset.
+- **National officially-appointed storage mechanisms (OAMs)** for EU-regulated information (the
+  Transparency Directive requires annual/interim reports to be filed somewhere publicly
+  accessible) — free in principle, unstandardised in practice, one per member state. Worth a
+  second pass if the manual-table approach proves too slow, not before.
+- **What's already free and already in the account: Layer A's own dividend history.** A dividend
+  streak and a 2020 cut, for a position this account has actually held through, is directly
+  observable from the user's own classified cash rows — no external source needed at all for that
+  slice, though it is bounded by how long *this account* has held the position, not the company's
+  full public history, and the safety-score UI must say so rather than imply a longer streak than
+  was actually observed.
+
+**Written conclusion:** GLEIF and EDGAR ship for free, today, no decision needed. The EU
+fundamentals gap does not get a vendor — it gets a small, manually-curated table scoped to real
+holdings, or a scaled-down safety score for non-US, non-manually-curated names that states plainly
+which inputs it doesn't have (rule 4's "cannot be determined," not a guess) rather than waiting on
+a subscription that isn't coming.
+
+- **AC1** GLEIF and EDGAR integration each ship with zero recurring cost and no account/API key —
+  verified true before either is called "done," not assumed from this research.
+- **AC2** The EU-fundamentals gap is stated explicitly wherever it applies — a position's safety
+  score built from a manually-curated row says so; one that can't be curated yet says "cannot be
+  determined," never a guessed or extrapolated ratio standing in for a real one.
+- **AC3** No future story in this set reaches for a paid data vendor without this exact decision
+  being revisited by name with the owner — "no commercial" is a standing rule now, the same
+  standing as rule 9, not a one-time answer to this week's proposal.
+
+### US-104 — The bundle pipeline (E9-2) *(new, refined — three free sources feeding one bundle, not one vendor)*
+
+As a builder, I want a scheduled GitHub Action that assembles per-ISIN reference data from GLEIF,
+SEC EDGAR and a manually-curated table, and publishes it as JSON on `asteria.prulwerk.nl`, so the
+extension gets fundamentals without a backend and without a vendor contract — the same `pipeline/`
++ `data/` + weekly-workflow shape already running for `Teamkiezeer`, applied here.
+
+US-103 changed what this pipeline pulls from: not one paid API, but three free sources, each
+filling in what it actually has and nothing it doesn't —
+
+- **GLEIF** for every ISIN: jurisdiction of incorporation (US-106's whole need).
+- **SEC EDGAR** for US-listed ISINs: payout-relevant financials, debt figures.
+- **A hand-maintained YAML/JSON file in the repo** for everything else (EU-listed names' payout
+  ratio, net debt/EBITDA, dividend streak beyond what Layer A already observed) — edited by a
+  person reading a company's own annual report, not fetched at all. Absent until someone fills it
+  in, and that absence is exactly AC3 below, not a gap to paper over.
+
+- **AC1** Input is an ISIN list checked into the repo (grows only as real holdings need it — never
+  a proactive whole-market crawl, per rule 8); output is versioned JSON on the site.
+- **AC2** Every record carries an `asOf` date, shown in the UI wherever that record's data is used
+  — for the manually-curated fields, `asOf` is the date a person actually read the source, not the
+  pipeline's run date.
+- **AC3** A field none of the three sources has is explicit `null` — never `0`, never an estimated
+  midpoint. This is rule 4's own discipline (an unclassified cash row is `UNKNOWN`, not guessed),
+  restated for a market-data field instead of a cash row. This is expected to be common for
+  EU-listed names until the curated table catches up, and the UI (US-108/US-109) already has to
+  treat it as a first-class, frequent state, not an edge case.
+- **AC4** A failed run fails loudly and does not publish a half-written bundle.
+- **AC5** The bundle is one file or a small, fixed number of them — the extension never requests
+  per-ISIN, which is the whole point of Layer B.
+- **AC6** Nothing in this pipeline calls a paid API or requires an API key with a billing plan
+  behind it — a test or lint step that fails the build on an unapproved outbound host is the
+  concrete version of US-103's "no commercial, ever."
+
+### US-105 — ISIN matching and an attention list (E9-3) *(new, refined — depends on US-104)*
+
+> As Jasper, I want to see which of my positions aren't in the reference data, so I know the
+> income forecast is incomplete rather than trusting a number that looks complete and isn't.
+
+Named in the source document as the single most important story in the whole set, and correctly:
+the dangerous failure mode here isn't an error message, it's a plausible total that's silently
+missing three positions — precisely rule 6's "off by a cent and the whole history is suspect,"
+applied to a forecast instead of a reconciliation.
+
+- **AC1** Matching on ISIN, with ticker+MIC as a fallback alias.
+- **AC2** Unmatched positions are named, individually, in an attention list — never silently
+  excluded from a total.
+- **AC3** Every screen that shows a total sourced from Layer B states "x posities en y% van je
+  inkomen niet beoordeeld" beside it, not in a separate diagnostics screen nobody opens.
+
+### US-106 — Effective withholding rate per position (E8-1) *(new, refined — depends on US-102, and now unblocked by GLEIF, not US-104)*
+
+> As Jasper, I want the effective withholding-tax rate per holding, so his income forecast is net
+> rather than structurally too optimistic for anything that isn't US paper.
+
+Originally scoped as waiting on the same Layer B bundle as everything else. US-103's finding
+changes that: the one field this story actually needs — issuer's country of incorporation — is
+fully available from **GLEIF's free, CC0-licensed ISIN-to-LEI and legal-entity data**, independent
+of whether EODHD's paid tier ever gets approved. This story can be built **tonight**, without
+waiting on US-104's pipeline or a euro of spend.
+
+- **AC1** Rate sourced from the *issuer's country of incorporation*, fetched from GLEIF's
+  ISIN-to-LEI relationship files (not EODHD, not the fuller Layer B bundle) — **not** the ISIN's
+  own country prefix, which names where a security is registered, not who withholds. The ISIN
+  prefix is fallback-only, marked uncertain when used, and the fallback path is what a position
+  GLEIF has no LEI for falls back to. Covers at minimum NL, US, DE, FR, BE, CH, GB.
+- **AC2** A per-account toggle for whether a valid W-8BEN is on file (15% vs. 30% on US paper).
+- **AC3** Reclaimable vs. practically-lost withholding shown as separate figures, not netted into
+  one "tax paid" number — a reader deciding whether to bother reclaiming needs both.
+- **AC4** Manually overridable per position, with a note field — Layer B's country data can be
+  wrong or missing, and this is the same "never silently guess, let the reader correct it" pattern
+  rule 4 already uses for cash-row classification.
+
+### US-107 — A gross/net switch, everywhere (E8-2) *(new, refined — depends on US-106)*
+
+> As Jasper, I want one switch between gross and net income that applies everywhere at once, so
+> what he sees matches what actually lands on his account.
+
+- **AC1** One switch governs the KPI row, the calendar, Year Ahead, the growth report and the
+  holdings table — never a screen left showing gross while the rest shows net.
+- **AC2** The choice persists across sessions.
+- **AC3** Every figure it touches carries a caption naming which assumptions are in effect (W-8BEN
+  on file or not, reclaimable vs. lost) — the same "name both answers" discipline US-31 already
+  uses for time- vs. money-weighted return.
+
+### US-108 — A safety score per holding (E4-1) *(new, refined — depends on US-104; expect frequent "cannot be determined" on EU names)*
+
+> As Jasper, I want a 0–100 score with a bucket label per holding, so he can see at a glance which
+> dividends are shaky.
+
+Since US-103 ruled out a paid vendor for the EU leg, this story ships knowing most of Jasper's
+non-US holdings will read **"cannot be determined"** until US-104's manually-curated table has an
+entry for them. That is not a defect to fix later — it is the honest state, and it must render as
+plainly as a real score, not as a broken row or a loading spinner that never resolves.
+
+- **AC1** Five buckets, SSD's own bands: very unsafe 0–20, unsafe 21–40, borderline 41–60, safe
+  61–80, very safe 81–100.
+- **AC2** Named, weighted ingredients: payout ratio on free cash flow, net debt/EBITDA, consecutive
+  years paid, cuts in 2008–09 and 2020, sector cyclicality, earnings volatility — REITs scored on
+  AFFO, banks/insurers on their own ratios, or explicitly flagged "model does not fit."
+  Insufficient data yields **"cannot be determined," never a guessed middle value** — the same
+  refusal rule 4 already applies elsewhere, restated for a score instead of a classification.
+- **AC3** The reasoning behind any single score is inspectable in the UI: which input is dragging
+  it down, and when it was last recalculated.
+- **AC4** **Not called "Safety Score," and no accuracy track record is claimed anywhere near it.**
+  SSD's own number rests on ten years of measured data plus an analyst overlay on top of purchased
+  data; this project has neither, and rule 6 — the numbers do not lie — means publishing the
+  scoring rules is fine, publishing an unmeasured accuracy claim is not.
+
+### US-109 — Income by safety bucket, the PoC screen (E4-2) *(new, refined — depends on US-105, US-107, US-108)*
+
+> As Jasper, I want to see what percentage of my *annual income* sits in each safety bucket, so he
+> can see risk at income level instead of at position level.
+
+Five percent of a portfolio's *value* sitting in one wobbly high-yield REIT can be ten percent of
+its *income* — the exact gap an ordinary tracker hides, and the reason this is the one screen
+worth building before anything else in this set: it forces the bundle, the matching, the score and
+the gross/net switch to all actually work together.
+
+- **AC1** A donut by percentage of **income**, not value and not position count.
+- **AC2** Click-through from any slice to the positions inside it.
+- **AC3** An explicit line — "x% van je inkomen kan niet worden beoordeeld" — fed by US-105's
+  attention list, never silently dropped from the 100%.
+- **AC4** Respects the gross/net switch (US-107).
+
+**PoC v2 — `docs/prototypes/dividend-safety-buckets.html`**: synthetic data, a real table, scores
+derived from named inputs rather than asserted — the "cannot be determined" state (AC3) already
+rendered, not stubbed out.
+
+### What this deliberately will not build
+
+| Not building | Why |
+|---|---|
+| A backend with user accounts | Storing other people's financial positions is a GDPR processor role and an uptime promise, on a project one person maintains. Layer B solves the data problem without it. |
+| A per-user, per-ISIN query API | Leaks portfolio composition to the server that answers it — the whole reason Layer B is a downloadable bundle instead. |
+| Email alerts, a monthly recap | Needs a backend. Becomes a Notices item instead — the page already exists. |
+| Live sync for brokers other than DEGIRO | One broker is the one thing this project maintains well; a second is its own story if anyone asks (see multi-broker's own 0.26.0 amendment). |
+| Model portfolios, curated idea lists | Concrete buy suggestions to third parties edges into investment advice. |
+| Analyst notes, a newsletter | That is SSD's actual business model and the human labour behind it — out of scope by nature, not by cost. |
+| S&P credit ratings, fair value, analyst consensus | Paid data licences. |
+| A claimed track record on this project's own score | No measured data exists to back one — publish the scoring rules, not an accuracy percentage. |
+
+**The accepted trade-off:** building this inside the DEGIRO extension makes the dividend layer
+DEGIRO-only, on purpose — the automatically-net dividend data this project already reconstructs is
+the one piece a broker-agnostic CSV tool cannot match, and that edge is worth more than covering
+every broker on day one.
+
+### Build order, updated now that "no commercial" is a standing rule
+
+1. US-102 is closed, US-103 is answered. **US-106 (withholding rate) and US-107 (the gross/net
+   switch) can start tonight** — GLEIF is free, CC0, and needs no owner sign-off to use.
+2. **US-104 (the bundle pipeline) can also start tonight**, scoped to what's actually free: GLEIF
+   plus SEC EDGAR for US-listed names. No coverage check to run, no cost decision to bring back to
+   the owner — there is no vendor in this path to approve.
+3. US-105 (ISIN matching) follows US-104 immediately — it needs the bundle to exist, not a paid
+   plan.
+4. **US-108 (the safety score) ships with a real, honest gap**: full inputs for US-listed names,
+   `null`/"cannot be determined" for EU-listed ones until someone fills the manually-curated table
+   US-104 defines. This is not a blocker to work around — it's the state to design for, since it
+   will be true for a long time on a mostly-European account like Jasper's.
+5. Build US-109 (the PoC screen) once US-105/US-107/US-108 exist, and show it to Jasper — the
+   donut will visibly show a large "not assessed" slice for a European-heavy account, which is
+   honest and worth explaining to him rather than a reason to delay.
+6. Only then the remaining must-have rows from the scope table above, each refined into its own
+   story the way US-104 to US-109 were, not before.
+
+Nothing in this build order is blocked on money or on the owner's approval anymore — the one
+open, ongoing task is the manually-curated table for EU names actually held, which is real,
+unglamorous work someone does periodically, not a spike with a yes/no answer.
+
+---
+
+**Next free number: US-110.**
