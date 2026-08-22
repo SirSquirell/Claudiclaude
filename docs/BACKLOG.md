@@ -6574,17 +6574,24 @@ and a silly benchmark presented as if it were a serious one would be exactly tha
 
 ### This is no longer "a chart and a toggle" — hold the line on what follows
 
-What's written below this note — the price-return/total-return split, the income chart — is still
-correct and still buildable exactly as described. What has changed is the **container**: this is
-becoming its own top-level tab (`state.tab`, alongside `overview` and whatever else exists today),
-not an addition to the Overview tab, and the owner expects **subpages** under it once the
-competitor research lands — a shape this app has never had before (today it is tabs, flat, no
-tab has its own sub-navigation).
+> "weet trouwens niet eens zeker of t n subtab is, is allemaal tbd, ik stuur je zo de input van
+> cowork hierover dan kun je 98 daar op laten aansluiten voor enkel het dividend stuk" — the
+> owner, 2026-08-22.
 
-**Deliberately not scoped further here yet.** The actual feature list is still being pulled from a
-live competitor site in a separate Cowork session; writing subpages now would be a guess dressed
-as a decision, which is exactly what `ENDPOINT-REPORT.md`'s "single-sourced, marked as such"
-discipline exists to prevent elsewhere in this project. What's true regardless of that list:
+What's written below this note — the price-return/total-return split, the income chart — is still
+correct and still buildable exactly as described, and stays scoped separately from whatever comes
+next. What has *not* landed yet is the **container**: whether the dividend material becomes its
+own top-level tab, a subpage of something else, or stays inside Overview is genuinely undecided —
+**TBD**, the owner's own word, not a placeholder for "tab" read too literally from the first
+message. Nothing in this backlog should assume a navigation shape until the competitor research
+that's about to land actually asks for one.
+
+**Deliberately not scoped further here yet.** The feature list is being pulled from a live
+competitor site in a separate Cowork session, for the *dividend piece specifically* — the
+price-return/total-return split above is not in scope for that comparison. Writing navigation
+structure now would be a guess dressed as a decision, which is exactly what
+`ENDPOINT-REPORT.md`'s "single-sourced, marked as such" discipline exists to prevent elsewhere in
+this project. What's true regardless of what that research contains or where it ends up living:
 
 - **Every number in it still has to survive rules 1–4.** A dividend-tracker product built for a
   general audience will show things this project's own rules already forbid without a fight —
@@ -6604,9 +6611,10 @@ discipline exists to prevent elsewhere in this project. What's true regardless o
   else — "it exists elsewhere" is the reason to look, not the reason to build.
 
 **Next step, once the Cowork read-through is done:** bring the feature list back here as its own
-refinement pass — what the competitor shows, which of it clears rules 1–4, and a proposed subpage
-structure — before any acceptance criteria for the tab itself are written. The two pieces already
-refined below are the floor this tab starts from, not the whole of it.
+refinement pass, scoped to the dividend piece only — what the competitor shows, which of it clears
+rules 1–4, and only then a proposed home for it (own tab, subpage, or folded into what's below) —
+before any acceptance criteria are written. The price-return/total-return split below is not part
+of that comparison and keeps its own scope regardless of where the dividend material lands.
 
 ### The two pieces already refined, unchanged
 
