@@ -6564,10 +6564,51 @@ and a silly benchmark presented as if it were a serious one would be exactly tha
 
 ---
 
-## US-98 — Dividend tracker, and price return vs. total return *(new, refined — no scope decision needed)*
+## US-98 — Dividend tracker, and price return vs. total return *(growing — a full tab, scope not final)*
 
 > "Dividend tracker + een roi tracker die dan kan checken obv de tdiv eentje voor de koers en
-> eentje van de total returns."
+> eentje van de total returns." — then, the same day: "dividend tracker gaat wel echt een aparte
+> tab zijn binnen de plugin/website" — "let op dat dat nog veel groter wordt met ook nog
+> subpages denk ik" — the owner, 2026-08-22, after a tester (Jasper) pointed at an existing
+> dividend-tracker product and the owner had Claude Cowork read that site for reference.
+
+### This is no longer "a chart and a toggle" — hold the line on what follows
+
+What's written below this note — the price-return/total-return split, the income chart — is still
+correct and still buildable exactly as described. What has changed is the **container**: this is
+becoming its own top-level tab (`state.tab`, alongside `overview` and whatever else exists today),
+not an addition to the Overview tab, and the owner expects **subpages** under it once the
+competitor research lands — a shape this app has never had before (today it is tabs, flat, no
+tab has its own sub-navigation).
+
+**Deliberately not scoped further here yet.** The actual feature list is still being pulled from a
+live competitor site in a separate Cowork session; writing subpages now would be a guess dressed
+as a decision, which is exactly what `ENDPOINT-REPORT.md`'s "single-sourced, marked as such"
+discipline exists to prevent elsewhere in this project. What's true regardless of that list:
+
+- **Every number in it still has to survive rules 1–4.** A dividend-tracker product built for a
+  general audience will show things this project's own rules already forbid without a fight —
+  yield-on-cost against an invented cost basis (the US-53 wall, again), projected future dividend
+  income presented as fact rather than as a labelled projection (US-33's whole design brief), or a
+  payout calendar that guesses at a company's next dividend date. Reading the competitor's feature
+  list is useful; copying its epistemics is not — flag each borrowed feature against the rule it
+  would have to clear before it goes in this backlog as an AC.
+- **A new sub-navigation layer is a UI-architecture decision in its own right**, independent of
+  which dividend features end up inside it — worth its own short design pass (how a subpage is
+  addressed, whether it's a URL-level route or in-memory tab state, how it behaves on
+  `npm run demo`) rather than inheriting whatever shape the first subpage happens to need.
+- **Rule 8 still applies to the harvest from that research.** "A competitor has it" is a real
+  signal (this is not a guess — it's Jasper's ask plus a sourced product to point at, which is a
+  stronger provenance than most items in this backlog get), but it is not automatic inclusion.
+  Each candidate subpage earns its place by answering a story or a defect, same as everything
+  else — "it exists elsewhere" is the reason to look, not the reason to build.
+
+**Next step, once the Cowork read-through is done:** bring the feature list back here as its own
+refinement pass — what the competitor shows, which of it clears rules 1–4, and a proposed subpage
+structure — before any acceptance criteria for the tab itself are written. The two pieces already
+refined below are the floor this tab starts from, not the whole of it.
+
+### The two pieces already refined, unchanged
 
 Two related asks: a dedicated view of dividend income over time, and splitting "how much of my
 return is price moving vs. dividends landing" into two named numbers instead of one blended one.
