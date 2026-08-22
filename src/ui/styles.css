@@ -90,6 +90,16 @@
      Ink is here for the canvas only; in the DOM the mark rides currentColor. */
   --brand-ink: #16213e;
   --brand-accent: #d9531e;
+
+  /* prulwerk.nl — the site's own brand, kept separate from --brand-* (Asteria's).
+     Used only by the "back to prulwerk.nl" link, per the prulwerk-huisstijl skill:
+     "prulwerk" rides the page's own text colour, ".nl" is the full accent, and the
+     border/focus token is a deliberately darker line so it clears 3:1 on a light
+     card. */
+  --pw-card: #ffffff;
+  --pw-line: #e3e3dd;
+  --pw-accent: #a6d400;
+  --pw-focus: #718f00;
   /* Two roles, because the redesign has two layers and only one of them lifts.
    *
    * A panel sits *on* the page: a hairline and a 1px seat, nothing more. The
@@ -262,6 +272,11 @@
   --brand-accent: #f97038;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
     --shadow-float: 0 16px 40px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.4);
+
+    --pw-card: #101010;
+    --pw-line: #262626;
+    --pw-accent: #c9f531;
+    --pw-focus: #c9f531;
   }
 }
 
@@ -305,6 +320,11 @@
   --brand-accent: #f97038;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-float: 0 16px 40px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.4);
+
+  --pw-card: #101010;
+  --pw-line: #262626;
+  --pw-accent: #c9f531;
+  --pw-focus: #c9f531;
 }
 
 * {
@@ -663,6 +683,38 @@ button.primary:hover {
 
 .icon-btn[aria-pressed='true'] .eye-slash {
   opacity: 1;
+}
+
+/* The link back to the project's own home, in prulwerk.nl's own tokens rather
+   than the app's --accent — it is a link to a different site, not a control of
+   this one. No prulwerk mark here on purpose: a project page gets its own glyph,
+   never the prulwerk bars (see the prulwerk-huisstijl skill). */
+.prulwerk-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  height: 2rem;
+  padding: 0 0.75rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--pw-line);
+  background: var(--pw-card);
+  color: var(--text-primary);
+  font-weight: 900;
+  font-size: 0.8125rem;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: border-color var(--t-press) var(--ease-out);
+}
+
+.prulwerk-link:hover,
+.prulwerk-link:focus-visible {
+  border-color: var(--pw-focus);
+  outline: none;
+}
+
+.prulwerk-link .pw-tld {
+  color: var(--pw-accent);
 }
 
 /* --- granularity: a label that opens ------------------------------------- */
