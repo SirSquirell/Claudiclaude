@@ -6394,4 +6394,67 @@ Totaal W/V of +€ 64.962,44. History minimum € 799,48 (day one) instead of �
 
 ---
 
-**Next free number: US-97.**
+## US-97 — De demoknop op asteria.prulwerk.nl *(built, 0.61.0)*
+
+> Uit de opdrachtbrief voor de herbouw van de projectpagina (`03-DEMOKNOP.md`): de pagina moet
+> detecteren of Asteria in de browser van de bezoeker aanwezig is, en zo ja, de demo kunnen
+> openen zonder een extensie-ID nodig te hebben — want een unpacked install krijgt er per
+> gebruiker een ander.
+
+Drie dingen die niet werken en niet geprobeerd zijn: inline install vanaf een website (uit Chrome
+verwijderd sinds versie 71), `chrome.runtime.sendMessage(extensionId, …)` vanaf de pagina (vereist
+`externally_connectable` én een vast extensie-ID, en dat ID verschilt per unpacked install), en
+het bestaande content script uitbreiden (dat draait alleen op `trader.degiro.nl`).
+
+### Ontwerp
+
+Een tweede content script, alleen op `https://asteria.prulwerk.nl/*`, dat niets fetcht en geen
+nieuwe `host_permissions` nodig heeft:
+
+1. `src/content/site.js` zet bij `document_start` `document.documentElement.dataset.asteria` op
+   het echte manifestversienummer en dispatcht `asteria:ready`, zodat de pagina weet dat Asteria
+   er is en welke build.
+2. De pagina dispatcht `asteria:open-demo`. Het content script relayt dat via
+   `chrome.runtime.sendMessage({ type: 'open-demo' })` naar de service worker.
+3. De worker (`src/sw.js`, `case 'open-demo'`) opent `src/ui/app.html?demo=1` — geen nieuwe
+   demo-schakelaar, `wantsDemo()` in `datasource.js` leest die parameter al — en hergebruikt een
+   al open tab van de options page in plaats van er telkens een nieuwe bij te maken.
+4. Antwoordt de worker niet binnen 2,5s (pagina-kant, ongewijzigd), dan valt de knop terug op de
+   handleiding met de tekst dat de extensie mogelijk uitstaat.
+
+`document_start` in plaats van `document_idle`: de marker moet er staan voordat het paginascript
+kijkt, en `documentElement` bestaat op dat moment al, `body` nog niet.
+
+### Wat er bewust niet in zit
+
+- Geen `key` in `manifest.json` om een vast extensie-ID te forceren. Dat lost een probleem op dat
+  dit ontwerp niet heeft: er is geen extensie-ID nodig omdat er niets naar een specifiek ID
+  verstuurd wordt.
+- Geen uitbreiding van `host_permissions`. Dit content script fetcht niets; het zet alleen een
+  dataset-attribuut en relayt één berichttype.
+- Geen tweede weg naar demomodus. `?demo=1` bestond al in `datasource.js` vóór deze story; de
+  worker roept alleen aan wat er al was.
+
+### Acceptatiecriteria
+
+- **AC1** Met de extensie geladen en herladen na deze update: de knop op de site herkent Asteria
+  binnen 900ms en opent de demo in een nieuw of hergebruikt tabblad, zonder de echte rekening aan
+  te raken.
+- **AC2** Zonder de extensie, of met een extensie die niet reageert: de knop valt terug op
+  `INSTALL.md`, met een tekst die het onderscheid benoemt (niet geïnstalleerd tegenover mogelijk
+  uitstaand).
+- **AC3** Een al langer geladen unpacked install krijgt de nieuwe host pas na een handmatige
+  herlaad in `chrome://extensions` — dat staat in `WHATS-NEW.md`, want zonder die regel lijkt de
+  knop daar kapot.
+- **AC4** De marker bevat alleen het versienummer. Geen rekeninggegevens, geen aantallen, geen
+  synchronisatiestatus.
+
+### Buiten scope
+
+De drie lagen van `06-USERSTORY-composition.md` (aandeel in procenten, producttype, eigen
+labels) horen hier niet bij: dat is een aparte wijziging in `engine.js` en `charts.js`, met een
+eigen nummer wanneer hij aan de beurt is.
+
+---
+
+**Next free number: US-98.**

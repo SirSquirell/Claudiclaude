@@ -140,6 +140,30 @@ async function handle(msg) {
       await chrome.tabs.create({ url: chrome.runtime.getURL('src/ui/app.html') });
       return { opened: true };
 
+    case 'open-demo': {
+      /**
+       * US-97: de demoknop op asteria.prulwerk.nl. `src/content/site.js`
+       * relayt dit vanaf de site, en `?demo=1` is geen nieuwe schakelaar —
+       * `wantsDemo()` in `src/ui/datasource.js` leest die parameter al.
+       * Eén weg naar demomodus, niet twee: een tweede vlag zou een tweede
+       * waarheid zijn over of de cijfers echt zijn.
+       */
+      const url = `${chrome.runtime.getURL('src/ui/app.html')}?demo=1`;
+
+      // Hergebruik een al open tab van de options page in plaats van er bij
+      // elke klik een nieuwe bij te maken.
+      const existing = await chrome.tabs.query({
+        url: `${chrome.runtime.getURL('src/ui/app.html')}*`,
+      });
+      if (existing.length) {
+        await chrome.tabs.update(existing[0].id, { url, active: true });
+        await chrome.windows.update(existing[0].windowId, { focused: true });
+      } else {
+        await chrome.tabs.create({ url });
+      }
+      return { opened: true };
+    }
+
     default:
       throw new Error(`Unknown message type: ${msg?.type}`);
   }

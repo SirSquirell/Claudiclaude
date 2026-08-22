@@ -16,6 +16,25 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.61.0] — 2026-08-22
+
+**No resync needed** — nothing about what is stored or fetched changed.
+
+### Added
+
+- **The demo button on the asteria.prulwerk.nl project page now works** (US-97). The page could
+  already ask "is Asteria installed, and if so, open the demo" — what was missing was the
+  extension side. A second content script, matched only to `https://asteria.prulwerk.nl/*` and
+  running at `document_start`, marks the page with the real installed version and relays exactly
+  one message type to the service worker: open the demo. The worker opens
+  `src/ui/app.html?demo=1`, the query parameter `wantsDemo()` already reads, and reuses an
+  already-open options tab instead of stacking new ones. No new `host_permissions` — this content
+  script fetches nothing — and no second demo trigger: it calls the one that already existed.
+
+  Anyone with an older unpacked install needs to reload it once in `chrome://extensions` before
+  the button finds them: Chrome does not grant a newly-added host to a running unpacked
+  extension until it is reloaded. See `WHATS-NEW.md`.
+
 ## [0.60.3] — 2026-08-22
 
 Two things the owner saw in two screenshots. Both display: no resync needed — nothing about what
