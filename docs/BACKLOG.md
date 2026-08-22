@@ -6702,14 +6702,13 @@ project's own `ENDPOINT-REPORT.md` discipline: whether a `DIVIDEND` row and its 
 is reliable, not just per-position-per-year. **Not yet checked against a real account.**
 
 **A2 — is there a source for EU-covering dividend history and fundamentals, free or cheap, and may
-it legally be re-published inside a static bundle? Open — not run.** This is an external spike
-(three real ISINs across AMS/XETRA/NYSE, checking coverage, rate limits, cost, and specifically
-**re-publication licensing**, since Layer B re-publishes whatever it fetches) that this session
-hasn't done. It needs a decision on provider before E9-1 can close, and it gates everything from
-E4 onward — a negative answer here doesn't kill the story, it shrinks it to Layer A alone (a net
-dividend overview, no score, no forecast), which the owner's brief already anticipated as the
-fallback. **Offering to run this spike is on the table; say the word and I'll do it as its own
-pass, since it involves a licensing judgement worth getting right rather than fast.**
+it legally be re-published inside a static bundle? Substantially answered — see US-103.** The
+withholding-rate half (issuer's jurisdiction only) is fully solved, for free, via GLEIF — nothing
+gates E8-1/US-106 anymore. The fuller fundamentals half (payout ratio, debt, dividend history) has
+a recommended paid provider (EODHD, commercial tier, redistribution rights included) whose actual
+three-ISIN coverage still needs checking against real tester holdings before committing to the
+monthly cost — the one remaining piece of this spike, and it's fast (EODHD's own free tier can run
+that check tonight).
 
 ### Scope table, ported from the feature analysis
 
@@ -6765,18 +6764,61 @@ US-96's contract-size finding gets a full write-up instead of a one-line changel
   capture before any per-*payment* (not just per-position-per-year) feature relies on it; until
   then, per-year is the safe granularity.
 
-### US-103 — A2, open: a licensable EU dividend-data source *(spike, not run)*
+### US-103 — A2, substantially answered: two sources, split by what each is actually for *(spike, provider research done 2026-08-22; three-ISIN coverage check still open)*
 
-As refined above. **Acceptance criteria for the spike itself:**
+> "Doe wel even een analyse hoe we aan de juiste data komen. Er worden veel datapunten beloofd,
+> dan kan t vannacht gebouwd worden." — the owner.
 
-- **AC1** Three real ISINs from an actual tester portfolio, one each on Amsterdam, Xetra and NYSE.
-- **AC2** Per source: five years of dividend history, next announced payout with ex/pay date,
-  payout ratio, net debt/EBITDA — plus, explicitly, **coverage, rate limits, cost, and whether its
-  terms permit re-publishing the fetched data inside a static bundle anyone can download.** The
-  licensing question is not a footnote; Layer B's entire design depends on the answer being yes.
-- **AC3** A written conclusion: a chosen provider, or a documented "no source clears this," which
-  under section 6's own logic means Layer B (and everything gated on it) does not get built and
-  this story's scope shrinks to Layer A alone.
+Checked against five candidate providers' actual published terms (search results, dated
+2026-08-22 — not fetched pages, since the egress proxy blocked direct fetches to `gleif.org` and
+`eodhd.com`; treat as **single-sourced from search snippets, marked as such**, the same discipline
+`ENDPOINT-REPORT.md` already holds this project to for DEGIRO's own endpoints). The finding splits
+cleanly along the same line the data actually needs, and one half of it is a genuine free win:
+
+**For E8-1's withholding rate (issuer's country of incorporation only): GLEIF, free, today, no
+licensing risk at all.** GLEIF's LEI reference data — including each entity's legal jurisdiction —
+and its daily ISIN-to-LEI relationship files are published under **CC0 1.0 Universal**, the
+public-domain-equivalent Creative Commons license, explicitly built for open reuse. This is the
+one data point US-106 actually needs, and it settles the whole question for that story alone:
+**no vendor contract, no cost, no redistribution clause to negotiate.** This alone can start
+tonight.
+
+**For E4-1/E9-2's fuller fundamentals set (payout ratio, net debt/EBITDA, dividend history,
+ex/pay dates): the free tiers of the obvious candidates all explicitly forbid what Layer B does.**
+
+| Provider | Free tier | Redistribution / republishing |
+|---|---|---|
+| Financial Modeling Prep | Yes | Requires a **separate, additional** Data Display & Licensing Agreement — not included at any listed price |
+| Finnhub | Yes, 50 calls/min | Free tier is **non-commercial only**; redistributing (which a public static bundle is) requires a paid plan |
+| Twelve Data | Yes, 8/min, 800/day | Redistribution is a **paid add-on requiring a separate negotiated agreement**, not a standard tier feature |
+| Stooq | Yes | No clear published redistribution license found; community guidance says publish the *code and pull date*, not the raw data — **too uncertain to build Layer B on** |
+| **EODHD** | 20 calls/day | **Commercial plans explicitly include redistribution rights**, at a published, non-negotiated price: **€19.99/month** (All World) or **€99.99/month** (All-In-One, broader exchange coverage) |
+
+EODHD is the one source found whose paid tier is both **affordable and states redistribution
+plainly** rather than gating it behind a sales conversation — its own terms distinguish
+"Non-Professional" use (redistribution explicitly prohibited) from "Commercial" use (which the
+terms define to include exactly what Layer B does: "integrating data into products... or
+redistributing data"), and price that distinction rather than quoting it case by case.
+
+**What this research did not do, and what's still the fast next step:** verify actual coverage
+and field completeness against three real ISINs (AC1/AC2 below) — that needs either a trial key or
+the paid subscription, not just reading a terms page. EODHD's own free tier (20 calls/day) is
+enough to run that exact check tonight, before paying anything.
+
+- **AC1** Three real ISINs from an actual tester portfolio, one each on Amsterdam, Xetra and NYSE,
+  checked against EODHD's free tier: five years of dividend history, next announced payout with
+  ex/pay date, payout ratio, net debt/EBITDA. **Not yet run — needs an EODHD account and a tester's
+  real ISINs, not further desk research.**
+- **AC2** Confirmed: EODHD's commercial tier's redistribution terms, in writing, cover republishing
+  fetched data as a static, downloadable bundle (Layer B's exact shape) — read the actual contract
+  language once a commercial plan is being considered, not only the marketing/terms summary this
+  research was limited to.
+- **AC3** Written conclusion, updated: **GLEIF closes the withholding-rate need for free, now.**
+  For the fuller fundamentals set, **EODHD's commercial tier is the recommended path** pending
+  AC1's coverage check — at €19.99–99.99/month, this is a real, owner-approved cost, not something
+  to commit to silently inside a build task. If AC1 finds EODHD's EU coverage too thin for the
+  three test ISINs, the fuller fundamentals set (E4-1, E9-2's non-jurisdiction fields) stays
+  blocked and Layer A plus the GLEIF-only jurisdiction data is what ships.
 
 ### US-104 — The bundle pipeline (E9-2) *(new, refined — depends on US-103)*
 
@@ -6810,15 +6852,22 @@ applied to a forecast instead of a reconciliation.
 - **AC3** Every screen that shows a total sourced from Layer B states "x posities en y% van je
   inkomen niet beoordeeld" beside it, not in a separate diagnostics screen nobody opens.
 
-### US-106 — Effective withholding rate per position (E8-1) *(new, refined — depends on US-102, US-104)*
+### US-106 — Effective withholding rate per position (E8-1) *(new, refined — depends on US-102, and now unblocked by GLEIF, not US-104)*
 
 > As Jasper, I want the effective withholding-tax rate per holding, so his income forecast is net
 > rather than structurally too optimistic for anything that isn't US paper.
 
-- **AC1** Rate sourced from the *issuer's country of incorporation* in the Layer B bundle — **not**
-  the ISIN's own country prefix, which names where a security is registered, not who withholds.
-  The ISIN prefix is fallback-only and marked uncertain when used as one.
-  covers at minimum NL, US, DE, FR, BE, CH, GB.
+Originally scoped as waiting on the same Layer B bundle as everything else. US-103's finding
+changes that: the one field this story actually needs — issuer's country of incorporation — is
+fully available from **GLEIF's free, CC0-licensed ISIN-to-LEI and legal-entity data**, independent
+of whether EODHD's paid tier ever gets approved. This story can be built **tonight**, without
+waiting on US-104's pipeline or a euro of spend.
+
+- **AC1** Rate sourced from the *issuer's country of incorporation*, fetched from GLEIF's
+  ISIN-to-LEI relationship files (not EODHD, not the fuller Layer B bundle) — **not** the ISIN's
+  own country prefix, which names where a security is registered, not who withholds. The ISIN
+  prefix is fallback-only, marked uncertain when used, and the fallback path is what a position
+  GLEIF has no LEI for falls back to. Covers at minimum NL, US, DE, FR, BE, CH, GB.
 - **AC2** A per-account toggle for whether a valid W-8BEN is on file (15% vs. 30% on US paper).
 - **AC3** Reclaimable vs. practically-lost withholding shown as separate figures, not netted into
   one "tax paid" number — a reader deciding whether to bother reclaiming needs both.
@@ -6891,18 +6940,24 @@ DEGIRO-only, on purpose — the automatically-net dividend data this project alr
 the one piece a broker-agnostic CSV tool cannot match, and that edge is worth more than covering
 every broker on day one.
 
-### Build order
+### Build order, updated now that US-103 splits in two
 
-1. US-102 is closed. Run US-103 next — it gates everything past Layer A.
-2. If US-103 lands a source: US-104, then US-105.
-3. Build US-109 (the PoC screen) per the scope above and show it to Jasper before anything else in
-   this set — it's also the fastest way to find out whether the product is wanted at all.
-4. Only then the remaining must-have rows from the scope table above, each refined into its own
+1. US-102 is closed. **US-106 (withholding rate) and US-107 (the gross/net switch) can start
+   tonight** — GLEIF is free, CC0, and needs no owner sign-off to use.
+2. In parallel, finish US-103's one remaining step: run the three-ISIN coverage check against
+   EODHD's free tier (20 calls/day is enough), then take the €19.99–99.99/month commercial-plan
+   decision to the owner explicitly — that spend is real and this backlog does not approve it on
+   its own.
+3. If EODHD's coverage holds up and the plan is approved: US-104, then US-105, then US-108.
+4. Build US-109 (the PoC screen) once US-105/US-107/US-108 exist, and show it to Jasper before
+   anything else in this set — it's also the fastest way to find out whether the product is wanted
+   at all.
+5. Only then the remaining must-have rows from the scope table above, each refined into its own
    story the way US-104 to US-109 were, not before.
 
-If US-103 comes back negative, this shrinks to Layer A alone — a net dividend overview with no
-score and no forecast. Still more than exists today, but a smaller, different story, and half of
-this section's scope table goes with it.
+If the EODHD coverage check or the cost decision comes back negative, US-104/105/108/109 stay
+blocked and this set ships as US-106+US-107 alone — a net **and** effective-withholding-rate
+income view, no score, no forecast. Smaller than the full set, real today, and it costs nothing.
 
 ---
 
