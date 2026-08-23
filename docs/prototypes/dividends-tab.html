@@ -39,6 +39,11 @@
     --text: #14181d; --muted: #939ca7; --accent: #557cd4; --pos: #0b5fc4; --neg: #c02434;
     --warn: #a5851b; --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
     --s1: #557cd4; --s2: #7b52ab; --s3: #00868b; --s4: #b0461a; --s5: #a5851b;
+    /* Same three timing tokens src/ui/styles.css already ships (US-75's
+       asymmetric surface in/out pair, plus the press feedback duration) —
+       reused here rather than invented, per the animation-opportunities
+       pass on this file. */
+    --t-press: 100ms; --t-surface: 140ms; --t-surface-out: 110ms;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
@@ -85,7 +90,9 @@
   .donut-row { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
   svg.donut { flex: none; }
   .legend { display: grid; gap: 6px; font-size: 12px; flex: 1; min-width: 12rem; }
-  .legend .row { display: flex; align-items: center; gap: 8px; }
+  .legend .row { display: flex; align-items: center; gap: 8px; border-radius: 6px; padding: 2px 4px; margin: -2px -4px; }
+  .legend .row.active { background: var(--card2); }
+  .legend .row.active .name { font-weight: 700; color: var(--text); }
   .swatch { width: 10px; height: 10px; border-radius: 2px; flex: none; }
   .legend .name { flex: 1; }
   .legend .val { color: var(--muted); font-variant-numeric: tabular-nums; }
@@ -103,6 +110,47 @@
   .streak i.flat { background: var(--muted); opacity: .5; }
   .muted { color: var(--muted); }
   .special { font-size: 10px; padding: 1px 5px; border-radius: 4px; background: var(--card2); color: var(--warn); border: 1px solid var(--warn); margin-left: 4px; }
+
+  /* --- drill-down additions, 2026-08-23 ------------------------------------ */
+  svg.donut path { transition: opacity var(--t-press, 100ms) var(--ease-out); }
+  svg.donut path.clickable { cursor: pointer; }
+  svg.donut path.clickable:hover { opacity: 0.85; }
+  .crumb {
+    display: inline-flex; align-items: center; gap: 4px; border: 0; background: none;
+    color: var(--accent); font: inherit; font-size: 12px; cursor: pointer; padding: 0 0 10px;
+  }
+  .crumb:hover { text-decoration: underline; }
+  .filter-chip {
+    display: inline-flex; align-items: center; gap: 8px; background: var(--card2);
+    border: 1px solid var(--line); border-radius: 999px; padding: 6px 8px 6px 14px;
+    font-size: 12.5px; margin-bottom: 14px;
+  }
+  .filter-chip button {
+    border: 0; background: var(--line); color: var(--text); border-radius: 999px;
+    width: 20px; height: 20px; cursor: pointer; font: inherit; line-height: 1;
+    transition: background var(--t-press) var(--ease-out);
+  }
+  .filter-chip button:hover { background: var(--muted); color: var(--card); }
+  .row-toggle {
+    border: 0; background: none; color: var(--muted); cursor: pointer; font: inherit;
+    padding: 0; width: 16px; display: inline-flex; transition: transform var(--t-surface) var(--ease-out);
+  }
+  tr.open .row-toggle { transform: rotate(90deg); }
+  tr.clickable td:first-child { display: flex; align-items: center; gap: 6px; }
+  .why-wrap {
+    display: grid; grid-template-rows: 0fr; transition: grid-template-rows var(--t-surface-out) var(--ease-out);
+  }
+  tr.open + tr .why-wrap { grid-template-rows: 1fr; transition-duration: var(--t-surface); }
+  .why-inner { overflow: hidden; }
+  .why-body { padding: 4px 10px 16px 30px; }
+  table.breakdown { font-size: 11.5px; }
+  table.breakdown td, table.breakdown th { padding: 3px 8px; white-space: normal; border-bottom: 0; }
+  table.breakdown th { text-transform: none; letter-spacing: 0; font-weight: 600; color: var(--muted); }
+  .bar-track { background: var(--line); border-radius: 3px; height: 6px; overflow: hidden; width: 5rem; }
+  .bar-fill { height: 100%; border-radius: 3px; }
+  @media (prefers-reduced-motion: reduce) {
+    .why-wrap, .row-toggle, .filter-chip button, svg.donut path { transition-duration: 1ms; }
+  }
 </style>
 </head>
 <body>
@@ -121,7 +169,9 @@
     <h2>Income by position</h2>
     <p class="hint">Share of annual dividend income, not share of value — the gap between the two
       is exactly where concentration hides. Fully buildable now: no Layer B, no external data,
-      just this account's own dividend history per position.</p>
+      just this account's own dividend history per position. <b>Click a slice</b>: sector, then
+      the positions inside it.</p>
+    <div id="income-crumb"></div>
     <div class="donut-row">
       <svg class="donut" id="income-donut" width="180" height="180" viewBox="0 0 180 180"></svg>
       <div class="legend" id="income-legend"></div>
@@ -130,15 +180,18 @@
 
   <div class="card">
     <h2>Dividend safety, by income</h2>
-    <p class="hint">This is US-109's own donut (see <code>dividend-safety-buckets.html</code> for
-      the scoring drill-down) — repeated here only to show where it sits next to the others, not
-      redesigned.</p>
+    <p class="hint">This is US-109's own scoring model (see <code>dividend-safety-buckets.html</code>
+      for the full per-input breakdown) — repeated here to show where it sits next to the others.
+      <b>Click a bucket</b> to filter the whole page — including the table below — to just those
+      positions.</p>
     <div class="donut-row">
       <svg class="donut" id="safety-donut" width="180" height="180" viewBox="0 0 180 180"></svg>
       <div class="legend" id="safety-legend"></div>
     </div>
   </div>
 </div>
+
+<div id="page-filter"></div>
 
 <div class="card" style="margin-bottom:20px">
   <h2>Income forecast</h2>
@@ -157,7 +210,9 @@
     the fastest way to see "this cut once" that a single score number hides. A <span
     class="special">special</span> tag flags a one-off payment so it never quietly inflates a
     yield calculation (the same trap US-99 already names for a single large dividend in a short
-    window).
+    window). <b>Click a row</b> for why it scored what it scored — the same named-ingredient
+    breakdown as <code>dividend-safety-buckets.html</code>, never a bare number with nothing
+    behind it (US-108 AC3).
   </p>
   <table id="holdings"></table>
   <p class="hint" style="margin-top:10px">
@@ -171,31 +226,112 @@
 const money = (n) => (n < 0 ? '−' : '') + '€ ' + Math.abs(Math.round(n)).toLocaleString('en-US');
 const pct = (n) => (n >= 0 ? '+' : '') + n.toFixed(1) + '%';
 
-// --- synthetic data, shared cast with dividend-safety-buckets.html ----------
+// --- the scoring model, lifted verbatim from dividend-safety-buckets.html --
+// (that file's own header note: "lift them verbatim rather than re-deriving
+// them" — this is that instruction, followed).
+const WEIGHTS = [
+  { key: 'payout', label: 'Payout ratio', weight: 0.25 },
+  { key: 'debt', label: 'Net debt/EBITDA', weight: 0.20 },
+  { key: 'streak', label: 'Dividend streak', weight: 0.15 },
+  { key: 'cut2008', label: 'Cut in 2008-09', weight: 0.10 },
+  { key: 'cut2020', label: 'Cut in 2020', weight: 0.10 },
+  { key: 'cyclicality', label: 'Sector cyclicality', weight: 0.10 },
+  { key: 'volatility', label: 'Earnings volatility', weight: 0.10 },
+];
+function ramp(value, atBest, atWorst) {
+  const t = (value - atBest) / (atWorst - atBest);
+  return Math.max(0, Math.min(100, 100 - t * 100));
+}
+function scoreFromInputs(inputs) {
+  if (!inputs) return { score: null, contributions: [] };
+  const raw = {
+    payout: ramp(inputs.payoutRatio, 50, 150),
+    debt: ramp(inputs.netDebtToEbitda, 1, 6),
+    streak: Math.max(0, Math.min(100, (inputs.dividendStreakYears / 25) * 100)),
+    cut2008: inputs.cutIn2008 ? 0 : 100,
+    cut2020: inputs.cutIn2020 ? 0 : 100,
+    cyclicality: 100 - inputs.cyclicality,
+    volatility: 100 - inputs.earningsVolatility,
+  };
+  const contributions = WEIGHTS.map((w) => ({ ...w, points: raw[w.key], weighted: raw[w.key] * w.weight }));
+  const score = Math.round(contributions.reduce((a, c) => a + c.weighted, 0));
+  return { score, contributions };
+}
+
+// --- synthetic data, shared cast with dividend-safety-buckets.html ---------
+// Three positions added beyond that file's five, purely so the income
+// donut's sector level has more than one slice to drill into per sector —
+// same invented universe (CLAUDE.md rule 7), not a different one.
 const POSITIONS = [
-  { name: 'Vaste Kern Water NV', country: 'NL', income: 540, yieldPct: 3.1, yoc: 4.4, safetyScore: 78,
+  { name: 'Vaste Kern Water NV', country: 'NL', sector: 'Utilities', income: 540, yieldPct: 3.1, yoc: 4.4,
+    scoreInputs: { payoutRatio: 55, netDebtToEbitda: 3.2, dividendStreakYears: 22, cutIn2008: false, cutIn2020: false, cyclicality: 15, earningsVolatility: 10 },
     history: ['paid','paid','paid','paid','paid','paid','paid'], special: false },
-  { name: 'Meridian Digital Trust', country: 'US', income: 860, yieldPct: 9.2, yoc: 5.1, safetyScore: 22,
+  { name: 'Kleiweide Energy NV', country: 'NL', sector: 'Utilities', income: 265, yieldPct: 4.6, yoc: 5.0,
+    scoreInputs: { payoutRatio: 68, netDebtToEbitda: 4.0, dividendStreakYears: 9, cutIn2008: false, cutIn2020: true, cyclicality: 30, earningsVolatility: 22 },
+    history: ['paid','paid','paid','cut','paid','paid','paid'], special: false },
+  { name: 'Meridian Digital Trust', country: 'US', sector: 'Real Estate', income: 860, yieldPct: 9.2, yoc: 5.1,
+    scoreInputs: { payoutRatio: 135, netDebtToEbitda: 7.8, dividendStreakYears: 3, cutIn2008: true, cutIn2020: true, cyclicality: 70, earningsVolatility: 65 },
     history: ['paid','cut','flat','paid','paid','cut','paid'], special: false },
-  { name: 'Halcyon Consumer Staples', country: 'US', income: 410, yieldPct: 2.4, yoc: 3.0, safetyScore: 61,
+  { name: 'Falkstone Properties Inc', country: 'US', sector: 'Real Estate', income: 300, yieldPct: 7.4, yoc: 4.2,
+    scoreInputs: { payoutRatio: 110, netDebtToEbitda: 6.5, dividendStreakYears: 5, cutIn2008: true, cutIn2020: false, cyclicality: 60, earningsVolatility: 50 },
+    history: ['paid','paid','cut','paid','paid','paid','flat'], special: false },
+  { name: 'Halcyon Consumer Staples', country: 'US', sector: 'Consumer Staples', income: 410, yieldPct: 2.4, yoc: 3.0,
+    scoreInputs: { payoutRatio: 70, netDebtToEbitda: 2.8, dividendStreakYears: 10, cutIn2008: false, cutIn2020: false, cyclicality: 35, earningsVolatility: 30 },
     history: ['paid','paid','paid','paid','paid','paid','paid'], special: true },
-  { name: 'Norderney Reederei AG', country: 'DE', income: 310, yieldPct: 6.8, yoc: 6.1, safetyScore: 38,
+  { name: 'Bramwell Foods plc', country: 'GB', sector: 'Consumer Staples', income: 190, yieldPct: 2.9, yoc: 3.3,
+    scoreInputs: { payoutRatio: 48, netDebtToEbitda: 2.1, dividendStreakYears: 18, cutIn2008: false, cutIn2020: false, cyclicality: 12, earningsVolatility: 8 },
+    history: ['paid','paid','paid','paid','paid','paid','paid'], special: false },
+  { name: 'Norderney Reederei AG', country: 'DE', sector: 'Industrials', income: 310, yieldPct: 6.8, yoc: 6.1,
+    scoreInputs: { payoutRatio: 78, netDebtToEbitda: 4.5, dividendStreakYears: 6, cutIn2008: true, cutIn2020: false, cyclicality: 85, earningsVolatility: 55 },
     history: ['paid','paid','cut','paid','paid','flat','paid'], special: false },
-  { name: 'Trentham Resources plc', country: 'GB', income: 275, yieldPct: 4.0, yoc: 3.6, safetyScore: null,
+  { name: 'Trentham Resources plc', country: 'GB', sector: 'Materials', income: 275, yieldPct: 4.0, yoc: 3.6,
+    scoreInputs: null, // US-105's unmatched case: not yet in the reference bundle, not a bad score
     history: ['paid','paid','paid','flat','paid','paid','paid'], special: false },
 ];
 const TOTAL_INCOME = POSITIONS.reduce((a, p) => a + p.income, 0);
-const TOTAL_VALUE = 62000; // invented, for the yield KPI only
+const SECTORS = [...new Set(POSITIONS.map(p => p.sector))];
+// Fixed slot per sector (dataviz skill: categorical hues in fixed order,
+// never reshuffled) so a sector keeps its colour whether or not the safety
+// filter below has hidden every OTHER sector's slice.
+const SECTOR_SLOT = Object.fromEntries(SECTORS.map((s, i) => [s, i]));
+
+// --- page-wide state ---------------------------------------------------------
+// safetyFilter: clicking a bucket on the safety donut slices the KPIs, the
+// income donut and the table below down to that bucket's positions — the
+// user's own framing: "dat slice de hele pagina". The safety donut itself
+// keeps showing the full breakdown, since it's the control, not a view of
+// the filtered result. incomeDrill is separate and local to the income
+// donut only — sector level, then one sector's positions.
+let safetyFilter = null;   // null | 'safe' | 'borderline' | 'unsafe' | 'unassessed'
+let incomeDrill = null;    // null | a sector name
+
+function filteredPositions() {
+  if (!safetyFilter) return POSITIONS;
+  return POSITIONS.filter(p => BUCKETS.find(b => b.id === safetyFilter).test(scoreFromInputs(p.scoreInputs).score));
+}
+function renderAll() {
+  renderKpis();
+  renderIncomeDonut();
+  renderSafetyDonut();
+  renderHoldings();
+  renderPageFilter();
+}
 
 // --- KPI strip ---------------------------------------------------------------
 // Feasible now: Annual Income, Dividend Yield, Yield on Cost — all read
-// straight off figures this project already computes per position. Beta is
-// shown as pending: it needs a benchmark price series (US-98), not built yet.
+// straight off figures this project already computes per position. A
+// position's own value is back-derived from income and yield (value =
+// income / yieldPct) rather than a second invented total, so these three
+// numbers stay internally consistent when the safety filter narrows the set.
+// Beta stays pending: it needs a benchmark price series (US-98), not built.
 function renderKpis() {
+  const positions = filteredPositions();
+  const income = positions.reduce((a, p) => a + p.income, 0);
+  const value = positions.reduce((a, p) => a + p.income / (p.yieldPct / 100), 0);
   const items = [
-    { label: 'Annual income', value: money(TOTAL_INCOME), foot: 'trailing 12 months' },
-    { label: 'Dividend yield', value: pct(TOTAL_INCOME / TOTAL_VALUE * 100).replace('+',''), foot: 'income ÷ current value' },
-    { label: 'Yield on cost', value: pct(POSITIONS.reduce((a,p)=>a+p.yoc*p.income,0)/TOTAL_INCOME).replace('+',''), foot: 'income ÷ what you paid' },
+    { label: 'Annual income', value: money(income), foot: safetyFilter ? 'filtered — see chip above table' : 'trailing 12 months' },
+    { label: 'Dividend yield', value: value > 0 ? pct(income / value * 100).replace('+','') : '—', foot: 'income ÷ current value' },
+    { label: 'Yield on cost', value: income > 0 ? pct(positions.reduce((a,p)=>a+p.yoc*p.income,0)/income).replace('+','') : '—', foot: 'income ÷ what you paid' },
     { label: 'Beta', value: 'Needs US-98', foot: 'benchmark price series not built', pending: true },
   ];
   document.getElementById('kpis').innerHTML = items.map(i => `
@@ -213,8 +349,13 @@ function renderKpis() {
 const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 function seriesPalette() { return ['--s1', '--s2', '--s3', '--s4', '--s5'].map(cssVar); }
 
-/** Categorical hues in FIXED order (dataviz skill: never cycled/reshuffled per render). */
-function drawDonut(svgId, segments) {
+/**
+ * Categorical hues in FIXED order (dataviz skill: never cycled/reshuffled
+ * per render). `segments` need a `.key` when `onClick` is given — that's
+ * what comes back to the caller on a click. Segments with no value are
+ * dropped before drawing, same as before.
+ */
+function drawDonut(svgId, segments, onClick) {
   const svg = document.getElementById(svgId);
   const cx = 90, cy = 90, r = 80, inner = 46;
   let start = -Math.PI / 2;
@@ -233,21 +374,53 @@ function drawDonut(svgId, segments) {
     // A native <title> is the cheapest real hover tooltip a static SVG can
     // carry (dataviz skill step 5) — not a substitute for a positioned
     // tooltip in the real build, but not nothing either.
-    return `<path d="${d}" fill="${seg.color}" stroke="${gap}" stroke-width="2"><title>${seg.label}: ${Math.round(seg.value/total*1000)/10}%</title></path>`;
+    return `<path class="${onClick ? 'clickable' : ''}" data-key="${seg.key ?? ''}" d="${d}" fill="${seg.color}" stroke="${gap}" stroke-width="2"><title>${seg.label}: ${Math.round(seg.value/total*1000)/10}%</title></path>`;
   }).join('');
   svg.innerHTML = paths;
+  svg.onclick = onClick ? (e) => {
+    const path = e.target.closest('path[data-key]');
+    if (path && path.dataset.key) onClick(path.dataset.key);
+  } : null;
 }
-
-function renderIncomeDonut() {
-  const palette = seriesPalette();
-  const segs = POSITIONS.map((p, i) => ({ label: p.name, value: p.income, color: palette[i % palette.length] }));
-  drawDonut('income-donut', segs);
-  document.getElementById('income-legend').innerHTML = segs.map(s => `
+function renderIncomeLegend(segs, pctOf) {
+  document.getElementById('income-legend').innerHTML = segs.filter(s => s.value > 0).map(s => `
     <div class="row">
       <span class="swatch" style="background:${s.color}"></span>
       <span class="name">${s.label}</span>
-      <span class="val">${(s.value / TOTAL_INCOME * 100).toFixed(1)}%</span>
+      <span class="val">${pctOf(s)}</span>
     </div>`).join('');
+}
+function renderIncomeDonut() {
+  const palette = seriesPalette();
+  const positions = filteredPositions(); // whole-page slice, per the safety-bucket click
+  if (incomeDrill && !positions.some(p => p.sector === incomeDrill)) incomeDrill = null; // filter emptied the drilled sector
+
+  if (incomeDrill == null) {
+    const segs = SECTORS.map(sector => ({
+      key: sector, label: sector,
+      value: positions.filter(p => p.sector === sector).reduce((a, p) => a + p.income, 0),
+      color: palette[SECTOR_SLOT[sector] % palette.length],
+    }));
+    const sliceTotal = segs.reduce((a, s) => a + s.value, 0);
+    drawDonut('income-donut', segs, (key) => { incomeDrill = key; renderIncomeDonut(); });
+    renderIncomeLegend(segs, s => sliceTotal > 0 ? `${(s.value / sliceTotal * 100).toFixed(1)}%` : '—');
+    document.getElementById('income-crumb').innerHTML = '';
+  } else {
+    // Colour by the position's slot within its FULL sector roster, not the
+    // filtered one, so a slot doesn't get reassigned when the safety filter
+    // hides a sibling position.
+    const slot = Object.fromEntries(POSITIONS.filter(p => p.sector === incomeDrill).map((p, i) => [p.name, i]));
+    const sectorPositions = positions.filter(p => p.sector === incomeDrill);
+    const sliceTotal = sectorPositions.reduce((a, p) => a + p.income, 0);
+    const segs = sectorPositions.map(p => ({
+      key: p.name, label: p.name, value: p.income, color: palette[slot[p.name] % palette.length],
+    }));
+    drawDonut('income-donut', segs, null); // leaf level — nothing further to drill into
+    renderIncomeLegend(segs, s => sliceTotal > 0 ? `${(s.value / sliceTotal * 100).toFixed(1)}%` : '—');
+    document.getElementById('income-crumb').innerHTML =
+      `<button class="crumb" id="income-crumb-back">← All sectors</button><span class="muted" style="font-size:12px"> / ${incomeDrill}</span>`;
+    document.getElementById('income-crumb-back').onclick = () => { incomeDrill = null; renderIncomeDonut(); };
+  }
 }
 
 /**
@@ -265,16 +438,33 @@ const BUCKETS = [
   { id: 'unassessed', label: 'Not assessed', color: cssVar('--muted'), test: s => s == null },
 ];
 function renderSafetyDonut() {
+  // Always the full account, never pre-filtered by its own selection — this
+  // donut is the control the filter comes FROM, not a view of the result.
   const totals = BUCKETS.map(b => ({
-    ...b, value: POSITIONS.filter(p => b.test(p.safetyScore)).reduce((a, p) => a + p.income, 0),
+    ...b, key: b.id,
+    value: POSITIONS.filter(p => b.test(scoreFromInputs(p.scoreInputs).score)).reduce((a, p) => a + p.income, 0),
   }));
-  drawDonut('safety-donut', totals);
+  drawDonut('safety-donut', totals, (key) => {
+    safetyFilter = safetyFilter === key ? null : key; // clicking the active bucket again clears it
+    renderAll();
+  });
   document.getElementById('safety-legend').innerHTML = totals.filter(b => b.value > 0).map(b => `
-    <div class="row">
+    <div class="row${safetyFilter === b.id ? ' active' : ''}">
       <span class="swatch" style="background:${b.color}"></span>
       <span class="name">${b.label}</span>
       <span class="val">${(b.value / TOTAL_INCOME * 100).toFixed(1)}%</span>
     </div>`).join('');
+}
+function renderPageFilter() {
+  const el = document.getElementById('page-filter');
+  if (!safetyFilter) { el.innerHTML = ''; return; }
+  const bucket = BUCKETS.find(b => b.id === safetyFilter);
+  const n = filteredPositions().length;
+  el.innerHTML = `<div class="filter-chip">
+    Showing <b>${bucket.label}</b> only — ${n} position${n === 1 ? '' : 's'}
+    <button id="filter-clear" aria-label="Clear filter" title="Clear filter">✕</button>
+  </div>`;
+  document.getElementById('filter-clear').onclick = () => { safetyFilter = null; renderAll(); };
 }
 
 // --- income forecast -----------------------------------------------------------
@@ -326,20 +516,39 @@ function streakBars(history) {
   return `<span class="streak">${history.map(h =>
     `<i class="${h}" style="height:${h === 'cut' ? 6 : h === 'flat' ? 9 : 16}px" title="${h}"></i>`).join('')}</span>`;
 }
+// Click a row for the same named-ingredient breakdown
+// dividend-safety-buckets.html shows in its own <details> — ported here as a
+// table so the CSS grid-rows technique can animate it open/closed without a
+// height measurement (US-108 AC3: never a bare score with nothing behind it).
 function renderHoldings() {
-  const rows = POSITIONS.map(p => {
-    const bucket = BUCKETS.find(b => b.test(p.safetyScore));
-    const scoreCell = p.safetyScore == null
+  const rows = filteredPositions().map(p => {
+    const { score, contributions } = scoreFromInputs(p.scoreInputs);
+    const bucket = BUCKETS.find(b => b.test(score));
+    const scoreCell = score == null
       ? '<span class="muted">n/a</span>'
-      : `${p.safetyScore} <span class="pill" style="background:${bucket.color}">${bucket.label.split(' ')[0]}</span>`;
-    return `<tr>
-      <td>${p.name}${p.special ? '<span class="special">special</span>' : ''}<br><span class="muted" style="font-size:11px">${p.country}</span></td>
+      : `${score} <span class="pill" style="background:${bucket.color}">${bucket.label.split(' ')[0]}</span>`;
+    const whyRows = score == null
+      ? `<tr><td colspan="3" class="muted">Not yet in the reference bundle (US-105) — no inputs, so no score to explain.</td></tr>`
+      : contributions.map(c => `
+        <tr>
+          <td>${c.label}</td>
+          <td><div class="bar-track"><div class="bar-fill" style="width:${c.points}%; background:${bucket.color}"></div></div></td>
+          <td class="num">${Math.round(c.weighted)} pts</td>
+        </tr>`).join('');
+    return `<tr class="clickable">
+      <td><button class="row-toggle" aria-label="Toggle why this score">▶</button>${p.name}${p.special ? '<span class="special">special</span>' : ''}<br><span class="muted" style="font-size:11px">${p.country}</span></td>
       <td class="num">${pct(p.yieldPct).replace('+','')}</td>
       <td class="num">${pct(p.yoc).replace('+','')}</td>
       <td class="num">${money(p.income)}</td>
       <td>${streakBars(p.history)}</td>
       <td class="num">${scoreCell}</td>
-    </tr>`;
+    </tr>
+    <tr><td colspan="6" style="padding:0">
+      <div class="why-wrap"><div class="why-inner"><div class="why-body">
+        <table class="breakdown"><thead><tr><th>Factor</th><th>Score</th><th class="num">Weighted</th></tr></thead>
+        <tbody>${whyRows}</tbody></table>
+      </div></div></div>
+    </td></tr>`;
   }).join('');
   document.getElementById('holdings').innerHTML = `
     <thead><tr>
@@ -347,13 +556,16 @@ function renderHoldings() {
       <th class="num">Annual income</th><th>Consistency (7y)</th><th class="num">Safety</th>
     </tr></thead>
     <tbody>${rows}</tbody>`;
+  // Toggling a class on the existing <tr> (not a re-render) is what lets the
+  // grid-template-rows transition in .why-wrap actually animate — a fresh
+  // innerHTML would paint the new row already in its end state.
+  document.getElementById('holdings').querySelectorAll('tr.clickable').forEach(tr => {
+    tr.onclick = () => tr.classList.toggle('open');
+  });
 }
 
-renderKpis();
-renderIncomeDonut();
-renderSafetyDonut();
 renderForecast();
-renderHoldings();
+renderAll();
 </script>
 </body>
 </html>
