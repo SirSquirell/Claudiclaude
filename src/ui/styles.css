@@ -2659,6 +2659,26 @@ td .chip {
   font-variant-numeric: tabular-nums;
 }
 
+/* US-99: two related numbers, shown together rather than behind a toggle —
+   the two halves of one return, not two competing questions. */
+.split-kpi {
+  display: flex;
+  gap: 32px;
+  flex-wrap: wrap;
+}
+
+.split-kpi .label {
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.625rem;
+  letter-spacing: var(--track);
+}
+
+.split-kpi .bignum {
+  font-size: clamp(1.375rem, 1rem + 1.6vw, 2rem);
+}
+
 /* ---------------------------------------------------------------------------
    Optimism Mode — "put that frown upside down"
    ---------------------------------------------------------------------------

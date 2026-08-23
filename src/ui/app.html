@@ -269,6 +269,27 @@
 
       <div data-tab="perf" class="grid" style="margin-top: 16px">
         <div class="card">
+          <h2 data-i18n>Price return vs. total return</h2>
+          <p class="hint" data-i18n>
+            How much of this period's result was the price moving, and how much was dividends landing — two
+            answers, shown together, because neither one alone is the whole question.
+          </p>
+          <div class="split-kpi">
+            <div>
+              <div class="label" data-i18n>Total return</div>
+              <div class="bignum" id="split-total-value">—</div>
+            </div>
+            <div>
+              <div class="label" data-i18n>Price return</div>
+              <div class="bignum" id="split-price-value">—</div>
+            </div>
+          </div>
+          <p class="hint" id="split-note"></p>
+        </div>
+      </div>
+
+      <div data-tab="perf" class="grid" style="margin-top: 16px">
+        <div class="card">
           <h2 data-i18n>What moved, in this range</h2>
           <p class="hint">
             Result per instrument over the selected range — the same number the holdings table prints, as a shape.

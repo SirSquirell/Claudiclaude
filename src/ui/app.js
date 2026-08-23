@@ -5,7 +5,7 @@
  * an external cashflow."
  */
 
-import { aggregatePnl, annualisedReturn, buildComposition, projectPortfolio, candleSeries, maxDrawdown, monthlyTable, rangeEndIndex, rangeStartIndex, windowReturnPct } from '../lib/engine.js';
+import { aggregatePnl, annualisedReturn, buildComposition, projectPortfolio, candleSeries, maxDrawdown, monthlyTable, priceVsTotalReturn, rangeEndIndex, rangeStartIndex, windowReturnPct } from '../lib/engine.js';
 import { formatDay, monthKey, weekKey } from '../lib/dates.js';
 import { GESTURE } from '../lib/config.js';
 import {
@@ -2306,6 +2306,7 @@ function render() {
   renderYears(r);
   renderOutlook(r, t);
   renderAnnualised(r, from, to);
+  renderPriceReturn(r, from, to);
   renderTransactions(data, r, from, to);
   renderFooter(r, data);
 }
@@ -4485,6 +4486,44 @@ function renderAnnualised(r, from, to) {
     years: a.years.toFixed(1),
     name: money ? tr(', money-weighted') : tr(', time-weighted'),
   });
+}
+
+/**
+ * US-99. Shown together, not behind a toggle — the story's own reasoning is
+ * that two answers to two questions is not a contradiction as long as the
+ * reader knows which is which, the same argument US-31 already made for
+ * money-/time-weighted.
+ *
+ * Deliberately its own card rather than a line under "Annualised return":
+ * this is the *measured* return over the selected period, never annualised,
+ * so it must never be mistaken for the rate above it — a different question
+ * with a different number, sat right next to a card that already answers a
+ * third.
+ */
+function renderPriceReturn(r, from, to) {
+  const totalValue = $('#split-total-value');
+  const priceValue = $('#split-price-value');
+  const note = $('#split-note');
+
+  // Same "all time" collapse `buildTiles`' own `period` note uses, so a
+  // reader sees one word for the whole-history case wherever it appears.
+  const whole = from <= 0 && to >= r.days.length - 1;
+  const period = whole ? tr('all time') : `${formatDay(r.days[from])} — ${formatDay(r.days[to])}`;
+
+  const s = priceVsTotalReturn(r, from, to);
+  totalValue.textContent = fmtPct(s.totalReturnPct);
+  totalValue.className = `bignum ${signClass(s.totalReturnPct)}`;
+
+  if (s.reason === 'too-short') {
+    priceValue.textContent = '—';
+    priceValue.className = 'bignum';
+    note.textContent = tr('Less than a month selected — a single dividend could swing the split past what the period actually earned. The measured total return is above; pick a longer period for the split.');
+    return;
+  }
+
+  priceValue.textContent = fmtPct(s.priceReturnPct);
+  priceValue.className = `bignum ${signClass(s.priceReturnPct)}`;
+  note.textContent = tr('Dividend yield: {v}, over {period}.', { v: fmtPct(s.dividendYieldPct), period });
 }
 
 

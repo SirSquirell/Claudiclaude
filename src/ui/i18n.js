@@ -425,6 +425,16 @@ const DICT = {
     ', money-weighted': ', gewogen naar jouw geld',
     ', time-weighted': ', gewogen naar tijd',
 
+    // --- US-99: price return vs. total return ---------------------------------
+    'Price return vs. total return': 'Koersrendement versus totaalrendement',
+    "How much of this period's result was the price moving, and how much was dividends landing — two answers, shown together, because neither one alone is the whole question.":
+      'Hoeveel van het resultaat in deze periode kwam door koersbeweging, en hoeveel door binnengekomen dividend — twee antwoorden, samen getoond, want geen van beide alleen is de hele vraag.',
+    'Total return': 'Totaalrendement',
+    'Price return': 'Koersrendement',
+    'Less than a month selected — a single dividend could swing the split past what the period actually earned. The measured total return is above; pick a longer period for the split.':
+      'Minder dan een maand geselecteerd — één dividend kan de opsplitsing verder laten uitslaan dan wat de periode werkelijk opleverde. Het gemeten totaalrendement staat hierboven; kies een langere periode voor de opsplitsing.',
+    'Dividend yield: {v}, over {period}.': 'Dividendrendement: {v}, over {period}.',
+
     // --- year by year --------------------------------------------------------
     'Year by year': 'Jaar voor jaar',
     Year: 'Jaar',
