@@ -6,6 +6,60 @@ a bad place to find out *where things stand*. This is the index.
 **Last updated at 0.63.0.** It had been stale since 0.21.0 once, which is fifteen
 releases — if it looks stale again, trust the CHANGELOG and fix this.
 
+## Light scan, 2026-08-22 (third pass)
+
+**Landed: the reconciliation the second pass flagged as stranded.** That scan found
+`claude/feature-requests-user-stories-u0rxdl` real, unlanded and colliding on story numbers, and
+declined to guess a renumbering itself. Between that scan and this one, a session did the
+renumbering properly — on yet another stray branch, `claude/work-items-zk6g5r` — as one commit
+sitting directly on `main`'s own HEAD (7c9784a): US-97–109 renumbered to US-98–109, the
+`docs/prototypes/dividend-safety-buckets.html` POC brought over, and — by design — none of the
+branch's ~88 files of parallel source changes, since those forked from 0.60.3 and need a
+side-by-side read against what `main` shipped since. It fast-forwarded onto `main` cleanly; this
+scan landed it (`aeb803d`). `node tools/check-backlog.mjs` after landing: 67 stories, highest
+US-101, next free US-110, every heading states its state — no duplicate or skipped numbers. US-98
+(benchmark compare) still needs the SPEC §7 "no benchmarks" amendment before any code follows;
+that decision is still the owner's, not this scan's.
+
+**Branches**, re-checked the same way (diff content against `main`, not `git rev-list`): every
+other `claude/*` branch and `poc` is still either fully contained in current `main` or an old
+pre-rewrite snapshot, including the two previously-flagged look-alikes —
+`degiro-portfolio-spike-7x5d4h`'s `probe.js` (84 lines) is still superseded by `main`'s own
+`spike.js` (216 lines), and `claude/prulwerk-branded-back-button-x7ix4v` turned out to be a stray
+snapshot that only *reverts* `docs/STATUS.md` and `package.json` to an older release — not new
+work. None deleted; the git proxy still refuses it, so remote cleanup stays the owner's.
+
+**GitHub.** Zero open issues. PR **#8** still open and untouched since 2026-08-17 — same
+recommendation as every prior scan: close as superseded (US-88 already fixed what it
+re-proposes), owner's call.
+
+**Rule compliance / security**, same spot checks as every prior scan, all clean: `EXPORTABLE_META`
+in `store.js` is still an allowlist; `degiro.js` still refuses to retry 401/403; `session.js`'s
+`resolveSession` still persists nothing but the cookie-derived account fields, never the session
+id.
+
+**Design pass** (`apple-design` skill loaded first). Headless Playwright at 1440/380 px ×
+light/dark on the demo: zero page/console errors, zero horizontal overflow in every state. This
+pass specifically drove a state the last several scans hadn't isolated — opening the share sheet
+(a native `<dialog>`, `#share-sheet`) from the Holdings tab at 380px — since sheets are exactly
+where the task brief's own past misses lived (a menu drawn under a chart, a tile collapsed to
+zero width). It renders as a proper flat sheet within the 380px viewport (348px wide, margins
+intact, no overflow), consistent with `docs/redesign/DESIGN-BRIEF.md` §8's one-container-depth
+rule — no translucency crept in anywhere it was checked. Nothing to fix.
+
+**Optimization.** Not re-derived this pass; `engine.js`'s two `productIds` passes were re-checked
+against the US-83/US-90 shape by the second pass today and found to be two distinct single passes,
+not a rescan — no code changed there since, so that finding stands.
+
+No new broker surfaced worth scoping — still gated on a Trading 212 Network-tab capture this
+environment cannot produce.
+
+No small fixes this pass — `package.json`/`manifest.json` versions already agree at `0.61.0` from
+the second pass's fix.
+
+`npm test` 580/580, `npm run palette` zero collisions in both themes, `node tools/check-leaks.mjs`
+clean — all re-run after the merge above.
+
 ## Light scan, 2026-08-22 (second pass)
 
 **Branches.** 30 remote `claude/*` branches plus `poc`, checked by diff content against `main`
