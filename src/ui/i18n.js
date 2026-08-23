@@ -98,6 +98,15 @@ export function applyStatic(root = document) {
     if (!el.dataset.enAria) el.dataset.enAria = el.getAttribute('aria-label') ?? '';
     el.setAttribute('aria-label', t(el.dataset.enAria));
   }
+  // US-106: a static header's hover explanation. Separate from `data-tip`
+  // itself, which the runtime tooltip popover (app.js) reads as live
+  // content — a table built dynamically writes translated text straight
+  // into `data-tip`, but a header that never changes needs the same
+  // cache-the-English-then-translate contract every other pass here uses.
+  for (const el of root.querySelectorAll('[data-i18n-tip]')) {
+    if (!el.dataset.enTip) el.dataset.enTip = el.getAttribute('data-i18n-tip') ?? '';
+    el.setAttribute('data-tip', t(el.dataset.enTip));
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -313,6 +322,14 @@ const DICT = {
     Unknown: 'Onbekend',
     'Guessed from the ISIN prefix — correct it if wrong': 'Gegokt op basis van het ISIN-voorvoegsel — corrigeer indien onjuist',
     'Why this country': 'Waarom dit land',
+    "A guess from the ISIN's own prefix — where the security is registered, not who withholds. Correct it if wrong.":
+      'Een gok op basis van het ISIN-voorvoegsel — waar het effect geregistreerd is, niet wie inhoudt. Corrigeer indien onjuist.',
+    'The dividend before any tax was withheld.': 'Het dividend voordat er belasting werd ingehouden.',
+    'Tax actually withheld, as reported by the broker.': 'Daadwerkelijk ingehouden belasting, zoals gerapporteerd door de broker.',
+    "The Netherlands' tax-treaty ceiling for this country.": 'Het verdragsplafond van Nederland voor dit land.',
+    'What was withheld above the treaty ceiling — the part that could in principle be reclaimed.':
+      'Wat er boven het verdragsplafond werd ingehouden — het deel dat in principe terug te vorderen is.',
+    'What was withheld at or below the treaty ceiling.': 'Wat er op of onder het verdragsplafond werd ingehouden.',
     'No treaty rate on file for {n} position(s) — excluded from {total}. Not a tax document — this states a treaty ceiling, not a filed reclaim.':
       'Geen verdragstarief bekend voor {n} positie(s) — niet meegeteld in {total}. Geen belastingdocument — dit toont een verdragsplafond, geen ingediende teruggave.',
     'Total reclaimable across every position with a known country: {total}. Not a tax document — this states a treaty ceiling, not a filed reclaim.':

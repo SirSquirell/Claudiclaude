@@ -131,7 +131,13 @@ const state = {
     tileLabel: null,
     format: '16:9',
     theme: null,
-    amounts: false,
+    // Owner's call, 2026-08-23: defaults to shown rather than hidden. The
+    // rule-7 case for hidden-by-default still holds in principle (a shared
+    // card is a different audience than the page); the owner weighed that
+    // against how the sheet is actually used and chose shown as the
+    // starting point. Still one click away from hidden — nothing else
+    // about the toggle changed.
+    amounts: true,
     nameSource: 'first',
     handle: '',
   },
@@ -1933,9 +1939,15 @@ function wireActions() {
     // synchronously, before any of that happens.
     withholdingRefocus = { product: el.dataset.product, field: el.dataset.field, selectionStart: el.selectionStart };
     const row = el.closest('tr');
+    // The rate field only exists in the row when the country has no known
+    // treaty rate (renderWithholding's own condition) — reading it with `?.`
+    // rather than assuming it exists keeps this handler correct whichever
+    // field actually changed.
+    const rateEl = row.querySelector('[data-field="rate"]');
     state.withholding.overrides[el.dataset.product] = {
       country: row.querySelector('[data-field="country"]').value,
       note: row.querySelector('[data-field="note"]').value,
+      rate: rateEl ? rateEl.value : state.withholding.overrides[el.dataset.product]?.rate,
     };
     render();
   });
@@ -3385,8 +3397,9 @@ function wireTips() {
    * is the list of the places that carry an explanation, which is a decision,
    * where a document-wide listener would silently adopt any `[data-tip]`
    * anybody adds anywhere (rule 8's "no abstraction with one implementation"
-   * cuts both ways). Four since US-93: the tiles and the More menu (US-79),
-   * the Positions header and its column chooser.
+   * cuts both ways). Five since US-106: the tiles and the More menu (US-79),
+   * the Positions header and its column chooser, and the Withholding table's
+   * own header.
    *
    * `tap` is per root, and the header's is off on purpose: a tap on a column
    * head is already taken — it sorts, and the render that follows would leave
@@ -3398,6 +3411,8 @@ function wireTips() {
     { el: $('#more-menu'), tap: true },
     { el: $('#holdings thead'), tap: false },
     { el: $('#holdings-columns'), tap: true },
+    // US-106: static headers, nothing to sort — a tap is free to show the tip.
+    { el: $('#withholding thead'), tap: true },
   ];
   for (const { el: root, tap } of roots.filter((r) => r.el)) {
     root.addEventListener('pointerover', (e) => {
@@ -4500,8 +4515,25 @@ function renderWithholding(r) {
       const country = override ? override.country || null : guessed;
       const gross = p.dividendGross;
       const actualWithheld = -(p.dividendTax ?? 0);
-      const split = withholdingSplit({ gross, actualWithheld, countryCode: country, hasW8BEN: state.withholding.hasW8BEN });
-      return { p, country, guessed: !override && guessed != null, actualWithheld, gross, split, note: override?.note ?? '' };
+      /**
+       * A rate this module already knows (a real country, or the US toggled
+       * by W-8BEN) always wins — the manual field only exists to fill the
+       * gap `treatyRateFor` leaves for a country outside AC1's six, and
+       * showing it as editable even when a real rate exists would invite
+       * overriding a treaty fact with a guess.
+       */
+      const knownRate = treatyRateFor(country, { hasW8BEN: state.withholding.hasW8BEN });
+      const manualRatePct = override?.rate;
+      const manualRate = knownRate == null && manualRatePct !== '' && manualRatePct != null && Number.isFinite(Number(manualRatePct))
+        ? Number(manualRatePct) / 100
+        : null;
+      const split = withholdingSplit({ gross, actualWithheld, countryCode: country, hasW8BEN: state.withholding.hasW8BEN, manualRate });
+      return {
+        p, country, guessed: !override && guessed != null, actualWithheld, gross, split,
+        note: override?.note ?? '',
+        rateEditable: knownRate == null,
+        ratePct: manualRatePct ?? '',
+      };
     })
     .sort((a, b) => b.actualWithheld - a.actualWithheld);
 
@@ -4515,7 +4547,7 @@ function renderWithholding(r) {
 
   $('#withholding tbody').innerHTML = rows
     .map(
-      ({ p, country, guessed, actualWithheld, gross, split, note }) => `<tr>
+      ({ p, country, guessed, actualWithheld, gross, split, note, rateEditable, ratePct }) => `<tr>
       <td>${esc(p.symbol || p.name)}</td>
       <td><select data-product="${esc(p.productId)}" data-field="country" aria-label="${esc(tr('Country'))}">${countryOptions(country)}</select>${
         guessed ? ` <span class="muted" title="${esc(tr('Guessed from the ISIN prefix — correct it if wrong'))}">?</span>` : ''
@@ -4523,7 +4555,9 @@ function renderWithholding(r) {
       <td><input type="text" data-product="${esc(p.productId)}" data-field="note" value="${esc(note)}" placeholder="${esc(tr('Why this country'))}" aria-label="${esc(tr('Note'))}"></td>
       <td class="num">${esc(fmtEurCents(gross))}</td>
       <td class="num">${esc(fmtEurCents(actualWithheld))}</td>
-      <td class="num">${split.treatyRate == null ? '<span class="muted">—</span>' : esc(`${Math.round(split.treatyRate * 100)}%`)}</td>
+      <td class="num">${rateEditable
+        ? `<input type="number" min="0" max="100" step="0.1" data-product="${esc(p.productId)}" data-field="rate" value="${esc(ratePct)}" placeholder="%" aria-label="${esc(tr('Treaty rate'))}">`
+        : esc(`${Math.round(split.treatyRate * 100)}%`)}</td>
       <td class="num">${split.reclaimable == null ? '<span class="muted">—</span>' : esc(fmtEurCents(split.reclaimable))}</td>
       <td class="num">${esc(fmtEurCents(split.practicallyLost))}</td>
     </tr>`,

@@ -61,6 +61,19 @@ test('withholdingSplit: an unrecognised country refuses the split rather than gu
   assert.equal(s.practicallyLost, 20);
 });
 
+test('withholdingSplit: a manual rate fills the gap for a country this module has none for', () => {
+  const s = withholdingSplit({ gross: 100, actualWithheld: 25, countryCode: 'JP', manualRate: 0.1 });
+  assert.equal(s.reason, null);
+  assert.equal(s.treatyRate, 0.1);
+  assert.equal(s.reclaimable, 15);
+  assert.equal(s.practicallyLost, 10);
+});
+
+test('withholdingSplit: a manual rate never overrides a rate this module already knows', () => {
+  const s = withholdingSplit({ gross: 100, actualWithheld: 26.375, countryCode: 'DE', manualRate: 0.3 });
+  assert.equal(s.treatyRate, 0.15, "DE's own treaty rate wins, not the manual one");
+});
+
 test('TREATY_RATE only names the six countries AC1 requires, plus the UK', () => {
   assert.deepEqual(Object.keys(TREATY_RATE).sort(), ['BE', 'CH', 'DE', 'FR', 'GB', 'NL', 'US']);
 });

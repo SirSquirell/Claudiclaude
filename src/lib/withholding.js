@@ -80,13 +80,16 @@ export function treatyRateFor(countryCode, { hasW8BEN = true } = {}) {
  * paid" number — a reader deciding whether reclaiming is worth the paperwork
  * needs both figures, not their difference.
  *
- * @param {{gross: number, actualWithheld: number, countryCode: string|null, hasW8BEN?: boolean}} args
+ * @param {{gross: number, actualWithheld: number, countryCode: string|null, hasW8BEN?: boolean, manualRate?: number|null}} args
  *   `actualWithheld` is positive — the amount of tax that left, not the
- *   negative `change` the engine stores it as.
+ *   negative `change` the engine stores it as. `manualRate` (0–1) is a
+ *   reader-entered rate for a country this module has none for — it never
+ *   overrides a rate this module already knows, only fills the gap where
+ *   `treatyRateFor` would otherwise return `null`.
  * @returns {{treatyRate: number|null, reclaimable: number|null, practicallyLost: number, reason: string|null}}
  */
-export function withholdingSplit({ gross, actualWithheld, countryCode, hasW8BEN = true }) {
-  const rate = treatyRateFor(countryCode, { hasW8BEN });
+export function withholdingSplit({ gross, actualWithheld, countryCode, hasW8BEN = true, manualRate = null }) {
+  const rate = treatyRateFor(countryCode, { hasW8BEN }) ?? manualRate;
   if (rate == null || !(gross > 0)) {
     return { treatyRate: null, reclaimable: null, practicallyLost: round2(actualWithheld), reason: 'unknown-country' };
   }

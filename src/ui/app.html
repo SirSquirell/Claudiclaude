@@ -407,13 +407,17 @@
               <thead>
                 <tr>
                   <th data-i18n>Position</th>
-                  <th data-i18n>Country</th>
+                  <th data-i18n
+                    data-i18n-tip="A guess from the ISIN's own prefix — where the security is registered, not who withholds. Correct it if wrong.">Country</th>
                   <th data-i18n>Note</th>
-                  <th class="num" data-i18n>Gross</th>
-                  <th class="num" data-i18n>Withheld</th>
-                  <th class="num" data-i18n>Treaty rate</th>
-                  <th class="num" data-i18n>Reclaimable</th>
-                  <th class="num" data-i18n>Practically lost</th>
+                  <th class="num" data-i18n data-i18n-tip="The dividend before any tax was withheld.">Gross</th>
+                  <th class="num" data-i18n data-i18n-tip="Tax actually withheld, as reported by the broker.">Withheld</th>
+                  <th class="num" data-i18n
+                    data-i18n-tip="The Netherlands' tax-treaty ceiling for this country.">Treaty rate</th>
+                  <th class="num" data-i18n
+                    data-i18n-tip="What was withheld above the treaty ceiling — the part that could in principle be reclaimed.">Reclaimable</th>
+                  <th class="num" data-i18n
+                    data-i18n-tip="What was withheld at or below the treaty ceiling.">Practically lost</th>
                 </tr>
               </thead>
               <tbody></tbody>
