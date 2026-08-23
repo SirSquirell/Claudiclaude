@@ -295,6 +295,29 @@ const DICT = {
     'Month by month': 'Maand voor maand',
     'Compare months': 'Maanden vergelijken',
     'Dividend per month': 'Dividend per maand',
+
+    // --- US-106: withholding tax reclaimable vs. practically lost ------------
+    'Withholding tax: reclaimable vs. practically lost': 'Bronbelasting: terugvorderbaar versus praktisch verloren',
+    "The Netherlands' tax treaties cap withholding on an ordinary shareholding at 15% (0% for the United Kingdom) — a broker without automatic relief at source withholds the source country's own, usually higher, domestic rate, and the gap above the treaty ceiling is what can in principle be reclaimed. Country is read off the ISIN's own prefix, which is where a security is registered, not who withholds — a fallback, correct it below if it is wrong for a position.":
+      'De belastingverdragen van Nederland begrenzen bronbelasting op een gewoon aandelenbelang op 15% (0% voor het Verenigd Koninkrijk) — een broker zonder automatische verdragstoepassing houdt het eigen, doorgaans hogere, binnenlandse tarief van het bronland in, en het verschil boven het verdragsplafond is wat in principe terug te vorderen is. Het land wordt afgelezen van het ISIN-voorvoegsel, waar een effect geregistreerd is, niet wie inhoudt — een aanname, corrigeer hem hieronder als hij fout is voor een positie.',
+    'W-8BEN on file': 'W-8BEN aanwezig',
+    'No W-8BEN': 'Geen W-8BEN',
+    Position: 'Positie',
+    Country: 'Land',
+    Note: 'Notitie',
+    Gross: 'Bruto',
+    Withheld: 'Ingehouden',
+    'Treaty rate': 'Verdragstarief',
+    Reclaimable: 'Terugvorderbaar',
+    'Practically lost': 'Praktisch verloren',
+    Unknown: 'Onbekend',
+    'Guessed from the ISIN prefix — correct it if wrong': 'Gegokt op basis van het ISIN-voorvoegsel — corrigeer indien onjuist',
+    'Why this country': 'Waarom dit land',
+    'No treaty rate on file for {n} position(s) — excluded from {total}. Not a tax document — this states a treaty ceiling, not a filed reclaim.':
+      'Geen verdragstarief bekend voor {n} positie(s) — niet meegeteld in {total}. Geen belastingdocument — dit toont een verdragsplafond, geen ingediende teruggave.',
+    'Total reclaimable across every position with a known country: {total}. Not a tax document — this states a treaty ceiling, not a filed reclaim.':
+      'Totaal terugvorderbaar over alle posities met een bekend land: {total}. Geen belastingdocument — dit toont een verdragsplafond, geen ingediende teruggave.',
+
     'What moved, in this range': 'Wat er bewoog in deze periode',
     'Currency exposure': 'Valuta-exposure',
     'Uninvested cash over time': 'Niet-belegde cash door de tijd',

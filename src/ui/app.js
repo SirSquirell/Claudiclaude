@@ -6,6 +6,7 @@
  */
 
 import { aggregatePnl, annualisedReturn, buildComposition, projectPortfolio, candleSeries, maxDrawdown, monthlyTable, priceVsTotalReturn, rangeEndIndex, rangeStartIndex, windowReturnPct } from '../lib/engine.js';
+import { isinCountry, treatyRateFor, withholdingSplit, TREATY_RATE } from '../lib/withholding.js';
 import { formatDay, monthKey, weekKey } from '../lib/dates.js';
 import { GESTURE } from '../lib/config.js';
 import {
@@ -78,6 +79,13 @@ const state = {
   outlook: { months: 60, monthly: 0, manual: false, growthPct: null, yieldPct: null, reinvest: null },
   /** 'money' (what my money earned) or 'time' (how the portfolio performed). */
   annualisedView: 'money',
+  /**
+   * US-106. `hasW8BEN` is per-account, applies to every US position at once
+   * (AC2). `overrides[productId]` corrects a guessed country (AC4) — the
+   * ISIN prefix is a fallback, never a measurement, and a reader who knows
+   * better must be able to say so, with a note explaining why.
+   */
+  withholding: { hasW8BEN: true, overrides: {} },
   /** Transaction list: follow the range, or show the lot. */
   txScope: 'range',
   range: 'ALL',
@@ -1906,6 +1914,23 @@ function wireActions() {
     render();
   });
 
+  /**
+   * US-106 AC4: a guessed country, corrected per position, with a note.
+   * Reads both fields off the row rather than merging onto a stored partial,
+   * so editing only the note cannot silently blank out a correct country —
+   * the row's own DOM is the source of truth for what is currently shown.
+   */
+  $('#withholding').addEventListener('change', (e) => {
+    const el = e.target.closest('[data-product]');
+    if (!el) return;
+    const row = el.closest('tr');
+    state.withholding.overrides[el.dataset.product] = {
+      country: row.querySelector('[data-field="country"]').value,
+      note: row.querySelector('[data-field="note"]').value,
+    };
+    render();
+  });
+
   // Escape leaves by the same path as the button, on this dialog as on the
   // sheet: one way out that looks the same however it was taken.
   $('#diagnostics').addEventListener('cancel', (e) => {
@@ -2304,6 +2329,7 @@ function render() {
   wireSnapshots();
   placeWatermarks();
   renderYears(r);
+  renderWithholding(r);
   renderOutlook(r, t);
   renderAnnualised(r, from, to);
   renderPriceReturn(r, from, to);
@@ -4434,6 +4460,73 @@ function renderYears(r) {
   // the table rather than in a page footer, because a footnote elsewhere is a
   // footnote nobody read.
   $('#years-note').textContent = tr('Not a tax document. “Dividend” is what was received after the tax DEGIRO withheld at source — not what you can reclaim — and this project holds no cost basis at all, deliberately, so the capital-gains figure a tax return asks for cannot be derived from anything here.');
+}
+
+const WITHHOLDING_COUNTRIES = Object.keys(TREATY_RATE);
+
+/**
+ * US-106. All-time, per position — the same scope `renderYears` and the
+ * dividend chart already use for a figure that is naturally sparse and
+ * naturally about "ever", not about the selected range.
+ *
+ * Country is a guess (the ISIN prefix, per this module's own note) until a
+ * reader overrides it, so every row that hasn't been corrected carries a
+ * visible marker rather than presenting a fallback as a measurement.
+ */
+function renderWithholding(r) {
+  buildChoice('#w8ben-toggle',
+    [{ key: 'yes', label: tr('W-8BEN on file') }, { key: 'no', label: tr('No W-8BEN') }],
+    () => (state.withholding.hasW8BEN ? 'yes' : 'no'),
+    (k) => { state.withholding.hasW8BEN = k === 'yes'; render(); });
+
+  const card = $('#withholding').closest('.card');
+  const rows = (r.byProduct ?? [])
+    .filter((p) => Math.abs(p.dividendGross ?? 0) > 0.005)
+    .map((p) => {
+      const override = state.withholding.overrides[p.productId];
+      const guessed = isinCountry(p.isin);
+      // Once a row has been touched at all, its stored value is authoritative
+      // even when that value is '' (Unknown, chosen deliberately) — only the
+      // absence of any override falls back to the ISIN-prefix guess.
+      const country = override ? override.country || null : guessed;
+      const gross = p.dividendGross;
+      const actualWithheld = -(p.dividendTax ?? 0);
+      const split = withholdingSplit({ gross, actualWithheld, countryCode: country, hasW8BEN: state.withholding.hasW8BEN });
+      return { p, country, guessed: !override && guessed != null, actualWithheld, gross, split, note: override?.note ?? '' };
+    })
+    .sort((a, b) => b.actualWithheld - a.actualWithheld);
+
+  card.hidden = rows.length === 0;
+  if (rows.length === 0) return;
+
+  const countryOptions = (selected) =>
+    [`<option value="">${esc(tr('Unknown'))}</option>`]
+      .concat(WITHHOLDING_COUNTRIES.map((c) => `<option value="${c}"${c === selected ? ' selected' : ''}>${c}</option>`))
+      .join('');
+
+  $('#withholding tbody').innerHTML = rows
+    .map(
+      ({ p, country, guessed, actualWithheld, gross, split, note }) => `<tr>
+      <td>${esc(p.symbol || p.name)}</td>
+      <td><select data-product="${esc(p.productId)}" data-field="country" aria-label="${esc(tr('Country'))}">${countryOptions(country)}</select>${
+        guessed ? ` <span class="muted" title="${esc(tr('Guessed from the ISIN prefix — correct it if wrong'))}">?</span>` : ''
+      }</td>
+      <td><input type="text" data-product="${esc(p.productId)}" data-field="note" value="${esc(note)}" placeholder="${esc(tr('Why this country'))}" aria-label="${esc(tr('Note'))}"></td>
+      <td class="num">${esc(fmtEurCents(gross))}</td>
+      <td class="num">${esc(fmtEurCents(actualWithheld))}</td>
+      <td class="num">${split.treatyRate == null ? '<span class="muted">—</span>' : esc(`${Math.round(split.treatyRate * 100)}%`)}</td>
+      <td class="num">${split.reclaimable == null ? '<span class="muted">—</span>' : esc(fmtEurCents(split.reclaimable))}</td>
+      <td class="num">${esc(fmtEurCents(split.practicallyLost))}</td>
+    </tr>`,
+    )
+    .join('');
+
+  const totalReclaimable = rows.reduce((sum, x) => sum + (x.split.reclaimable ?? 0), 0);
+  const unresolved = rows.filter((x) => x.split.reason === 'unknown-country').length;
+  $('#withholding-note').textContent = unresolved > 0
+    ? tr('No treaty rate on file for {n} position(s) — excluded from {total}. Not a tax document — this states a treaty ceiling, not a filed reclaim.',
+        { n: unresolved, total: fmtEurCents(totalReclaimable) })
+    : tr('Total reclaimable across every position with a known country: {total}. Not a tax document — this states a treaty ceiling, not a filed reclaim.', { total: fmtEurCents(totalReclaimable) });
 }
 
 /**

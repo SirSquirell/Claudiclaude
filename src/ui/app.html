@@ -387,6 +387,42 @@
         </div>
       </div>
 
+      <div data-tab="income" class="grid" style="margin-top: 16px">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h2 data-i18n>Withholding tax: reclaimable vs. practically lost</h2>
+              <p class="hint" data-i18n>
+                The Netherlands' tax treaties cap withholding on an ordinary shareholding at 15% (0% for the
+                United Kingdom) — a broker without automatic relief at source withholds the source country's own,
+                usually higher, domestic rate, and the gap above the treaty ceiling is what can in principle be
+                reclaimed. Country is read off the ISIN's own prefix, which is where a security is registered, not
+                who withholds — a fallback, correct it below if it is wrong for a position.
+              </p>
+            </div>
+            <div class="group" id="w8ben-toggle"></div>
+          </div>
+          <div class="table-scroll">
+            <table id="withholding">
+              <thead>
+                <tr>
+                  <th data-i18n>Position</th>
+                  <th data-i18n>Country</th>
+                  <th data-i18n>Note</th>
+                  <th class="num" data-i18n>Gross</th>
+                  <th class="num" data-i18n>Withheld</th>
+                  <th class="num" data-i18n>Treaty rate</th>
+                  <th class="num" data-i18n>Reclaimable</th>
+                  <th class="num" data-i18n>Practically lost</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <p class="hint" id="withholding-note" style="margin-top: 10px"></p>
+        </div>
+      </div>
+
       <div data-tab="holdings" class="grid" style="margin-top: 16px">
         <div class="card">
           <div class="card-head">
