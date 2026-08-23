@@ -7308,6 +7308,58 @@ Nothing in this build order is blocked on money or on the owner's approval anymo
 open, ongoing task is the manually-curated table for EU names actually held, which is real,
 unglamorous work someone does periodically, not a spike with a yes/no answer.
 
+### US-110 — The Dividends tab, Layer A only *(built, 0.64.0)*
+
+Everything from the scope table above marked **A** (computable from DEGIRO's own data, no bundle,
+no fundamentals) — built ahead of its own row being turned into a full story, at the owner's
+explicit direction ("volledig in productie dat ding"), rather than left waiting behind US-104's
+formal write-up. Deliberately does **not** touch anything marked **B** or depending on it: no
+sector grouping (nothing in this app's data model carries a sector — checked directly against
+`parse.js`/`engine.js` rather than assumed), no safety score (that stays US-108's, unbuilt, because
+its inputs genuinely do not exist here), no Beta (needs US-98's benchmark series).
+
+A new **Dividends** tab, per the 2026-08-23 owner decision recorded above:
+
+- **KPI strip.** Dividend received (reuses the existing all-time tile), a trailing-12-months
+  dividend yield (`priceVsTotalReturn` over the last 365 days — the same US-99 function, not a
+  second yield definition), and Beta shown as an explicit "Needs US-98" rather than omitted.
+- **Income by position.** A doughnut ranked by income, not value — deliberately a different split
+  from the Composition tab's own, since the whole point (per SSD's own framing above) is that
+  concentration in income and concentration in value are not the same picture. Seven categorical
+  slots then "Other", the same rule Composition's own pie already follows.
+- **Income forecast.** A straight-line projection off this account's own measured year-over-year
+  dividend growth (`projectDividendIncome`, new). Refuses rather than draws when there are fewer
+  than two complete UTC calendar years to measure from, and — the bug an early draft actually
+  shipped, caught before commit — refuses again when the measured rate is implausible (reusing
+  `projectPortfolio`'s own `PLAUSIBLE_ANNUAL` guard), since a tiny first complete year produces a
+  ratio that is real arithmetic and not a real trend.
+- **Holdings, dividend view.** Position, this year, all time, and a per-year magnitude bar
+  (`dividendGrossByYear`, new per-product engine field). The bar is literal height, never a
+  "paid/cut/flat" judgement — calling a drop a "cut" needs a threshold this app has no basis for
+  choosing, exactly the silent-fabrication trap rule 4 exists to stop.
+- **Dividend safety.** Present as a card, static, explaining why it is empty: the inputs
+  (payout ratio, net debt/EBITDA, cut history) exist nowhere in this app and DEGIRO does not
+  provide them. Every free EU-fundamentals source checked while building this (Alpha Vantage,
+  Twelve Data, EODHD, FMP, UK Companies House, Euronext/Deutsche Börse open data) is either paid,
+  too shallow, or — ESAP specifically — not publicly reachable until mid-2027 even once its
+  current (July 2026) data-collection phase finishes; none of it changes US-108's own scoping.
+  **One real, usable finding from that search**: per-share dividend-cut history (the 2008-09/2020
+  inputs specifically) does *not* need fundamentals data at all — it is directly observable as a
+  drop in a per-share dividend time series, and Twelve Data's free tier (800 calls/day, explicit
+  Euronext/XETRA coverage) or Alpha Vantage's (25/day, global) both carry it today. That covers 2 of
+  US-108's 5 score inputs without waiting on US-104's fundamentals gap at all — worth folding into
+  US-104's own design once that story is picked up, rather than re-discovering it then.
+
+Also in this pass, filed here rather than as their own stories since they are corrections to
+already-shipped US-106 work, not new scope: the withholding table's Country/Note column headers
+were right-aligned over left-anchored controls (a `<select>`'s value, typed text) and read as
+floating over nothing — fixed to left-align just those two columns. Ireland was added to
+`TREATY_RATE` at 15%, confirmed against the 2019 NL-Ireland treaty text directly (Ireland-domiciled
+ETFs like VWRL are common DEGIRO holdings, so this is not a hypothetical gap) — the rest of a
+requested wider expansion was deliberately left undone: this sandbox's network policy blocked the
+treaty-schedule sources that would confirm the other candidates, and several treaties do not follow
+the OECD-model 15% default, so guessing them would feed a real reclaimable-tax figure on a guess.
+
 ---
 
-**Next free number: US-110.**
+**Next free number: US-111.**

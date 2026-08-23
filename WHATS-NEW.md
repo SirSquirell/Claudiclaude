@@ -1,25 +1,43 @@
-# Wat er nieuw is — 0.63.0
+# Wat er nieuw is — 0.64.0
 
 Wat er verandert ten opzichte van de vorige versie, in gewone taal. Alleen deze release: de
 volledige geschiedenis staat in [CHANGELOG.md](CHANGELOG.md), installeren doe je met
 [INSTALL.md](INSTALL.md).
 
-> **Hoef je te resyncen voor deze versie? Nee** — alles wordt berekend uit dividendgegevens die er
-> al staan, er wordt niets nieuws opgehaald. Zie [CHANGELOG.md](CHANGELOG.md) voor oudere
+> **Hoef je te resyncen voor deze versie? Nee** — alles wordt berekend uit gegevens die er al
+> staan, er wordt niets nieuws opgehaald. Zie [CHANGELOG.md](CHANGELOG.md) voor oudere
 > resync-vragen.
 
 ---
 
-## Bronbelasting: terugvorderbaar versus praktisch verloren
+## Een nieuw tabblad: Dividends
 
-Een nieuwe kaart op Income & cost laat per positie zien welk deel van de ingehouden dividendbelasting
-boven het verdragsplafond zit — en dus in principe terugvorderbaar is — en welk deel gewoon het
-verdragstarief is en dus praktisch verloren blijft. Nederland's belastingverdragen begrenzen
-bronbelasting op een gewone aandelenpositie doorgaans op 15% (0% voor het Verenigd Koninkrijk); een
-broker die geen automatische verdragstoepassing biedt, houdt het volle binnenlandse tarief van het
-bronland in, en dat verschil is precies wat deze kaart laat zien.
+Een eigen tabblad, naast Income & cost, met alles over dividendinkomen dat met de gegevens van dit
+account zelf te berekenen is:
 
-Er staat een schakelaar bij voor of er een geldige W-8BEN is ingediend (15% versus 30% op Amerikaans
-papier), en elke rij is te corrigeren met een eigen land en een notitie — het getoonde land is een
-gok op basis van het ISIN-voorvoegsel, niet gemeten. **Geen belastingdocument**: dit toont een
-verdragsplafond, geen daadwerkelijk ingediende teruggave.
+- **Inkomen per positie** — een donut op aandeel in dividendinkomen, niet op aandeel in waarde. Dat
+  is bewust een ander beeld dan het Composition-tabblad: een positie kan klein zijn qua waarde en
+  toch een groot deel van het inkomen leveren, en andersom.
+- **Inkomstenprognose** — een projectie van de zelf gemeten jaar-op-jaar groei van het
+  dividendinkomen. Weigert een lijn te tekenen bij minder dan twee volledige kalenderjaren
+  geschiedenis, en weigert ook als het gemeten percentage onwaarschijnlijk hoog uitvalt — liever
+  niets tonen dan een artefact laten doorrekenen naar een absurde grafiek.
+- **Posities, dividendweergave** — dit jaar en de hele looptijd per positie, met een klein
+  staafje per jaar dat laat zien hoe consistent een positie heeft uitgekeerd. Puur de hoogte,
+  nooit een oordeel als "verlaagd" — daar is geen betrouwbare drempel voor te bepalen.
+- **Dividend safety** — staat er nog niet. De kaart legt uit waarom: een veiligheidsscore heeft
+  gegevens nodig (payout ratio, schuldpositie, verlagingsgeschiedenis) die dit account niet heeft
+  en die DEGIRO niet levert. Elke gratis bron die hiervoor is nagetrokken bleek óf betaald, óf te
+  beperkt, óf (de aankomende EU-databank ESAP) pas vanaf medio 2027 publiek toegankelijk.
+
+## Extra land bij bronbelasting
+
+Ierland is toegevoegd aan de landenlijst bij de bronbelasting-tabel (15%, rechtstreeks nagetrokken
+aan het belastingverdrag) — relevant omdat in Ierland geregistreerde ETF's zoals VWRL veel
+voorkomen op DEGIRO.
+
+## Klein: bronbelasting-tabel netter uitgelijnd
+
+De kolomkoppen "Country" en "Note" stonden rechts uitgelijnd terwijl de invoervelden eronder links
+beginnen, waardoor de koppen los leken te zweven boven niets. Nu links uitgelijnd, zoals de velden
+zelf.

@@ -16,6 +16,33 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.64.0] — 2026-08-23
+
+**No resync needed** — every figure is read off data already stored; nothing new is fetched.
+
+### Added
+
+- **A new Dividends tab (US-110)**, the "Layer A" half of the dividend/income work scoped in
+  US-102–109 — everything computable from this account's own DEGIRO data, with nothing that needs
+  the external data bundle (US-104, not built) or the safety score (US-108, not built; the card is
+  present and explains why it is empty). Adds a dividend-yield KPI (trailing 12 months, reusing
+  US-99's `priceVsTotalReturn`), an income-by-position donut (ranked by income, not value — a
+  deliberately different split from Composition's own), a growth-rate income forecast
+  (`projectDividendIncome`, refuses below two complete calendar years and refuses again on an
+  implausible measured rate, reusing `projectPortfolio`'s own plausibility guard), and a
+  dividend-scoped holdings table with a new per-product, per-year `dividendGrossByYear` engine
+  field shown as a magnitude bar — literal height, never a "paid/cut/flat" label, since that needs
+  a threshold this project has no basis for choosing.
+- **Ireland added to the withholding table's treaty-rate list** (US-106), confirmed at 15% against
+  the 2019 NL-Ireland treaty text directly — relevant in practice, since Ireland-domiciled ETFs
+  like VWRL are common DEGIRO holdings.
+
+### Fixed
+
+- **The withholding table's Country and Note column headers were right-aligned over left-anchored
+  controls** (a `<select>`'s chosen value, typed text) and read as floating over empty space —
+  those two columns now left-align to match what sits underneath them.
+
 ## [0.63.0] — 2026-08-23
 
 **No resync needed** — every figure is read off dividend data already stored (US-102); nothing new

@@ -122,7 +122,7 @@ test('AC5 — every canvas is built by something that labels it', () => {
   const html = read('../src/ui/app.html');
   const app = read('../src/ui/app.js');
   const ids = [...html.matchAll(/<canvas id="([\w-]+)"/g)].map((m) => m[1]);
-  assert.equal(ids.length, 13, 'the canvas count changed; check the new one has a builder');
+  assert.equal(ids.length, 15, 'the canvas count changed; check the new one has a builder');
   for (const id of ids) assert.ok(app.includes(`#${id}`), `#${id} is drawn by nothing`);
 });
 

@@ -5,7 +5,7 @@
  * an external cashflow."
  */
 
-import { aggregatePnl, annualisedReturn, buildComposition, projectPortfolio, candleSeries, maxDrawdown, monthlyTable, priceVsTotalReturn, rangeEndIndex, rangeStartIndex, windowReturnPct } from '../lib/engine.js';
+import { aggregatePnl, annualisedReturn, buildComposition, projectPortfolio, projectDividendIncome, candleSeries, maxDrawdown, monthlyTable, priceVsTotalReturn, rangeEndIndex, rangeStartIndex, windowReturnPct } from '../lib/engine.js';
 import { isinCountry, treatyRateFor, withholdingSplit, TREATY_RATE } from '../lib/withholding.js';
 import { formatDay, monthKey, weekKey } from '../lib/dates.js';
 import { GESTURE } from '../lib/config.js';
@@ -17,6 +17,7 @@ import {
   currencyChart,
   depositChart,
   dividendChart,
+  dividendForecastChart,
   moversChart,
   investedVsValueChart,
   holdingsPieChart,
@@ -155,6 +156,7 @@ const TABS = [
   { key: 'perf', label: 'Performance' },
   { key: 'comp', label: 'Composition' },
   { key: 'income', label: 'Income & cost' },
+  { key: 'dividends', label: 'Dividends' },
   { key: 'holdings', label: 'Holdings' },
   { key: 'outlook', label: 'Outlook' },
   { key: 'notices', label: 'Notices' },
@@ -2351,6 +2353,7 @@ function render() {
   placeWatermarks();
   renderYears(r);
   renderWithholding(r);
+  renderDividendsTab(r, t);
   renderOutlook(r, t);
   renderAnnualised(r, from, to);
   renderPriceReturn(r, from, to);
@@ -3095,10 +3098,29 @@ function buildTiles(r, from = 0, to = r.days.length - 1, live = null) {
       cls: signClass(todayEur),
     },
     {
-      tabs: ['overview', 'income'],
+      tabs: ['overview', 'income', 'dividends'],
       label: 'Dividend received',
       value: fmtEurCents(r.income.dividendGross + r.income.dividendTax),
       note: tr('{v} withheld · all time', { v: fmtEurCents(Math.abs(r.income.dividendTax)) }),
+    },
+    (() => {
+      // US-110. `priceVsTotalReturn` already refuses below its own minimum
+      // window (US-99) — reused rather than a second "is there enough
+      // history" check, since a shorter window here would silently disagree
+      // with the same refusal on the Rendement card.
+      const w = priceVsTotalReturn(r, rangeStartIndex(r.days, '1Y'), r.days.length - 1);
+      return {
+        tabs: ['dividends'],
+        label: 'Dividend yield',
+        value: w.reason ? tr('Too little history') : fmtPct(w.dividendYieldPct),
+        note: w.reason ? tr('needs a longer trailing window') : tr('trailing 12 months, income ÷ average value'),
+      };
+    })(),
+    {
+      tabs: ['dividends'],
+      label: 'Beta',
+      value: tr('Needs US-98'),
+      note: tr('a benchmark price series is not built yet'),
     },
     {
       tabs: ['income'],
@@ -4588,6 +4610,88 @@ function renderWithholding(r) {
     ? tr('No treaty rate on file for {n} position(s) — excluded from {total}. Not a tax document — this states a treaty ceiling, not a filed reclaim.',
         { n: unresolved, total: fmtEurCents(totalReclaimable) })
     : tr('Total reclaimable across every position with a known country: {total}. Not a tax document — this states a treaty ceiling, not a filed reclaim.', { total: fmtEurCents(totalReclaimable) });
+}
+
+/**
+ * US-110. The real half of the Dividends tab — everything this account's
+ * own history already supports (income by position, a growth projection,
+ * a dividend-scoped holdings table). The safety-score card beside it is
+ * static markup with no render function: the per-holding inputs it needs
+ * (payout ratio, net debt/EBITDA, cut history) exist nowhere in this app
+ * and cannot be derived from DEGIRO's own data, so there is nothing here to
+ * compute — see that card's own hint text, not a TODO in the code.
+ */
+function renderDividendsTab(r, t) {
+  if (onScreen('#c-dividend-pie')) {
+    // Same rule composition's own pie uses (CLAUDE.md: seven categorical
+    // slots, then "Other") — ranked by income here, not by value, since this
+    // is a different split (US-110's own point: where concentration hides
+    // is not where the portfolio's value sits).
+    const byIncome = r.byProduct.filter((p) => p.dividendGross > 0.005).sort((a, b) => b.dividendGross - a.dividendGross);
+    const slots = Math.max(1, t.series.length - 1);
+    const top = byIncome.slice(0, slots);
+    const restTotal = byIncome.slice(slots).reduce((a, p) => a + p.dividendGross, 0);
+    const labels = top.map((p) => p.symbol || p.name);
+    const values = top.map((p) => p.dividendGross);
+    const colours = top.map((_, i) => t.series[i]);
+    if (restTotal > 0.005) {
+      labels.push(tr('Other'));
+      values.push(restTotal);
+      colours.push(t.series[t.series.length - 1]);
+    }
+    $('#c-dividend-pie').closest('.card').classList.toggle('is-unsupported', values.length === 0);
+    $('#c-dividend-pie').hidden = values.length === 0;
+    if (values.length) state.charts.dividendPie = holdingsPieChart($('#c-dividend-pie'), { labels, values, colours }, t);
+  }
+
+  const forecast = projectDividendIncome(r);
+  const forecastCard = $('#c-dividend-forecast').closest('.card');
+  forecastCard.classList.toggle('is-unsupported', forecast.reason != null);
+  $('#c-dividend-forecast').hidden = forecast.reason != null;
+  $('#dividend-forecast-hint').textContent = forecast.reason === 'too-short'
+    ? tr('Needs at least two complete calendar years of dividend history to measure a growth rate — refuses rather than guessing one.')
+    : forecast.reason === 'implausible'
+    ? tr('The measured year-over-year rate ({rate}%/yr) is too extreme to project — likely one of the two complete years having far too little dividend history of its own, not a real trend. No projection is drawn rather than compounding an artifact.', { rate: forecast.growthPct.toFixed(1) })
+    : tr("Projects this account's own measured {rate}%/yr income growth forward — dashed years are beyond what the account's own history can support.", { rate: forecast.growthPct.toFixed(1) });
+  if (forecast.reason == null && onScreen('#c-dividend-forecast')) {
+    state.charts.dividendForecast = dividendForecastChart($('#c-dividend-forecast'), forecast, t);
+  }
+
+  renderDividendHoldings(r);
+}
+
+/**
+ * Position, this year, all time, and a per-year magnitude bar — literal
+ * height, not a "paid/cut/flat" judgement call. Calling a drop a "cut"
+ * needs a threshold this app has no basis for choosing, and a wrong one
+ * would be exactly the silent fabrication rule 4 exists to stop; the bar's
+ * own height already shows a bad year without naming it.
+ */
+function renderDividendHoldings(r) {
+  const thisYear = r.days.at(-1).slice(0, 4);
+  const rows = r.byProduct
+    .filter((p) => p.dividendGross > 0.005)
+    .sort((a, b) => b.dividendGross - a.dividendGross)
+    .map((p) => {
+      const years = Object.keys(p.dividendGrossByYear).sort();
+      const max = Math.max(0.01, ...years.map((y) => p.dividendGrossByYear[y]));
+      const bars = years
+        .map((y) => {
+          const v = p.dividendGrossByYear[y];
+          const h = Math.max(2, Math.round((v / max) * 18));
+          return `<i class="${v <= 0.005 ? 'zero' : ''}" style="height:${h}px" title="${esc(y)}: ${esc(fmtEurCents(v))}"></i>`;
+        })
+        .join('');
+      return `<tr>
+        <td>${esc(p.symbol || p.name)}</td>
+        <td class="num">${esc(fmtEurCents(p.dividendGrossByYear[thisYear] ?? 0))}</td>
+        <td class="num">${esc(fmtEurCents(p.dividendGross))}</td>
+        <td><span class="mini-bars">${bars}</span></td>
+      </tr>`;
+    })
+    .join('');
+  $('#dividend-holdings tbody').innerHTML = rows;
+  $('#dividend-holdings').closest('.card').hidden = rows.length === 0;
 }
 
 /**

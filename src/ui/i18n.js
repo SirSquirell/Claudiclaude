@@ -335,6 +335,37 @@ const DICT = {
     'Total reclaimable across every position with a known country: {total}. Not a tax document — this states a treaty ceiling, not a filed reclaim.':
       'Totaal terugvorderbaar over alle posities met een bekend land: {total}. Geen belastingdocument — dit toont een verdragsplafond, geen ingediende teruggave.',
 
+    // --- US-110: the Dividends tab --------------------------------------------
+    'Income by position': 'Inkomen per positie',
+    'Share of dividend income received, not share of value — the gap between the two is where concentration hides. The seven largest positions by income, the rest folded into "Other".':
+      'Aandeel in ontvangen dividendinkomen, niet aandeel in waarde — het verschil tussen de twee is waar concentratie zich verbergt. De zeven grootste posities op inkomen, de rest samengevoegd in "Overig".',
+    'Income forecast': 'Inkomstenprognose',
+    'Holdings, dividend view': 'Posities, dividendweergave',
+    'A dividend-scoped column set, not the general Positions table. Consistency is the same per-year total as a small sparkline — the fastest way to see a year that paid less than the one before it, which a single lifetime total hides.':
+      'Een op dividend toegespitste kolomset, niet de algemene Posities-tabel. Consistentie toont hetzelfde totaal per jaar als een klein lijngrafiekje — de snelste manier om een jaar te zien dat minder opleverde dan het jaar ervoor, wat één totaal over de hele looptijd verbergt.',
+    'This year': 'Dit jaar',
+    'All time': 'Hele looptijd',
+    Consistency: 'Consistentie',
+    'Dividend safety': 'Dividendveiligheid',
+    'Not built. A safety score needs payout ratio, net debt/EBITDA and dividend-cut history per holding — data this account does not have and DEGIRO does not provide. Every free EU fundamentals source checked so far is either paid, too shallow, or (ESAP) not publicly reachable until mid-2027. Shown here only once a real source exists — see docs/prototypes/dividend-safety-buckets.html for what the design looks like against invented numbers.':
+      'Niet gebouwd. Een veiligheidsscore heeft de payout ratio, netto schuld/EBITDA en dividendverlagingsgeschiedenis per positie nodig — data die dit account niet heeft en die DEGIRO niet levert. Elke gratis EU-fundamentelebron die tot nu toe is nagetrokken is óf betaald, óf te dun, óf (ESAP) pas medio 2027 publiek bereikbaar. Dit komt pas hier te staan zodra er een echte bron bestaat — zie docs/prototypes/dividend-safety-buckets.html voor hoe het ontwerp eruitziet tegen verzonnen cijfers.',
+    'Too little history': 'Te weinig geschiedenis',
+    'needs a longer trailing window': 'heeft een langer voortschrijdend venster nodig',
+    'trailing 12 months, income ÷ average value': 'voortschrijdende 12 maanden, inkomen ÷ gemiddelde waarde',
+    'Needs US-98': 'Vereist US-98',
+    'a benchmark price series is not built yet': 'een benchmark-prijsreeks is nog niet gebouwd',
+    Other: 'Overig',
+    'Needs at least two complete calendar years of dividend history to measure a growth rate — refuses rather than guessing one.':
+      'Heeft minstens twee volledige kalenderjaren dividendgeschiedenis nodig om een groeipercentage te meten — weigert liever dan er een te gokken.',
+    'The measured year-over-year rate ({rate}%/yr) is too extreme to project — likely one of the two complete years having far too little dividend history of its own, not a real trend. No projection is drawn rather than compounding an artifact.':
+      'Het gemeten jaar-op-jaar-percentage ({rate}%/jr) is te extreem om te projecteren — vermoedelijk had een van de twee volledige jaren zelf veel te weinig dividendgeschiedenis, geen echte trend. Er wordt geen prognose getekend in plaats van een artefact te laten doorcomponeren.',
+    "Projects this account's own measured {rate}%/yr income growth forward — dashed years are beyond what the account's own history can support.":
+      'Projecteert de zelf gemeten inkomstengroei van {rate}%/jr van dit account naar voren — gestippelde jaren gaan verder dan de eigen geschiedenis van het account kan onderbouwen.',
+    'Dividend income per year': 'Dividendinkomen per jaar',
+    'Then a projection, not history: {v} by {when}.': 'Daarna een projectie, geen geschiedenis: {v} in {when}.',
+    Received: 'Ontvangen',
+    Projected: 'Geprojecteerd',
+
     'What moved, in this range': 'Wat er bewoog in deze periode',
     'Currency exposure': 'Valuta-exposure',
     'Uninvested cash over time': 'Niet-belegde cash door de tijd',

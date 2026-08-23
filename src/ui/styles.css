@@ -1114,6 +1114,25 @@ button.primary:hover {
   text-align: left;
 }
 
+/* US-110: one bar per year this holding paid a dividend, height only —
+   never a coloured "cut" judgement, see renderDividendHoldings' own note. */
+#dividend-holdings .mini-bars {
+  display: inline-flex;
+  gap: 2px;
+  align-items: flex-end;
+  height: 18px;
+}
+#dividend-holdings .mini-bars i {
+  display: block;
+  width: 5px;
+  min-height: 2px;
+  border-radius: 1px;
+  background: var(--series-1);
+}
+#dividend-holdings .mini-bars i.zero {
+  background: var(--grid);
+}
+
 /* One column on a narrow screen: the picture stays first, because it is what
    the sheet is for. */
 @media (max-width: 48em) {

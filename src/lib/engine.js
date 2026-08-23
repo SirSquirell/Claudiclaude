@@ -838,6 +838,12 @@ export function computePortfolio(input) {
   // that needs to know what was actually withheld, not just what landed.
   const dividendGrossByProduct = new Map();
   const dividendTaxByProduct = new Map();
+  // Dividends-tab US-110: per product, per UTC calendar year — a coarser
+  // grain than the daily arrays above on purpose. "Did this holding's
+  // dividend grow, hold, or drop this year" only needs a yearly total; a
+  // full per-product daily series would be built and never read at that
+  // resolution.
+  const dividendGrossByProductYear = new Map();
   let unattributedDividend = 0;
 
   for (const t of transactions) {
@@ -861,6 +867,12 @@ export function computePortfolio(input) {
     dividendByProduct.set(id, (dividendByProduct.get(id) ?? 0) + row.change);
     const half = row.category === CATEGORY.DIVIDEND ? dividendGrossByProduct : dividendTaxByProduct;
     half.set(id, (half.get(id) ?? 0) + row.change);
+    if (row.category === CATEGORY.DIVIDEND) {
+      const year = row.date.slice(0, 4);
+      const byYearMap = dividendGrossByProductYear.get(id) ?? new Map();
+      byYearMap.set(year, (byYearMap.get(year) ?? 0) + row.change);
+      dividendGrossByProductYear.set(id, byYearMap);
+    }
   }
 
   const priceByProduct = new Map();
@@ -1403,6 +1415,7 @@ export function computePortfolio(input) {
       dividend: dividendByProduct.get(productId) ?? 0,
       dividendGross: dividendGrossByProduct.get(productId) ?? 0,
       dividendTax: dividendTaxByProduct.get(productId) ?? 0,
+      dividendGrossByYear: dividendGrossByProductYear.get(productId) ?? new Map(),
       name: meta.name,
       symbol: meta.symbol || meta.name,
       currency: meta.currency ?? baseCurrency,
@@ -1926,6 +1939,7 @@ export function computePortfolio(input) {
       dividend: round2(p.dividend),
       dividendGross: round2(p.dividendGross),
       dividendTax: round2(p.dividendTax),
+      dividendGrossByYear: Object.fromEntries([...p.dividendGrossByYear].map(([y, v]) => [y, round2(v)])),
       name: p.name,
       symbol: p.symbol,
       currency: p.currency,
@@ -2328,6 +2342,71 @@ export function priceVsTotalReturn(result, fromIndex = 0, toIndex = result.days.
     priceReturnPct: totalReturnPct - dividendYieldPct,
     reason: null,
   };
+}
+
+/**
+ * US-110. A straight-line projection of this account's own year-over-year
+ * dividend income growth — same posture as `projectPortfolio` (US-33's
+ * Outlook): a rate measured from the account's own history, not assumed, and
+ * refused rather than extrapolated when there is not enough of it.
+ *
+ * Only whole UTC calendar years count. The account's first and most recent
+ * year are almost always partial — a sync that starts in April or runs in
+ * June never held a full January — and comparing a partial year to a full
+ * one is not a growth rate, it is an artifact of when the sync happened to
+ * run. `result.incomeByYear` has no way to tell a whole year from a partial
+ * one on its own, so that is checked here against `result.days` instead.
+ *
+ * @returns {{years: string[], observed: number[], projectedYears: string[], projected: number[], growthPct: number|null, reason: string|null}}
+ */
+export function projectDividendIncome(result, { horizonYears = 4 } = {}) {
+  const byYear = result.incomeByYear ?? {};
+  const first = result.days[0];
+  const last = result.days.at(-1);
+  const complete = Object.keys(byYear)
+    .filter((y) => `${y}-01-01` >= first && `${y}-12-31` <= last)
+    .sort();
+
+  if (complete.length < 2) {
+    return { years: [], observed: [], projectedYears: [], projected: [], growthPct: null, reason: 'too-short' };
+  }
+
+  // Net received, the same combination the existing "Dividend (all time)"
+  // tile already uses (tax is a negative `change`).
+  const observed = complete.map((y) => (byYear[y].dividendGross ?? 0) + (byYear[y].dividendTax ?? 0));
+  const span = complete.length - 1;
+  const first0 = observed[0];
+  const lastValue = observed.at(-1);
+  // A first complete year of exactly zero leaves the growth rate undefined
+  // rather than merely small — held flat instead, an honest "no measured
+  // trend" rather than a divide-by-zero.
+  const growthPct = first0 > 0 ? ((lastValue / first0) ** (1 / span) - 1) * 100 : 0;
+
+  /**
+   * The same guard `projectPortfolio` applies to portfolio value, reused
+   * rather than a second invented threshold: a first complete year with a
+   * tiny dividend total (a new position bought mid-year, a payer added
+   * late) makes the ratio to a later, fuller year huge without the account
+   * actually having grown that fast. `PLAUSIBLE_ANNUAL` was chosen for
+   * portfolio-value compounding, not dividend income specifically — income
+   * legitimately can grow faster for a year or two — but this app's own
+   * rule is refuse rather than clamp, and a four-year dashed line off a
+   * rate this extreme would overclaim regardless of which case produced it.
+   */
+  if (Math.abs(growthPct) > PLAUSIBLE_ANNUAL) {
+    return { years: complete, observed: observed.map(round2), projectedYears: [], projected: [], growthPct, reason: 'implausible' };
+  }
+
+  const lastYearNum = Number(complete.at(-1));
+  const projectedYears = Array.from({ length: horizonYears }, (_, i) => String(lastYearNum + i + 1));
+  const projected = [];
+  let v = lastValue;
+  for (let i = 0; i < horizonYears; i++) {
+    v *= 1 + growthPct / 100;
+    projected.push(round2(v));
+  }
+
+  return { years: complete, observed: observed.map(round2), projectedYears, projected, growthPct, reason: null };
 }
 
 /**

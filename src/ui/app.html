@@ -427,6 +427,56 @@
         </div>
       </div>
 
+      <div data-tab="dividends" class="grid two" style="margin-top: 16px">
+        <div class="card">
+          <h2 data-i18n>Income by position</h2>
+          <p class="hint" data-i18n>Share of dividend income received, not share of value — the gap between the
+            two is where concentration hides. The seven largest positions by income, the rest folded into
+            "Other".</p>
+          <div class="chart-box"><canvas id="c-dividend-pie"></canvas></div>
+        </div>
+        <div class="card">
+          <h2 data-i18n>Income forecast</h2>
+          <p class="hint" id="dividend-forecast-hint"></p>
+          <div class="chart-box"><canvas id="c-dividend-forecast"></canvas></div>
+        </div>
+      </div>
+
+      <div data-tab="dividends" class="grid" style="margin-top: 16px">
+        <div class="card">
+          <h2 data-i18n>Holdings, dividend view</h2>
+          <p class="hint" data-i18n>A dividend-scoped column set, not the general Positions table. Consistency
+            is the same per-year total as a small sparkline — the fastest way to see a year that paid less than
+            the one before it, which a single lifetime total hides.</p>
+          <div class="table-scroll">
+            <table id="dividend-holdings">
+              <thead>
+                <tr>
+                  <th data-i18n>Position</th>
+                  <th class="num" data-i18n>This year</th>
+                  <th class="num" data-i18n>All time</th>
+                  <th data-i18n>Consistency</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div data-tab="dividends" class="grid" style="margin-top: 16px">
+        <div class="card is-unsupported">
+          <h2 data-i18n>Dividend safety</h2>
+          <p class="hint" data-i18n>
+            Not built. A safety score needs payout ratio, net debt/EBITDA and dividend-cut history per holding —
+            data this account does not have and DEGIRO does not provide. Every free EU fundamentals source
+            checked so far is either paid, too shallow, or (ESAP) not publicly reachable until mid-2027. Shown
+            here only once a real source exists — see docs/prototypes/dividend-safety-buckets.html for what the
+            design looks like against invented numbers.
+          </p>
+        </div>
+      </div>
+
       <div data-tab="holdings" class="grid" style="margin-top: 16px">
         <div class="card">
           <div class="card-head">

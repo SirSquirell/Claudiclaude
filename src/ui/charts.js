@@ -847,6 +847,60 @@ export function dividendChart(ctx, rows, t) {
   });
 }
 
+/**
+ * US-110. This account's own year-over-year dividend income, then a
+ * straight-line projection off its own measured growth rate — solid for
+ * what was actually paid, dashed for what `projectDividendIncome` projects.
+ * Same two-dataset technique `projectionChart` uses for Outlook: the dashed
+ * series is padded with `null`s so it only draws from the last real point
+ * onward, never redrawing history in a second colour.
+ */
+export function dividendForecastChart(ctx, { years, observed, projectedYears, projected }, t) {
+  const opts = baseOptions(t);
+  opts.plugins.a11yLabel = {
+    text: `${describeSeries({ title: tr('Dividend income per year'), days: years, values: observed, fmt: fmtEurCents })} `
+      + tr('Then a projection, not history: {v} by {when}.', {
+        v: fmtEurCents(projected.at(-1) ?? 0),
+        when: projectedYears.at(-1) ?? '?',
+      }),
+  };
+  opts.plugins.tooltip.callbacks = { label: (item) => `${item.dataset.label}: ${fmtEur(item.parsed.y)}` };
+  opts.plugins.legend.display = true;
+  opts.plugins.legend.position = 'bottom';
+
+  const pad = new Array(years.length - 1).fill(null);
+
+  return new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: [...years, ...projectedYears],
+      datasets: [
+        {
+          label: tr('Received'),
+          data: observed,
+          borderColor: t.series[0],
+          backgroundColor: alpha(t.series[0], 0.14),
+          borderWidth: 2,
+          pointRadius: 3,
+          tension: 0,
+          fill: true,
+        },
+        {
+          label: tr('Projected'),
+          data: [...pad, observed.at(-1), ...projected],
+          borderColor: t.textSecondary,
+          borderDash: [5, 4],
+          borderWidth: 1.5,
+          pointRadius: 0,
+          tension: 0,
+          fill: false,
+        },
+      ],
+    },
+    options: opts,
+  });
+}
+
 // ---------------------------------------------------------------------------
 // 8. Compare specific months across years — grouped bars, one group per year
 // ---------------------------------------------------------------------------

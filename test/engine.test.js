@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { aggregatePnl, buildComposition, candleSeries, computePortfolio, deriveContractSizes, deriveFxRates, fxFromConversions, expandSeries, monthlyTable, rangeEndIndex, rangeStartIndex, windowReturnPct, usableReturnDay, annualisedReturn, priceVsTotalReturn, projectPortfolio, maxDrawdown } from '../src/lib/engine.js';
+import { aggregatePnl, buildComposition, candleSeries, computePortfolio, deriveContractSizes, deriveFxRates, fxFromConversions, expandSeries, monthlyTable, rangeEndIndex, rangeStartIndex, windowReturnPct, usableReturnDay, annualisedReturn, priceVsTotalReturn, projectPortfolio, projectDividendIncome, maxDrawdown } from '../src/lib/engine.js';
 import { classifyCashRow } from '../src/lib/classify.js';
 import { parseCashMovements, parseChartResponse, parseProducts, parseTransactions, parseUpdate } from '../src/lib/parse.js';
 import { positionSpan, splitModel } from '../src/lib/snapshot.js';
@@ -2697,4 +2697,91 @@ test('an emptied account still reconciles — that is the easiest case, not an e
   });
   assert.equal(off.reconciliation.ok, false);
   assert.ok(off.warnings.some((w) => w.code === 'reconciliation-failed'), 'and it says so');
+});
+
+/**
+ * Three calendar years of one flat-price holding: 2021 and 2022 are whole
+ * years, 2023 stops in June — a partial year `projectDividendIncome` must
+ * exclude, and `dividendGrossByYear` (which makes no such distinction, since
+ * it is just "what this account's own history shows per year") must not.
+ */
+function multiYearDividendPayer() {
+  const days = dayRange('2021-01-01', '2023-06-30');
+  return computePortfolio({
+    transactions: [{ id: 't', date: '2021-01-01', productId: 'P', quantity: 10, price: 100, currency: 'EUR', totalBase: -1000, fee: 0 }],
+    cashRows: [
+      { id: 'dep', date: '2021-01-01', description: 'Storting', change: 1000, currency: 'EUR', category: 'DEPOSIT' },
+      { id: 'buy', date: '2021-01-01', description: 'Koop', change: -1000, currency: 'EUR', category: 'TRADE' },
+      { id: 'd1', date: '2021-06-15', description: 'Dividend', change: 100, currency: 'EUR', category: 'DIVIDEND', productId: 'P' },
+      { id: 'd2', date: '2022-06-15', description: 'Dividend', change: 150, currency: 'EUR', category: 'DIVIDEND', productId: 'P' },
+      { id: 'd3', date: '2023-06-15', description: 'Dividend', change: 50, currency: 'EUR', category: 'DIVIDEND', productId: 'P' },
+    ],
+    products: { P: { id: 'P', name: 'P', symbol: 'P', currency: 'EUR', vwdId: 'P' } },
+    prices: { P: { start: '2021-01-01', points: days.map((_, i) => ({ offsetDays: i, close: 100 })) } },
+    today: '2023-06-30',
+    liveTotal: null,
+  });
+}
+
+test('dividendGrossByYear buckets every year the account has, partial years included', () => {
+  const r = multiYearDividendPayer();
+  const p = r.byProduct.find((x) => x.productId === 'P');
+  assert.deepEqual(p.dividendGrossByYear, { '2021': 100, '2022': 150, '2023': 50 });
+});
+
+test('projectDividendIncome measures growth only from whole calendar years', () => {
+  const r = multiYearDividendPayer();
+  const p = projectDividendIncome(r);
+  assert.equal(p.reason, null);
+  // 2023 is partial (the account stops in June) and must not appear as an
+  // observed year, even though its dividend was real and already paid.
+  assert.deepEqual(p.years, ['2021', '2022']);
+  assert.deepEqual(p.observed, [100, 150]);
+  near(p.growthPct, 50, 0.01, '150 over 100 across one year-to-year step is 50% growth');
+  assert.equal(p.projectedYears.length, 4);
+  assert.equal(p.projectedYears[0], '2023');
+  near(p.projected[0], 225, 0.01, '150 grown by the measured 50%');
+});
+
+test('projectDividendIncome refuses below two complete calendar years', () => {
+  const days = dayRange('2024-01-01', '2024-06-30');
+  const r = computePortfolio({
+    transactions: [{ id: 't', date: '2024-01-01', productId: 'P', quantity: 10, price: 100, currency: 'EUR', totalBase: -1000, fee: 0 }],
+    cashRows: [
+      { id: 'dep', date: '2024-01-01', description: 'Storting', change: 1000, currency: 'EUR', category: 'DEPOSIT' },
+      { id: 'buy', date: '2024-01-01', description: 'Koop', change: -1000, currency: 'EUR', category: 'TRADE' },
+      { id: 'd1', date: '2024-03-15', description: 'Dividend', change: 100, currency: 'EUR', category: 'DIVIDEND', productId: 'P' },
+    ],
+    products: { P: { id: 'P', name: 'P', symbol: 'P', currency: 'EUR', vwdId: 'P' } },
+    prices: { P: { start: '2024-01-01', points: days.map((_, i) => ({ offsetDays: i, close: 100 })) } },
+    today: '2024-06-30',
+    liveTotal: null,
+  });
+  const p = projectDividendIncome(r);
+  assert.equal(p.reason, 'too-short');
+  assert.deepEqual(p.observed, []);
+  assert.equal(p.growthPct, null);
+});
+
+test('projectDividendIncome refuses an implausible growth rate rather than drawing it', () => {
+  const days = dayRange('2021-01-01', '2022-12-31');
+  const r = computePortfolio({
+    transactions: [{ id: 't', date: '2021-01-01', productId: 'P', quantity: 10, price: 100, currency: 'EUR', totalBase: -1000, fee: 0 }],
+    cashRows: [
+      { id: 'dep', date: '2021-01-01', description: 'Storting', change: 1000, currency: 'EUR', category: 'DEPOSIT' },
+      { id: 'buy', date: '2021-01-01', description: 'Koop', change: -1000, currency: 'EUR', category: 'TRADE' },
+      // A first complete year of nearly nothing, then a normal one — the
+      // ratio between them is not a real 100x/yr growth rate.
+      { id: 'd1', date: '2021-06-15', description: 'Dividend', change: 1, currency: 'EUR', category: 'DIVIDEND', productId: 'P' },
+      { id: 'd2', date: '2022-06-15', description: 'Dividend', change: 500, currency: 'EUR', category: 'DIVIDEND', productId: 'P' },
+    ],
+    products: { P: { id: 'P', name: 'P', symbol: 'P', currency: 'EUR', vwdId: 'P' } },
+    prices: { P: { start: '2021-01-01', points: days.map((_, i) => ({ offsetDays: i, close: 100 })) } },
+    today: '2022-12-31',
+    liveTotal: null,
+  });
+  const p = projectDividendIncome(r);
+  assert.equal(p.reason, 'implausible');
+  assert.deepEqual(p.projected, []);
+  assert.ok(p.growthPct > 100, 'the measured rate is real, just not something to project forward');
 });
