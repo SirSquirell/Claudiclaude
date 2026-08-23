@@ -20,24 +20,39 @@
 
   Feasibility notes for each block are inline, right where the block is —
   read those before treating anything here as "already possible."
+
+  2026-08-23 palette fix: the first draft used six invented hex codes,
+  unvalidated. Replaced with this app's own already-measured chart tokens
+  (src/ui/styles.css --series-1..7, --pos/--neg) — `npm run palette` already
+  proves these clear contrast and all three CVD types in both themes, so
+  reusing them beats inventing (and separately validating) a new set. The
+  four risk-bucket colours (safe/borderline/unsafe/unassessed) are the one
+  exception: they're a genuinely new status ramp this app has never needed
+  before, carried over from dividend-safety-buckets.html for cross-prototype
+  consistency rather than re-derived — run the dataviz skill's
+  validate_palette.js against them (or a replacement) before this ships for
+  real, don't inherit them a third time on faith.
 -->
 <style>
   :root {
-    --bg: #f7f5f0; --card: #ffffff; --card2: #f1eee6; --line: #e4ddd0;
-    --text: #1c2430; --muted: #6b7684; --accent: #2f6fed; --pos: #1c8a4e; --neg: #c23b3b;
-    --warn: #b8862f; --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --bg: #f9f9f7; --card: #ffffff; --card2: #f4f2ee; --line: #e9e6e0;
+    --text: #14181d; --muted: #939ca7; --accent: #557cd4; --pos: #0b5fc4; --neg: #c02434;
+    --warn: #a5851b; --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --s1: #557cd4; --s2: #7b52ab; --s3: #00868b; --s4: #b0461a; --s5: #a5851b;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --bg: #0b0e14; --card: #12161f; --card2: #171c27; --line: #232a38;
-      --text: #dbe2ee; --muted: #8b94a7; --accent: #5b9dff; --pos: #4ade80; --neg: #f87171;
-      --warn: #eab84f;
+      --bg: #0d0d0d; --card: #141920; --card2: #1b222b; --line: #232b35;
+      --text: #e8edf3; --muted: #6b7683; --accent: #4a86de; --pos: #63a6f6; --neg: #f4737f;
+      --warn: #d0ac3e;
+      --s1: #4a86de; --s2: #a383d0; --s3: #41babc; --s4: #da7e4b; --s5: #d0ac3e;
     }
   }
   :root[data-theme="dark"] {
-    --bg: #0b0e14; --card: #12161f; --card2: #171c27; --line: #232a38;
-    --text: #dbe2ee; --muted: #8b94a7; --accent: #5b9dff; --pos: #4ade80; --neg: #f87171;
-    --warn: #eab84f;
+    --bg: #0d0d0d; --card: #141920; --card2: #1b222b; --line: #232b35;
+    --text: #e8edf3; --muted: #6b7683; --accent: #4a86de; --pos: #63a6f6; --neg: #f4737f;
+    --warn: #d0ac3e;
+    --s1: #4a86de; --s2: #a383d0; --s3: #41babc; --s4: #da7e4b; --s5: #d0ac3e;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; background: var(--bg); }
@@ -192,12 +207,19 @@ function renderKpis() {
 }
 
 // --- income-by-position donut -------------------------------------------------
-const PALETTE = ['#2f6fed', '#1c8a4e', '#b8862f', '#c23b3b', '#7a5cff', '#4aa3c9'];
+// Read off the CSS custom properties rather than hardcoded a second time in
+// JS, so a theme switch (prefers-color-scheme or data-theme) repaints these
+// correctly without the two copies drifting apart.
+const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+function seriesPalette() { return ['--s1', '--s2', '--s3', '--s4', '--s5'].map(cssVar); }
+
+/** Categorical hues in FIXED order (dataviz skill: never cycled/reshuffled per render). */
 function drawDonut(svgId, segments) {
   const svg = document.getElementById(svgId);
   const cx = 90, cy = 90, r = 80, inner = 46;
   let start = -Math.PI / 2;
   const total = segments.reduce((a, s) => a + s.value, 0);
+  const gap = cssVar('--card') || '#fff'; // the surface colour, as the segment-separating stroke
   const paths = segments.filter(s => s.value > 0).map(seg => {
     const frac = seg.value / total;
     const end = start + frac * Math.PI * 2;
@@ -208,13 +230,17 @@ function drawDonut(svgId, segments) {
     const ix2 = cx + inner * Math.cos(start), iy2 = cy + inner * Math.sin(start);
     const d = `M ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} L ${ix1} ${iy1} A ${inner} ${inner} 0 ${large} 0 ${ix2} ${iy2} Z`;
     start = end;
-    return `<path d="${d}" fill="${seg.color}"></path>`;
+    // A native <title> is the cheapest real hover tooltip a static SVG can
+    // carry (dataviz skill step 5) — not a substitute for a positioned
+    // tooltip in the real build, but not nothing either.
+    return `<path d="${d}" fill="${seg.color}" stroke="${gap}" stroke-width="2"><title>${seg.label}: ${Math.round(seg.value/total*1000)/10}%</title></path>`;
   }).join('');
   svg.innerHTML = paths;
 }
 
 function renderIncomeDonut() {
-  const segs = POSITIONS.map((p, i) => ({ label: p.name, value: p.income, color: PALETTE[i % PALETTE.length] }));
+  const palette = seriesPalette();
+  const segs = POSITIONS.map((p, i) => ({ label: p.name, value: p.income, color: palette[i % palette.length] }));
   drawDonut('income-donut', segs);
   document.getElementById('income-legend').innerHTML = segs.map(s => `
     <div class="row">
@@ -224,12 +250,19 @@ function renderIncomeDonut() {
     </div>`).join('');
 }
 
-// --- safety-by-income donut (US-109's own model, referenced not redefined) --
+/**
+ * Status colours, not categorical — reuses this app's own good/bad language
+ * (--pos blue, --neg red; this app deliberately doesn't use green/red, see
+ * charts.js) rather than dividend-safety-buckets.html's own red-orange-
+ * yellow-green-blue ramp. A real 4-step risk scale is still an open design
+ * item (see the file-header note); this is the app-consistent placeholder,
+ * not the validated answer.
+ */
 const BUCKETS = [
-  { id: 'safe', label: 'Safe (61–100)', color: '#1c8a4e', test: s => s != null && s >= 61 },
-  { id: 'borderline', label: 'Borderline (41–60)', color: '#b8862f', test: s => s != null && s >= 41 && s < 61 },
-  { id: 'unsafe', label: 'Unsafe (0–40)', color: '#c23b3b', test: s => s != null && s < 41 },
-  { id: 'unassessed', label: 'Not assessed', color: '#8b94a7', test: s => s == null },
+  { id: 'safe', label: 'Safe (61–100)', color: cssVar('--pos'), test: s => s != null && s >= 61 },
+  { id: 'borderline', label: 'Borderline (41–60)', color: cssVar('--warn'), test: s => s != null && s >= 41 && s < 61 },
+  { id: 'unsafe', label: 'Unsafe (0–40)', color: cssVar('--neg'), test: s => s != null && s < 41 },
+  { id: 'unassessed', label: 'Not assessed', color: cssVar('--muted'), test: s => s == null },
 ];
 function renderSafetyDonut() {
   const totals = BUCKETS.map(b => ({
@@ -267,10 +300,22 @@ function renderForecast() {
   const axisLabels = allYears.map((yr, i) =>
     `<text x="${x(i)}" y="${h - 8}" font-size="10" fill="var(--muted)" text-anchor="middle">${yr}</text>`).join('');
 
+  // Per-point hover (dataviz skill step 5: line/area gets a hover layer, not
+  // a bare polyline) — a native <title> per marker, same reasoning as the
+  // donut segments above: the cheapest real tooltip a static SVG can carry.
+  const markers = allYears.map((yr, i) => {
+    const v = i < observed.length ? observed[i] : projected[i];
+    const isProjected = i >= observed.length;
+    return `<circle cx="${x(i)}" cy="${y(v)}" r="4" fill="var(--card)" stroke="var(--accent)" stroke-width="2">
+      <title>${yr}: € ${Math.round(v).toLocaleString('en-US')}${isProjected ? ' (projected)' : ''}</title>
+    </circle>`;
+  }).join('');
+
   document.getElementById('forecast').innerHTML = `
     <line x1="${pad}" y1="${h - pad}" x2="${w - pad}" y2="${h - pad}" stroke="var(--line)"></line>
     <polyline points="${solidPts}" fill="none" stroke="var(--accent)" stroke-width="2.5"></polyline>
     <polyline points="${dashedPts}" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-dasharray="5 5" opacity="0.6"></polyline>
+    ${markers}
     ${axisLabels}
     <text x="${pad}" y="16" font-size="10.5" fill="var(--muted)">Projected off this account's own ${(growthRate*100).toFixed(1)}%/yr observed growth — dashed = beyond measured history</text>
   `;
