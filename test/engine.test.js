@@ -1722,6 +1722,37 @@ test('bought and sold are the two halves of the net, not the net', () => {
   assert.equal(r.unattributedDividends, 1, 'the row with no product is counted, not lost');
 });
 
+test('US-102: dividendGross and dividendTax per product sum back to the net exactly', () => {
+  const days = dayRange('2023-01-01', '2024-12-31');
+  const cashRow = (id, d, description, change, productId) => {
+    const row = { id, date: d, description, change, currency: 'EUR', productId };
+    return { ...row, category: classifyCashRow(row) };
+  };
+
+  const r = computePortfolio({
+    transactions: [{ id: 't', date: '2023-01-02', productId: 'P', quantity: 10, price: 100, currency: 'EUR', totalBase: -1000, fee: 0 }],
+    cashRows: [
+      cashRow('dep', '2023-01-01', 'Storting', 1000),
+      cashRow('buy', '2023-01-02', 'Koop', -1000),
+      // Two payments, different years — the additive split must not confuse
+      // "per year" with "per product, all time".
+      cashRow('div1', '2023-06-01', 'Dividend', 20, 'P'),
+      cashRow('tax1', '2023-06-01', 'Dividendbelasting', -3, 'P'),
+      cashRow('div2', '2024-06-01', 'Dividend', 25, 'P'),
+      cashRow('tax2', '2024-06-01', 'Dividendbelasting', -3.75, 'P'),
+    ],
+    products: { P: { id: 'P', name: 'P', symbol: 'P', currency: 'EUR', isin: 'NL0000000002', vwdId: 'P' } },
+    prices: { P: { start: '2023-01-01', points: days.map((_, i) => ({ offsetDays: i, close: 100 })) } },
+    today: '2024-12-31',
+    liveTotal: null,
+  });
+
+  const p = r.byProduct.find((x) => x.productId === 'P');
+  assert.equal(p.dividendGross, 45, 'both gross payments, summed');
+  assert.equal(p.dividendTax, -6.75, 'both withheld amounts, summed, still negative');
+  assert.equal(round2(p.dividendGross + p.dividendTax), p.dividend, 'the split must not drift from the existing net figure');
+});
+
 test('a product that was only ever sold has a zero bought half', () => {
   // A transfer-in, or an account whose history starts mid-position. The row
   // must not silently become a purchase.

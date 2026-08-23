@@ -832,6 +832,12 @@ export function computePortfolio(input) {
   const boughtQtyByProduct = new Map();
   const soldByProduct = new Map();
   const dividendByProduct = new Map();
+  // US-102: the two halves of `dividendByProduct`, kept apart. `dividend`
+  // above stays the net figure the existing "Dividend (all time)" column
+  // depends on; these are additive, for the withholding-rate work (US-106)
+  // that needs to know what was actually withheld, not just what landed.
+  const dividendGrossByProduct = new Map();
+  const dividendTaxByProduct = new Map();
   let unattributedDividend = 0;
 
   for (const t of transactions) {
@@ -853,6 +859,8 @@ export function computePortfolio(input) {
       continue;
     }
     dividendByProduct.set(id, (dividendByProduct.get(id) ?? 0) + row.change);
+    const half = row.category === CATEGORY.DIVIDEND ? dividendGrossByProduct : dividendTaxByProduct;
+    half.set(id, (half.get(id) ?? 0) + row.change);
   }
 
   const priceByProduct = new Map();
@@ -1393,6 +1401,8 @@ export function computePortfolio(input) {
       boughtQty: boughtQtyByProduct.get(productId) ?? 0,
       sold: soldByProduct.get(productId) ?? 0,
       dividend: dividendByProduct.get(productId) ?? 0,
+      dividendGross: dividendGrossByProduct.get(productId) ?? 0,
+      dividendTax: dividendTaxByProduct.get(productId) ?? 0,
       name: meta.name,
       symbol: meta.symbol || meta.name,
       currency: meta.currency ?? baseCurrency,
@@ -1914,6 +1924,8 @@ export function computePortfolio(input) {
       boughtQty: p.boughtQty,
       sold: round2(p.sold),
       dividend: round2(p.dividend),
+      dividendGross: round2(p.dividendGross),
+      dividendTax: round2(p.dividendTax),
       name: p.name,
       symbol: p.symbol,
       currency: p.currency,
