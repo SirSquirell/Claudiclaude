@@ -349,38 +349,115 @@ function renderKpis() {
 const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 function seriesPalette() { return ['--s1', '--s2', '--s3', '--s4', '--s5'].map(cssVar); }
 
-/**
- * Categorical hues in FIXED order (dataviz skill: never cycled/reshuffled
- * per render). `segments` need a `.key` when `onClick` is given — that's
- * what comes back to the caller on a click. Segments with no value are
- * dropped before drawing, same as before.
- */
-function drawDonut(svgId, segments, onClick) {
-  const svg = document.getElementById(svgId);
-  const cx = 90, cy = 90, r = 80, inner = 46;
-  let start = -Math.PI / 2;
-  const total = segments.reduce((a, s) => a + s.value, 0);
+// A real cubic-bezier evaluator (binary search on x), not an approximation —
+// so the JS-driven tween below settles exactly like this app's own
+// --ease-out CSS transitions, rather than inventing a second easing.
+function cubicBezier(x1, y1, x2, y2) {
+  const coord = (t, a1, a2) => 3 * (1 - t) * (1 - t) * t * a1 + 3 * (1 - t) * t * t * a2 + t * t * t;
+  return (t) => {
+    if (t <= 0) return 0;
+    if (t >= 1) return 1;
+    let lo = 0, hi = 1, mid = 0.5;
+    for (let i = 0; i < 20; i++) {
+      mid = (lo + hi) / 2;
+      if (coord(mid, x1, x2) < t) lo = mid; else hi = mid;
+    }
+    return coord(mid, y1, y2);
+  };
+}
+const donutEase = cubicBezier(0.23, 1, 0.32, 1); // same curve as --ease-out
+const lerp = (a, b, t) => a + (b - a) * t;
+function pathForArc(cx, cy, r, inner, start, end) {
+  const large = (end - start) > Math.PI + 1e-6 ? 1 : 0;
+  const x1 = cx + r * Math.cos(start), y1 = cy + r * Math.sin(start);
+  const x2 = cx + r * Math.cos(end), y2 = cy + r * Math.sin(end);
+  const ix1 = cx + inner * Math.cos(end), iy1 = cy + inner * Math.sin(end);
+  const ix2 = cx + inner * Math.cos(start), iy2 = cy + inner * Math.sin(start);
+  return `M ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} L ${ix1} ${iy1} A ${inner} ${inner} 0 ${large} 0 ${ix2} ${iy2} Z`;
+}
+function paintDonutFrame(svg, segs, onClick) {
   const gap = cssVar('--card') || '#fff'; // the surface colour, as the segment-separating stroke
-  const paths = segments.filter(s => s.value > 0).map(seg => {
-    const frac = seg.value / total;
-    const end = start + frac * Math.PI * 2;
-    const large = frac > 0.5 ? 1 : 0;
-    const x1 = cx + r * Math.cos(start), y1 = cy + r * Math.sin(start);
-    const x2 = cx + r * Math.cos(end), y2 = cy + r * Math.sin(end);
-    const ix1 = cx + inner * Math.cos(end), iy1 = cy + inner * Math.sin(end);
-    const ix2 = cx + inner * Math.cos(start), iy2 = cy + inner * Math.sin(start);
-    const d = `M ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} L ${ix1} ${iy1} A ${inner} ${inner} 0 ${large} 0 ${ix2} ${iy2} Z`;
-    start = end;
+  const paths = segs.filter(s => (s.end - s.start) > 0.0005).map(seg => {
+    const d = pathForArc(90, 90, 80, 46, seg.start, seg.end);
     // A native <title> is the cheapest real hover tooltip a static SVG can
     // carry (dataviz skill step 5) — not a substitute for a positioned
     // tooltip in the real build, but not nothing either.
-    return `<path class="${onClick ? 'clickable' : ''}" data-key="${seg.key ?? ''}" d="${d}" fill="${seg.color}" stroke="${gap}" stroke-width="2"><title>${seg.label}: ${Math.round(seg.value/total*1000)/10}%</title></path>`;
+    return `<path class="${onClick ? 'clickable' : ''}" data-key="${seg.key}" d="${d}" fill="${seg.color}" stroke="${gap}" stroke-width="2"><title>${seg.label}: ${seg.pctLabel}</title></path>`;
   }).join('');
   svg.innerHTML = paths;
   svg.onclick = onClick ? (e) => {
     const path = e.target.closest('path[data-key]');
     if (path && path.dataset.key) onClick(path.dataset.key);
   } : null;
+}
+
+/**
+ * Categorical hues in FIXED order (dataviz skill: never cycled/reshuffled
+ * per render). `segments` need a `.key` when `onClick` is given — that's
+ * what comes back to the caller on a click. Segments with no value are
+ * dropped before drawing, same as before.
+ *
+ * 2026-08-23: animates rather than snaps between states (a drill, or the
+ * safety filter changing which slices are non-zero). Segments are matched
+ * across calls by `.key`: a continuing key tweens its angles, a new key
+ * grows in from a zero-width sliver, a removed key shrinks to zero width
+ * where it used to be. `seg.parentKey`, when the previous frame had that
+ * key, makes the entering segment burst from the PARENT's old wedge instead
+ * — this is what makes "a sector's positions appearing" read as an
+ * expansion of the thing that was clicked (apple-design skill: spatial
+ * consistency, anchor motion to its source) rather than an unrelated
+ * redraw. `donutState` tracks each donut's live (not just settled) angles
+ * per key, so a click mid-animation re-targets smoothly from wherever the
+ * arc currently is, instead of snapping back to its last settled position
+ * first (apple-design skill: animate from the presentation value, stay
+ * interruptible).
+ */
+const donutState = {};
+function drawDonut(svgId, segments, onClick) {
+  const svg = document.getElementById(svgId);
+  const filtered = segments.filter(s => s.value > 0);
+  const total = filtered.reduce((a, s) => a + s.value, 0);
+  let acc = -Math.PI / 2;
+  const targets = filtered.map(seg => {
+    const frac = total > 0 ? seg.value / total : 0;
+    const start = acc, end = acc + frac * Math.PI * 2;
+    acc = end;
+    return { ...seg, start, end, pctLabel: `${Math.round(frac * 1000) / 10}%` };
+  });
+
+  const state = donutState[svgId] || (donutState[svgId] = { live: new Map(), gen: 0 });
+  const prevLive = state.live;
+  const gen = ++state.gen;
+
+  const froms = targets.map(t => {
+    if (prevLive.has(t.key)) return prevLive.get(t.key);
+    if (t.parentKey && prevLive.has(t.parentKey)) return prevLive.get(t.parentKey);
+    return { start: t.start, end: t.start };
+  });
+  const exiting = [...prevLive.entries()]
+    .filter(([key]) => !targets.some(t => t.key === key))
+    .map(([key, a]) => ({ key, label: a.label ?? '', pctLabel: a.pctLabel ?? '', color: a.color, from: a, to: { start: a.start, end: a.start } }));
+
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const duration = reduced ? 0 : 320;
+  const t0 = performance.now();
+
+  function frame(now) {
+    if (state.gen !== gen) return; // superseded by a newer click on this donut
+    const t = duration === 0 ? 1 : Math.min(1, (now - t0) / duration);
+    const e = donutEase(t);
+    const live = targets.map((tg, i) => ({
+      key: tg.key, label: tg.label, color: tg.color, pctLabel: tg.pctLabel,
+      start: lerp(froms[i].start, tg.start, e), end: lerp(froms[i].end, tg.end, e),
+    })).concat(exiting.map(ex => ({
+      key: ex.key, label: ex.label, color: ex.color, pctLabel: ex.pctLabel,
+      start: lerp(ex.from.start, ex.to.start, e), end: lerp(ex.from.end, ex.to.end, e),
+    })));
+    paintDonutFrame(svg, live, onClick);
+    state.live = new Map(live.map(l => [l.key, { start: l.start, end: l.end, color: l.color, label: l.label, pctLabel: l.pctLabel }]));
+    if (t < 1) requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
 }
 function renderIncomeLegend(segs, pctOf) {
   document.getElementById('income-legend').innerHTML = segs.filter(s => s.value > 0).map(s => `
@@ -414,6 +491,7 @@ function renderIncomeDonut() {
     const sliceTotal = sectorPositions.reduce((a, p) => a + p.income, 0);
     const segs = sectorPositions.map(p => ({
       key: p.name, label: p.name, value: p.income, color: palette[slot[p.name] % palette.length],
+      parentKey: incomeDrill, // burst from the sector wedge just clicked, not from nowhere
     }));
     drawDonut('income-donut', segs, null); // leaf level — nothing further to drill into
     renderIncomeLegend(segs, s => sliceTotal > 0 ? `${(s.value / sliceTotal * 100).toFixed(1)}%` : '—');
