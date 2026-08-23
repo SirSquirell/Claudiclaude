@@ -67,6 +67,9 @@ const GRANS = [
   { key: 'month', label: 'Month' },
 ];
 
+/** US-106: which withholding-table field to refocus after the render its own edit triggers. */
+let withholdingRefocus = null;
+
 const state = {
   data: null,
   /** Everything the last render had to say, for the Notices section. */
@@ -1923,6 +1926,12 @@ function wireActions() {
   $('#withholding').addEventListener('change', (e) => {
     const el = e.target.closest('[data-product]');
     if (!el) return;
+    // Captured here, not inside renderWithholding: `render()` rebuilds far
+    // more than this one table, and something earlier in that pipeline can
+    // already have moved focus away by the time this table's own render
+    // runs. The field the reader is actually looking at is only known now,
+    // synchronously, before any of that happens.
+    withholdingRefocus = { product: el.dataset.product, field: el.dataset.field, selectionStart: el.selectionStart };
     const row = el.closest('tr');
     state.withholding.overrides[el.dataset.product] = {
       country: row.querySelector('[data-field="country"]').value,
@@ -4520,6 +4529,24 @@ function renderWithholding(r) {
     </tr>`,
     )
     .join('');
+
+  /**
+   * `render()` rebuilds far more than this one table, and something earlier
+   * in that pipeline can steal focus before this table's own markup is even
+   * rebuilt — restoring based on `document.activeElement` read *here* would
+   * already be too late. `withholdingRefocus` was captured synchronously in
+   * the `change` handler instead, before any of that ran.
+   */
+  if (withholdingRefocus) {
+    const el = $(`#withholding [data-product="${CSS.escape(withholdingRefocus.product)}"][data-field="${withholdingRefocus.field}"]`);
+    if (el) {
+      el.focus();
+      if (withholdingRefocus.selectionStart != null && typeof el.setSelectionRange === 'function') {
+        el.setSelectionRange(withholdingRefocus.selectionStart, withholdingRefocus.selectionStart);
+      }
+    }
+    withholdingRefocus = null;
+  }
 
   const totalReclaimable = rows.reduce((sum, x) => sum + (x.split.reclaimable ?? 0), 0);
   const unresolved = rows.filter((x) => x.split.reason === 'unknown-country').length;
