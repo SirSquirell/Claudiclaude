@@ -1074,7 +1074,13 @@ button.primary:hover {
 }
 
 .share-controls select,
-.share-controls input[type='text'] {
+.share-controls input[type='text'],
+/* US-106: the withholding table's country picker and note field — same
+   look, same reason. Left unstyled, a text input renders as the browser's
+   own flat grey control, and next to a `<select>` of the same colour it
+   reads as a disabled label rather than something to type into. */
+#withholding select,
+#withholding input[type='text'] {
   width: 100%;
   padding: 0.375rem 0.5rem;
   font: inherit;
