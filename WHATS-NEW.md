@@ -41,3 +41,9 @@ voorkomen op DEGIRO.
 De kolomkoppen "Country" en "Note" stonden rechts uitgelijnd terwijl de invoervelden eronder links
 beginnen, waardoor de koppen los leken te zweven boven niets. Nu links uitgelijnd, zoals de velden
 zelf.
+
+## Klein: lege ruimte onder de inkomstenprognose weg
+
+Als er (terecht) geen prognoselijn werd getekend, bleef er een groot leeg vak onder de uitleg
+staan — op een telefoonscherm schoof daardoor alles eronder bijna een heel scherm naar beneden.
+Dat vak is nu weg wanneer er geen grafiek is.

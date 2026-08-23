@@ -1576,6 +1576,12 @@ label.check {
   height: var(--hero-h);
 }
 
+/* The hint text already says why there is no chart; the box itself must not
+   hold its full height empty underneath it. */
+.card.is-unsupported .chart-box {
+  display: none;
+}
+
 /* --- banners ------------------------------------------------------------ */
 
 /*

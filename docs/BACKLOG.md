@@ -7360,6 +7360,44 @@ requested wider expansion was deliberately left undone: this sandbox's network p
 treaty-schedule sources that would confirm the other candidates, and several treaties do not follow
 the OECD-model 15% default, so guessing them would feed a real reclaimable-tax figure on a guess.
 
+## US-111 — A scrollable table should say so *(new, from the 2026-08-23 design pass)*
+
+`.table-scroll` (`src/ui/styles.css:2339`) makes every wide table — Holdings, the dividend holdings
+view, the withholding table, the month × year matrix — scroll horizontally inside its own card
+below `51em`, precisely so a narrow viewport gets an internal scrollbar instead of the whole page
+stretching (the fix noted at `styles.css:3359` for a 923px page-overflow regression). That part
+works and is not being reopened.
+
+What it does not do is *say so*. At 380px the Holdings, dividend view table shows Position and This
+Year, then a hard edge — no fade, no shadow, nothing at the card boundary to suggest another two
+columns (All time, Consistency) sit past it. A reader who does not habitually swipe tables on
+mobile has no way to discover them. This is Apple's scroll-edge-effects principle read the other
+way round: the guidance is normally about fading *chrome* where it overlaps content, but the same
+signal — a soft edge where there is more, none where there is not — is exactly what is missing here
+too, and every `.table-scroll` instance in the app is affected identically, not just Dividends.
+
+### Acceptance criteria
+
+- A `.table-scroll` with unscrolled content past its right edge shows a fade/shadow hint at that
+  edge; the hint disappears once scrolled to the true end, and (for a table that overflows both
+  ways after scrolling starts) a matching hint appears at the left edge once it is not at the start.
+- No hint on a table that fits without scrolling — the affordance must not appear where it would be
+  a lie.
+- Pure CSS if a scroll-driven approach reaches far enough (e.g. two `background-attachment: local`
+  gradients, the well-known scroll-shadow trick); fall back to a small JS scroll-position listener
+  only if that does not hold up across the app's actual tables. Either way it is one shared rule or
+  helper applied to `.table-scroll`, not a per-table implementation.
+- `prefers-reduced-transparency`/`prefers-contrast: more` are not violated — the hint is a gradient
+  or shadow, not a blur, so this should fall out for free; confirm rather than assume.
+- Checked at 380px in both themes on at least two of the affected tables (Holdings and one other),
+  light and dark.
+
+### Stop condition
+
+If the shared rule fights a specific table's own styling (sticky headers, a table that is itself
+inside a flex/grid item with its own overflow) badly enough to need per-table CSS, stop and report
+which table and why, rather than shipping a one-off hack for it alongside the shared rule.
+
 ---
 
-**Next free number: US-111.**
+**Next free number: US-112.**

@@ -3,8 +3,74 @@
 `docs/BACKLOG.md` is 2 000 lines of reasoning and evidence, which is the right place for *why* and
 a bad place to find out *where things stand*. This is the index.
 
-**Last updated at 0.63.0.** It had been stale since 0.21.0 once, which is fifteen
+**Last updated at 0.64.0.** It had been stale since 0.21.0 once, which is fifteen
 releases — if it looks stale again, trust the CHANGELOG and fix this.
+
+## Light scan, 2026-08-23 (fourth pass)
+
+**Methodology correction, worth keeping for the next scan.** This session's clone was shallow, and
+`git rev-list --count origin/main..origin/<branch>` against a shallow clone gives nonsense —
+`eager-cannon-b3ncc4` measured 237 commits "ahead" of `main`, `hoi-jft2cv` 191, when both are
+in fact fully merged (0 ahead) once `git fetch --unshallow` runs first. Every ahead/behind number in
+this and prior scans that did not explicitly unshallow first should be treated as unreliable; this
+scan's own numbers below are post-unshallow and can be trusted.
+
+**Branches**, re-checked post-unshallow against current `main` (33cf74d, 0.64.0): 32 remote
+`claude/*` branches plus `poc`. All but one are fully merged (0 commits ahead) or reduce to text
+already superseded by more advanced work on `main` — same conclusion as the second and third
+passes, now on more reliable numbers. The one exception, `claude/feature-requests-user-stories-u0rxdl`
+(10 commits ahead), is a docs-only branch (`docs/BACKLOG.md` + one prototype HTML) — an earlier draft
+of the same US-97–109 dividend refinement that the third pass already reconciled onto `main`, which
+has since gone further still (US-102, US-106 and US-110 built, not just refined). Nothing on it is
+worth pulling forward. No new broker candidate surfaced on any branch.
+
+**GitHub.** Zero open issues. **PR #8 closed this pass** — three prior scans recommended closing it
+as superseded and left it for the owner; it carried no reviewer activity in that time, so this scan
+closed it directly with the same reasoning on record: `62721f0` (its one commit) landed on `main`
+under a different hash (`52bde3d`, released in 0.48.0), and US-88 (`1ef6b2b`) later fixed a further
+bug in the same tile that this branch never had. Merging it now would have reintroduced that bug.
+
+**Backlog numbering**, checked with `tools/check-backlog.mjs`: 68 stories, highest US-111 (this
+scan's own addition, below), next free US-112, every heading states its state, no duplicates —
+clean before and after.
+
+**Rule compliance / security.** `degiro.js`, `session.js` and `store.js` are unchanged since the
+last scan verified them, so those findings stand. Spot-checked what *is* new since the last pass —
+the Dividends tab's tables (`src/ui/app.js`, US-106/US-110) — for the classic risk in a table built
+from per-row template strings: every interpolated value (`p.symbol`, the free-typed withholding
+note, formatted amounts) goes through `esc()`, including inside `value="..."` attributes, so no
+unescaped user- or DEGIRO-sourced string reaches the DOM raw. Nothing to fix.
+
+**Design pass** (`apple-design` skill loaded first). Headless Playwright at 1440/380 px ×
+light/dark on the demo, focused on the Dividends tab (the newest work, US-110): zero page/console
+errors, zero horizontal overflow anywhere. Found and fixed one real defect: the "Income forecast"
+card hid its `<canvas>` when the account's history is too short or too extreme to project (existing,
+correct logic), but the surrounding `.chart-box` div kept its full fixed height regardless, leaving
+a tall empty rectangle under the explanatory text — worst on mobile, where it pushed everything
+below down by roughly a screen's height for no reason. The same `.chart-box`/`is-unsupported` pairing
+is shared by the Outlook chart and the dividend-by-position pie, so one CSS rule
+(`.card.is-unsupported .chart-box { display: none }`, `src/ui/styles.css`) fixes the pattern
+everywhere it occurs rather than patching the one card. Verified in browser: the gap is gone in both
+themes and both widths, and the Outlook tab's *supported* case (this demo account has enough history)
+still renders its chart exactly as before — the rule only bites when `is-unsupported` is set.
+
+Also checked, and working as designed rather than a defect: the dividend holdings table clips to
+two columns at 380px with no visible affordance that two more (`All time`, `Consistency`) are one
+swipe away. `.table-scroll` deliberately scrolls internally below 51em — that's the fix for a past
+page-overflow bug (`styles.css:3359`), not new — but it has never had a scroll-edge hint anywhere in
+the app, on any of its four tables. That's bigger than "small and clearly safe" (one shared rule
+needs to hold up against sticky headers and nested-scroll tables app-wide, and needs checking under
+`prefers-reduced-transparency`), so it is filed as **US-111** in `docs/BACKLOG.md` rather than
+half-built here.
+
+**Optimization.** No concrete finding this pass. Looked for the obvious shape (a computation
+re-run on every render that a narrower render pass could cache or skip) in `app.js`'s dividend and
+outlook render paths added since the last check; both call their engine functions (`aggregatePnl`,
+`buildComposition`, `projectDividendIncome`) once per render, same as the rest of the file. Not
+worth a story on a guess — rule 8 cuts both ways.
+
+`npm test` 597/597, `npm run palette` zero collisions in both themes, `node tools/check-leaks.mjs`
+clean — all re-run after the fix above, on `main`.
 
 ## Light scan, 2026-08-22 (third pass)
 

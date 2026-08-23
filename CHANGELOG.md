@@ -42,6 +42,12 @@ plain increments — this is not a library and nothing depends on its API.
 - **The withholding table's Country and Note column headers were right-aligned over left-anchored
   controls** (a `<select>`'s chosen value, typed text) and read as floating over empty space —
   those two columns now left-align to match what sits underneath them.
+- **The Income forecast card left a tall empty box under its own explanation** on any account
+  whose dividend history is too short or too erratic to project (the correct behaviour — no chart
+  is drawn), because only the `<canvas>` was hidden, not the fixed-height box around it. Worst on
+  narrow screens, where it pushed the rest of the tab down by roughly a screen's height. The same
+  box/hidden-chart pairing is shared by the Outlook chart and the dividend-by-position pie, so the
+  fix is one shared rule rather than a patch to this one card.
 
 ## [0.63.0] — 2026-08-23
 
