@@ -1102,6 +1102,18 @@ button.primary:hover {
   text-decoration-color: var(--text-muted);
 }
 
+/* Country and Note are the only two columns whose cell holds a left-anchored
+   control (a select's chosen value, typed text) rather than a number — the
+   generic `th, td { text-align: right }` rule reads fine for the numeric
+   columns beside them but leaves these two headers floating over empty
+   space, disconnected from the control below. */
+#withholding th:nth-child(2),
+#withholding th:nth-child(3),
+#withholding td:nth-child(2),
+#withholding td:nth-child(3) {
+  text-align: left;
+}
+
 /* One column on a narrow screen: the picture stays first, because it is what
    the sheet is for. */
 @media (max-width: 48em) {

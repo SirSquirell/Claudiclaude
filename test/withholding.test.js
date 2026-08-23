@@ -74,8 +74,8 @@ test('withholdingSplit: a manual rate never overrides a rate this module already
   assert.equal(s.treatyRate, 0.15, "DE's own treaty rate wins, not the manual one");
 });
 
-test('TREATY_RATE only names the six countries AC1 requires, plus the UK', () => {
-  assert.deepEqual(Object.keys(TREATY_RATE).sort(), ['BE', 'CH', 'DE', 'FR', 'GB', 'NL', 'US']);
+test('TREATY_RATE only names countries with a confirmed treaty rate', () => {
+  assert.deepEqual(Object.keys(TREATY_RATE).sort(), ['BE', 'CH', 'DE', 'FR', 'GB', 'IE', 'NL', 'US']);
 });
 
 function round2(n) {

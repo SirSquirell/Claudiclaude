@@ -46,8 +46,18 @@ export function isinCountry(isin) {
  * what `withholdingSplit` below calls reclaimable, and it is read off the
  * account's own real figures, never estimated from this table.
  *
- * Covers AC1's stated minimum (NL, US, DE, FR, BE, CH, GB). Anything else is
- * `null` — "cannot be determined," never a guessed default.
+ * Covers AC1's stated minimum (NL, US, DE, FR, BE, CH, GB) plus IE, confirmed
+ * the same way: Article 10 of the 2019 NL-Ireland treaty caps the general
+ * (non-substantial-shareholding) rate at 15%, with 0% reserved for a
+ * corporate holder above a 10% stake held for 365 days — not this project's
+ * case. Every other country stays `null` rather than an assumed 15%: several
+ * candidates checked while writing this (Japan's newer treaties in
+ * particular) do NOT follow the OECD-model 15% default, and this sandbox's
+ * network policy blocked the primary treaty-rate-schedule sources that would
+ * have confirmed or ruled out the rest — "probably 15%" is exactly the kind
+ * of guess rule 4 exists to stop. The manual-rate field (AC2/AC4) is the
+ * intended gap-filler until each one is checked against its actual treaty
+ * text, not this table.
  */
 export const TREATY_RATE = {
   NL: 0.15,
@@ -57,6 +67,7 @@ export const TREATY_RATE = {
   BE: 0.15,
   CH: 0.15,
   GB: 0,
+  IE: 0.15,
 };
 
 /** The US's own statutory rate, which applies without a valid W-8BEN on file (AC2). */
