@@ -137,6 +137,16 @@
   }
   tr.open .row-toggle { transform: rotate(90deg); }
   tr.clickable td:first-child { display: flex; align-items: center; gap: 6px; }
+  /* The row itself had no affordance at all — nothing said "click me" short
+     of the hint paragraph above the table. `hover: hover` gates this to a
+     real pointer, so a touch tap doesn't get a sticky hover state stuck on
+     afterwards (find-animation-opportunities: hover states are gated the
+     same way everywhere else in this file's donut segments). */
+  tr.clickable { cursor: pointer; }
+  @media (hover: hover) and (pointer: fine) {
+    tr.clickable td { transition: background var(--t-press) var(--ease-out); }
+    tr.clickable:hover td { background: var(--card2); }
+  }
   .why-wrap {
     display: grid; grid-template-rows: 0fr; transition: grid-template-rows var(--t-surface-out) var(--ease-out);
   }
