@@ -6997,7 +6997,7 @@ source yet, one donut, one attention-list, the gross/net toggle. No calendar, no
 
 ---
 
-### US-102 — A1, closed: the withholding-tax fields already exist *(spike, answered)*
+### US-102 — A1, closed: the withholding-tax fields already exist *(built, 0.63.0)*
 
 See "Two assumptions" above for the full answer. Recorded as its own story because it is exactly
 the kind of finding this backlog pins rather than lets evaporate into a chat log (the same reason
@@ -7147,7 +7147,7 @@ applied to a forecast instead of a reconciliation.
 - **AC3** Every screen that shows a total sourced from Layer B states "x posities en y% van je
   inkomen niet beoordeeld" beside it, not in a separate diagnostics screen nobody opens.
 
-### US-106 — Effective withholding rate per position (E8-1) *(new, refined — depends on US-102, and now unblocked by GLEIF, not US-104)*
+### US-106 — Effective withholding rate per position (E8-1) *(built, 0.63.0 — GLEIF unreachable this session, AC1 runs on its own fallback)*
 
 > As Jasper, I want the effective withholding-tax rate per holding, so his income forecast is net
 > rather than structurally too optimistic for anything that isn't US paper.
@@ -7158,17 +7158,33 @@ fully available from **GLEIF's free, CC0-licensed ISIN-to-LEI and legal-entity d
 of whether EODHD's paid tier ever gets approved. This story can be built **tonight**, without
 waiting on US-104's pipeline or a euro of spend.
 
+**GLEIF turned out unreachable from this build session** — `curl` to `api.gleif.org` failed with a
+403 at the outbound proxy, confirmed a policy denial via `$HTTPS_PROXY/__agentproxy/status` rather
+than assumed. SPEC §8e's own rule is to confirm a real response shape before writing a parser, not
+after, so nothing was written against a guessed GLEIF shape. AC1 ships on its own named fallback
+instead — the ISIN prefix, in `src/lib/withholding.js`'s `isinCountry` — with every row it resolves
+marked uncertain (the `?` beside the country picker) and freely overridable (AC4). Swapping in a
+real GLEIF-backed lookup is a small, isolated change once that spike can run: replace `isinCountry`
+with the real fetch behind `treatyRateFor`'s same interface, nothing downstream has to know.
+
 - **AC1** Rate sourced from the *issuer's country of incorporation*, fetched from GLEIF's
   ISIN-to-LEI relationship files (not EODHD, not the fuller Layer B bundle) — **not** the ISIN's
   own country prefix, which names where a security is registered, not who withholds. The ISIN
   prefix is fallback-only, marked uncertain when used, and the fallback path is what a position
-  GLEIF has no LEI for falls back to. Covers at minimum NL, US, DE, FR, BE, CH, GB.
-- **AC2** A per-account toggle for whether a valid W-8BEN is on file (15% vs. 30% on US paper).
+  GLEIF has no LEI for falls back to. Covers at minimum NL, US, DE, FR, BE, CH, GB. **Ships on the
+  fallback only** (see above) — the treaty-rate table itself (`TREATY_RATE` in `withholding.js`)
+  covers exactly these six plus the UK, each at the OECD Model Convention's standard 15% portfolio
+  rate (0% for the UK, which withholds nothing); anything outside that set is `null`, "cannot be
+  determined," never guessed.
+- **AC2** A per-account toggle for whether a valid W-8BEN is on file (15% vs. 30% on US paper). **Done.**
 - **AC3** Reclaimable vs. practically-lost withholding shown as separate figures, not netted into
-  one "tax paid" number — a reader deciding whether to bother reclaiming needs both.
+  one "tax paid" number — a reader deciding whether to bother reclaiming needs both. **Done**, read
+  off `dividendGross`/`dividendTax` (US-102), never estimated: reclaimable is whatever was actually
+  withheld above the treaty ceiling, practically lost is the rest.
 - **AC4** Manually overridable per position, with a note field — Layer B's country data can be
   wrong or missing, and this is the same "never silently guess, let the reader correct it" pattern
-  rule 4 already uses for cash-row classification.
+  rule 4 already uses for cash-row classification. **Done** — a country picker and a note field per
+  row, on the new "Withholding tax" card on Income & cost.
 
 ### US-107 — A gross/net switch, everywhere (E8-2) *(new, refined — depends on US-106)*
 

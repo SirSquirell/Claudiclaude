@@ -16,6 +16,30 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.63.0] — 2026-08-23
+
+**No resync needed** — every figure is read off dividend data already stored (US-102); nothing new
+is fetched.
+
+### Added
+
+- **Withholding tax: reclaimable vs. practically lost, per position** (US-102, US-106). The engine
+  now keeps a per-product gross dividend and a per-product withheld tax as two figures, not only
+  their net (US-102) — the prerequisite for splitting what a broker actually withheld into what the
+  Netherlands' tax treaties already cap it at (15% for NL/US/DE/FR/BE/CH, 0% for the UK, which
+  withholds nothing) and what sits above that ceiling and could in principle be reclaimed. A new
+  card on Income & cost lists every dividend-paying position with its country, gross, withheld,
+  treaty rate, reclaimable and practically-lost figures — a per-account toggle for whether a valid
+  W-8BEN is on file (15% vs. 30% on US paper), and a per-position country override with a note
+  field, since the country shown is a fallback (the ISIN's own prefix — where a security is
+  registered, not who withholds), not a measurement.
+
+  **GLEIF's issuer-jurisdiction data, the real source for this, was unreachable from this build
+  session** — a policy denial at the outbound proxy, confirmed rather than assumed. The fallback
+  above ships instead, every row it resolves marked uncertain and freely correctable; swapping in a
+  real GLEIF-backed lookup later is a small, isolated change behind the same interface. Not a tax
+  document — states a treaty ceiling, never a filed reclaim.
+
 ## [0.62.0] — 2026-08-23
 
 **No resync needed** — the split is computed from data already stored; nothing new is fetched.

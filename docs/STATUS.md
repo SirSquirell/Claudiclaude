@@ -3,7 +3,7 @@
 `docs/BACKLOG.md` is 2 000 lines of reasoning and evidence, which is the right place for *why* and
 a bad place to find out *where things stand*. This is the index.
 
-**Last updated at 0.62.0.** It had been stale since 0.21.0 once, which is fifteen
+**Last updated at 0.63.0.** It had been stale since 0.21.0 once, which is fifteen
 releases — if it looks stale again, trust the CHANGELOG and fix this.
 
 ## Light scan, 2026-08-22 (second pass)
@@ -447,6 +447,11 @@ Complete as of the 2026-08-18 consolidation — every open story number appears 
 | US-34 | **Trading 212 — the spike is finished.** R1 through R5 are all answered: the price history is public and needs no account (daily candles to 2017), and R1 passed on 2026-08-12/13. Nothing in this row is open | Nothing. What is left is the *build* — US-39–US-45 — and the account **payload shapes**, which are still marked `hypothesis` in `tools/trading212-r1/spike.js` because no one has seen them in a Network tab |
 | US-36 | **Interactive Brokers — phase 1 has begun.** One DevTools capture shows an ordinary session-backed portal: its own bundle, a 25 kB portfolio payload, a repeating `tickle` keep-alive and a `202` long-poll. See [MULTI-BROKER.md §9](MULTI-BROKER.md) | **The decisive test**: one portfolio request re-run with `credentials: 'include'` and with `'omit'`, both statuses. That decides R1 and nothing else does |
 | — | An architecture report + multi-broker proposal, for an external agent. Brief at `docs/COPILOT-ARCHITECTURE-BRIEF.md` | Nothing. Hand it over with the repo |
+| US-104 | **The bundle pipeline — out of this repo's scope, not just unbuilt.** A GitHub Action + `pipeline/`/`data/` shape publishing to `asteria.prulwerk.nl`, which is a separate site/repo this session was not given access to | A session with that other repo attached, or the pipeline built there and only consumed from here |
+| US-105 | ISIN matching and an attention list | US-104's bundle existing to match against |
+| US-107 | The gross/net switch, applied everywhere | US-106 (built, 0.63.0) exists now; this is real, separate UI work — the KPI row, calendar, Year Ahead, growth report and holdings table all need the same switch wired in, not assumed from one card |
+| US-108 | Safety score per holding | US-104 (blocked, see above) |
+| US-109 | Income by safety bucket, the PoC screen | US-105, US-107, US-108 — all still open |
 | US-23 | Sync and wipe, per broker | Deliberately deferred (rule 8) — a second broker existing |
 | US-24 | Combine, and filter | Same. The arithmetic is proven and tested; the UI is not built |
 | US-25 | Two accounts under one login | A spike, not a story. Cheap *after* US-22, which has landed |
