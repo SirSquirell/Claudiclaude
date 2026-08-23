@@ -67,6 +67,17 @@ const MAX_HORIZON_MONTHS = 60;
 const MIN_WINDOWS = 3;
 
 /**
+ * Below this many elapsed days, `priceVsTotalReturn` refuses the split.
+ *
+ * A single dividend landing inside a narrow window can exceed the window's
+ * own total return — a special dividend on an otherwise flat week derives a
+ * negative "price return," which is nonsense the window is too short to
+ * disprove. A month is short enough to still be useful and long enough that
+ * one payment rarely dominates it.
+ */
+const MIN_RETURN_SPLIT_DAYS = 30;
+
+/**
  * Beyond this annual rate, in either direction, the number is not describing a
  * market and must not be drawn as a projection.
  *
@@ -1890,6 +1901,11 @@ export function computePortfolio(input) {
     netExternal: Array.from(netExternal),
     cumulativeDeposited: Array.from(cumulativeDeposited, round2),
     pnl: Array.from(pnl),
+    // Per-day, full precision, same reasoning as `pnl`: US-99's windowed split
+    // sums these over an arbitrary range, and `deriveRates` already sums the
+    // whole-history totals — a caller that adds up a rounded series drifts.
+    dividendGross: Array.from(dividendGross),
+    dividendTax: Array.from(dividendTax),
     estimated: Array.from(estimatedDay),
     byProduct: byProduct.map((p) => ({
       productId: p.productId,
@@ -2248,6 +2264,57 @@ export function annualisedReturn(result, fromIndex = 0, toIndex = result.days.le
     moneyWeighted: moneyWeighted == null ? null : moneyWeighted * 100,
     timeWeighted,
     reason: moneyWeighted == null ? 'multiple-roots' : null,
+  };
+}
+
+/**
+ * US-99. The measured total return over a window, split into price growth
+ * and dividend yield — never annualised, unlike `deriveRates` and
+ * `annualisedReturn` above, because the ask is "how much of *this* window's
+ * return was dividends," not a rate projected onto a year.
+ *
+ * A dividend is internal (rule 3) and therefore already inside
+ * `windowReturnPct`'s chained result — the same trap `deriveRates` names for
+ * the whole-history case, here generalised to any window. So price return is
+ * never computed a second, independent way: it is the measured total minus
+ * the measured yield, always, or a rounding gap between two measurements of
+ * the same thing would read as a bug.
+ *
+ * Below `MIN_RETURN_SPLIT_DAYS` the split is refused and only the measured
+ * total return is returned — see that constant for why.
+ *
+ * @returns {{totalReturnPct: number, priceReturnPct: number|null, dividendYieldPct: number|null, reason: string|null}}
+ */
+export function priceVsTotalReturn(result, fromIndex = 0, toIndex = result.days.length - 1) {
+  const from = Math.max(0, fromIndex);
+  const to = Math.min(toIndex, result.days.length - 1);
+  const totalReturnPct = windowReturnPct(result, from, to);
+
+  if (to - from < MIN_RETURN_SPLIT_DAYS) {
+    return { totalReturnPct, priceReturnPct: null, dividendYieldPct: null, reason: 'too-short' };
+  }
+
+  // Net dividend (tax is already a negative `change`, same convention
+  // `deriveRates` sums), over the average value across the *exact* selected
+  // range — never the calendar year it falls inside, which is what makes
+  // this split legitimate for an arbitrary window and not just per-year.
+  let dividend = 0;
+  let valueSum = 0;
+  for (let i = from; i <= to; i++) {
+    dividend += result.dividendGross[i] + result.dividendTax[i];
+    valueSum += result.value[i];
+  }
+  const averageValue = valueSum / (to - from + 1);
+  const dividendYieldPct = averageValue > 0 ? (dividend / averageValue) * 100 : 0;
+
+  // Raw, like `annualisedReturn`'s own two rates above — rounding happens at
+  // the formatter, not here, or the two halves could stop summing to the
+  // whole by exactly the rounding this function exists to avoid.
+  return {
+    totalReturnPct,
+    dividendYieldPct,
+    priceReturnPct: totalReturnPct - dividendYieldPct,
+    reason: null,
   };
 }
 
@@ -2770,6 +2837,8 @@ function emptyResult(today, warnings) {
     netExternal: [0],
     cumulativeDeposited: [0],
     pnl: [0],
+    dividendGross: [0],
+    dividendTax: [0],
     estimated: [0],
     byProduct: [],
     cashByCurrency: {},

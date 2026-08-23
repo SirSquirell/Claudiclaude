@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { aggregatePnl, buildComposition, candleSeries, computePortfolio, deriveContractSizes, deriveFxRates, fxFromConversions, expandSeries, monthlyTable, rangeEndIndex, rangeStartIndex, windowReturnPct, usableReturnDay, annualisedReturn, projectPortfolio, maxDrawdown } from '../src/lib/engine.js';
+import { aggregatePnl, buildComposition, candleSeries, computePortfolio, deriveContractSizes, deriveFxRates, fxFromConversions, expandSeries, monthlyTable, rangeEndIndex, rangeStartIndex, windowReturnPct, usableReturnDay, annualisedReturn, priceVsTotalReturn, projectPortfolio, maxDrawdown } from '../src/lib/engine.js';
 import { classifyCashRow } from '../src/lib/classify.js';
 import { parseCashMovements, parseChartResponse, parseProducts, parseTransactions, parseUpdate } from '../src/lib/parse.js';
 import { positionSpan, splitModel } from '../src/lib/snapshot.js';
@@ -1899,6 +1899,64 @@ test('the derived rates do not double-count the dividends', () => {
   const { growthPct, yieldPct, totalAnnual } = p.rates.derived;
   assert.ok(Math.abs(growthPct + yieldPct - totalAnnual) < 0.001, 'the two halves must sum to the whole');
   assert.ok(yieldPct > 0, 'this account pays a dividend, so the yield is not zero');
+
+  // US-99: the same property, windowed rather than annualised — the two
+  // halves must still sum to the measured total, over the whole history.
+  const w = priceVsTotalReturn(r, 0, r.days.length - 1);
+  assert.ok(
+    Math.abs(w.priceReturnPct + w.dividendYieldPct - w.totalReturnPct) < 1e-9,
+    'the windowed split must sum exactly to the measured total',
+  );
+  assert.ok(w.dividendYieldPct > 0, 'this account pays a dividend, so the windowed yield is not zero');
+});
+
+/**
+ * A flat-price account, one dividend at the window's midpoint: every euro of
+ * return is a dividend, none is price. A single, centred payment — rather
+ * than several spread across the window — keeps the yield approximation
+ * (dividend ÷ average value) close to the chained total return, so the
+ * residual left over for "price return" stays small enough to call ~0%.
+ */
+function flatDividendPayer() {
+  const days = dayRange('2020-01-01', '2020-04-01');
+  const cashRow = (id, d, description, change) => {
+    const row = { id, date: d, description, change, currency: 'EUR' };
+    return { ...row, category: classifyCashRow(row) };
+  };
+  const rows = [
+    cashRow('dep', '2020-01-01', 'Storting', 10000),
+    cashRow('buy', '2020-01-02', 'Koop', -10000),
+    cashRow('div', '2020-02-16', 'Dividend', 300),
+  ];
+  return computePortfolio({
+    transactions: [{ id: 't', date: '2020-01-02', productId: 'P', quantity: 100, price: 100, currency: 'EUR', totalBase: -10000, fee: 0 }],
+    cashRows: rows,
+    products: { P: { id: 'P', name: 'P', symbol: 'P', currency: 'EUR', vwdId: 'P' } },
+    prices: { P: { start: '2020-01-01', points: days.map((_, i) => ({ offsetDays: i, close: 100 })) } },
+    today: '2020-04-01',
+    liveTotal: null,
+  });
+}
+
+test('an account whose entire return is dividends derives ~0% price return', () => {
+  const r = flatDividendPayer();
+  const w = priceVsTotalReturn(r, 0, r.days.length - 1);
+  assert.equal(w.reason, null);
+  assert.ok(w.totalReturnPct > 0, 'the account did earn a return — the dividend payment');
+  assert.ok(Math.abs(w.priceReturnPct) < 0.1, `price never moved, so price return should be ~0%, got ${w.priceReturnPct}`);
+  assert.ok(
+    Math.abs(w.dividendYieldPct - w.totalReturnPct) < 0.1,
+    'with no price movement, the dividend yield must account for essentially the whole return',
+  );
+});
+
+test('below the minimum window, priceVsTotalReturn refuses the split', () => {
+  const r = grower();
+  const w = priceVsTotalReturn(r, 0, 10);
+  assert.equal(w.reason, 'too-short');
+  assert.equal(w.priceReturnPct, null);
+  assert.equal(w.dividendYieldPct, null);
+  assert.equal(typeof w.totalReturnPct, 'number', 'the measured total return is still reported');
 });
 
 test('a horizon longer than the history is an example, not a scenario', () => {
