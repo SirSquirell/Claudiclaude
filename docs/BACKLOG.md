@@ -6613,7 +6613,7 @@ and a silly benchmark presented as if it were a serious one would be exactly tha
 
 ---
 
-## US-99 — Price return vs. total return *(scope narrowed — the dividend-tracker half moved to US-102+)*
+## US-99 — Price return vs. total return *(built, 0.62.0 — the dividend-tracker half stayed split off, as US-102+)*
 
 The dividend-tracker ambition this story originally carried outgrew it: Jasper pointed at Simply
 Safe Dividends, the owner had Cowork read it, and a full feature analysis came back — nine epics,
@@ -6686,10 +6686,16 @@ US-98 to ship the derived split itself, only gains a companion once US-98's TDIV
   return — the same property US-33 already specifies for its own Outlook split; extend that test
   rather than writing a second one.
 - **AC2** The dividend chart shares the P/L chart's range selector, granularity and bucketing
-  functions — no second charting code path.
-- **AC3** Below a stated minimum window, only the single measured total return shows — no split.
+  functions — no second charting code path. **Not done.** The dividend-per-month chart predates
+  this story and carries its own deliberate note in `app.js` — "shown for the whole history rather
+  than the selected range, a month of dividends is too sparse to be worth a range filter" — which
+  this story's own refinement did not account for. Making the two consistent is real, separate
+  work (the chart's data source, its granularity handling, and that existing design reasoning all
+  need to be revisited together), left as its own follow-up rather than done as a rushed override.
+- **AC3** Below a stated minimum window (30 elapsed days), only the single measured total return
+  shows — no split. **Done.**
 - **AC4** Total return and price return are both named in words wherever either appears — never a
-  bare "return."
+  bare "return." **Done** in the new card; the dividend chart's own labels are unchanged (AC2).
 
 ---
 

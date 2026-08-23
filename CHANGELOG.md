@@ -16,6 +16,22 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.62.0] — 2026-08-23
+
+**No resync needed** — the split is computed from data already stored; nothing new is fetched.
+
+### Added
+
+- **Price return vs. total return, over the selected period** (US-99). A dividend is internal
+  (rule 3) and already inside the measured total return, so a second, independent "price growth"
+  number would double-count it — this derives price return by subtraction instead:
+  `priceVsTotalReturn(result, from, to)` splits the window's chained total return into a dividend
+  yield (dividend income over the period ÷ average value over the period) and what is left over.
+  Shown as its own card on Rendement, two figures together rather than behind a toggle — the same
+  reasoning US-31 already used for money-/time-weighted return. Below 30 elapsed days the split is
+  refused and only the measured total return shows: a single dividend inside a narrow window can
+  exceed the window's own return, and the guard says so rather than drawing a false number.
+
 ## [0.61.0] — 2026-08-22
 
 **No resync needed** — nothing about what is stored or fetched changed.
