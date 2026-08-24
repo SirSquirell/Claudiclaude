@@ -528,37 +528,28 @@ live-day-result fix rebased on (was stranded as a 0.46.1), and the apple-fluid p
 The policy that keeps it this way is in [CLAUDE.md](../CLAUDE.md): **work lands on `main`; a POC
 lives on the one `poc` branch until it is promoted or dropped.**
 
-**The delete list, measured on 2026-08-19 and re-checked 2026-08-20** so nobody has to re-derive
-it. This environment's git proxy refuses `git push --delete`, so it is a one-time job in GitHub's
-UI. `main` and `poc` stay (`poc` currently equals `main`).
-
-*Fully contained in `main` — delete without looking:* `aan-de-slag-c57smb` (new on 08-20; empty,
-points at `main`'s own 0.56.0 commit), `aan-de-slag-wen7bc` (this scan's transport branch —
-deletable once its commit is on `main`), `eager-cannon-b3ncc4`,
-`degiro-reconciliation-issues-7t3iyc` (new since the 08-18 audit; zero diff against `main`, same as
-the rest of this line), `hoi-jft2cv`, `popup-0470`, `readme-0460`, `refine-0470c`,
-`remaining-build-items-05dbxv`, `status-0460-cleanup`, `ui-overhaul-user-stories-odcw7i`,
-`v47-bug-2jcvd3`.
-
-*One or two commits ahead, and every one of them is text that landed on `main` under a different
-story number or code that landed as a different commit* — the subjects are in the git log, and each
-was checked: `account-total-bug-veh3bv`, `apple-fluid-poc` (its prototype is in
-`docs/prototypes/`), `bug-report-pbvnjs` (the Today fix, merged), `eager-cannon-islvb3`,
-`multi-broker-build` (US-45, cherry-picked), `new-user-story-iu926r` (US-79's refinement),
-`paid-vs-grown-discrepancy-rk40yw` and `paid-vs-grown-user-story-23ltue` (US-76/77, merged),
-`refine-0470`, `refine-0470b`, `v47-nav-aspect-ratio-v0wa42` (US-78's refinement).
-
-*Old parallel histories, 8–90 commits ahead — **look before deleting**, they are the only ones this
-audit did not read end to end:* `degiro-portfolio-spike-7x5d4h`, `multi-broker-poc`,
-`portfolio-visualization-testing-xs5ck4`.
+**The delete list that used to sit here (measured 2026-08-19, re-checked 2026-08-20) is retired** —
+it named 15 branches by hand, and by the very next scan (2026-08-21) several of them had reappeared
+on the remote and more had been created, which is exactly the drift a named list can't keep up
+with. The current, reliably-measured answer is kept in the newest *Light scan* entry at the top of
+this file instead of re-derived here: as of the fourth pass (2026-08-23, post-
+`git fetch --unshallow`), 32 `claude/*` branches plus `poc` exist, and all but one
+(`claude/feature-requests-user-stories-u0rxdl`, itself superseded — see that entry) are fully
+merged into `main` or reduce to text `main` already has. This environment's git proxy — and, as of
+this pass, the permission classifier before it even reaches the proxy — refuses `git push --delete`,
+so acting on that is a one-time job in GitHub's UI, the owner's to do. `main` and `poc` stay (`poc`
+currently equals `main`).
 
 ## Refined, not built
 
-Complete as of the 2026-08-18 consolidation — every open story number appears either here, in
-*Unmerged work* above, or in *Parked*.
+Kept current as new stories open and old ones land — every open story number appears either here,
+in *Unmerged work* above, or in *Parked*. (Table content was last swept for completeness on
+2026-08-23; it originated from the 2026-08-18 consolidation but has had rows added since, e.g.
+US-104–109.)
 
 | Story | State | Waiting on |
 |---|---|---|
+| US-98 | **Benchmark compare (S&P 500 default, any ETF, PROP folded in) — the owner decided the feature in chat, 2026-08-22.** That is not the same document event as the SPEC amendment rule 8 and the branch policy both lean on: SPEC §7 still reads "no benchmarks" verbatim | The SPEC.md §7 amendment text is drafted in `docs/BACKLOG.md`'s US-98 entry, ready to land in the same commit as the first line of code — nobody has landed it yet |
 | US-26 | Instrument coverage declared per broker — verified / assumed, as a vocabulary | More relevant once a second broker lands |
 | — | **A price series was rescaled by factor 4,369**, which is not a split ratio. Investigation: one factor across two regimes, or a vwd id that changed instrument. Do not tune the threshold | Nothing |
 | US-37 | **Trading 212 R1 — PASS, measured 2026-08-13.** Page 200/401, logged out 401, and the service worker `PASS_JSON` with only an `Accept` header — so no device identifier is required either | Nothing. **US-39–US-45 are unblocked** |
@@ -598,7 +589,10 @@ Not blockers, and not forgotten either.
 
 ## Out of scope, decided
 
-SPEC §7 stops at phase 7: no multi-account, no benchmarks, no tax reporting, no Chrome Web Store.
+SPEC §7 stops at phase 7: no multi-account, no tax reporting, no Chrome Web Store. "No benchmarks"
+is the one exception in flux — the owner decided in chat to allow it (2026-08-22), but the SPEC.md
+text itself is not amended yet, so treat it as still written there until that lands; see US-98 in
+`docs/BACKLOG.md` for the drafted amendment and why the feature can't just be built ahead of it.
 Rule 9 puts any broker whose data cannot be reached from an already-logged-in tab out of scope —
 that is a product promise, not a preference, and it decides spikes rather than being weighed
 against them.
