@@ -7455,8 +7455,128 @@ page load. The original defect, amplified by its own fix.
 This bounds *how often* the collision can happen, not the collision itself: the one sync a day still
 starts while a DEGIRO tab is loading, and on a first sync that is minutes of requests. If a reader
 reports a hang **after** this ships, the answer is not a longer interval — it is to stop syncing
-while the reader's own DEGIRO tab is in the foreground, which is a real design with a real cost and
-wants its own story rather than a constant.
+until the reader's own DEGIRO tab has finished loading, which is a real design with a real cost and
+wants its own story rather than a constant. **It got one: US-113**, promoted the same day at the
+owner's instruction.
 
 
-**Next free number: US-113.**
+## US-113 — Do not start syncing until the DEGIRO tab itself has finished loading *(new, refined — needs the owner's pick between three variants)*
+
+US-112's own stop condition, promoted as it said it would be. That story bounds *how often* the
+extension can collide with the reader's own trading screen — at most once a day instead of once per
+page load — and deliberately does not touch the collision itself. This is the collision.
+
+**What still happens after 0.65.0.** The one sync a day still starts from `chrome.tabs.onUpdated`
+at `changeInfo.status === 'complete'`, and `complete` is the *document* load event. trader.degiro.nl
+is a single-page app: at that moment it has loaded its shell and is about to fire its own burst of
+requests to fill the portfolio screen. So the extension's sync begins at the worst possible instant
+— and on a first sync it is minutes of requests, over the same session, so the reader watches a
+spinner. The owner's framing, from the report: *pas gaan inladen als de giro-tab zelf klaar is.*
+
+### The constraint that decides this story
+
+**We must not learn "DEGIRO is ready" by reading DEGIRO's page.** `src/content/banner.js` states in
+its own header that it reads nothing from the page and touches nothing but one margin, and that is
+not a stylistic preference — it is the same promise as rule 9 read from the other side. The account's
+figures come from an API the reader is already authenticated against, never from scraping the screen
+they are looking at.
+
+That eliminates the obvious answers, and both deserve to be written down so the next session does not
+re-propose them:
+
+- **Watch the DOM for the spinner to disappear.** Reads the page, and couples us to DEGIRO's markup —
+  a class rename would silently turn the trigger off, which is the worst failure shape: no error, just
+  a sync that quietly stops happening.
+- **`chrome.webRequest` on trader.degiro.nl.** Would answer the question exactly, and would give this
+  extension sight of every request the account's own trading session makes, URLs included — those
+  URLs carry `intAccount` and `sessionId`. A strictly worse privacy posture than today's, in a project
+  whose entire claim is the opposite, and a new install-time permission prompt to justify it.
+  **Rejected, not deferred.**
+
+### Three variants
+
+**A — a fixed grace period, decided in the content script.** The strip's script already runs on the
+page and already talks to the worker. It waits a fixed time after `load` and then asks the worker to
+sync. Cheapest possible change, reads nothing, needs no permission.
+
+*Weakness, and it is the honest one:* it is a guess about how long DEGIRO takes, made once, for every
+account and every connection. It moves the start of a multi-minute sync by a fixed number of seconds
+and does nothing at all for a reader who is still actively working ten minutes later. It makes the
+screenshot in US-112 less likely without making the mechanism behind it any less true.
+
+**B — network-quiet on the page, measured as a rate and never as content.** The content script keeps a
+`PerformanceObserver` on `resource` entries — its own page's — and counts them. It never reads an
+entry's `name`, which is a URL and would carry the account identifiers B's rejected sibling was
+rejected for. When the rate falls below a threshold for a quiet window, the page has stopped fetching
+and the tab is, in the only sense available to us, *klaar*. That is the literal answer to the owner's
+sentence, and it is measured rather than guessed.
+
+*The risk that could sink it, and the reason this is written as a variant rather than a plan:* a
+trading screen streams. Live quotes may keep producing resource entries indefinitely, in which case
+there is no quiet window and the trigger never fires — a sync that silently never happens is worse
+than one that happens at a bad moment. So the threshold cannot be "zero entries"; it has to be a rate,
+with a hard ceiling after which we sync anyway. **What DEGIRO's quote transport actually looks like is
+not known here and cannot be guessed** — a websocket produces no resource entries at all, long-polling
+produces a steady stream of them, and the two lead to opposite constants. This needs one look at a real
+logged-in tab before the numbers are chosen.
+
+**C — do not sync while the reader is looking at it.** Sync when the DEGIRO tab is not the active tab
+of the focused window, or when it is and the reader has been idle. Aims at the actual grievance —
+never compete with somebody who is using their broker — rather than at the page's load state.
+
+*Weakness:* a reader who leaves DEGIRO open and focused all day never syncs at all, so it needs a
+staleness ceiling to fall back on, and it does not answer the owner's question ("when is the tab
+ready") so much as sidestep it.
+
+**Recommended: B, with A as its own fallback** — if the ceiling in B expires without a quiet window,
+that *is* A. One mechanism, one constant that is a measurement and one that is a backstop, and the
+backstop is the behaviour we would have shipped anyway. C is a different story about a different
+grievance and should stay one; if B lands and a reader still reports a hang, C is what to build next.
+
+### Two traps in the existing code, both of which would ship a silent regression
+
+1. **`banner.js`'s `main()` returns early when both surfaces are dismissed, and again when the model
+   says show nothing** (a disconnected account). Hanging the sync trigger off the end of that function
+   makes ✕ on a strip quietly disable automatic syncing — a UI dismissal turning off a data feature,
+   discoverable only by noticing months-old figures. Whatever fires the sync has to run before, and
+   independently of, the banner's own decision to draw.
+2. **`sw.js`'s `case 'sync'` re-arms the alarm and passes `force`.** A trigger coming from the page is
+   not a person pressing a button: it must reach `runSync({ scheduled: true })` so a disconnected
+   account still refuses it (US-79 AC3), and it must not re-arm the alarm a disconnect deliberately
+   cleared. That is a distinct message, not a reuse of that case.
+
+### Acceptance criteria
+
+- On a DEGIRO page load, no request leaves the extension until either the page has gone quiet by the
+  measure chosen above or the ceiling expires — asserted against a fake page, not by eye.
+- The readiness decision is a **pure function** in `src/lib/` with its own test, in the shape
+  `bannermodel.js` already establishes: timestamps in, ready-or-not out, no DOM and no `chrome.*`.
+  The content script observes and reports; it does not decide.
+- No resource entry's `name`, or any other field that could carry a URL, is read anywhere in the path.
+  Asserted by test, the way `check-leaks.mjs` and `fieldNames` already assert their equivalents.
+- Dismissing the strip, dismissing the toast, or dismissing both changes nothing about whether or when
+  a sync happens.
+- A disconnected account (US-79) still syncs never, through this path as through the others.
+- US-112's daily gate is untouched and still the outer bound: this decides *when* within a day, never
+  *how often*.
+- No new entry in `permissions` or `host_permissions`.
+- The old `tabs.onUpdated` trigger in `sw.js` is **removed**, not left beside the new one. Two paths
+  that both start syncs is how the request storm comes back through the door nobody is watching.
+
+### Stop condition
+
+If a real logged-in tab shows that the page never goes quiet — a steady stream of quote requests that
+does not stop while the market is open — then B collapses into A with extra machinery, and the right
+outcome is to ship A on its own and say so, not to tune a threshold until it fires. Record what the
+capture showed either way: it is the first real evidence this project would have about the broker
+page's own behaviour, and `docs/ENDPOINT-REPORT.md` is where evidence goes.
+
+### How to test it, for whoever tries it against a real account
+
+Two things, and the second is the one that matters: **open DEGIRO and watch whether the portfolio
+screen fills normally** (the defect is a spinner that never resolves), and **check afterwards that a
+sync did in fact happen** — the popup's own "Synced at …" line, or Sync in the strip if it did not.
+A build that fixes the hang by never syncing has failed, and it fails invisibly.
+
+
+**Next free number: US-114.**
