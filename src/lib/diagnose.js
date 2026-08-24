@@ -329,8 +329,9 @@ function finish(steps) {
 
 /** Everything about the local install, for a bug report. No personal data. */
 export async function localInfo() {
-  const [lastSyncAt, lastError, syncState, lastDataDate] = await Promise.all([
+  const [lastSyncAt, lastSyncAttemptAt, lastError, syncState, lastDataDate] = await Promise.all([
     getMeta('lastSyncAt', 0),
+    getMeta('lastSyncAttemptAt', 0),
     getMeta('lastError', null),
     getMeta('syncState', null),
     getMeta('lastDataDate', null),
@@ -340,6 +341,10 @@ export async function localInfo() {
     userAgent: globalThis.navigator?.userAgent ?? 'unknown',
     today: todayISO(),
     lastSyncAt: lastSyncAt ? new Date(lastSyncAt).toISOString() : null,
+    // US-112: the two timestamps read together. A sync that did not run because
+    // the history is under a day old looks identical to one that did not run at
+    // all, unless the attempt is dated too.
+    lastSyncAttemptAt: lastSyncAttemptAt ? new Date(lastSyncAttemptAt).toISOString() : null,
     lastDataDate,
     lastError,
     syncState,

@@ -16,6 +16,40 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.65.0] — 2026-08-24
+
+**No resync needed** — nothing about the stored history or any figure changes. What changes is how
+often the extension fetches on its own.
+
+### Fixed
+
+- **The extension synced on every DEGIRO page load, and that could leave the trading screen itself
+  stuck on a spinner** (US-112). Reported from a real account, with a screenshot: the portfolio
+  panel on trader.degiro.nl never finished loading while our strip said "Syncing…". The gate meant
+  to bound this was five minutes, which is a limit on how often a *person* can click — and nobody
+  clicks. The two callers that are not a person are the hourly alarm and a `tabs.onUpdated`
+  listener that fires on every page load, so opening DEGIRO twice in an afternoon was two full
+  syncs, each dozens of reporting requests spaced 1,1 s apart, aimed at the same session the
+  trading page is using.
+
+  An unattended run now asks whether the stored history is **older than 24 hours** instead of
+  whether somebody just synced. Daily closes are what this reconstructs, so a second sync inside
+  one day cannot add a day. Pressing Sync — in the popup, on the strip, in the app — is unchanged
+  and never refused.
+
+- **A failing sync restarted its whole backfill on every page load** (US-112, the same story's
+  second half). `lastSyncAt` is written only on success, so an account whose sync kept failing was
+  never "fresh" and a plain 24-hour rule would have left it re-running the heaviest path in the
+  extension on every navigation. A run that has committed to fetching now stamps the attempt, and
+  an unattended run waits 30 minutes after one that did not finish — roughly a DEGIRO session's
+  idle life, so a broken account gets about one heavy attempt per session rather than one per page
+  load. Runs that stop before reaching DEGIRO at all (not logged in, session expired) cost nothing
+  and do not arm it: the next page load is exactly when they might work.
+
+  The connection check and the export now carry `lastSyncAttemptAt` beside `lastSyncAt`, because
+  with a daily rule "it did not sync" and "it synced this morning" otherwise look identical in a
+  bug report. Both are timestamps about the install, not about its holder.
+
 ## [0.64.0] — 2026-08-23
 
 **No resync needed** — every figure is read off data already stored; nothing new is fetched.

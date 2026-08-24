@@ -301,6 +301,14 @@ export const EXPORTABLE_META = [
   'lastDataDate',
   'lastError',
   'lastSyncAt',
+  /**
+   * US-112. When a run last committed to fetching, as opposed to when one last
+   * succeeded. The pair is what answers "why has it not synced?" now that the
+   * answer can legitimately be "because it did, this morning" — without it a
+   * daily rule working exactly as designed reads like a dead alarm. A
+   * timestamp, and one about this install rather than about its holder.
+   */
+  'lastSyncAttemptAt',
   'liveSnapshot',
   'liveTotal',
   // The cash half of the derived reconciliation anchor. A single number DEGIRO

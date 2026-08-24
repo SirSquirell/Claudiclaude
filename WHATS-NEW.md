@@ -1,49 +1,54 @@
-# Wat er nieuw is — 0.64.0
+# Wat er nieuw is — 0.65.0
 
 Wat er verandert ten opzichte van de vorige versie, in gewone taal. Alleen deze release: de
 volledige geschiedenis staat in [CHANGELOG.md](CHANGELOG.md), installeren doe je met
 [INSTALL.md](INSTALL.md).
 
-> **Hoef je te resyncen voor deze versie? Nee** — alles wordt berekend uit gegevens die er al
-> staan, er wordt niets nieuws opgehaald. Zie [CHANGELOG.md](CHANGELOG.md) voor oudere
-> resync-vragen.
+> **Hoef je te resyncen voor deze versie? Nee** — er verandert niets aan je opgeslagen
+> geschiedenis of aan enig bedrag. Wat verandert is *hoe vaak* de extensie uit zichzelf gegevens
+> ophaalt. Zie [CHANGELOG.md](CHANGELOG.md) voor oudere resync-vragen.
 
 ---
 
-## Een nieuw tabblad: Dividends
+## De extensie synct nog hooguit één keer per etmaal vanzelf
 
-Een eigen tabblad, naast Income & cost, met alles over dividendinkomen dat met de gegevens van dit
-account zelf te berekenen is:
+Dit is een foutmelding van een lezer, met screenshot: zijn eigen DEGIRO-scherm bleef hangen op een
+laadrondje terwijl de Asteria-strip bovenin "Bezig met syncen…" zei. De oorzaak is niet subtiel.
+De extensie begon een sync **elke keer dat er een DEGIRO-tabblad laadde**, en een sync is
+tientallen verzoeken van 1,1 seconde uit elkaar — over dezelfde sessie die je handelsscherm op dat
+moment zelf gebruikt. Twee keer DEGIRO openen op een middag waren dus twee volledige syncs.
 
-- **Inkomen per positie** — een donut op aandeel in dividendinkomen, niet op aandeel in waarde. Dat
-  is bewust een ander beeld dan het Composition-tabblad: een positie kan klein zijn qua waarde en
-  toch een groot deel van het inkomen leveren, en andersom.
-- **Inkomstenprognose** — een projectie van de zelf gemeten jaar-op-jaar groei van het
-  dividendinkomen. Weigert een lijn te tekenen bij minder dan twee volledige kalenderjaren
-  geschiedenis, en weigert ook als het gemeten percentage onwaarschijnlijk hoog uitvalt — liever
-  niets tonen dan een artefact laten doorrekenen naar een absurde grafiek.
-- **Posities, dividendweergave** — dit jaar en de hele looptijd per positie, met een klein
-  staafje per jaar dat laat zien hoe consistent een positie heeft uitgekeerd. Puur de hoogte,
-  nooit een oordeel als "verlaagd" — daar is geen betrouwbare drempel voor te bepalen.
-- **Dividend safety** — staat er nog niet. De kaart legt uit waarom: een veiligheidsscore heeft
-  gegevens nodig (payout ratio, schuldpositie, verlagingsgeschiedenis) die dit account niet heeft
-  en die DEGIRO niet levert. Elke gratis bron die hiervoor is nagetrokken bleek óf betaald, óf te
-  beperkt, óf (de aankomende EU-databank ESAP) pas vanaf medio 2027 publiek toegankelijk.
+Vanaf nu stelt de extensie zichzelf een andere vraag: niet "heeft iemand net gesynct?" maar **"is
+wat ik heb ouder dan een etmaal?"**. Deze extensie reconstrueert dagkoersen, dus twee keer syncen
+op één dag kan geen dag opleveren die de eerste keer miste.
 
-## Extra land bij bronbelasting
+**Zelf op Sync drukken werkt precies als altijd** — in de popup, op de strip op de DEGIRO-pagina,
+of in de analyse zelf. Een druk op de knop wordt nooit geweigerd. Wil je tussendoor de meest
+actuele stand: druk op Sync.
 
-Ierland is toegevoegd aan de landenlijst bij de bronbelasting-tabel (15%, rechtstreeks nagetrokken
-aan het belastingverdrag) — relevant omdat in Ierland geregistreerde ETF's zoals VWRL veel
-voorkomen op DEGIRO.
+Wat je hiervan merkt:
 
-## Klein: bronbelasting-tabel netter uitgelijnd
+- Je DEGIRO-scherm heeft de extensie niet meer als concurrent tijdens het laden, op de ene keer
+  per dag na.
+- De strip zegt minder vaak "Bezig met syncen…", omdat er minder vaak iets te doen is.
+- Je cijfers lopen hooguit een dag achter zonder dat je iets doet. Ouder dan drie dagen en de
+  strip biedt je zelf een Sync-knop aan, net als voorheen.
 
-De kolomkoppen "Country" en "Note" stonden rechts uitgelijnd terwijl de invoervelden eronder links
-beginnen, waardoor de koppen los leken te zweven boven niets. Nu links uitgelijnd, zoals de velden
-zelf.
+## En: een mislukte sync begint niet meer telkens opnieuw
 
-## Klein: lege ruimte onder de inkomstenprognose weg
+Aan de bovenstaande regel zat een gat dat het probleem juist kon verergeren. De extensie noteert
+alleen een *geslaagde* sync, dus een account waarvan de sync steeds strandde zou nooit "bij" zijn
+— en dus bij elke paginalading de hele geschiedenis opnieuw gaan ophalen, het zwaarste wat deze
+extensie doet.
 
-Als er (terecht) geen prognoselijn werd getekend, bleef er een groot leeg vak onder de uitleg
-staan — op een telefoonscherm schoof daardoor alles eronder bijna een heel scherm naar beneden.
-Dat vak is nu weg wanneer er geen grafiek is.
+Een sync die daadwerkelijk aan het ophalen is begonnen en niet afmaakt, wordt nu een half uur met
+rust gelaten voordat er vanzelf een nieuwe poging komt. Pogingen die stranden *voordat* er iets
+naar DEGIRO ging — je bent niet ingelogd, of je sessie is verlopen — tellen niet mee: die kosten
+niets, en de volgende keer dat je DEGIRO opent is juist het moment waarop het wél kan lukken.
+Inloggen en meteen syncen blijft dus gewoon werken.
+
+## Klein: het foutrapport zegt nu ook wanneer het geprobeerd is
+
+In de verbindingscontrole en in de export staat naast "laatst gesynct" nu ook "laatst geprobeerd".
+Met een dagregel lijken "hij synct niet" en "hij heeft vanochtend gesynct" anders precies op
+elkaar in een bugreport. Allebei tijdstippen over je installatie, niet over jou.

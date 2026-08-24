@@ -78,7 +78,8 @@ export async function recompute({ liveTotal = null } = {}) {
 
 /**
  * Run a full sync. Safe to call repeatedly: concurrent calls share one run, and
- * a run inside the cooldown window is a no-op unless `force` is set.
+ * a run nobody asked for is a no-op while the stored history is less than a day
+ * old (US-112) — `force` is what a pressed button sends, and it skips that.
  *
  * `scheduled: true` marks a run nobody asked for — the alarm and the DEGIRO-tab
  * listener — which is what a disconnected account refuses (US-79).
@@ -376,9 +377,41 @@ async function doSync({ force = false, scheduled = false, onProgress = () => {} 
     await setMeta('lastError', { reason: phase, message, detail, at: entry.at });
   };
 
-  const lastSyncAt = await getMeta('lastSyncAt', 0);
-  if (!force && Date.now() - lastSyncAt < SYNC.minSyncIntervalMs) {
-    return { ok: true, skipped: 'cooldown', result: await getDerived() };
+  /**
+   * US-112. When a run nobody asked for is allowed to reach the network.
+   *
+   * Two gates, and `force` — what every Sync button in this extension sends —
+   * passes both. The first asks whether there is anything to add: this
+   * reconstructs *daily* closes, so a second sync inside the same day cannot
+   * produce a day the first one missed. The second is what stops a failing
+   * account from re-running the whole backfill on every page load, and it reads
+   * a stamp written only once a run has committed to the expensive half — see
+   * `lastSyncAttemptAt` below.
+   *
+   * The old gate was five minutes and it was measuring the wrong thing: it was
+   * a limit on how often a *person* could click, in a design where the two
+   * unattended callers are the hourly alarm and a listener that fires on every
+   * DEGIRO page load. `SYNC` in config.js has the report this came from.
+   */
+  if (!force) {
+    const [lastSyncAt, lastAttemptAt] = await Promise.all([
+      getMeta('lastSyncAt', 0),
+      getMeta('lastSyncAttemptAt', 0),
+    ]);
+    const now = Date.now();
+    const skipped =
+      now - lastSyncAt < SYNC.autoIntervalMs
+        ? 'fresh'
+        : now - lastAttemptAt < SYNC.retryIntervalMs
+          ? 'cooldown'
+          : null;
+    // The skip used to hand back `getDerived()`, and nothing has ever read it:
+    // the popup and the app both re-read the database themselves, exactly as
+    // the success path's own comment says they must. It is megabytes,
+    // structure-cloned across the worker boundary, for callers — the alarm and
+    // the tab listener — that throw the reply away, and under a daily rule they
+    // are now what lands here nearly every time. Rule 8.
+    if (skipped) return { ok: true, skipped };
   }
 
   // --- session ------------------------------------------------------------
@@ -397,6 +430,18 @@ async function doSync({ force = false, scheduled = false, onProgress = () => {} 
     await fail('portfolio', message, probe.error ?? probe.reason);
     return { ok: false, reason: probe.reason, message };
   }
+
+  /**
+   * US-112. Past this line the run is expensive — reporting windows, the
+   * backwards walk, the price chunks — so this is where an attempt starts
+   * counting against the retry gate above.
+   *
+   * Deliberately not at the top of `doSync`. A run that stopped at "no cookie"
+   * or "session expired" sent nothing DEGIRO would notice, and the next page
+   * load is exactly the moment it might work; stamping those would make logging
+   * in feel broken for half an hour.
+   */
+  await setMeta('lastSyncAttemptAt', Date.now());
 
   const today = todayISO();
 

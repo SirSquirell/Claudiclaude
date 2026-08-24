@@ -7400,4 +7400,63 @@ which table and why, rather than shipping a one-off hack for it alongside the sh
 
 ---
 
-**Next free number: US-112.**
+## US-112 — An unattended sync is a daily one *(new, from a 2026-08-24 user report — shipped in 0.65.0)*
+
+A reader reported that his DEGIRO screen hung while the extension was syncing, with a screenshot of
+trader.degiro.nl stuck on a loading spinner — no positions, no orders — and the Asteria strip on the
+same screen reading "Syncing…". His own diagnosis, unprompted and correct: *"ik denk dat er gewoon
+rate limits op degiro zitte, dus maybe ff 1x per 24 uur synce en niet elke startup."* His first
+suggestion had been manual-only syncing.
+
+The mechanism is arithmetic rather than mystery. `sw.js` starts a sync from `chrome.tabs.onUpdated`,
+which fires on **every page load** of trader.degiro.nl. A first sync is dozens of reporting requests
+spaced 1,1 s apart — eight or more 12-month windows for transactions, the same again for cash
+movements, the backwards walk on top of that, product info, then the price chunks — all against the
+same session the trading page is using at the moment it is booting. Rule 5 says rate limits here are
+an account-safety issue; this was the extension competing with its own user for them.
+
+The gate that was supposed to bound it was `SYNC.minSyncIntervalMs`, five minutes, described as
+*"do not re-sync more often than this, even if the user clicks a lot"*. That is a limit on clicking,
+in a design where the only two unattended callers are the hourly alarm and the tab listener. Nobody
+clicks.
+
+**The hole a plain 24-hour rule would leave**, and the reason this story has two halves:
+`lastSyncAt` is written only on the success path, so an account whose sync keeps failing is never
+"fresh" — and would have gone back to running the heaviest path in the extension on every single
+page load. The original defect, amplified by its own fix.
+
+### What shipped
+
+- `SYNC.autoIntervalMs` (24 h): an unattended run fetches only when the stored history is older than
+  that. Daily closes are what this reconstructs, so a second sync inside one day cannot add a day.
+- `SYNC.retryIntervalMs` (30 min): after a run that reached the network and did not finish. Thirty
+  minutes is roughly a DEGIRO session's idle life, so a failing account gets about one heavy attempt
+  per session rather than one per page load.
+- `meta.lastSyncAttemptAt`, stamped once a run commits to the expensive half — deliberately *after*
+  the session probe, so "not logged in" and "session expired" do not arm the retry gate. They cost
+  DEGIRO nothing, and the next page load is exactly when they might work.
+- `force` bypasses both gates, unchanged. Every Sync button in this extension already sends it.
+- The stamp joins `lastSyncAt` in `EXPORTABLE_META` and in the connection check: under a daily rule,
+  "it never synced" and "it synced this morning" otherwise read identically in a bug report.
+
+### What was deliberately not built
+
+- **A settings toggle for automatic sync.** It was the reporter's first suggestion and the owner
+  chose the interval instead. Rule 8: the defect is reachable without it, and a stored preference
+  about when syncing happens is a second truth about when syncing happens.
+- **Manual-only syncing.** The DEGIRO session lives about half an hour and only while somebody is on
+  the site, so an extension that never syncs on its own is one whose figures are usually behind.
+- **Delaying the tab-triggered sync past the page's own boot.** Considered and dropped: a sync runs
+  for minutes, so a one-minute delay moves the collision rather than removing it. See the stop
+  condition.
+
+### Stop condition
+
+This bounds *how often* the collision can happen, not the collision itself: the one sync a day still
+starts while a DEGIRO tab is loading, and on a first sync that is minutes of requests. If a reader
+reports a hang **after** this ships, the answer is not a longer interval — it is to stop syncing
+while the reader's own DEGIRO tab is in the foreground, which is a real design with a real cost and
+wants its own story rather than a constant.
+
+
+**Next free number: US-113.**

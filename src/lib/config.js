@@ -112,12 +112,50 @@ export const PRICE_PERIOD = {
   tail: 'P3M',
 };
 
-/** Hourly opportunistic sync, per SPEC §6. */
+/**
+ * When the extension is allowed to sync without being asked. SPEC §6.
+ *
+ * **US-112.** This used to be five minutes, and five minutes was a limit on
+ * clicking rather than on fetching. Nobody clicks; the two callers that are not
+ * a person are the hourly alarm and the DEGIRO-tab listener, and the second one
+ * fires on every page load. A reader reported his trading screen hanging on a
+ * spinner while the strip said "Syncing…", and the arithmetic is not subtle: a
+ * first sync is dozens of reporting requests spaced 1,1 s apart, aimed at the
+ * same session the trading page is using, started at the exact moment that page
+ * is loading. Opening DEGIRO twice in an afternoon was two of them.
+ *
+ * So an unattended run now asks a different question — not "did somebody just
+ * sync?" but "is what we have stale?" — and daily closes are what this
+ * reconstructs, so a day is the answer. Pressing Sync still bypasses all of it:
+ * `force` is what a person means.
+ *
+ * That is rule 5 rather than a preference. Rate limits here are an account-
+ * safety issue, and the cheapest request is the one not sent.
+ */
 export const SYNC = {
   alarmName: 'degiro-sync',
   alarmPeriodMinutes: 60,
-  /** Do not re-sync more often than this, even if the user clicks a lot. */
-  minSyncIntervalMs: 5 * 60 * 1000,
+  /**
+   * How old the stored history has to be before an unattended run fetches
+   * anything. Daily resolution: syncing twice in a day cannot add a day.
+   */
+  autoIntervalMs: 24 * 60 * 60 * 1000,
+  /**
+   * How long an unattended run waits after an attempt that reached the network
+   * and did not finish.
+   *
+   * Without this the 24-hour rule has a hole big enough to drive the original
+   * defect through: `lastSyncAt` is written only on success, so an account whose
+   * sync keeps failing is never "fresh" and every page load starts the whole
+   * backfill again — the worst case of the very behaviour this story is fixing.
+   *
+   * Thirty minutes because that is roughly how long a DEGIRO session survives
+   * idle, so a failing account gets about one heavy attempt per session rather
+   * than one per page load. Attempts that never reached the network (no cookie,
+   * expired session) do not arm it — they cost nothing and the next page load is
+   * exactly when they might work.
+   */
+  retryIntervalMs: 30 * 60 * 1000,
 };
 
 /**

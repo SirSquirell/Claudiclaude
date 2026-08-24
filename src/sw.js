@@ -65,8 +65,13 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 
 /**
  * Opportunistic sync: when a DEGIRO tab finishes loading the session is fresh,
- * which is the cheapest moment to catch up. The cooldown in runSync keeps this
- * from firing on every navigation.
+ * which is the cheapest moment to catch up.
+ *
+ * This listener fires on every page load, and until US-112 that is what it did:
+ * a reader watching his own trading screen hang on a spinner while our strip
+ * said "Syncing…" is where the story came from. The gate in `runSync` is now a
+ * daily one, so opening DEGIRO five times before lunch is at most one sync —
+ * the rest reach `getMeta` and stop, without touching the network.
  */
 chrome.tabs?.onUpdated.addListener((_tabId, changeInfo, tab) => {
   if (changeInfo.status !== 'complete') return;

@@ -7,18 +7,19 @@
  * vastpinnen. Het script zelf tekent alleen wat dit teruggeeft.
  *
  * De sync-knop is er niet altijd, met opzet: de extensie synct al vanzelf
- * (het uur-alarm, plus de opportunistische run zodra een DEGIRO-tab laadt),
- * dus "druk op sync" tonen terwijl dat al gebeurd is, is theater. De knop
- * verschijnt alleen wanneer hij een echte handeling is: de laatste poging is
- * mislukt, of de data is ouder dan `STALE_AFTER_DAYS`.
+ * (het uur-alarm, plus de run zodra een DEGIRO-tab laadt — sinds US-112 hoogstens
+ * eens per etmaal), dus "druk op sync" tonen terwijl dat al gebeurd is, is
+ * theater. De knop verschijnt alleen wanneer hij een echte handeling is: de
+ * laatste poging is mislukt, of de data is ouder dan `STALE_AFTER_DAYS`.
  */
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** Ouder dan dit is "verouderd" en verdient de knop. Het alarm loopt per uur,
- *  dus drie dagen achterstand betekent: de browser is dagen dicht geweest of
- *  de sessie is stilletjes weg — precies de gevallen waarin een mens moet
- *  handelen. */
+/** Ouder dan dit is "verouderd" en verdient de knop. De automatische sync loopt
+ *  per etmaal (US-112), dus drie dagen achterstand betekent: de browser is dagen
+ *  dicht geweest of de sessie is stilletjes weg — precies de gevallen waarin een
+ *  mens moet handelen. Drie blijft daarmee wat het was: ruim boven het interval,
+ *  zodat één gemiste nacht de knop niet laat opduiken. */
 export const STALE_AFTER_DAYS = 3;
 
 /** nl wanneer de browser Nederlands spreekt, anders en — de taalvoorkeur van

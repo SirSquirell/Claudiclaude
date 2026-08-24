@@ -370,3 +370,115 @@ test('an expired session stops rather than retrying, and says to log in', async 
   assert.ok(err, 'and the popup has something to show');
   assert.match(JSON.stringify(err), /session|401|expired/i, 'that says the session is the problem');
 });
+
+// --- US-112: an unattended sync is a daily one -------------------------------
+
+/**
+ * The story is a bug report, not a preference. A reader watched his own DEGIRO
+ * portfolio hang on a spinner while our strip said "Syncing…", and the cause is
+ * arithmetic rather than mystery: `sw.js` starts a sync from `tabs.onUpdated`,
+ * which fires on every page load, and a sync is dozens of requests spaced 1,1 s
+ * apart against the same session the trading page is using. The gate that was
+ * supposed to bound this was five minutes — a limit on how often a *person*
+ * could click, in a design where nobody clicks.
+ *
+ * What these four tests pin is the whole of the fix: fresh means no requests,
+ * stale means a sync, a pressed button ignores both, and a failure cannot turn
+ * every page load back into a backfill.
+ */
+
+/** Run `fn` against a broker whose cookie jar is empty. */
+async function withoutCookie(broker, fn) {
+  const realChrome = globalThis.chrome;
+  const realFetch = globalThis.fetch;
+  globalThis.chrome = { cookies: { get: async () => null } };
+  globalThis.fetch = broker.handler;
+  try {
+    return await underFakeClock(() => fn());
+  } finally {
+    globalThis.chrome = realChrome;
+    globalThis.fetch = realFetch;
+  }
+}
+
+test('US-112 — a tab load within a day of the last sync sends nothing at all', async () => {
+  await wipe();
+  await withBroker(fakeBroker(), () => sync.runSync({ force: true, onProgress: () => {} }));
+
+  // Every DEGIRO page load for the rest of the day is this call.
+  const later = fakeBroker();
+  const out = await withBroker(later, () => sync.runSync({ scheduled: true }));
+
+  assert.equal(out.skipped, 'fresh');
+  assert.equal(later.calls.length, 0, 'not one request left the extension');
+  // And the skip does not drag the derived bundle across the worker boundary
+  // for a caller that throws it away — under a daily rule this is the common path.
+  assert.equal(out.result, undefined);
+});
+
+test('US-112 — once the history is a day old, the next tab load syncs', async () => {
+  await wipe();
+  await withBroker(fakeBroker(), () => sync.runSync({ force: true, onProgress: () => {} }));
+  // Both stamps, because a day passing moves both: the attempt gate exists to
+  // space out *failures*, and a run that succeeded wrote them within a second
+  // of each other.
+  const yesterday = Date.now() - 25 * 60 * 60 * 1000;
+  await store.setMeta('lastSyncAt', yesterday);
+  await store.setMeta('lastSyncAttemptAt', yesterday);
+
+  const tomorrow = fakeBroker();
+  const out = await withBroker(tomorrow, () => sync.runSync({ scheduled: true }));
+
+  assert.notEqual(out.skipped, 'fresh');
+  assert.ok(tomorrow.calls.some((u) => u.includes('/v6/accountoverview')), 'it fetched');
+});
+
+test('US-112 — pressing Sync is never refused, however fresh the data is', async () => {
+  await wipe();
+  await withBroker(fakeBroker(), () => sync.runSync({ force: true, onProgress: () => {} }));
+
+  // Same second, so both gates would refuse a run nobody asked for.
+  const pressed = fakeBroker();
+  const out = await withBroker(pressed, () => sync.runSync({ force: true, onProgress: () => {} }));
+
+  assert.equal(out.ok, true);
+  assert.equal(out.skipped, undefined, 'force is what a person means');
+  assert.ok(pressed.calls.some((u) => u.includes('/v6/accountoverview')));
+});
+
+test('US-112 — a sync that failed part-way is not restarted by the next page load', async () => {
+  await wipe();
+  /**
+   * The hole a plain 24-hour rule would leave, and the reason the second gate
+   * exists: `lastSyncAt` is written only on success, so an account whose sync
+   * keeps failing is never "fresh". Without a stamp on the *attempt*, every page
+   * load would start the whole backfill again — the original defect, amplified.
+   */
+  const broke = fakeBroker({ fail: { on: '/v4/transactions', status: 500 } });
+  const failed = await withBroker(broke, () => sync.runSync({ scheduled: true }));
+  assert.equal(failed.ok, false, 'the run reached the network and did not finish');
+  assert.equal(await store.getMeta('lastSyncAt', 0), 0, 'so nothing marked it fresh');
+
+  const reload = fakeBroker();
+  const out = await withBroker(reload, () => sync.runSync({ scheduled: true }));
+  assert.equal(out.skipped, 'cooldown');
+  assert.equal(reload.calls.length, 0, 'the backfill did not start over');
+});
+
+test('US-112 — a run that stopped before reaching DEGIRO does not hold back the next one', async () => {
+  await wipe();
+  /**
+   * The mirror of the test above. "Not logged in" costs DEGIRO nothing — the
+   * cookie is read from the jar and the run stops — and the next page load is
+   * exactly the moment it might work. Arming the retry gate on those would make
+   * logging in feel broken for half an hour.
+   */
+  const noSession = fakeBroker();
+  const refused = await withoutCookie(noSession, () => sync.runSync({ scheduled: true }));
+  assert.equal(refused.ok, false);
+  assert.equal(noSession.calls.length, 0, 'nothing was sent, so nothing is owed');
+
+  const loggedIn = fakeBroker();
+  await withBroker(loggedIn, () => sync.runSync({ scheduled: true }));
+  assert.ok(loggedIn.calls.some((u) => u.includes('/v6/accountoverview')), 'it syncs straight away');
+});
