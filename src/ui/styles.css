@@ -1191,11 +1191,19 @@ button.primary:hover {
   /* The trigger sits at the right end of a wrapped row here, not at the foot
      of a column, so a menu that still grows from its own left edge runs off
      the right of the viewport. Growing from the right edge of the trigger
-     keeps it the same distance from where it was, whichever way it opens. */
+     keeps it the same distance from where it was, whichever way it opens.
+     It also stops hanging off a "foot" at all: `.rail` goes `position: static`
+     below this breakpoint, so the trigger sits near the *top* of the page
+     with the whole page below it, not above it. Opening upward here ran the
+     menu's own height past the top of the viewport with no scroll able to
+     reach it — the first three items (Check connection, Copy bug report,
+     Export JSON) were permanently hidden above the screen edge. */
   .menu {
     left: auto;
     right: 0;
-    transform-origin: bottom right;
+    top: calc(100% + 6px);
+    bottom: auto;
+    transform-origin: top right;
   }
 }
 

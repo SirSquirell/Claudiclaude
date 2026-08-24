@@ -3,8 +3,72 @@
 `docs/BACKLOG.md` is 2 000 lines of reasoning and evidence, which is the right place for *why* and
 a bad place to find out *where things stand*. This is the index.
 
-**Last updated at 0.65.0.** It had been stale since 0.21.0 once, which is fifteen
+**Last updated at 0.66.0.** It had been stale since 0.21.0 once, which is fifteen
 releases — if it looks stale again, trust the CHANGELOG and fix this.
+
+## Light scan, 2026-08-24 (fifth pass)
+
+**Branches.** 34 remote `claude/*` branches plus `poc`, re-fetched with `git fetch --unshallow`
+first (this checkout was shallow again). Delegated a focused re-check of every branch whose
+`git diff main...origin/<branch>` showed a non-trivial source-code diff — `multi-broker-poc`,
+`multi-broker-build`, `danny-report-2lttg1`, `paid-vs-grown-discrepancy-rk40yw`,
+`work-items-zk6g5r`, `bug-report-pbvnjs` — plus a quick pass on six smaller docs-only branches.
+One real process bug in this scan's own first pass, caught before it produced a wrong finding:
+this session's local `main` ref had drifted behind `origin/main` (the same class of drift a past
+scan's methodology note already warned about, there for the shallow-clone case rather than this
+one), which briefly made two fully-merged branches (`danny-report-2lttg1`, `work-items-zk6g5r`)
+look like they carried ~1 500 unmerged lines each. Fixed with `git branch -f main origin/main`
+before drawing any conclusion from it. On the corrected ref: every one of the six is either
+byte-identical to what already shipped (`bug-report-pbvnjs`'s fix is the same commit as `main`'s
+`52bde3d`, under a different hash — the exact "drifted branch" failure mode CLAUDE.md's *Branches*
+section names) or an earlier, less complete draft that later shipped stories (US-89, US-94, US-22,
+US-45, US-50) supersede. No real broker-response data or account-derived fixtures found in any of
+them. The remaining ~27 branches are the same fully-merged-or-superseded pattern every prior scan
+has found — nothing to pull forward, nothing new. **No new broker candidate surfaced** — the
+multi-broker branches both predate and are subsumed by what shipped as US-22; the blocker named in
+*Refined, not built* below (a Trading 212 Network-tab capture) is unchanged.
+
+**GitHub.** Zero open issues, zero open PRs — nothing to reconcile or close.
+
+**Backlog numbering**, checked with `tools/check-backlog.mjs`: 70 stories, highest US-113, next
+free US-114, every heading states its state, no duplicates — matches the foot of
+`docs/BACKLOG.md`. No heading found disagreeing with what is actually on `main`.
+
+**Rule compliance / security.** Same spot checks as every prior scan, all clean:
+`throttledFetch` is still the one queue with no 401/403 retry, `session.js` still persists nothing
+but the cookie-derived account fields, `EXPORTABLE_META` is still an allowlist. Nothing in
+`src/lib/` or `src/ui/` changed since the last pass verified them beyond this scan's own fix below.
+
+**Design pass** (`apple-design` skill loaded first). Headless Playwright at 1440/380 px ×
+light/dark, plus — because four prior scans' overflow checks only ever measured *horizontal*
+overflow — a check of whether every opened menu lands fully inside the viewport on every edge.
+Found and fixed a real defect that had been there since the 2026-08-21 pass introduced the
+mobile layout it lives in: **the "More" menu opened off the top of the screen on every mobile
+session**, not an edge case. Below the 60em breakpoint `.rail` becomes `position: static` and
+stacks to the *top* of the page, so the trigger sits near the top with the rest of the page below
+it — but `.menu` still opened *upward* (`bottom: calc(100% + 6px)`), a rule written for the desktop
+layout where the trigger hangs off the foot of a sticky sidebar. The panel is 302px tall against
+~193px of space above the trigger on mobile, so its first three items — Check connection, Copy bug
+report, Export JSON — rendered above the top edge of the viewport, unreachable by any scroll
+(confirmed: Playwright's own click times out with "element is outside of the viewport", and no
+document scroll changes that, since nothing exists above the fold to scroll to). The 2026-08-21
+scan fixed this exact breakpoint's *left/right* overflow for the same underlying reason (trigger
+moved from the foot of a column to the end of a row) but never carried the fix to *top/bottom* —
+worth naming since it means the horizontal-only overflow check every scan since has run would
+never have caught this class of bug. Flipped to open downward in the same media-query block
+(`src/ui/styles.css`); re-verified in browser at 380px and 1440px, light and dark: all eight items
+present, clickable and fully on-screen, no regression on the desktop rail's upward-opening menu
+(untouched — this breakpoint doesn't apply above 60em). Released as **0.66.0**, display-only, no
+resync, no `WHATS-NEW.md` entry (same reasoning as 0.60.1/0.60.2: nothing changed about what is
+stored or fetched).
+
+**Optimization.** No concrete finding this pass — looked for the same shape as prior passes
+(a computation re-run per render that a narrower pass could skip or cache) in the areas touched by
+`main`'s last two commits (US-112/US-113's sync-gating logic in `src/lib/sync.js`); both are
+gated, one-shot checks against a timestamp, not a loop over data. Not worth a story on a guess.
+
+`npm test` 602/602, `npm run palette` zero collisions in both themes, `node tools/check-leaks.mjs`
+clean — all re-run after the fix above, on `main`.
 
 ## Light scan, 2026-08-23 (fourth pass)
 

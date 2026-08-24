@@ -16,6 +16,25 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.66.0] — 2026-08-24
+
+**No resync needed** — display only, nothing about the stored history or any figure changes.
+
+### Fixed
+
+- **The "More" menu opened off the top of the screen on narrow viewports, hiding its first three
+  items.** Below the 60em breakpoint `.rail` becomes `position: static` and stacks to the top of
+  the page, so the "More" trigger sits near the top with the rest of the page below it — but
+  `.menu` still opened *upward* (`bottom: calc(100% + 6px)`), assuming the desktop layout where the
+  trigger hangs off the foot of a sticky sidebar. The panel is 302px tall; only ~193px of space
+  exists above the trigger on mobile, so "Check connection", "Copy bug report" and "Export JSON"
+  rendered above the top edge of the viewport with no scroll able to reach them — on every mobile
+  session, not an edge case. The 2026-08-21 scan fixed this same breakpoint's *left/right* overflow
+  for the same reason (trigger moved from the foot of a column to the end of a row) but did not
+  carry the fix to *top/bottom*. Flipped to open downward in the same media-query block; verified
+  in browser at 380px and 1440px, light and dark — all eight items reachable, no regression on the
+  desktop rail's upward-opening menu, which this breakpoint does not touch.
+
 ## [0.65.0] — 2026-08-24
 
 **No resync needed** — nothing about the stored history or any figure changes. What changes is how
