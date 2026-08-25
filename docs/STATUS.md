@@ -6,6 +6,61 @@ a bad place to find out *where things stand*. This is the index.
 **Last updated at 0.67.0.** It had been stale since 0.21.0 once, which is fifteen
 releases — if it looks stale again, trust the CHANGELOG and fix this.
 
+## Light scan, 2026-08-25 (seventh pass)
+
+Roughly sixteen hours after the sixth pass, not the "under an hour" gap that made the sixth pass a
+near-duplicate of the fifth — a genuine re-check, and it confirms the same state rather than
+finding drift.
+
+**Branches.** 34 remote `claude/*` branches plus `poc`, unchanged count from the fifth/sixth pass.
+This session's own designated branch, `claude/eager-cannon-gjuowt`, was itself checked first (the
+prompt's own transport-branch instruction applies to it) and found already identical to `origin/main`
+— no merge needed, no drift. Spot-checked the two smallest recent-looking diffs against `main` in
+case something had been missed by count alone: `claude/degiro-reconciliation-issues-7t3iyc` (1
+commit, "US-84") and `claude/feature-requests-user-stories-u0rxdl` (10 commits, US-97–US-109) —
+both fully superseded, US-84 and US-97–US-109 are already on `main` in more complete form. No new
+broker candidate; **T212 and IBKR are already scoped as far as they can be without a human at a
+logged-in tab** (see *Refined, not built* below) — nothing to add there this pass.
+
+**GitHub.** Zero open issues, zero open PRs.
+
+**Backlog numbering**, via `tools/check-backlog.mjs`: 70 stories, highest US-113, next free
+US-114, every heading states its state — matches the foot of `docs/BACKLOG.md`, no duplicates, no
+disagreement with what's on `main`. (Two numbers referenced outside `BACKLOG.md` — US-36 and US-38,
+the IBKR/Trading 212 spikes, whose write-ups live in `MULTI-BROKER.md` and the spike-brief docs —
+have no heading of their own there; the checker doesn't flag it and the *Refined, not built* table
+already carries both, so this reads as the project's existing convention for broker-spike numbers
+rather than a gap. Noted, not treated as a defect.)
+
+**Rule compliance / security.** Same spot checks as every prior scan, all still clean: the two
+`fetch()` calls outside `src/lib/degiro.js` are `manifest.json` and a demo fixture, neither hits a
+broker; `throttledFetch` remains the one queue, no 401/403 retry; `EXPORTABLE_META` in `store.js`
+is still an allowlist (`redactMeta` redacts anything not on it); `diagnose.js` logs a cookie
+*length*, never its value; `node tools/check-leaks.mjs` clean.
+
+**Design pass** (`apple-design` skill loaded first, before judging anything). Headless Playwright
+at 1440/380px × light/dark on Overview: zero page errors, zero horizontal overflow. Also drove the
+Dividends tab (donut, income table, forecast card) and reopened the mobile More menu the fifth pass
+fixed — its panel still lands fully inside the 380px viewport (`right: 368` of `380`), so that fix
+holds. No new defect found. `src/ui/styles.css`'s `box-shadow: var(--shadow-float)` usages were
+checked against the redesign brief's §8 one-flat-container-depth rule: every one is on a floating
+overlay layer (popover, tooltip, modal, dropdown) sitting above the flat page, not a shadow nested
+inside a card — consistent with the brief, not a violation of it. Reduced-motion coverage
+unchanged (five `@media (prefers-reduced-motion: reduce)` blocks). The `.frown` easter egg's
+pulsing glow and rotating emoji are deliberately over-the-top per the owner's own note in
+`styles.css` ("mag nog meer over de top") — not a restraint violation, it's the one place asked to
+ignore restraint.
+
+**Optimization.** No new candidate — same conclusion as the fifth/sixth pass. Looked specifically
+at whether `src/ui/app.js` (5 745 lines, single file, no bundler) is worth splitting; decided
+against proposing it as a story. It ships unbundled by design (MV3, `type="module"`, no build
+step — consistent with rule 8's preference for no tooling beyond what's needed), so file line count
+alone isn't a runtime cost, and a split would be a refactor without a concrete defect or story
+behind it, which rule 8 rules out on its own terms.
+
+`npm test` 602/602, `npm run palette` zero collisions in both themes, `node tools/check-leaks.mjs`
+clean.
+
 ## Light scan, 2026-08-25 (sixth pass)
 
 This run started less than an hour after the fifth pass below and found nothing that pass had
