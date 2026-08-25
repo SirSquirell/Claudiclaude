@@ -7360,7 +7360,7 @@ requested wider expansion was deliberately left undone: this sandbox's network p
 treaty-schedule sources that would confirm the other candidates, and several treaties do not follow
 the OECD-model 15% default, so guessing them would feed a real reclaimable-tax figure on a guess.
 
-## US-111 — A scrollable table should say so *(new, from the 2026-08-23 design pass)*
+## US-111 — A scrollable table should say so *(built, 0.67.0)*
 
 `.table-scroll` (`src/ui/styles.css:2339`) makes every wide table — Holdings, the dividend holdings
 view, the withholding table, the month × year matrix — scroll horizontally inside its own card
@@ -7375,6 +7375,15 @@ mobile has no way to discover them. This is Apple's scroll-edge-effects principl
 way round: the guidance is normally about fading *chrome* where it overlaps content, but the same
 signal — a soft edge where there is more, none where there is not — is exactly what is missing here
 too, and every `.table-scroll` instance in the app is affected identically, not just Dividends.
+
+**Shipped as the shared-rule option the story preferred**: the pure-CSS scroll-shadow trick (two
+`background-attachment: local` covers riding with the content, over two `background-attachment:
+scroll` shadows fixed to the box) on `.table-scroll` itself in `src/ui/styles.css`, plus one new
+`--scroll-edge` token per theme. No JS, no scroll listener, no stop condition hit — nothing in the
+app gives `.table-scroll` a sticky header or a competing background. Verified in a real browser at
+380px, light and dark, on two tables (Holdings and Transactions): the fade shows only on the side
+that still has unscrolled content and both edges fade together at a true midpoint; a table that
+fits without scrolling (Holdings at 1440px) shows neither edge.
 
 ### Acceptance criteria
 

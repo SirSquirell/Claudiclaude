@@ -3,8 +3,53 @@
 `docs/BACKLOG.md` is 2 000 lines of reasoning and evidence, which is the right place for *why* and
 a bad place to find out *where things stand*. This is the index.
 
-**Last updated at 0.66.0.** It had been stale since 0.21.0 once, which is fifteen
+**Last updated at 0.67.0.** It had been stale since 0.21.0 once, which is fifteen
 releases — if it looks stale again, trust the CHANGELOG and fix this.
+
+## Light scan, 2026-08-25 (sixth pass)
+
+This run started less than an hour after the fifth pass below and found nothing that pass had
+not already covered — restated briefly rather than re-audited: 34 remote `claude/*` branches plus
+`poc` (same set, re-counted), zero open GitHub issues, zero open PRs, `tools/check-backlog.mjs`
+still 70 stories / next free US-114 with every heading accurate. **US-112 and US-113 are left
+exactly as the run's own briefing described** — 0.65.0's daily-sync gate and 0.66.0's tab-load
+follow-up are unchanged, and US-113 still waits on the owner's pick between its three variants
+plus one look at a real logged-in tab; this entry does not re-report the sync behaviour.
+
+**Build work: US-111, a scrollable table now says so — shipped as 0.67.0.** The story was already
+refined with acceptance criteria and a stop condition (from the 2026-08-23 design pass) and named
+as genuinely unblocked, so it was built rather than re-scanned for. `.table-scroll` gained the
+pure-CSS scroll-shadow trick the story's own text asked for first: two `background-attachment:
+local` cover gradients ride with the content and mask two `background-attachment: scroll` shadow
+gradients fixed to the box, so a fade shows only at an edge that still has unscrolled content and
+disappears once that edge is the true start/end — one shared rule in `src/ui/styles.css`, applied
+identically to every `.table-scroll` instance (Holdings, Transactions, the dividend view, the
+withholding table, the month × year matrix, the diagnostics table). No JS, no per-table CSS — the
+stop condition was not hit, since nothing in the app gives `.table-scroll` a sticky header or a
+competing background.
+
+**Design pass** (`apple-design` skill loaded before judging any of this). The skill's own §12
+names exactly this pattern — "fade a small gradient mask where content meets floating chrome" — as
+the Apple-native way to signal more content, which is what the refined story had already
+independently arrived at. What the skill added was the discipline to keep it inside `docs/redesign/`
+§8's flat-container-depth rule: the fade is an opaque `background-color`/gradient composite, never
+`backdrop-filter` or a translucent material, so no blur or depth was introduced anywhere. Checked
+against the two accessibility preferences the story's own AC named: `prefers-reduced-transparency`
+does not apply — nothing here is translucent in the OS sense, it is a solid card with an opaque
+gradient painted on top, never revealing anything behind it — and `prefers-contrast: more` is
+untouched by this rule and unaffected by it. Verified in a real browser (`npm run demo`, headless
+Playwright) at 380px, light and dark, on two tables (Holdings and Transactions): the hint appears
+only on the side with unscrolled content, both edges show together at a true scroll midpoint, and
+a table that fits without scrolling (Holdings at 1440px, both themes) shows neither edge — no page
+horizontal overflow, no console errors, in any of the eight checked combinations. No broader
+design sweep beyond this build — the fifth pass's own Playwright audit (below) ran less than an
+hour earlier and nothing in the UI changed in between except this one rule.
+
+**Optimization.** No new candidate — same conclusion as the fifth pass, and nothing computational
+changed this run; the scroll-shadow rule is pure CSS with no JS or render-loop cost.
+
+`npm test` 602/602, `npm run palette` zero collisions in both themes, `node tools/check-leaks.mjs`
+clean.
 
 ## Light scan, 2026-08-24 (fifth pass)
 

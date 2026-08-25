@@ -110,6 +110,7 @@
    * read as detached from what is under them. */
   --shadow: 0 1px 2px rgba(20, 25, 30, 0.05);
   --shadow-float: 0 12px 32px rgba(20, 25, 30, 0.13), 0 2px 6px rgba(20, 25, 30, 0.06);
+  --scroll-edge: rgba(20, 25, 30, 0.14);
 
   /* Shape and rhythm, from the mockup's "studio" skin.
    *
@@ -272,6 +273,7 @@
   --brand-accent: #f97038;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
     --shadow-float: 0 16px 40px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.4);
+    --scroll-edge: rgba(0, 0, 0, 0.55);
 
     --pw-card: #101010;
     --pw-line: #262626;
@@ -320,6 +322,7 @@
   --brand-accent: #f97038;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-float: 0 16px 40px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.4);
+  --scroll-edge: rgba(0, 0, 0, 0.55);
 
   --pw-card: #101010;
   --pw-line: #262626;
@@ -2347,6 +2350,28 @@ td.neg { color: var(--neg); }
 .table-scroll {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+
+  /*
+   * US-111 — a scrollable table says so. The classic scroll-shadow trick: a
+   * "cover" gradient in the card's own surface colour rides along with the
+   * content (background-attachment: local) and sits exactly over the
+   * "shadow" beneath it — a radial gradient fixed to the box, not the
+   * content (background-attachment: scroll) — for as long as that edge is
+   * the true start/end of the table. Scroll away from an edge and its cover
+   * slides off with the content, uncovering the shadow; scroll fits inside
+   * the box and both covers overlap, so neither shadow ever shows. No JS,
+   * no scroll listener, and it degrades to nothing (not a stray shadow) if
+   * a future table sets its own background over this one.
+   */
+  background-image: linear-gradient(to right, var(--surface-1) 40%, transparent),
+    linear-gradient(to left, var(--surface-1) 40%, transparent),
+    radial-gradient(farthest-side at 0 50%, var(--scroll-edge), transparent),
+    radial-gradient(farthest-side at 100% 50%, var(--scroll-edge), transparent);
+  background-repeat: no-repeat;
+  background-color: var(--surface-1);
+  background-size: 24px 100%, 24px 100%, 10px 100%, 10px 100%;
+  background-position: left, right, left, right;
+  background-attachment: local, local, scroll, scroll;
 }
 
 @media (max-width: 51em) {

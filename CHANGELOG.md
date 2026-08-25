@@ -16,6 +16,22 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.67.0] — 2026-08-25
+
+**No resync needed** — display only, nothing about the stored history or any figure changes.
+
+### Added
+
+- **US-111: a scrollable table now says so.** `.table-scroll` (Holdings, the dividend holdings
+  view, the withholding table, the month × year matrix, Transactions) scrolls horizontally inside
+  its own card below `51em`, but gave no hint that there was more to see — a reader who does not
+  habitually swipe tables on mobile had no way to discover the columns sitting past the edge. A
+  soft fade/shadow now shows at whichever edge still has unscrolled content, on the side that has
+  more of it, and disappears once that edge is the true start or end — never shown on a table that
+  fits without scrolling. Pure CSS (a `background-attachment: local`/`scroll` pair, no JS), one
+  shared rule applied to every `.table-scroll` instance identically. Verified in browser at 380px,
+  light and dark, on two tables.
+
 ## [0.66.0] — 2026-08-24
 
 **No resync needed** — display only, nothing about the stored history or any figure changes.
