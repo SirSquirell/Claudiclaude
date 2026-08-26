@@ -6,6 +6,60 @@ a bad place to find out *where things stand*. This is the index.
 **Last updated at 0.67.0.** It had been stale since 0.21.0 once, which is fifteen
 releases — if it looks stale again, trust the CHANGELOG and fix this.
 
+## Light scan, 2026-08-26 (eighth pass)
+
+Same routine, nothing new. This session's own transport branch (`claude/eager-cannon-2wrbbi`)
+checked first, per the prompt's own instruction: found identical to `origin/main` (0 ahead, 0
+behind) before any work started, and stays that way — this entry is the only change this pass
+makes.
+
+**Branches.** 36 remote `claude/*` branches plus `poc`, up from 34 — the growth is prior
+sessions' own transport branches (this environment's git proxy cannot delete them, per rule
+already in CLAUDE.md's *Branches* section), not new work. Recomputed ahead/behind for all 36
+against `origin/main` rather than local `main` (the local ref was 13 commits stale — the same
+drift class a past pass's methodology note already warned about). Result: every branch is either
+fully merged (`ahead=0`) or diverged 56+ commits back, pre-dating the 2026-08-18 branch-policy
+audit, except `claude/feature-requests-user-stories-u0rxdl` (10 ahead, 32 behind) — already
+flagged in an earlier pass as superseded (its US-97–US-109 content shipped on `main` in more
+complete form). No branch carries a story `main` doesn't have. Stale-branch cleanup remains
+GitHub-UI work for the owner, not something to attempt here.
+
+**GitHub.** Zero open issues, zero open PRs.
+
+**Backlog numbering**, via `tools/check-backlog.mjs`: 70 stories, highest US-113, next free
+US-114, no duplicates — unchanged from the seventh pass.
+
+**Rule compliance / security.** Same spot checks, all still clean: `fetch()` appears only in
+`src/lib/degiro.js`, `src/ui/app.js` (reading the extension's own `manifest.json` for the
+version string) and `src/ui/datasource.js` (demo fixtures) — no second path to a broker.
+`EXPORTABLE_META` in `store.js` is still an allowlist. `degiro.js` still refuses to retry
+401/403. No password/credential field anywhere in `src/`. `node tools/check-leaks.mjs` clean.
+
+**Design pass** (`apple-design` skill loaded first). Headless Playwright at 1440px and 380px,
+light and dark, driven across all eight tabs (Overview, Performance, Composition, Income & cost,
+Dividends, Holdings, Outlook, Notices) via `npm run demo`: zero page errors, zero console errors,
+zero horizontal overflow in any of the 32 tab/viewport/theme combinations checked. The mobile
+More menu still lands fully inside the 380px viewport. The Dividends tab's empty-looking
+"Dividend safety" card was checked against its DOM rather than judged by eye — it is a deliberate
+`is-unsupported` state with a hidden "not built, here's why" hint behind its `?` toggle, not a
+layout defect. `backdrop-filter` still does not appear anywhere in `src/ui/styles.css` (0
+matches) — still consistent with `docs/redesign/`'s §8 flat-container-depth rule that overrides
+this skill's own translucency guidance. 5 `@media (prefers-reduced-motion: reduce)` blocks,
+unchanged. No new design defect found.
+
+**Optimization.** No new candidate. `src/ui/app.js` unchanged at 5,745 lines — same conclusion
+as the fifth through seventh passes: it's unbundled by design (MV3, no build step), so line
+count alone isn't a runtime cost, and rule 8 rules out a refactor with no story or defect behind
+it.
+
+**Brokers.** No new candidate. Trading 212 (§8) and Interactive Brokers (§9) in
+`docs/MULTI-BROKER.md` remain scoped as far as possible without a human at a *funded*,
+logged-in tab — unchanged since the 2026-08-25 T212 endpoint-inventory commit this pass found
+already landed on `main`.
+
+`npm test` 602/602, `npm run palette` zero collisions in both themes, `node tools/check-leaks.mjs`
+clean.
+
 ## Light scan, 2026-08-25 (seventh pass)
 
 Roughly sixteen hours after the sixth pass, not the "under an hour" gap that made the sixth pass a
