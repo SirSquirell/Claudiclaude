@@ -47,7 +47,14 @@ test('a path nobody registered is refused, and a registered one says how it is k
     validateTarget({ method: 'GET', url: `${ALLOWED_ORIGINS[0]}/rest/v1/orders` }).reason,
     'path-not-registered',
   );
-  assert.equal(validateTarget({ method: 'GET', url: GOOD }).evidence, 'hypothesis');
+  // `GOOD` is measured as of 2026-08-25 — the web app requests it (§8g). The
+  // reports paths are the ones still taken from community code, so they are
+  // what this assertion has to be made against to stay meaningful.
+  assert.equal(
+    validateTarget({ method: 'GET', url: `${ALLOWED_ORIGINS[0]}/rest/reports/transactions` }).evidence,
+    'hypothesis',
+  );
+  assert.equal(validateTarget({ method: 'GET', url: GOOD }).evidence, 'measured');
   assert.equal(
     validateTarget({ method: 'GET', url: `${ALLOWED_ORIGINS[0]}/charting/v1/eq/ohlc/ONE_DAY` }).evidence,
     'measured',

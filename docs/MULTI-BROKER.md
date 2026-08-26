@@ -596,8 +596,112 @@ credentials.
 deep enough on daily candles, and needs no account.** The engine's two hardest anticipated
 questions — the bid/ask basis and synthetic candles — turned out not to exist.
 
-**R1's page half is answered: the session is cookie-borne.** What is left is the service-worker
-half, which the DEGIRO adapter has been doing in production for weeks.
+**R1 is answered in full: the session is cookie-borne, and the service worker gets the same
+treatment as the page.** That closed on 2026-08-13.
+
+What is left is not a question about access any more — it is one about *shapes*, and §8g narrows it
+to a single sentence. The web-session route has been measured to authenticate, and the path it was
+measured on (`/rest/v1/accounts`) is account metadata. **Nobody has yet seen this route return a
+position, a transaction or a cash movement**, because the one full Network-tab capture we have came
+from an account that holds nothing and so was never asked for them. That capture is worth reading
+for what it does settle — the instrument master, the host, and two routes rule 9 forbids — and it
+cannot stand in for the missing half. A **funded** account is the requirement, and it is the only
+one left before US-39–US-45.
+
+### 8g. The web app's own requests — an endpoint inventory, 2026-08-25
+
+A second capture, and a different kind. Not a probe of one path but the whole Network tab of
+`app.trading212.com/portfolio` on a real logged-in account: 771 entries, **44 distinct endpoints**
+once the ad, analytics and error-tracking hosts are dropped. Names, counts, statuses and content
+types; query parameters kept as names without values, per the brief's own rule.
+
+**It answers less than its size suggests, and the reason is the account.** That account is not
+activated and holds nothing, so the web app took its empty branch — it requested
+`/rest/watchlists/v6/automated-lists/empty-portfolio-state` and then never asked for a holding, an
+order, a transaction or a cash movement.
+
+| | In this capture |
+|---|---|
+| Positions / holdings | **No endpoint at all.** The empty-portfolio path was taken instead |
+| Orders / transaction history | **Not called** |
+| Cash movements — deposits, withdrawals, dividends | **Not called** |
+| Price history as a series | **Not called.** One last-close request per ticker, nothing more |
+
+So R2, R3 and R5 remain answered only on the documented API-key route of §8c. On the **web-session
+route** — the one rule 9 permits and §8d measured — this project still has not seen a positions
+response, a transactions response or a cash-movement response. That needs a **funded** account, and
+no amount of capture from an empty one substitutes for it.
+
+#### What it does settle
+
+Everything below is on `live.services.trading212.com`, which is now confirmed as the single host the
+web app reads account data from — §8e's allowlist of `*.trading212.com` needs no widening.
+
+| Path | Status | What it carries |
+|---|---|---|
+| `GET /rest/v1/accounts` | 200 JSON | **Promoted from `hypothesis` to `measured`.** §8d's R1 measurement was made against a path taken from community code that nobody had yet seen the web app request. The web app requests it |
+| `GET /rest/v1/customers/accounts/summary` | 200 JSON | `netWorth` per account type (`LIVE`, `DEMO`) plus `currentAccounts[]` and `newAccounts[]`. The nearest thing to a reconciliation anchor on this route — and it is *net worth*, not §8c's "Investments value" trap |
+| `GET /instrumentarium/v2/instruments/{sinceEpochMs}` | 200 JSON | The instrument master, delta-synced on a millisecond cursor in the path: `ticker`, `type`, `isin`, `currency`, `shortName`, `fullName`, `description`, `digitsPrecision`, `quantityPrecision`, `exchangeId`, `tradable`, `leverage`, `retailLeverage`, `category`. This is DEGIRO's `products/info` equivalent, and it is where an ISIN comes from |
+| `GET /instrumentarium/v1/exchanges/{id}`, `GET /instrumentarium/v1/cashtag-configurations/{sinceEpochMs}` | 304 | Shapes **unknown** — the browser had them cached. Named only so the next capture knows to clear that cache first |
+| `GET /charting/v2/json/preview/extended/deviation?ticker=` | 200 `text/plain` | `{close, marketSession, timestamp}`. **One last close, not a series** — this fills a sparkline. It does not replace §8b's `/charting/v1/eq/ohlc/{PERIOD}`, and note that a `v2` charting namespace exists beside the `v1` one that serves candles |
+| `GET /rest/watchlists/v6/groups` | 200 JSON, 45 kB | Per ticker: `price.sell`, `price.buy`, `price.timestamp`, `price.session`, `extendedHoursPrice.*`, `deviation.*`. **Live bid and ask** |
+| `GET /rest/v4/customers/accounts/progress`, `GET /rest/features-edge/v2/accounts/features?countryOfResidence&currency&dealer`, `GET /rest/v1/account-trading-types/tags?currencyCode&dealer&languageCode&residencyCode` | 200 JSON | Onboarding state and feature gating. Not portfolio data, and worth naming anyway: these are what a first sync meets on an account that is not ready to trade, and rule 4's reasoning applies — an adapter must recognise *this account has nothing* rather than report zero as a value |
+| `GET /rest/cards/v1/cashbacks/updated-since?updatedSince` | **403** | Reproduces the incidental 403 recorded in `TRADING212-R1-RESULT.md`, twice, with a valid session. A feature refusal, not an authentication one — worth keeping, because a 403 that means *not you* and a 403 that means *not logged in* would be handled differently |
+
+**The bid/ask decision comes back, narrowly.** §8a retired it, correctly: a candle has one close, so
+there is nothing to choose for history. `watchlists/v6/groups` is where it returns, for a *live*
+price. AC6 already answers it — state the chosen basis on the page — so this is a thing to state,
+not a question to reopen.
+
+#### The two paths rule 9 forbids, now that they have names
+
+Both are cheaper to rule out here than to discover halfway through building an adapter.
+
+**`POST /rest/v3/webclient/authenticate`.** This is the login, and its 200 body carries
+`accountSession` and `customerSession` in plain text. Calling it is authentication by definition, so
+rule 9 ends the discussion — and it is not needed either: §8d measured that a cookie the browser
+already holds is sufficient. Reading a session token out of a response in order to use it later is
+precisely the "stores a credential" this project promises never to do.
+
+**`GET /streaming/events/` — a `101` upgrade — carries `accountSession` as a query parameter.** So
+the live event stream is reachable only by holding that token, which means lifting it from the
+authenticate response or from wherever the page keeps it. Rule 9 closes that; rule 5 would have
+anyway, since a socket that pushes is the opposite of one request every 1,1 seconds.
+
+Neither is a loss. What the engine needs is *history*, and §8b established that history is public
+and needs no credential at all.
+
+#### One warning about the capture itself, sharper than §9d's
+
+Chrome's **sanitized** HAR export strips headers and cookies. It does **not** strip response
+bodies — so a Trading 212 HAR still contains `accountSession` and `customerSession` in the clear in
+the `authenticate` entry, and a third copy of the first in the streaming URL's query string. A file
+exported with the safe-looking option is a **live-session file** until that session expires.
+
+`tools/har-shapes.mjs` is safe against this by construction: it prints field names, shapes and query
+*names*, and never a value. It is the only thing that should be run on such a file. The file itself
+is not committed, pasted or attached. §9d says the same about an IBKR HAR carrying a portfolio; this
+is the sharper case, because this one carries a usable session.
+
+**One block of the summary handed over did carry values** — the account's own status, its creation
+date, its dealer code and its residency — and it is not copied into this repo. What those fields are
+*for* is the part worth keeping: `/rest/features-edge/v2/accounts/features` and
+`/rest/v1/account-trading-types/tags` both take residency, currency and dealer as query parameters,
+so an adapter reads them from the account rather than assuming them. Rule 7's corollary covers a
+residency and a signup date as readily as a name.
+
+#### The instrument id, and one boundary
+
+**Ticker convention**, from 15 instrument logos fetched as
+`trading212equities.s3.eu-central-1.amazonaws.com/{ticker}.png`: `SYMBOL_COUNTRY_EQ`, with a
+per-exchange suffix for non-US listings (`VALLl_EQ`) and a leading `#` for futures (`#QGSEP26`).
+That is the id AC4 has to resolve, and it is **not an ISIN** — which is what makes
+`/instrumentarium/v2/instruments/…` load-bearing rather than convenient.
+
+**`qgcusvk.trading212.com` is a first-party proxy for Google Analytics**, and the hashed e-mail
+address in its query string is Trading 212's own doing. It matters here only as a boundary: if this
+extension ever gains a content script on that host the way `src/content/` has one on DEGIRO's, it
+reads nothing from the page — same rule, same reason.
 
 ## 9. Interactive Brokers — a first look, 2026-08-18
 

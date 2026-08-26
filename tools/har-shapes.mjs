@@ -17,6 +17,13 @@
  * of every response — which is to say the entire portfolio, in the clear. It
  * must never be sent to anyone, pasted into a chat, or committed.
  *
+ * **Chrome's "sanitized" export is not an exception to that, and it looks like
+ * one.** It strips headers and cookies; it does not strip response bodies.
+ * Measured on Trading 212, 2026-08-25: `POST /rest/v3/webclient/authenticate`
+ * returns two session tokens in plain text and a sanitized export keeps both, so
+ * the file is a live session until that session expires. See
+ * `docs/MULTI-BROKER.md` §8g.
+ *
  * **So the file stays put and only its shape travels.** This prints endpoint
  * paths, field names, types and counts. No value is ever printed unless it is
  * structural: a status code, a count, an ISO date's *format*. That is CLAUDE.md

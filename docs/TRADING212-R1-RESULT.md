@@ -42,9 +42,10 @@ Incidental, from the same console: the page itself requests
 with a valid session. So that host serves the web app's own calls, the path family is real, and a
 403 there is a feature refusal rather than an authentication one.
 
-> The README starts from `/rest/v1/accounts`. That path is a **hypothesis from community code and
-> has never been seen in a real Network tab** — `MULTI-BROKER.md` §8 does not contain it. If it 404s,
-> the real path comes out of the Network tab and gets recorded here.
+> The README starts from `/rest/v1/accounts`. That path **was** a hypothesis from community code
+> that had never been seen in a real Network tab. It has now: a full capture of
+> `app.trading212.com/portfolio` on 2026-08-25 shows the web app requesting it itself, 200 JSON —
+> `MULTI-BROKER.md` §8g. `READ_PATHS` says `measured`, and the two other paths in it still do not.
 
 ### Step 2 — logged out (the control) — **MEASURED**
 
@@ -90,7 +91,9 @@ actually *requires*, which is the question rule 9 asks. Nothing beyond a cookie 
 holds.
 
 `/rest/v1/accounts` also stops being a hypothesis at this point: it was reached, it answered, and
-`READ_PATHS` should be updated to `measured`.
+`READ_PATHS` now says `measured` — confirmed independently by §8g, where the web app requests the
+same path unprompted. That is the stronger of the two: a probe reaching a path proves the path
+exists, and the Network tab proves it is the path the product uses.
 
 ### Step 3b — the original open question
 
@@ -143,6 +146,10 @@ Names only. Classified by `classifyHeader` in `tools/trading212-r1/spike.js`.
 
 `<open>` — one of INVEST, ISA, CFD, CRYPTO. **A result for one proves nothing for another**;
 everything untested stays `NOT_TESTED`.
+
+The 2026-08-25 capture does not fill this in. Its account had never reached a state where it could
+hold anything, so it says nothing about how any account type's portfolio data behaves — see §8g,
+which is why that capture closed a path question and left every shape question open.
 
 ## Verdict
 

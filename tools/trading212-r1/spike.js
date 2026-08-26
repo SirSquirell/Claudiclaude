@@ -45,7 +45,14 @@ export const ALLOWED_ORIGINS = Object.freeze(['https://live.services.trading212.
  */
 export const READ_PATHS = Object.freeze({
   '/charting/v1/eq/ohlc/ONE_DAY': 'measured',
-  '/rest/v1/accounts': 'hypothesis',
+  // Promoted 2026-08-25. Twice over: the probe reached it and got 200 JSON
+  // (`TRADING212-R1-RESULT.md`, step 3b), and a full Network-tab capture of
+  // `app.trading212.com/portfolio` shows the web app itself requesting it
+  // (`MULTI-BROKER.md` §8g). The second is what the marker actually asks for.
+  '/rest/v1/accounts': 'measured',
+  // Still guesses from community code, and the capture that promoted the line
+  // above could not promote these: it came from an account holding nothing, so
+  // the web app never asked for a transaction or a dividend. §8g.
   '/rest/reports/transactions': 'hypothesis',
   '/rest/reports/dividends/v2': 'hypothesis',
 });

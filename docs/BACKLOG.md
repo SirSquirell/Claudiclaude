@@ -2122,9 +2122,31 @@ example response from **February 2021** on a path that has since versioned.
 **All three are answered.** The spike ran on 2026-08-11 and R1 closed on 2026-08-13; see
 `MULTI-BROKER.md` §8. What stands between here and a working adapter is no longer a *question* —
 it is the build (US-39–US-45) and one thing no measurement here has produced: **the account payload
-shapes.** `/rest/v1/accounts`, `/rest/reports/transactions` and `/rest/reports/dividends/v2` are all
-marked `hypothesis` in `tools/trading212-r1/spike.js`, meaning they came from community code and
-have never been seen in a real Network tab. §8a is what building on that instead looks like.
+shapes.** `/rest/reports/transactions` and `/rest/reports/dividends/v2` are still marked
+`hypothesis` in `tools/trading212-r1/spike.js`, meaning they came from community code and have never
+been seen in a real Network tab. §8a is what building on that instead looks like.
+
+**A full Network-tab capture on 2026-08-25 was supposed to close that and closed only part of it**
+— `MULTI-BROKER.md` §8g. The account behind it was unactivated and held nothing, so the web app took
+its empty-portfolio branch and never requested a holding, an order, a transaction or a cash
+movement. What it did settle:
+
+- **`/rest/v1/accounts` is now `measured`,** not a hypothesis: the web app requests it itself.
+- **`/instrumentarium/v2/instruments/{sinceEpochMs}` is the instrument master** — `ticker`, `isin`,
+  `currency`, names, precisions, `exchangeId`. AC4's id mapping starts here, because the id the app
+  uses is `SYMBOL_COUNTRY_EQ` (with `#` for futures) and is not an ISIN.
+- **`/rest/v1/customers/accounts/summary` carries `netWorth` per account type** — the likeliest
+  reconciliation anchor on this route, and *net worth* rather than §8c's "Investments value" trap.
+- **Two routes rule 9 forbids, now with names.** `POST /rest/v3/webclient/authenticate` is a login
+  and returns two session tokens in plain text; `GET /streaming/events/` carries one of them as a
+  query parameter, so the live event stream is unreachable without holding it. Neither is needed —
+  the cookie route works and the candle history is public. Nothing to add to the adapter's allowlist,
+  which is default-deny already; this is here so nobody spends a day rediscovering it.
+
+So the remaining requirement is one page load on a **funded** account. `docs/T212-SPIKE-BRIEF.md`
+has the prompt, and it hands over `tools/har-shapes.mjs` output rather than a HAR — a Trading 212
+HAR is a live-session file even when exported with Chrome's *sanitized* option, which strips headers
+and cookies but not response bodies.
 
 | # | Question | Answer |
 |---|---|---|

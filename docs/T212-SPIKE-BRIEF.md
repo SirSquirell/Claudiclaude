@@ -36,18 +36,17 @@ the top of §8 rather than quietly corrected.
 
 ---
 
-# What is left: one question, and it needs a logged-in session
+# R1 closed on 2026-08-13 — PASS
 
-**Can positions and transactions be reached without storing a credential?**
+**Can positions and transactions be reached without storing a credential?** Yes. `200` with the
+session cookie, `401` with `credentials: 'omit'`, `401` logged out, and the service worker got the
+same carrying only an `Accept` header. `TRADING212-R1-RESULT.md` has all four steps;
+`MULTI-BROKER.md` §8d is the summary. The API key rule 9 forbids is not needed.
 
-Prices are public. Account data is documented only behind an API key and secret, which rule 9
-forbids. The remaining possibility is the one DEGIRO uses: a logged-in web session whose own
-requests the extension repeats.
+The prompt that produced it is kept below because it is the protocol, not because anything is
+waiting on it.
 
-If yes, the adapter is buildable exactly like the DEGIRO one. If no, Trading 212 is a price source
-with no portfolio, and the correct outcome is closing the story.
-
-## The prompt, for whoever has an account
+## The prompt that closed it
 
 > Log in to Trading 212 in a browser and open DevTools → Network. I need to know whether the web app
 > fetches your **positions and transactions** over an ordinary session cookie, or through something
@@ -69,9 +68,52 @@ with no portfolio, and the correct outcome is closing the story.
 >
 > Say "unknown" rather than guessing.
 
+**How that was read** — kept for the next broker, which will need the same table:
+
 | Answer | Consequence |
 |---|---|
 | Cookie works, `SameSite` permissive | **Build it.** Nothing else is outstanding |
 | Cookie works, `SameSite=Strict`/`Lax` | Needs the same test DEGIRO passed |
 | A bearer token the page mints | Closer to "signing with a key it created" than to reading a session — a rule 9 judgement |
 | Only the documented API key | **Close the story.** Rule 9 makes that final |
+
+---
+
+# What is left: the payload shapes, and they need a *funded* account
+
+**Which path on the web-session route returns a holding, a transaction and a cash movement, and what
+are their field names?**
+
+A full Network-tab capture on 2026-08-25 was expected to answer this and did not — `MULTI-BROKER.md`
+§8g. The account behind it was unactivated and held nothing, so the web app rendered its empty state
+and never requested any of the three. What that capture *did* settle is worth reading first: the
+host, the instrument master (`/instrumentarium/v2/instruments/{sinceEpochMs}`, with ISIN and
+currency), and two routes rule 9 forbids outright.
+
+So this is phase 3, and its one requirement is an account that actually holds something. Everything
+else about it is cheap: no probe, no permission, no code — one page load with the Network tab open.
+
+## The prompt, for whoever has a funded account
+
+> Log in to Trading 212 in a browser and open DevTools → Network, with **Disable cache** ticked
+> (two `instrumentarium` endpoints answered `304` last time and their shapes are still unknown).
+> Load the **portfolio** page, then the **history / transactions** page at its widest date range,
+> then open **one instrument's chart**.
+>
+> **Report paths, methods, statuses, content types and field names. Never an amount, a holding, a
+> share count, a ticker you own, a cookie value, a token, an account number, a date of birth, a
+> signup date, a residency or a dealer code.**
+>
+> The safe way to do all of that at once is not to read the HAR by hand: save it *with content*, then
+> run `node tools/har-shapes.mjs <file.har>` and hand over **that output**. It prints field names,
+> types, counts and query-parameter names, and never a value.
+>
+> Then delete the HAR. A Trading 212 HAR is a live-session file even when exported with the
+> "sanitized" option — that option strips headers and cookies but **not** response bodies, and
+> `POST /rest/v3/webclient/authenticate` returns two session tokens in the clear.
+
+| Answer | Consequence |
+|---|---|
+| Three paths, with field names | **US-39–US-45 are unblocked.** Nothing else is outstanding |
+| Holdings but no transaction history on this route | The ledger cannot be reconstructed from it — a rule 6 problem, and a story-level decision |
+| The web app fetches them from `live.trading212.com/api/v0` with a key | Rule 9 closes it. Trading 212 becomes a price source with no portfolio, which is not a product |
