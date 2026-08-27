@@ -6,6 +6,59 @@ a bad place to find out *where things stand*. This is the index.
 **Last updated at 0.67.0.** It had been stale since 0.21.0 once, which is fifteen
 releases — if it looks stale again, trust the CHANGELOG and fix this.
 
+## Light scan, 2026-08-27 (ninth pass)
+
+This session's own transport branch (`claude/eager-cannon-8b6cpi`) checked first, per the
+prompt's own instruction: found identical to `origin/main` before any work started.
+
+**Branches.** Recomputed ahead/behind for all 34 remote `claude/*` branches (plus `poc`) against
+`origin/main`. Every one is either fully merged (`ahead=0`) or diverged 30+ commits back,
+pre-dating the 2026-08-18 branch-policy audit, except
+`claude/feature-requests-user-stories-u0rxdl` (10 ahead, 33 behind) — the same branch flagged
+superseded in every prior pass; its US-97–US-109 content shipped on `main` in more complete
+form (confirmed again by reading its 10 commits). No branch carries a story `main` doesn't have.
+
+**GitHub.** Zero open issues, zero open PRs.
+
+**Backlog numbering and consistency**, via `tools/check-backlog.mjs`: 70 stories, highest
+US-113, next free US-114, no duplicates. One real heading defect found and fixed this pass:
+**US-112's heading read `*(new, from a 2026-08-24 user report — shipped in 0.65.0)*`** — every
+other built story in the file uses the `*(built, VERSION)*` form, and "new" next to "shipped"
+reads as unbuilt work to anyone scanning headings rather than the finished 0.65.0 fix it is
+(confirmed against `CHANGELOG.md`'s 0.65.0 entry, which names US-112 twice). Reworded to
+`*(built, 0.65.0 — from a 2026-08-24 user report)*`. US-113's heading ("needs the owner's pick
+between three variants") was checked against the same evidence and is accurate — only a refine
+commit touches it on `main`, no build.
+
+**Rule compliance / security.** Same spot checks as every prior pass, all still clean:
+`fetch()` appears only in `src/lib/degiro.js`, `src/ui/app.js` (the extension's own
+`manifest.json`, for the version string) and `src/ui/datasource.js` (demo fixtures) — no
+second path to a broker. `degiro.js` still refuses to retry 401/403. `EXPORTABLE_META` in
+`store.js` is still an allowlist. `node tools/check-leaks.mjs` clean.
+
+**Design pass** (`apple-design` skill loaded first, before judging anything). Headless
+Playwright at 1440px and 380px, light and dark, driven across every tab via `npm run demo`:
+zero page errors, zero console errors, zero horizontal overflow in any combination checked.
+Screenshotted Overview at 1440 and 380 for a direct visual read rather than trusting the
+structural check alone (this prompt's own stated reason for the browser-pass requirement) —
+flat single-depth panels throughout, no invented shadow layers, nothing collapsed or
+overlapping at either width. `backdrop-filter` still does not appear in `src/ui/styles.css` —
+still consistent with `docs/redesign/DESIGN-BRIEF.md` §8's flat-container-depth rule, which
+overrides this skill's own translucency guidance (re-confirmed by re-reading that section, not
+assumed from a prior pass's note). No new design defect found.
+
+**Optimization.** No new candidate. `src/ui/app.js` unchanged at 5,745 lines (MV3, no build
+step — line count isn't a runtime cost on its own, and rule 8 rules out a refactor with no
+story or defect behind it). `npm test` runs in ~2 s wall-clock; no suite-performance issue to
+raise.
+
+**Brokers.** No new candidate. Trade Republic, Trading 212 (§8) and Interactive Brokers (§9) in
+`docs/MULTI-BROKER.md` remain scoped as far as possible without a human at a funded, logged-in
+tab.
+
+`npm test` 602/602, `npm run palette` zero collisions in both themes, `node tools/check-leaks.mjs`
+clean.
+
 ## Light scan, 2026-08-26 (eighth pass)
 
 Same routine, nothing new. This session's own transport branch (`claude/eager-cannon-2wrbbi`)

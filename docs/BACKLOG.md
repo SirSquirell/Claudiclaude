@@ -7431,7 +7431,7 @@ which table and why, rather than shipping a one-off hack for it alongside the sh
 
 ---
 
-## US-112 — An unattended sync is a daily one *(new, from a 2026-08-24 user report — shipped in 0.65.0)*
+## US-112 — An unattended sync is a daily one *(built, 0.65.0 — from a 2026-08-24 user report)*
 
 A reader reported that his DEGIRO screen hung while the extension was syncing, with a screenshot of
 trader.degiro.nl stuck on a loading spinner — no positions, no orders — and the Asteria strip on the
