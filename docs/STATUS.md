@@ -3,8 +3,65 @@
 `docs/BACKLOG.md` is 2 000 lines of reasoning and evidence, which is the right place for *why* and
 a bad place to find out *where things stand*. This is the index.
 
-**Last updated at 0.67.0.** It had been stale since 0.21.0 once, which is fifteen
+**Last updated at 0.68.0.** It had been stale since 0.21.0 once, which is fifteen
 releases — if it looks stale again, trust the CHANGELOG and fix this.
+
+## Light scan, 2026-08-28 (tenth pass)
+
+This session's own transport branch (`claude/eager-cannon-mdmwb4`) was already gone from the
+remote by the time this pass started (deleted between session start and first `git fetch`, not
+by this pass) — worked directly off `main`, which was 16 commits ahead of the stale local ref
+(through 0.68.0, US-113's build).
+
+**Branches.** 36 remote `claude/*` branches plus `poc` (unchanged count from the eighth/ninth
+pass). Recomputed ahead/behind for all 36 against `origin/main`: every one either fully merged
+(`ahead=0`) or diverged 32+ commits back, except `claude/feature-requests-user-stories-u0rxdl`
+(10 ahead, 35 behind) — the same branch flagged superseded in every prior pass. Spot-diffed four
+more of the high-"ahead"-count branches directly against `main` (`danny-report-2lttg1`,
+`trading212-api-endpoints-45e1tq`, `work-items-zk6g5r`, `degiro-reconciliation-issues-7t3iyc`):
+all four diffs are net deletions relative to `main` (main has strictly more), confirming the
+"ahead" counts on these old branches are pre-policy divergence, not unmerged content. No branch
+carries a story `main` doesn't have.
+
+**GitHub.** Zero open issues, zero open PRs.
+
+**Backlog numbering**, via `tools/check-backlog.mjs`: 70 stories, highest US-113, next free
+US-114, no duplicate numbers, every heading states its state — unchanged from the ninth pass,
+and the `## Last updated` line above was the one real drift found this pass (still said 0.67.0
+after 0.68.0 shipped) — fixed as part of this entry.
+
+**Rule compliance / security.** Same spot checks as every prior pass, all still clean: `fetch()`
+appears only in `src/lib/degiro.js`, `src/ui/app.js` (the extension's own `manifest.json`, for
+the version string) and `src/ui/datasource.js` (demo fixtures) — no second path to a broker.
+`degiro.js` still refuses to retry 401/403. `EXPORTABLE_META` in `store.js` is still an
+allowlist. No password/credential field anywhere in `src/` (the only hits are the copy telling
+the reader the extension never sees one, and the `credentials: 'include'` fetch option, which is
+the browser's cookie-forwarding flag, not a stored secret). `node tools/check-leaks.mjs` clean.
+
+**Design pass** (`apple-design` skill loaded first, before judging anything). Headless
+Playwright at 1440px and 380px, light and dark, driven across all eight tabs via `npm run demo`:
+zero page errors, zero console errors, zero horizontal overflow in any of the 32
+tab/viewport/theme combinations. One apparent defect chased down and ruled out: a first pass
+using too-short waits between tab clicks screenshotted the Notices tab as visually blank at
+1440px (text present in the DOM per `innerText`, nothing painted) — reproduced consistently, so
+treated as real rather than dismissed. Isolating it (`getComputedStyle`, bounding rects, longer
+waits) showed the DOM/CSS state was correct within one second either way; the blank frame lines
+up with `arrive()`'s 260ms Web-Animations entrance fade in `src/ui/app.js` still resolving when
+the screenshot was taken — a test-harness timing race against a real, intentional animation, not
+an app defect. Confirmed by re-running with a 1.5s settle: content renders correctly every time.
+Re-verified `backdrop-filter` still does not appear in `src/ui/styles.css` — still consistent
+with `docs/redesign/DESIGN-BRIEF.md` §8's flat-container-depth rule. No new design defect found.
+
+**Optimization.** No new candidate. Same conclusion as prior passes: `src/ui/app.js` is
+unbundled by design (MV3, no build step), so line count alone isn't a runtime cost, and rule 8
+rules out a refactor with no story or defect behind it. `npm test` runs in ~1.5s wall-clock.
+
+**Brokers.** No new candidate. Trade Republic, Trading 212 (§8) and Interactive Brokers (§9) in
+`docs/MULTI-BROKER.md` remain scoped as far as possible without a human at a funded, logged-in
+tab.
+
+`npm test` 608/608, `npm run palette` zero collisions in both themes, `node tools/check-leaks.mjs`
+clean.
 
 ## Light scan, 2026-08-27 (ninth pass)
 
