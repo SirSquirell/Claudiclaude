@@ -63,22 +63,6 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   runSync({ scheduled: true }).catch((err) => recordError('alarm-sync', err));
 });
 
-/**
- * Opportunistic sync: when a DEGIRO tab finishes loading the session is fresh,
- * which is the cheapest moment to catch up.
- *
- * This listener fires on every page load, and until US-112 that is what it did:
- * a reader watching his own trading screen hang on a spinner while our strip
- * said "Syncing…" is where the story came from. The gate in `runSync` is now a
- * daily one, so opening DEGIRO five times before lunch is at most one sync —
- * the rest reach `getMeta` and stop, without touching the network.
- */
-chrome.tabs?.onUpdated.addListener((_tabId, changeInfo, tab) => {
-  if (changeInfo.status !== 'complete') return;
-  if (!tab.url?.startsWith('https://trader.degiro.nl/')) return;
-  runSync({ scheduled: true }).catch((err) => recordError('tab-sync', err));
-});
-
 /** Message API used by the popup and the full page. */
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   handle(msg)
@@ -109,6 +93,17 @@ async function handle(msg) {
       chrome.alarms.create(SYNC.alarmName, { periodInMinutes: SYNC.alarmPeriodMinutes });
       return runSync({ force: msg.force === true });
     }
+
+    case 'tab-ready':
+      /**
+       * US-113 — `src/content/readywatch.js` on trader.degiro.nl, once the
+       * page has gone quiet (or hit its ceiling). This is the opportunistic
+       * sync US-112 already bounds to once a day; it is a signal from the
+       * page, not a person, so it must reach `runSync` as `scheduled` (a
+       * disconnected account still refuses it, US-79 AC3) and must not
+       * re-arm the alarm the way a pressed Sync button does above.
+       */
+      return runSync({ scheduled: true });
 
     case 'diagnose':
       return { ...(await runDiagnostics()), local: await localInfo() };

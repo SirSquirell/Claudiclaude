@@ -16,6 +16,35 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.68.0] — 2026-08-28
+
+**No resync needed** — nothing about the stored history or any figure changes. What changes is
+*when* the extension's opportunistic sync starts on a DEGIRO page load.
+
+### Fixed
+
+- **The opportunistic sync started at the worst possible instant.** US-112 (0.65.0) bounded the
+  per-page-load sync to once a day, but the trigger itself — `chrome.tabs.onUpdated` at
+  `changeInfo.status === 'complete'` — fires on the *document* load event, which on a
+  single-page app like trader.degiro.nl is the moment right before DEGIRO's own screen fires its
+  own burst of requests to fill the portfolio view. The extension's sync began exactly then, on
+  the same session, so a first sync (minutes of throttled requests) collided with the page the
+  reader was actually looking at (US-113).
+- Replaced the `tabs.onUpdated` trigger with `src/content/readywatch.js`: a `PerformanceObserver`
+  on the page's own `resource` timing counts requests per second, never a request's URL (which
+  would carry `intAccount`/`sessionId`), and signals the worker once the rate drops for a short
+  quiet window — or, if the page never quiets down (a continuous quote stream would look like
+  this), once a fifteen-second ceiling passes regardless. The readiness decision itself is a pure
+  function, `src/lib/readiness.js` (`pageIsReady`), tested with plain timestamp arrays. The signal
+  reaches `runSync({ scheduled: true })` through a new `tab-ready` message, distinct from a
+  pressed Sync button, so a disconnected account (US-79) still never syncs through this path and
+  the daily gate from US-112 is untouched — this only decides *when* within a day, never *how
+  often*. Runs independently of the strip/toast dismiss state, so closing either changes nothing
+  about whether or when a sync happens.
+- The quiet-window and ceiling constants are provisional, the same way `parse.js`'s candidate
+  field names are: no capture from a real, funded, logged-in DEGIRO tab has ever fed this module,
+  so the numbers are a documented guess pending one.
+
 ## [0.67.0] — 2026-08-25
 
 **No resync needed** — display only, nothing about the stored history or any figure changes.

@@ -301,9 +301,12 @@ test('US-79 — nothing anywhere removes DEGIRO’s own cookie, and the alarm is
   assert.match(disconnectCase, /disconnectAccount\(\)/);
   const syncCase = sw.slice(sw.indexOf("case 'sync'"), sw.indexOf("case 'diagnose'"));
   assert.match(syncCase, /chrome\.alarms\.create\(SYNC\.alarmName/, 'pressing Sync re-arms what the disconnect cleared');
-  // The two callers that are not a person.
+  // The two callers that are not a person: the alarm, and the page itself
+  // (US-113's `tab-ready`, once `readywatch.js` calls the tab quiet).
   assert.match(sw, /runSync\(\{ scheduled: true \}\).*alarm-sync/s);
-  assert.match(sw, /runSync\(\{ scheduled: true \}\).*tab-sync/s);
+  const tabReadyCase = sw.slice(sw.indexOf("case 'tab-ready'"), sw.indexOf("case 'diagnose'"));
+  assert.match(tabReadyCase, /runSync\(\{ scheduled: true \}\)/, 'a page-driven sync is scheduled, not a person pressing sync');
+  assert.ok(!/tabs\.onUpdated/.test(sw), 'the old per-page-load trigger is removed, not left beside the new one');
 });
 
 test('US-79 — the action states what it does, and the verdict is dated rather than softened', () => {
@@ -376,11 +379,12 @@ test('an expired session stops rather than retrying, and says to log in', async 
 /**
  * The story is a bug report, not a preference. A reader watched his own DEGIRO
  * portfolio hang on a spinner while our strip said "Syncing…", and the cause is
- * arithmetic rather than mystery: `sw.js` starts a sync from `tabs.onUpdated`,
- * which fires on every page load, and a sync is dozens of requests spaced 1,1 s
- * apart against the same session the trading page is using. The gate that was
- * supposed to bound this was five minutes — a limit on how often a *person*
- * could click, in a design where nobody clicks.
+ * arithmetic rather than mystery: `sw.js` started a sync from `tabs.onUpdated`
+ * (since replaced by US-113's `tab-ready`), which fires on every page load, and
+ * a sync is dozens of requests spaced 1,1 s apart against the same session the
+ * trading page is using. The gate that was supposed to bound this was five
+ * minutes — a limit on how often a *person* could click, in a design where
+ * nobody clicks.
  *
  * What these four tests pin is the whole of the fix: fresh means no requests,
  * stale means a sync, a pressed button ignores both, and a failure cannot turn

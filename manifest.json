@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "DEGIRO Portfolio History",
-  "version": "0.67.0",
+  "version": "0.68.0",
   "description": "Reconstructs your DEGIRO portfolio value over time. Personal use only.",
   "minimum_chrome_version": "116",
   "permissions": [
@@ -32,7 +32,12 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["src/content/banner.js", "src/lib/bannermodel.js"],
+      "resources": [
+        "src/content/banner.js",
+        "src/lib/bannermodel.js",
+        "src/content/readywatch.js",
+        "src/lib/readiness.js"
+      ],
       "matches": ["https://trader.degiro.nl/*"]
     }
   ],

@@ -7491,7 +7491,7 @@ wants its own story rather than a constant. **It got one: US-113**, promoted the
 owner's instruction.
 
 
-## US-113 — Do not start syncing until the DEGIRO tab itself has finished loading *(new, refined — needs the owner's pick between three variants)*
+## US-113 — Do not start syncing until the DEGIRO tab itself has finished loading *(built, 0.68.0 — variant B, the owner's pick)*
 
 US-112's own stop condition, promoted as it said it would be. That story bounds *how often* the
 extension can collide with the reader's own trading screen — at most once a day instead of once per
