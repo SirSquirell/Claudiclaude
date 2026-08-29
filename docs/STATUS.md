@@ -6,6 +6,61 @@ a bad place to find out *where things stand*. This is the index.
 **Last updated at 0.68.0.** It had been stale since 0.21.0 once, which is fifteen
 releases — if it looks stale again, trust the CHANGELOG and fix this.
 
+## Light scan, 2026-08-29 (eleventh pass)
+
+This session's own transport branch (`claude/eager-cannon-mch6bh`) was identical to `origin/main`
+at start (both at 0.68.0, tenth pass's commit) — worked directly off `main`.
+
+**Branches.** 36 remote `claude/*` branches plus `poc`, unchanged count from the tenth pass.
+Recomputed ahead/behind for all 36 against `origin/main`: every one is either fully merged
+(`ahead=0`) or diverged pre-policy (56+ behind). Two of the higher-"ahead" branches were
+spot-diffed directly against `main` this pass — `claude/apple-fluid-poc` (186 ahead, an
+`Initial commit`-rooted branch predating most of the app) and
+`claude/feature-requests-user-stories-u0rxdl` (10 ahead, the branch flagged superseded in every
+prior pass) — both diffs are net deletions relative to `main` (23 370 and 3 958 lines removed
+against 824 and 371 added), confirming the pattern every prior pass found: high "ahead" counts on
+old branches are pre-policy divergence, not unmerged content. No branch carries a story `main`
+doesn't have.
+
+**GitHub.** Zero open issues, zero open PRs — same as every prior pass.
+
+**Backlog numbering**, via `tools/check-backlog.mjs`: 70 stories, highest US-113, next free
+US-114, no duplicate numbers, every heading states its state. No drift found this pass — the
+`## Last updated` line and all headings still match `CHANGELOG.md`'s 0.68.0 entry.
+
+**Rule compliance / security.** Same spot checks as every prior pass, all still clean: `fetch()`
+appears only in `src/lib/degiro.js`, `src/ui/app.js` (the extension's own `manifest.json`, for
+the version string) and `src/ui/datasource.js` (demo fixtures) — no second path to a broker.
+`degiro.js` still refuses to retry 401/403. `EXPORTABLE_META` in `store.js` is still an
+allowlist. `node tools/check-leaks.mjs` clean (no `.leakwords` file, so it checks structure, not
+names — unchanged from every prior pass).
+
+**Design pass** (`apple-design` skill loaded first, before judging anything). Headless
+Playwright at 1440px and 380px, light and dark, driven across all eight tabs via `npm run demo`:
+zero page errors, zero console errors, zero horizontal overflow in any of the 32
+tab/viewport/theme combinations. Went beyond the structural check this pass and took full-page
+screenshots of all 8 tabs at all four viewport/theme combinations (32 images) for a direct visual
+read, given this prompt's own history of a green structural check missing a menu drawn under a
+chart, a zero-width tile and a distorted sparkline. Read a representative sample closely
+(Dividends and Holdings at 380px, Performance and Outlook at both widths): hairline single-depth
+containers throughout, no shadows on nested elements, no uppercase above the 11px eyebrow, signed
+deltas in the accent colour against ink magnitudes, consistency sparklines proportionate (no
+stretched-axis moonshot read), tables cut off cleanly into their own scroll container at 380px
+rather than truncating text. Confirmed `backdrop-filter` still does not appear in
+`src/ui/styles.css` — still consistent with `docs/redesign/DESIGN-BRIEF.md` §8's flat-container
+rule. No new design defect found.
+
+**Optimization.** No new candidate. `src/ui/app.js` is 5 745 lines, unbundled by design (MV3, no
+build step), so line count alone isn't a runtime cost, and rule 8 rules out a refactor with no
+story or defect behind it. `npm test` runs in ~1.8s wall-clock, 608/608 passing.
+
+**Brokers.** No new candidate. Trade Republic, Trading 212 (§8) and Interactive Brokers (§9,
+including the 2026-08-18 IBKR prior-art sweep) in `docs/MULTI-BROKER.md` remain scoped as far as
+possible without a human at a funded, logged-in tab.
+
+`npm test` 608/608, `npm run palette` zero collisions in both themes, `node tools/check-leaks.mjs`
+clean.
+
 ## Light scan, 2026-08-28 (tenth pass)
 
 This session's own transport branch (`claude/eager-cannon-mdmwb4`) was already gone from the
