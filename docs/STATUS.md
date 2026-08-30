@@ -6,6 +6,66 @@ a bad place to find out *where things stand*. This is the index.
 **Last updated at 0.68.0.** It had been stale since 0.21.0 once, which is fifteen
 releases — if it looks stale again, trust the CHANGELOG and fix this.
 
+## Light scan, 2026-08-30 (twelfth pass)
+
+This session's own transport branch (`claude/eager-cannon-hrq2n7`) was identical to `origin/main`
+at start (both at 0.68.0, eleventh pass's commit) — worked directly off `main`.
+
+**Branches.** 36 remote `claude/*` branches plus `poc`, unchanged count from the eleventh pass.
+Spot-diffed the eleven branches whose `rev-list --count` reads 0-ahead (`aan-de-slag-c57smb`,
+`aan-de-slag-wen7bc`, `bought-waarde-percentage-if39gn`, `danny-portfolio-degiro-compat-0iwoyd`,
+`danny-report-2lttg1`, `eager-cannon-2wrbbi`, `latest-version-main-gc8x7z`,
+`prulwerk-branded-back-button-x7ix4v`, `sync-status-text-alignment-hnas3e`,
+`trading212-api-endpoints-45e1tq`, `work-items-zk6g5r`) plus the two lowest-"ahead" branches
+(`feature-requests-user-stories-u0rxdl`, 10 ahead; `portfolio-visualization-testing-xs5ck4`, 22
+ahead) directly against `main`: all thirteen diffs are net deletions relative to `main` (main has
+strictly more in every case, up to 51 906 lines removed on the largest). Confirms the pattern every
+prior pass found: no branch carries a story `main` doesn't have.
+
+**GitHub.** Zero open issues, zero open PRs — same as every prior pass.
+
+**Backlog numbering**, via `tools/check-backlog.mjs`: 70 stories, highest US-113, next free
+US-114, no duplicate numbers, every heading states its state. Independently re-verified by
+scanning every `US-\d+` occurrence in `docs/BACKLOG.md`: sequence runs 1–114 with exactly two
+gaps (US-13, US-36) — both accounted for, not drift: US-13 shipped in 0.12.0 so it lives in
+`STATUS.md`'s own history rather than the "refined, not built" backlog table, and US-36 (IBKR) is
+tracked live in `STATUS.md` for the same reason `docs/BACKLOG.md`'s own header gives — that file
+is retrospective reasoning, not the index. `## Last updated` still matches `CHANGELOG.md`'s
+0.68.0 entry.
+
+**Rule compliance / security.** Same spot checks as every prior pass, all still clean: `fetch()`
+appears only in `src/lib/degiro.js`, `src/ui/app.js` (manifest version string) and
+`src/ui/datasource.js` (demo fixtures). `degiro.js` still refuses to retry 401/403.
+`EXPORTABLE_META` in `store.js` is still an allowlist, `redactMeta` still redacts anything not
+listed. `node tools/check-leaks.mjs` clean.
+
+**Design pass** (`apple-design` skill loaded first, before judging anything). Headless Playwright
+at 1440px and 380px, light and dark, driven across all eight tabs via `npm run demo`: zero page
+errors, zero console errors, zero horizontal overflow in any of the 32 tab/viewport/theme
+combinations, all screenshotted. Read a representative sample closely (Dividends and Holdings at
+380px, Performance and Outlook at 1440px, Composition at 1440px, Notices at 1440px): flat
+single-depth containers, hairline borders, no nested shadows, one y-axis per chart (Result per
+period, Cumulative result, What moved, the Outlook projection, and the Composition stacked-area
+chart all confirmed single-axis), seven categorical slots plus a neutral Cash colour on the
+composition chart, signed deltas in the accent colour. Went beyond the prior passes' sample this
+time and rendered `?demo=1&frozen=1` (the disconnected-account state, US-79) for the first time in
+this scan's own history: zero page errors, the "Disconnected — this account is disconnected..."
+banner reads correctly, the status pill states "Disconnected · frozen", and every figure carries
+the frozen-as-of date. `backdrop-filter` still does not appear in `src/ui/styles.css` — still
+consistent with `docs/redesign/DESIGN-BRIEF.md` §8's flat-container rule. No new design defect
+found.
+
+**Optimization.** No new candidate. Same conclusion as every prior pass: `src/ui/app.js` stays
+unbundled by design (MV3, no build step), and rule 8 rules out a refactor with no story or defect
+behind it.
+
+**Brokers.** No new candidate. Trade Republic, Trading 212 (§8) and Interactive Brokers (§9) in
+`docs/MULTI-BROKER.md` remain scoped as far as possible without a human at a funded, logged-in
+tab.
+
+`npm test` 608/608, `npm run palette` zero collisions in both themes, `node tools/check-leaks.mjs`
+clean.
+
 ## Light scan, 2026-08-29 (eleventh pass)
 
 This session's own transport branch (`claude/eager-cannon-mch6bh`) was identical to `origin/main`
