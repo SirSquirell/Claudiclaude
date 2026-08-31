@@ -990,12 +990,12 @@ currently equals `main`).
 
 Kept current as new stories open and old ones land — every open story number appears either here,
 in *Unmerged work* above, or in *Parked*. (Table content was last swept for completeness on
-2026-08-23; it originated from the 2026-08-18 consolidation but has had rows added since, e.g.
-US-104–109.)
+2026-08-30, twelfth pass: **US-113 removed** — built in 0.68.0, `docs/BACKLOG.md`'s own heading
+already said so, only this table still described it as awaiting the owner's pick between the
+three variants.)
 
 | Story | State | Waiting on |
 |---|---|---|
-| US-113 | **Do not start syncing until the DEGIRO tab itself has finished loading** — US-112's own stop condition, promoted. The daily gate bounds how *often* the extension can collide with the reader's trading screen; the one sync a day still starts at `document complete`, which on an SPA is the moment its own request burst begins. Refined with three variants and a recommendation (B: network-quiet measured as a rate in the content script, never as URLs, with a fixed grace period as its own fallback); DOM-scraping and `webRequest` are rejected in the story, not deferred | The owner's pick between the three, and one look at a real logged-in tab — whether the quote transport ever lets the page go quiet decides whether variant B exists at all |
 | US-98 | **Benchmark compare (S&P 500 default, any ETF, PROP folded in) — the owner decided the feature in chat, 2026-08-22.** That is not the same document event as the SPEC amendment rule 8 and the branch policy both lean on: SPEC §7 still reads "no benchmarks" verbatim | The SPEC.md §7 amendment text is drafted in `docs/BACKLOG.md`'s US-98 entry, ready to land in the same commit as the first line of code — nobody has landed it yet |
 | US-26 | Instrument coverage declared per broker — verified / assumed, as a vocabulary | More relevant once a second broker lands |
 | — | **A price series was rescaled by factor 4,369**, which is not a split ratio. Investigation: one factor across two regimes, or a vwd id that changed instrument. Do not tune the threshold | Nothing |
