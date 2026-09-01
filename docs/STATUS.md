@@ -6,6 +6,53 @@ a bad place to find out *where things stand*. This is the index.
 **Last updated at 0.68.0.** It had been stale since 0.21.0 once, which is fifteen
 releases — if it looks stale again, trust the CHANGELOG and fix this.
 
+## Light scan, 2026-09-01 (fourteenth pass)
+
+This session's own transport branch (`claude/eager-cannon-dp11yd`) was identical to `origin/main`
+at start (both at 0.68.0, thirteenth pass's commit) — worked directly off `main`.
+
+**Branches.** 36 remote `claude/*` branches plus `poc`, unchanged count and unchanged ahead/behind
+numbers from the thirteenth pass (recomputed `rev-list --count origin/main..` for all 36: same 36
+values as last pass, same two lowest non-zero `feature-requests-user-stories-u0rxdl` at 10 and
+`portfolio-visualization-testing-xs5ck4` at 22, both already confirmed net-deletions against `main`
+in prior passes). No branch carries a story `main` doesn't have. Git proxy still refuses branch
+deletion, so the 36 stale branches remain GitHub-UI cleanup for the owner.
+
+**GitHub.** Zero open issues, zero open PRs — same as every prior pass.
+
+**Backlog numbering**, via `tools/check-backlog.mjs`: 70 stories, highest US-113, next free
+US-114, no duplicate numbers, every heading states its state — unchanged from the thirteenth pass.
+`## Last updated` still matches `CHANGELOG.md`'s 0.68.0 entry.
+
+**Rule compliance / security.** Same spot checks as every prior pass, all still clean: `fetch()`
+appears only in `src/lib/degiro.js`, `src/ui/datasource.js` (demo fixtures) and `src/ui/app.js`
+(reading the extension's own `manifest.json` for the version string). `degiro.js` still refuses to
+retry 401/403. `EXPORTABLE_META` in `store.js` is still an allowlist, `redactMeta` still redacts
+anything not listed. `node tools/check-leaks.mjs` clean.
+
+**Design pass** (`apple-design` skill loaded first, before judging anything). Headless Playwright
+at 1440px and 380px, light and dark, driven across all eight tabs via `npm run demo`: zero page
+errors, zero console errors, zero horizontal overflow. Also re-ran with `reducedMotion: 'reduce'`
+at both viewports (a check no prior pass had scripted explicitly, though the mechanism was already
+read closely in the ninth pass): zero errors there too. Looked specifically at the theme-switch
+transition against the skill's own "ease dark↔light changes, avoid abrupt brightness jumps"
+guidance — `styles.css`'s US-74 block (`data-theme-fade`) already cross-fades `background-color`,
+`color` and `border-color` over 220 ms and re-paints canvases with a matching keyframe, which is
+exactly the technique the skill recommends; nothing to add. `?demo=1&frozen=1` re-checked at
+1440px: zero errors, zero overflow. `backdrop-filter` still does not appear in `src/ui/styles.css`
+— still consistent with `docs/redesign/DESIGN-BRIEF.md` §8's flat-container rule. No new design
+defect found.
+
+**Optimization.** No new candidate. Same conclusion as every prior pass: `src/ui/app.js` stays
+unbundled by design (MV3, no build step), and rule 8 rules out a refactor with no story or defect
+behind it.
+
+**Brokers.** No new candidate. Trade Republic, Trading 212 (§8) and Interactive Brokers (§9) in
+`docs/MULTI-BROKER.md` remain scoped as far as possible without a human at a funded, logged-in tab.
+
+`npm test` 608/608, `npm run palette` zero collisions in both themes, `node tools/check-leaks.mjs`
+clean.
+
 ## Light scan, 2026-08-31 (thirteenth pass)
 
 This session's own transport branch (`claude/eager-cannon-ptvfj0`) was identical to `origin/main`
