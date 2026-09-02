@@ -39,7 +39,7 @@ async function main() {
   const wantToast = !flags?.toastDismissed;
   if (!wantStrip && !wantToast) return;
 
-  const res = await chrome.runtime.sendMessage({ type: 'status' }).catch(() => null);
+  const res = await chrome.runtime.sendMessage({ type: 'banner-status' }).catch(() => null);
   if (!res?.ok) return; // worker onbereikbaar: stil blijven op andermans pagina
 
   const lang = pickLang(navigator.language);
@@ -49,9 +49,14 @@ async function main() {
   mount(model, bannerText(lang), lang, { strip: wantStrip, toast: wantToast });
 }
 
+/**
+ * `banner-status`, niet `status`: de worker stuurt naar deze pagina alleen de
+ * vier velden die `bannerModel` leest. Of er een fout was is genoeg — de tekst
+ * ervan, en de posities die `status` meedraagt, horen niet op andermans pagina.
+ */
 const statusFields = (s) => ({
   lastSyncAt: s?.lastSyncAt ?? 0,
-  lastError: s?.lastError ?? null,
+  lastError: s?.hasError === true ? true : null,
   syncing: s?.syncing === true,
   disconnected: s?.disconnected === true,
 });
@@ -167,7 +172,7 @@ function mount(model, t, lang, want) {
       for (;;) {
         await sleep(SYNC_POLL_MS);
         if (!host.isConnected) return;
-        const res = await chrome.runtime.sendMessage({ type: 'status' }).catch(() => null);
+        const res = await chrome.runtime.sendMessage({ type: 'banner-status' }).catch(() => null);
         if (!res?.ok) return; // worker weg: de regel staat op "bezig" en dat is het eerlijkste wat we weten
         const fields = statusFields(res.data);
         if (fields.syncing) continue;
@@ -214,7 +219,7 @@ function mount(model, t, lang, want) {
       for (const line of root.querySelectorAll('.line')) line.textContent = t.syncing;
       for (const dot of root.querySelectorAll('.dot')) dot.className = 'dot ok';
       await chrome.runtime.sendMessage({ type: 'sync', force: true }).catch(() => null);
-      const after = await chrome.runtime.sendMessage({ type: 'status' }).catch(() => null);
+      const after = await chrome.runtime.sendMessage({ type: 'banner-status' }).catch(() => null);
       if (!after?.ok) return; // worker weg: de regel blijft op "bezig", de tab is toch stervende
       apply(bannerModel({ ...statusFields(after.data), now: Date.now(), lang }));
     });

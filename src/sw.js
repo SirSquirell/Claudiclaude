@@ -82,6 +82,22 @@ async function handle(msg) {
     case 'status':
       return getStatus({ includeDerived: msg.includeDerived === true });
 
+    case 'banner-status': {
+      /**
+       * What the strip on trader.degiro.nl needs, and nothing else. `status`
+       * carries the live snapshot — positions — and a content script on the
+       * broker's page has no business receiving it; `bannermodel.js` decides
+       * its line from these four fields alone.
+       */
+      const s = await getStatus();
+      return {
+        lastSyncAt: s.lastSyncAt,
+        hasError: s.lastError != null,
+        syncing: s.syncing,
+        disconnected: s.disconnected,
+      };
+    }
+
     case 'sync': {
       /**
        * A sync somebody pressed is also the way back from a disconnect (US-79):
