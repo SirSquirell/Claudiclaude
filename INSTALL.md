@@ -32,7 +32,7 @@ mappen als `src` en `icons`. Die map heb je zo nodig.
 > Klik **Retry**, ga één niveau dieper en kies de map waar `manifest.json` in staat. Dit is
 > de meest gemaakte fout en hij ligt aan de ZIP, niet aan jou.
 
-Er verschijnt nu een kaartje "DEGIRO Portfolio History". Klik op het puzzelstukje in
+Er verschijnt nu een kaartje "Asteria". Klik op het puzzelstukje in
 de werkbalk en zet de extensie vast (het speldje), dan blijft het icoontje zichtbaar.
 
 ## 4. Kijk eerst even rond, zonder DEGIRO

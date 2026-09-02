@@ -111,9 +111,12 @@ was never this extension's to end. One press of **Sync** reconnects, exactly lik
 
 **Where it goes: nowhere.** There is no server behind this and no account to create. Everything
 lands in IndexedDB in your own browser. No analytics, no telemetry, no crash reporting — and
-that is enforced rather than promised: the manifest grants exactly two hosts, and the content
-security policy is `script-src 'self'`, so a remote script cannot load at all. Chrome shows you
-that permission list when you install it.
+that is enforced rather than promised: the manifest names three hosts and no others —
+`trader.degiro.nl` and `charting.vwdservices.com` as the two it may fetch from, plus
+`asteria.prulwerk.nl`, where a content script does nothing but announce the installed version and
+relay the demo button (it fetches nothing) — and the content security policy is `script-src
+'self'`, so a remote script cannot load at all. Chrome shows you that permission list when you
+install it.
 
 You can watch it happen instead of taking this on faith: `chrome://extensions` → **service
 worker** → the **Network** tab, then run a sync.
