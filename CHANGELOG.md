@@ -16,6 +16,15 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.70.0] — 2026-09-02
+
+### Fixed
+
+- **CI ran on Node 20 and found no tests.** `npm test` calls `node --test "test/*.test.js"`; Node
+  20's test runner does not expand a quoted glob, so the run on `main` failed with "Could not find
+  test/*.test.js" while the same command passed locally on Node 22. The workflow now installs Node
+  22, which is what every local run has used. No code path outside `.github/` changed.
+
 ## [0.69.0] — 2026-09-02
 
 **No resync needed** — nothing about the stored history or any figure changes. This release is
