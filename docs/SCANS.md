@@ -8,6 +8,82 @@ state is in STATUS.md; this is the evidence that it was checked.
 
 ---
 
+## Light scan, 2026-09-02 (sixteenth pass, first real finding)
+
+This session's own transport branch (`claude/eager-cannon-2xvn52`) was identical to `origin/main`
+at start (both at 0.70.3, this pass's own commit before the changes below) — worked directly off
+`main`.
+
+**Branches.** 37 remote `claude/*` branches plus `poc` — one more than the fifteenth pass's 36:
+`claude/fable-5-tr3otb` (2026-09-02), 0 commits ahead of `main`, i.e. it carries nothing `main`
+doesn't already have. Every other branch's ahead/behind count against the now-35-commits-newer
+`main` is unchanged in kind from every prior pass (the same handful of pre-2026-08-18 branches with
+large "ahead" counts, already confirmed net-deletions or superseded content in earlier passes; spot
+re-checked three of the higher-ahead ones — `feature-requests-user-stories-u0rxdl`,
+`latest-version-main-gc8x7z`, `danny-portfolio-degiro-compat-0iwoyd` — against `docs/BACKLOG.md`:
+every US-91…US-109 story their commits mention already has a heading on `main` marked *(built,
+…)*, *(decided, …)* or *(spike, …)*, so nothing there is lost work). Git proxy still refuses branch
+deletion, so the 37 stale branches remain GitHub-UI cleanup for the owner.
+
+**GitHub.** Zero open issues, zero open PRs — same as every prior pass, nothing to close.
+
+**Backlog numbering**, via `tools/check-backlog.mjs`: 135 stories on entry, highest US-139, next
+free US-140, no duplicates, every heading states its state — unchanged from the fifteenth pass.
+Added US-140 this pass (the finding below), bringing it to 136 stories, next free US-141;
+re-verified clean after the edit. `## Last updated` still matches `CHANGELOG.md`'s 0.70.3 entry.
+
+**Rule compliance / security.** Same spot checks as every prior pass, all still clean: `fetch()`
+appears only in `src/lib/degiro.js`, `src/ui/datasource.js` (demo fixtures) and `src/ui/app.js`
+(the extension's own `manifest.json`, for the version string). `degiro.js` still refuses to retry
+401/403. `EXPORTABLE_META` in `store.js` is still an allowlist, `redactMeta` still redacts anything
+not listed. `node tools/check-leaks.mjs` clean (166 tracked files).
+
+**Design pass** (`apple-design` skill loaded first). Headless Playwright at 1440px and 380px, light
+and dark, driven across all eight tabs via `npm run demo`: zero page errors, zero console errors,
+zero horizontal-overflow at the document level, in both `?demo=1` and `?demo=1&frozen=1`, and under
+`reducedMotion: 'reduce'` at both viewports. Screenshotted every tab at 380px, light and dark, and
+looked closely rather than only measuring — that closer look is what caught this pass's finding.
+
+**US-140 — a table row's arrival fade can freeze mid-opacity off-screen.** The Holdings tab's
+Positions table (11 rows at the tested filter) rendered its first four rows normally in a 380px
+screenshot and every row *after* that as a blank gap — no swatch, no text, no value — while
+`getComputedStyle` on the same row reported `opacity: 1`, `animationName: none`: the browser's own
+bookkeeping said the row was fully drawn and its animation long finished. Chased it down rather than
+assuming a headless-screenshot artifact (the ninth pass's playbook, since one has turned out to be
+exactly that before): raised the wait to 2 s, still blank; tried `prefers-reduced-motion: reduce`,
+which fixed it completely (every row drawn); tried a slow, literal `mouse.wheel()` scroll down the
+page instead of jumping, which also rendered every row correctly; tried `element.scrollIntoView()`
+and, separately, `button.focus()` on a below-fold row's expander (a close analogue of a keyboard
+user tabbing past the visible rows, or a screen reader landing on one) — both reproduced it, one as
+a fully blank row, the other as a row frozen at a visibly washed-out partial opacity, neither
+matching the "opacity: 1" the DOM reported. So this is real, and specific: an *instant* jump to a
+below-fold row, while `src/ui/motion.js`'s `revealOnArrival` has started that row's staggered
+`card-arrive` fade off-screen, can leave the row's paint stuck. Root cause read from
+`motion.js`: `arrive()` fires once per card (correctly, only when the *card* itself scrolls into
+view), but then stamps `--arrive-i` and starts the keyframe animation on **every** row inside it in
+one synchronous pass, including rows nowhere near the viewport — exactly the "reveal wasted
+off-screen" failure mode the function's own doc comment says the card-level observer exists to
+avoid, just one level down from where that comment's guarantee actually applies. Not something to
+patch live in a scan: refined as **US-140** in `docs/BACKLOG.md` instead, scoped to skip the
+animation for a row that isn't near the viewport at reveal time, with the exact repro kept as the
+acceptance test.
+
+Otherwise no new design defect found: `backdrop-filter` still does not appear in
+`src/ui/styles.css`, consistent with `docs/redesign/DESIGN-BRIEF.md` §8's flat-container rule
+(checked again given the brief explicitly rules out Apple-style translucency here); the theme-fade
+cross-fade from earlier passes is unchanged and still matches the skill's reduced-brightness-jump
+guidance; typography scale and hierarchy unchanged from the design brief's §8 values.
+
+**Optimization.** No new candidate. Same conclusion as every prior pass: `src/ui/app.js` stays
+unbundled by design (MV3, no build step), and rule 8 rules out a refactor with no story or defect
+behind it.
+
+**Brokers.** No new candidate. Trade Republic, Trading 212 (§8) and Interactive Brokers (§9) in
+`docs/MULTI-BROKER.md` remain scoped as far as possible without a human at a funded, logged-in tab.
+
+`npm test` 672/672, `npm run palette` zero collisions in both themes, `node tools/check-leaks.mjs`
+clean.
+
 ## Light scan, 2026-09-01 (fourteenth pass)
 
 This session's own transport branch (`claude/eager-cannon-dp11yd`) was identical to `origin/main`

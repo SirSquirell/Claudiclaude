@@ -8671,4 +8671,70 @@ symbol and no unmasked name.
 
 ---
 
-**Next free number: US-140.**
+---
+
+### US-140 — The row stagger can freeze a table row mid-fade off-screen *(new, refined — found in the 2026-09-02 light scan's design pass)*
+
+**Layer A.** `revealOnArrival` (`src/ui/motion.js`) fires once, right after the first render, and
+walks every `.card` on the page — including the ones inside a still-`hidden` tab. Each card's own
+`IntersectionObserver` only fires `arrive()` once *that card* scrolls into view, but `arrive()` then
+stamps `--arrive-i` on **every** `tbody tr` inside it in one pass and starts the `card-arrive`
+keyframe animation on all of them at once, whether or not the individual row is anywhere near the
+viewport. A row twelve rows down starts its (staggered, ~28 ms apart) fade-and-rise while it is
+still below the fold, animating where nobody can see it.
+
+That would be harmless if the animation always finished cleanly by the time a reader scrolled down
+to it. It does not: found by scripting a jump straight to a below-fold row — `scrollIntoView()`,
+and separately `button.focus()` on its expander, both close analogues of a keyboard user tabbing
+past the visible rows or a screen reader jumping to one — in headless Chromium at 380px, no
+`prefers-reduced-motion`. Rows past roughly the fourth stayed rendered at a frozen partial opacity
+(a visibly washed-out row, not the fully-drawn one `getComputedStyle` reported: `opacity: 1`,
+`animationName: none`, i.e. the browser's own bookkeeping says the animation is over). A slow,
+literal mouse-wheel scroll down the same page did **not** reproduce it — every row arrived fully
+drawn — so this is specifically the instant-jump path, not scrolling itself. With
+`prefers-reduced-motion: reduce` the whole class of bug disappears, because `arrive()` never starts
+the transform/opacity keyframes in that mode.
+
+This is exactly the class of thing US-75's own doc comment (`motion.js`) warns against — "Cards
+below the fold reveal when they scroll in, once, and the observer drops them — otherwise half the
+reveals happen off screen and are simply wasted" — except the *card*-level observer honours that,
+and the *row*-level stagger inside it does not: it fires for every row in the card in one
+synchronous pass regardless of which of them are actually on screen.
+
+#### Scope / not in scope
+
+- In: `arrive()` in `src/ui/motion.js` skips the animation (no `--arrive-i`, no class, no keyframe)
+  for a `tbody tr` whose own bounding box is not within (or within a small margin of) the viewport
+  at the moment the card reveals; such a row keeps its normal, already-settled style, since nothing
+  ever touched it.
+- Not in scope: rewriting the reveal as a per-row `IntersectionObserver` — the card-level observer
+  already does the "reveal once, when visible" job SPEC's US-75 asked for; this is a bug in how the
+  existing mechanism hands off to rows, not a request for a new mechanism.
+
+#### Acceptance criteria
+
+- [ ] A table of more than four rows, revealed by a tab switch and then jumped to (via
+      `scrollIntoView`, `focus()`, or an equivalent instant scroll) before the stagger would
+      otherwise finish, shows every row at full opacity — measured in headless Chromium the same
+      way this defect was found.
+- [ ] The same scenario under gradual scroll (already passing today) keeps passing — this is a
+      regression guard, not a behaviour change for the common path.
+- [ ] `prefers-reduced-motion: reduce` is unaffected — it already never triggers the stagger.
+- [ ] No card's own reveal-once-per-arrival timing changes; only which rows inside it animate.
+
+#### Dependencies
+
+None.
+
+#### Test
+
+`test/` gets a case that stamps `--arrive-i` the way `arrive()` does today, confirms it is *not*
+stamped for a row starting below a given viewport height, and confirms it *is* stamped for one
+above it. The Chromium repro from the light scan (jump to a below-fold row right after a tab
+reveal, assert `getComputedStyle(row).opacity === '1'` with no lingering `animationName`) is the
+one to keep as the regression check, since it is the only kind of check that would have caught
+this — `npm test`'s fake-DOM suite has no compositor to freeze.
+
+---
+
+**Next free number: US-141.**

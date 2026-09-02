@@ -8,10 +8,14 @@ releases — if it looks stale again, trust the CHANGELOG and fix this.
 
 ## Light scans
 
-Fifteen re-confirmation passes (2026-08-20 to 2026-09-01) are in [SCANS.md](SCANS.md), newest
+Sixteen re-confirmation passes (2026-08-20 to 2026-09-02) are in [SCANS.md](SCANS.md), newest
 first. Their standing result: no `claude/*` branch carries a story `main` does not have, the backlog
 numbering is clean, and the rule spot checks pass. What they kept finding — 37 stale remote
-branches the git proxy cannot delete — is now **US-120**, an owner action in GitHub's UI.
+branches the git proxy cannot delete — is now **US-120**, an owner action in GitHub's UI. The
+sixteenth pass is the first to find a real design/motion defect rather than confirm none —
+**US-140**, a table row's arrival fade that can freeze mid-opacity when a row below the fold is
+jumped to instantly (keyboard focus, a screen reader, `scrollIntoView`) rather than reached by an
+ordinary scroll. Refined as a story rather than patched live; see SCANS.md for the repro.
 
 ## Owner's screenshots, 2026-08-22
 
