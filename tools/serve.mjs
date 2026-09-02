@@ -50,7 +50,7 @@ const server = createServer((req, res) => {
   createReadStream(filePath).pipe(res);
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, '127.0.0.1', () => {
   console.log(`\n  DEGIRO Portfolio History — demo\n`);
   console.log(`  http://localhost:${PORT}${ENTRY}\n`);
   console.log(`  This serves generated fixtures through the real engine.`);
