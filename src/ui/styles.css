@@ -1136,6 +1136,84 @@ button.primary:hover {
   background: var(--grid);
 }
 
+/* US-121 … US-127: the dividend view's rows open to their payments per share.
+   The disclosure is always present here — unlike the Positions table, the
+   opened row is not dropped columns but the list the row's figures were read
+   from, so there is always something to open. */
+#dividend-holdings .expander {
+  display: inline-grid;
+  place-items: center;
+}
+#dividend-holdings th,
+#dividend-holdings td {
+  padding: 9px 10px;
+}
+#dividend-holdings thead th {
+  white-space: normal;
+  vertical-align: bottom;
+}
+#dividend-holdings tr.pos-detail > .detail-cell {
+  padding-left: 12px;
+}
+/* The three text columns wrap; the value sits on the first line and what it
+   rests on under it, muted. */
+#dividend-holdings td:nth-child(n + 5) {
+  white-space: normal;
+}
+#dividend-holdings td:nth-child(5),
+#dividend-holdings td:nth-child(6) {
+  min-width: 5rem;
+}
+#dividend-holdings td:nth-child(7) {
+  min-width: 7rem;
+}
+#dividend-holdings td:nth-child(8) {
+  min-width: 10rem;
+}
+#dividend-holdings td:nth-child(9) {
+  min-width: 8rem;
+}
+/* The opened row's own list: the label column carries a sentence, so it wraps. */
+.div-payments td:nth-child(4),
+.div-payments td:nth-child(5) {
+  white-space: normal;
+}
+#dividend-holdings .sub {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  line-height: 1.35;
+  margin-top: 2px;
+}
+.div-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 16px;
+}
+.div-facts .kv {
+  margin-right: 0;
+}
+.div-payments {
+  width: auto;
+  max-width: 100%;
+  margin-top: 10px;
+  font-size: 0.75rem;
+}
+.div-payments th,
+.div-payments td {
+  padding: 6px 10px;
+}
+.div-payments .chip {
+  padding: 2px 8px;
+  font-size: 0.625rem;
+}
+.div-caption {
+  margin-top: 8px;
+}
+#dividend-undetermined {
+  margin-top: 12px;
+}
+
 /* One column on a narrow screen: the picture stays first, because it is what
    the sheet is for. */
 @media (max-width: 48em) {

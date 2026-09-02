@@ -447,7 +447,7 @@
           <h2 data-i18n>Holdings, dividend view</h2>
           <p class="hint" data-i18n>A dividend-scoped column set, not the general Positions table. Consistency
             is the same per-year total as a small sparkline — the fastest way to see a year that paid less than
-            the one before it, which a single lifetime total hides.</p>
+            the one before it, which a single lifetime total hides. Open a row for every payment per share.</p>
           <div class="table-scroll">
             <table id="dividend-holdings">
               <thead>
@@ -456,11 +456,24 @@
                   <th class="num" data-i18n>This year</th>
                   <th class="num" data-i18n>All time</th>
                   <th data-i18n>Consistency</th>
+                  <!-- US-126, US-124, US-127: the header explains itself (US-93's pattern), tap or hover. -->
+                  <th class="num" data-i18n
+                    data-i18n-tip="Gross dividend received in the twelve months to the last day, specials included, divided by what the shares held today cost at the average buy price. In EUR.">Yield on cost</th>
+                  <th class="num" data-i18n
+                    data-i18n-tip="The same twelve months of gross dividend divided by today's value of the position. In EUR.">Current yield</th>
+                  <th data-i18n
+                    data-i18n-tip="Read from the gaps between regular payments: monthly, quarterly, semi-annual or annual, with the share of gaps that agree. Irregular is an answer, not a guess.">Rhythm</th>
+                  <th data-i18n
+                    data-i18n-tip="Years paid without a gap, raises and cuts against the payment a year earlier, and the largest cut — within this account's own history only, in EUR per share. Facts, not a score.">Track record</th>
+                  <th data-i18n
+                    data-i18n-tip="Estimate, from the payment rhythm: the last regular payment plus one interval, with a window of ±15 % of the interval either side. Not an announced date.">Next expected</th>
                 </tr>
               </thead>
               <tbody></tbody>
             </table>
           </div>
+          <p class="hint" id="dividend-holdings-note" style="margin-top: 10px"></p>
+          <div id="dividend-undetermined" hidden></div>
         </div>
       </div>
 

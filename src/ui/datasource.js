@@ -171,6 +171,10 @@ export async function loadDemo() {
     mode: 'demo',
     live: update,
     transactions,
+    // US-121: the dividend layer reads the classified cash rows directly, the
+    // same rows the engine was handed, so its per-share figures and the
+    // engine's totals are two readings of one list.
+    cashRows,
     products,
     accountName: 'Demo Belegger',
     disconnected: frozen,
@@ -286,7 +290,7 @@ export async function loadFromExtension() {
   // engine result: `sync.js` caches that result, and a few thousand rows of
   // something no chart reads would be carried through every recompute for the
   // sake of one table.
-  return { result, mode: 'extension', live, accountName, lastSyncAt, lastError, urls, disconnected, disconnectedAt, transactions: rawTx, products, ...diagnosticContext };
+  return { result, mode: 'extension', live, accountName, lastSyncAt, lastError, urls, disconnected, disconnectedAt, transactions: rawTx, cashRows: rawCash, products, ...diagnosticContext };
 }
 
 export async function load() {

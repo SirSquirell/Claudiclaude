@@ -7,6 +7,8 @@
 
 import { aggregatePnl, annualisedReturn, buildComposition, projectPortfolio, projectDividendIncome, candleSeries, maxDrawdown, monthlyTable, priceVsTotalReturn, rangeEndIndex, rangeStartIndex, windowReturnPct } from '../lib/engine.js';
 import { isinCountry, treatyRateFor, withholdingSplit, TREATY_RATE } from '../lib/withholding.js';
+import { perShareSeries, classifyPayments, changes as dividendChanges, forwardIncome, yields as dividendYields, trackRecord, nextExpected, MIN_COMPARISON_PAYMENTS, RECENT_TRADE_DAYS } from '../lib/dividends.js';
+import { CATEGORY } from '../lib/classify.js';
 import { formatDay, monthKey, weekKey } from '../lib/dates.js';
 import { GESTURE } from '../lib/config.js';
 import {
@@ -3435,6 +3437,8 @@ function wireTips() {
     { el: $('#holdings-columns'), tap: true },
     // US-106: static headers, nothing to sort — a tap is free to show the tip.
     { el: $('#withholding thead'), tap: true },
+    // US-126/US-127/US-124: the dividend view's header, same contract.
+    { el: $('#dividend-holdings thead'), tap: true },
   ];
   for (const { el: root, tap } of roots.filter((r) => r.el)) {
     root.addEventListener('pointerover', (e) => {
@@ -4657,22 +4661,110 @@ function renderDividendsTab(r, t) {
     state.charts.dividendForecast = dividendForecastChart($('#c-dividend-forecast'), forecast, t);
   }
 
-  renderDividendHoldings(r);
+  renderDividendHoldings(r, dividendModel(state.data, r));
 }
 
 /**
- * Position, this year, all time, and a per-year magnitude bar — literal
- * height, not a "paid/cut/flat" judgement call. Calling a drop a "cut"
- * needs a threshold this app has no basis for choosing, and a wrong one
- * would be exactly the silent fabrication rule 4 exists to stop; the bar's
- * own height already shows a bad year without naming it.
+ * US-121 … US-127. Everything the Dividends tab and the Notices say about
+ * dividends, from `src/lib/dividends.js`, computed once per loaded data set.
+ *
+ * Recomputed from the raw rows rather than read from anywhere (rule 2): the
+ * page holds the same classified cash rows and transactions the engine was
+ * handed, so the per-share figures and the engine's own totals are two
+ * readings of one list — `test/dividends.test.js` proves they agree to the
+ * cent. Cached on the data object's identity only, because a range change or a
+ * tab switch changes nothing here and this runs on every render for the
+ * Notices.
+ *
+ * Nothing here is arithmetic: every figure below is what the module returned,
+ * and where it returned `null` with a reason the UI shows the reason.
  */
-function renderDividendHoldings(r) {
-  const thisYear = r.days.at(-1).slice(0, 4);
+let dividendCache = { data: null, model: null };
+function dividendModel(data, r) {
+  if (dividendCache.data === data) return dividendCache.model;
+  const today = r.days.at(-1);
+  const series = classifyPayments(perShareSeries(data.transactions ?? [], data.cashRows ?? [], data.products ?? {}));
+  const quantities = Object.fromEntries(r.byProduct.map((p) => [String(p.productId), p.qty.at(-1) ?? 0]));
+  const model = {
+    today,
+    series,
+    changes: dividendChanges(series, today),
+    forward: forwardIncome(series, quantities, today),
+    yields: dividendYields(series, r.byProduct, today),
+    track: trackRecord(series, today),
+    next: Object.fromEntries(Object.values(series.byProduct).map((p) => [p.productId, nextExpected(p.points, p.rhythm, today)])),
+  };
+  dividendCache = { data, model };
+  return model;
+}
+
+/**
+ * The module's reason codes, as sentences. Kept as tables rather than inline so
+ * every code the module can return has exactly one text, and an unknown code
+ * shows as itself rather than as something reassuring (rule 4).
+ */
+const RHYTHM_WORDS = { monthly: 'monthly', quarterly: 'quarterly', semiannual: 'semi-annual', annual: 'annual', irregular: 'irregular' };
+const RHYTHM_REASONS = {
+  'too-few-points': 'fewer than three regular payments',
+  'gap-outside-buckets': 'the typical gap fits no rhythm',
+  'gaps-disagree': 'the gaps disagree',
+};
+const YIELD_REASONS = {
+  closed: 'position closed',
+  'no-payments': 'no payments in the window',
+  'no-cost-basis': 'no cost basis',
+  'no-current-value': 'no current value',
+};
+const UNDETERMINED_REASONS = {
+  'no-position-on-pay-date': 'no shares held on the pay-date',
+  'no-product': 'the row names no product',
+  'non-positive-amount': 'the amount is not positive (a reversal)',
+};
+const rhythmWord = (code) => tr(RHYTHM_WORDS[code] ?? code);
+const rhythmReason = (code) => tr(RHYTHM_REASONS[code] ?? code);
+
+/** Why US-123 could not project a product, in one sentence. */
+function forwardReason(u) {
+  if (u.reason === 'irregular-rhythm') return tr('no rhythm detected: {why}', { why: rhythmReason(u.detail.rhythmReason) });
+  if (u.reason === 'incomplete-cycle') return tr('{n} of {m} regular payments since {from}', { n: u.detail.paymentsInWindow, m: u.detail.expectedPerYear, from: formatDay(u.detail.windowFrom) });
+  if (u.reason === 'stopped') return tr('stopped: last payment {last}, the next was expected by {by}', { last: formatDay(u.detail.lastDate), by: formatDay(u.detail.expectedBy) });
+  return u.reason;
+}
+
+/** Why US-124 has no estimate for a product. */
+function nextExpectedReason(n) {
+  if (n.reason === 'no-payments') return tr('no regular payments');
+  if (n.reason === 'irregular-rhythm') return tr('no rhythm');
+  if (n.reason === 'stopped') return tr('stopped: expected by {by}', { by: formatDay(n.detail.expectedBy) });
+  return n.reason;
+}
+
+const muted = (text) => `<span class="muted">${esc(text)}</span>`;
+
+/**
+ * Position, this year, all time, a per-year magnitude bar, and — US-121 to
+ * US-127 — the per-share layer: yield on cost and current yield, the payment
+ * rhythm, the track record and the next expected payment, with a row that
+ * opens to every payment per share.
+ *
+ * The bar stays literal height and the track record stays counts: no "cut"
+ * colour on the row, no score. Where the module has no figure the cell says
+ * why, never a dash on its own. Every euro figure here is in EUR as settled,
+ * stated once under the table rather than in every cell.
+ */
+function renderDividendHoldings(r, m) {
+  const thisYear = m.today.slice(0, 4);
+  const yieldsById = new Map(m.yields.byProduct.map((y) => [y.productId, y]));
+  const trackById = new Map(m.track.byProduct.map((t) => [t.productId, t]));
+  const forwardById = new Map(m.forward.byProduct.map((f) => [f.productId, f]));
+  const forwardUndeterminedById = new Map(m.forward.undetermined.map((u) => [u.productId, u]));
+  const cols = $('#dividend-holdings thead').querySelectorAll('th').length;
+
   const rows = r.byProduct
     .filter((p) => p.dividendGross > 0.005)
     .sort((a, b) => b.dividendGross - a.dividendGross)
     .map((p) => {
+      const id = String(p.productId);
       const years = Object.keys(p.dividendGrossByYear).sort();
       const max = Math.max(0.01, ...years.map((y) => p.dividendGrossByYear[y]));
       const bars = years
@@ -4682,16 +4774,193 @@ function renderDividendHoldings(r) {
           return `<i class="${v <= 0.005 ? 'zero' : ''}" style="height:${h}px" title="${esc(y)}: ${esc(fmtEurCents(v))}"></i>`;
         })
         .join('');
-      return `<tr>
-        <td>${esc(p.symbol || p.name)}</td>
+
+      const prod = m.series.byProduct[id];
+      const y = yieldsById.get(id);
+      const t = trackById.get(id);
+      const n = m.next[id];
+      const noSeries = muted(tr('no per-share figure'));
+
+      const yieldCell = (value, reason) => (value == null ? muted(tr(YIELD_REASONS[reason] ?? reason ?? 'no per-share figure')) : esc(pct(value)));
+      // A value and, under it, what it rests on — two lines so nine columns
+      // still fit a laptop without the reader scrolling to find the new ones.
+      const sub = (text) => `<small class="sub">${esc(text)}</small>`;
+
+      let rhythmCell = noSeries;
+      if (prod) {
+        rhythmCell = prod.rhythm.rhythm === 'irregular'
+          ? `${esc(rhythmWord('irregular'))}${sub(rhythmReason(prod.rhythm.reason))}`
+          : `${esc(rhythmWord(prod.rhythm.rhythm))}${sub(tr('{pct}% of gaps agree', { pct: Math.round(prod.rhythm.confidence * 100) }))}`;
+      }
+
+      let trackCell = muted(tr('no regular payments'));
+      if (t) {
+        trackCell = esc(tr('{years} yr paid', { years: t.consecutiveYearsPaid }))
+          + sub(tr('{raises} raised · {cuts} cut', { raises: t.raises, cuts: t.cuts })
+            + (t.largestCutPct == null ? '' : ` · ${tr('largest cut {pct}', { pct: fmtPct(t.largestCutPct) })}`));
+      }
+
+      let nextCell = noSeries;
+      if (n) {
+        nextCell = n.reason
+          ? muted(nextExpectedReason(n))
+          : `≈ ${esc(formatDay(n.expected))}${n.overdue ? ` <span class="chip">${esc(tr('not seen yet'))}</span>` : ''}${sub(`${formatDay(n.from)} – ${formatDay(n.to)}`)}`;
+      }
+
+      return `<tr class="pos-row" data-product="${esc(id)}">
+        <td><button type="button" class="expander" aria-expanded="false" title="${esc(tr('Details'))}" aria-label="${esc(tr('Details'))}"></button>${esc(p.symbol || p.name)}</td>
         <td class="num">${esc(fmtEurCents(p.dividendGrossByYear[thisYear] ?? 0))}</td>
         <td class="num">${esc(fmtEurCents(p.dividendGross))}</td>
         <td><span class="mini-bars">${bars}</span></td>
-      </tr>`;
+        <td class="num">${y ? yieldCell(y.yieldOnCostPct, y.reasons.yieldOnCost) : noSeries}</td>
+        <td class="num">${y ? yieldCell(y.currentYieldPct, y.reasons.currentYield) : noSeries}</td>
+        <td>${rhythmCell}</td>
+        <td>${trackCell}</td>
+        <td>${nextCell}</td>
+      </tr>
+      <tr class="pos-detail" hidden><td class="detail-cell" colspan="${cols}">${dividendDetail(id, p, m, { prod, y, t, n, f: forwardById.get(id), fu: forwardUndeterminedById.get(id) })}</td></tr>`;
     })
     .join('');
   $('#dividend-holdings tbody').innerHTML = rows;
   $('#dividend-holdings').closest('.card').hidden = rows.length === 0;
+
+  $('#dividend-holdings-note').textContent = tr(
+    'Per-share figures, yields and changes are in EUR as settled — a foreign payer’s figure moves with the exchange rate even when the declared dividend did not. Yields are gross received in the twelve months to {today}, over cost and over value. The track record is bounded by this account’s own history: it starts when the position was first held, not when the company first paid. The next expected payment is an estimate from the payment rhythm, never an announced date.',
+    { today: formatDay(m.today) },
+  );
+
+  renderDividendUndetermined(m);
+  wireDividendExpanders();
+}
+
+/**
+ * The opened row: what the figures above were read from. The per-share list is
+ * newest first, like the transaction list; each payment carries its label and
+ * the rule that gave it (US-125), the change against a year earlier (US-122),
+ * the share count it was divided by and — flagged, never hidden — whether a
+ * trade within {RECENT_TRADE_DAYS} days may have moved that count (US-121).
+ */
+function dividendDetail(id, p, m, { prod, y, t, n, f, fu }) {
+  const kv = (label, value) => `<span class="kv"><b>${esc(label)}</b> ${value}</span>`;
+  const facts = [];
+  if (y) {
+    facts.push(kv(tr('Received, 12 months'), esc(fmtEurCents(y.received)) + (y.specialsInWindow ? ` ${muted(tr('incl. {n} special', { n: y.specialsInWindow }))}` : '')));
+    facts.push(kv(tr('Cost of shares held'), y.cost > 0 ? esc(fmtEurCents(y.cost)) : muted(tr('no cost basis'))));
+    facts.push(kv(tr('Value today'), y.current > 0 ? esc(fmtEurCents(y.current)) : muted(tr('no current value'))));
+  }
+  if (f) {
+    facts.push(kv(tr('Expected annual income'), `${esc(fmtEurCents(f.income))} ${muted(tr('{n} × {per} per share · {k} of {m} regular payments since {from}', { n: fmtQty(f.quantity), per: fmtPrice(f.perShareAnnual, 'EUR'), k: f.paymentsInWindow, m: f.expectedPerYear, from: formatDay(f.windowFrom) }))}`));
+    facts.push(kv(tr('Kept out of it'), f.excluded.length
+      ? esc(f.excluded.map((x) => `${formatDay(x.date)} ${fmtPrice(x.grossPerShare, 'EUR')} (${tr(x.rule === 'amount' ? 'special by amount' : 'special, off-rhythm')})`).join('; '))
+      : muted(tr('no special payments in the window'))));
+  } else if (fu) {
+    facts.push(kv(tr('Expected annual income'), muted(`${tr('not determined')} · ${forwardReason(fu)}`)));
+  } else if (m.forward.closed.includes(id)) {
+    facts.push(kv(tr('Expected annual income'), muted(tr('position closed'))));
+  }
+  if (t) {
+    facts.push(kv(tr('Years paid'), esc(t.yearsPaid.join(', ')) + ` ${muted(tr('held from {date}', { date: formatDay(t.heldFrom) }))}`));
+    facts.push(kv(tr('Growth per year'), t.cagrPct == null
+      ? muted(t.cagrReason === 'too-short' ? tr('fewer than two complete years held') : tr('first complete year paid nothing'))
+      : `${esc(fmtPct(t.cagrPct))} ${muted(tr('regular payments per share, {from}–{to}, complete years only', { from: t.cagrYears[0], to: t.cagrYears[1] }))}`));
+  }
+  if (n && !n.reason) {
+    facts.push(kv(tr('Next expected'), `${esc(formatDay(n.from))} – ${esc(formatDay(n.to))} ${muted(tr('estimate, from the payment rhythm: last regular payment {last} plus {days} days, ±{margin}', { last: formatDay(n.lastDate), days: Math.round(n.intervalDays), margin: n.marginDays }))}`));
+  }
+
+  const changesByDate = new Map((m.changes.byProduct[id]?.payments ?? []).map((c) => [c.date, c]));
+  const labelText = (pt) => {
+    if (pt.label === null) return muted(tr('tax only'));
+    if (pt.label === 'special') {
+      return `<span class="chip">${esc(tr('special'))}</span> ${muted(pt.rule === 'amount'
+        ? tr('{dev} from the median of {n} earlier payments', { dev: fmtPct(pt.deviationPct), n: pt.comparedAgainst })
+        : tr('inside the cycle'))}`;
+    }
+    return pt.rule === null && pt.comparedAgainst < MIN_COMPARISON_PAYMENTS
+      ? `${esc(tr('regular'))} ${muted(tr('by default: fewer than {n} earlier payments to compare', { n: MIN_COMPARISON_PAYMENTS }))}`
+      : esc(tr('regular'));
+  };
+  const changeText = (pt) => {
+    if (pt.label === 'special') return muted(tr('not compared'));
+    const c = changesByDate.get(pt.date);
+    if (!c) return '';
+    if (c.label === 'new') return muted(tr('new'));
+    if (c.label === 'unchanged') return muted(tr('unchanged'));
+    if (c.label === null) return muted(tr('no payment 11–13 months earlier'));
+    return `<span class="${c.pct > 0 ? 'up' : 'down'}">${esc(fmtPct(c.pct))}</span> ${muted(tr('vs {date}', { date: formatDay(c.comparedTo.date) }))}`;
+  };
+
+  const points = prod ? [...prod.points].reverse() : [];
+  const list = points.length
+    ? `<table class="div-payments">
+        <thead><tr>
+          <th>${esc(tr('Date'))}</th>
+          <th class="num">${esc(tr('Gross / share'))}</th>
+          <th class="num">${esc(tr('Tax / share'))}</th>
+          <th>${esc(tr('Label'))}</th>
+          <th>${esc(tr('vs a year earlier'))}</th>
+          <th class="num">${esc(tr('Shares'))}</th>
+          <th></th>
+        </tr></thead>
+        <tbody>${points.map((pt) => `<tr>
+          <td>${esc(formatDay(pt.date))}</td>
+          <td class="num">${pt.grossPerShare == null ? muted('·') : esc(fmtPrice(pt.grossPerShare, 'EUR'))}</td>
+          <td class="num">${pt.taxPerShare == null ? muted('·') : esc(fmtPrice(pt.taxPerShare, 'EUR'))}</td>
+          <td>${labelText(pt)}</td>
+          <td>${changeText(pt)}</td>
+          <td class="num">${esc(fmtQty(pt.quantity))}</td>
+          <td>${pt.quantityChangedRecently ? `<span class="chip warn" title="${esc(tr('A trade within {n} days before the pay-date: the share count on the pay-date may not be the count that earned the payment.', { n: RECENT_TRADE_DAYS }))}">${esc(tr('trade within {n} days', { n: RECENT_TRADE_DAYS }))}</span>` : ''}</td>
+        </tr>`).join('')}</tbody>
+      </table>`
+    : `<p class="hint">${esc(tr('No payment of this position could be divided by a share count — see “Not attributable” below.'))}</p>`;
+
+  return `<div class="div-facts">${facts.join('')}</div>${list}<p class="hint div-caption">${esc(tr('In EUR per share, from the euro amount that settled over the shares held on the pay-date. Labels are trailing only: a later payment never relabels an earlier one.'))}</p>`;
+}
+
+/**
+ * US-121: the rows no per-share figure could be formed from, counted and
+ * listed with their reasons — never folded into a total in silence (rule 4).
+ * Compact, because on a healthy account there are none.
+ */
+function renderDividendUndetermined(m) {
+  const host = $('#dividend-undetermined');
+  const und = m.series.undetermined;
+  host.hidden = und.length === 0;
+  if (!und.length) {
+    host.innerHTML = '';
+    return;
+  }
+  const total = und.reduce((k, u) => k + u.amount, 0);
+  const products = state.data.products ?? {};
+  host.innerHTML = `<details class="allfigures">
+    <summary>${esc(tr('Not attributable: {n} row(s), {total}', { n: und.length, total: fmtEurCents(total) }))}</summary>
+    <p class="hint">${esc(tr('These dividend rows are in every total on this page but could not be turned into a per-share figure, so they are in none of the columns above. Each says why.'))}</p>
+    <table class="div-payments"><thead><tr>
+      <th>${esc(tr('Date'))}</th><th>${esc(tr('Position'))}</th><th>${esc(tr('Kind'))}</th><th class="num">${esc(tr('Amount'))}</th><th>${esc(tr('Why'))}</th>
+    </tr></thead><tbody>${und.map((u) => `<tr>
+      <td>${esc(formatDay(u.date))}</td>
+      <td>${u.productId == null ? muted(tr('no product')) : esc(products[u.productId]?.symbol || products[u.productId]?.name || u.productId)}</td>
+      <td>${esc(u.category === CATEGORY.DIVIDEND_TAX ? tr('withholding tax') : tr('dividend'))}</td>
+      <td class="num">${esc(fmtEurCents(u.amount))}</td>
+      <td>${esc(tr(UNDETERMINED_REASONS[u.reason] ?? u.reason))}</td>
+    </tr>`).join('')}</tbody></table>
+  </details>`;
+}
+
+/** The same delegated toggle the Positions table uses; wired once. */
+function wireDividendExpanders() {
+  const table = $('#dividend-holdings');
+  if (!table || table.dataset.expanderWired) return;
+  table.dataset.expanderWired = '1';
+  table.addEventListener('click', (e) => {
+    const btn = e.target.closest('.expander');
+    if (!btn) return;
+    const detail = btn.closest('.pos-row')?.nextElementSibling;
+    if (!detail || !detail.classList.contains('pos-detail')) return;
+    const opening = detail.hidden;
+    detail.hidden = !opening;
+    btn.setAttribute('aria-expanded', String(opening));
+  });
 }
 
 /**

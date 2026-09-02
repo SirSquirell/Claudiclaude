@@ -20,6 +20,23 @@ plain increments — this is not a library and nothing depends on its API.
 
 ### Added
 
+- **US-121, US-125, US-126, US-127 — the Dividends tab's holdings table carries the per-share layer.**
+  Five new columns beside *This year*, *All time* and *Consistency*: **yield on cost** and **current
+  yield** (US-126: gross received in the trailing twelve months over the average cost of the shares
+  held, and over today's value; a reason — *position closed*, *no payments in the window*, *no cost
+  basis*, *no current value* — where the module returns null, never 0 %), the **payment rhythm**
+  (US-124: monthly/quarterly/semi-annual/annual with the share of gaps that agree, or *irregular*
+  with why), the **track record** (US-127: consecutive years paid, raises, cuts, largest cut — bounded
+  by this account's own history, stated under the table) and the **next expected payment** (US-124,
+  marked as an estimate from the rhythm). Every row opens to its payments per share (US-121): date,
+  gross and tax per share in EUR as settled, the label and the rule that gave it (US-125: *special*
+  by amount with the deviation from the median, or off-rhythm; *regular by default* when fewer than
+  two earlier payments could be compared), the change against a year earlier (US-122), the share
+  count, and a flag on any payment with a trade within 30 days before the pay-date. Rows the module
+  could not attribute to a per-share figure are listed under *Not attributable* with their reasons
+  and count. The page now receives the classified cash rows (`datasource.js`), so the layer is
+  recomputed from raw rows on every load and is never persisted. No figure the engine produces
+  changed.
 - **US-124 — the next expected payment, estimated from the rhythm.** `nextExpected(points, rhythm,
   today)` in `src/lib/dividends.js`: the last regular payment plus the nominal interval, with a
   window of ±15 % of the interval either side; null with a reason (`no-payments`,

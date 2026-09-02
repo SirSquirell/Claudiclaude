@@ -366,6 +366,111 @@ const DICT = {
     Received: 'Ontvangen',
     Projected: 'Geprojecteerd',
 
+    // --- US-121 … US-127: the per-share dividend layer -------------------------
+    'A dividend-scoped column set, not the general Positions table. Consistency is the same per-year total as a small sparkline — the fastest way to see a year that paid less than the one before it, which a single lifetime total hides. Open a row for every payment per share.':
+      'Een op dividend toegespitste kolomset, niet de algemene Posities-tabel. Consistentie toont hetzelfde totaal per jaar als een klein lijngrafiekje — de snelste manier om een jaar te zien dat minder opleverde dan het jaar ervoor, wat één totaal over de hele looptijd verbergt. Open een rij voor elke uitkering per aandeel.',
+    'Yield on cost': 'Rendement op kostprijs',
+    'Current yield': 'Huidig rendement',
+    Rhythm: 'Ritme',
+    'Track record': 'Staat van dienst',
+    'Next expected': 'Volgende verwachte uitkering',
+    'Gross dividend received in the twelve months to the last day, specials included, divided by what the shares held today cost at the average buy price. In EUR.':
+      'Bruto ontvangen dividend in de twaalf maanden tot de laatste dag, inclusief bijzondere uitkeringen, gedeeld door wat de nu gehouden aandelen kostten tegen de gemiddelde aankoopprijs. In EUR.',
+    "The same twelve months of gross dividend divided by today's value of the position. In EUR.":
+      'Dezelfde twaalf maanden bruto dividend gedeeld door de huidige waarde van de positie. In EUR.',
+    'Read from the gaps between regular payments: monthly, quarterly, semi-annual or annual, with the share of gaps that agree. Irregular is an answer, not a guess.':
+      'Afgelezen uit de tussenpozen tussen reguliere uitkeringen: maandelijks, per kwartaal, halfjaarlijks of jaarlijks, met het aandeel tussenpozen dat overeenstemt. Onregelmatig is een antwoord, geen gok.',
+    "Years paid without a gap, raises and cuts against the payment a year earlier, and the largest cut — within this account's own history only, in EUR per share. Facts, not a score.":
+      'Jaren zonder onderbreking uitgekeerd, verhogingen en verlagingen ten opzichte van de uitkering een jaar eerder, en de grootste verlaging — alleen binnen de eigen geschiedenis van dit account, in EUR per aandeel. Feiten, geen score.',
+    'Estimate, from the payment rhythm: the last regular payment plus one interval, with a window of ±15 % of the interval either side. Not an announced date.':
+      'Schatting uit het betaalritme: de laatste reguliere uitkering plus één interval, met een marge van ±15 % van het interval aan weerszijden. Geen aangekondigde datum.',
+    'Per-share figures, yields and changes are in EUR as settled — a foreign payer’s figure moves with the exchange rate even when the declared dividend did not. Yields are gross received in the twelve months to {today}, over cost and over value. The track record is bounded by this account’s own history: it starts when the position was first held, not when the company first paid. The next expected payment is an estimate from the payment rhythm, never an announced date.':
+      'Bedragen per aandeel, rendementen en veranderingen zijn in EUR zoals afgewikkeld — het cijfer van een buitenlandse betaler beweegt mee met de wisselkoers, ook als het gedeclareerde dividend niet veranderde. Rendementen zijn bruto ontvangen in de twaalf maanden tot {today}, over kostprijs en over waarde. De staat van dienst is begrensd door de eigen geschiedenis van dit account: zij begint toen de positie voor het eerst werd gehouden, niet toen het bedrijf voor het eerst uitkeerde. De volgende verwachte uitkering is een schatting uit het betaalritme, nooit een aangekondigde datum.',
+    // rhythm words and reasons
+    monthly: 'maandelijks',
+    quarterly: 'per kwartaal',
+    'semi-annual': 'halfjaarlijks',
+    annual: 'jaarlijks',
+    irregular: 'onregelmatig',
+    'fewer than three regular payments': 'minder dan drie reguliere uitkeringen',
+    'the typical gap fits no rhythm': 'de gebruikelijke tussenpoos past in geen ritme',
+    'the gaps disagree': 'de tussenpozen stemmen niet overeen',
+    '{pct}% of gaps agree': '{pct}% van de tussenpozen stemt overeen',
+    'no rhythm detected: {why}': 'geen ritme gevonden: {why}',
+    'no rhythm': 'geen ritme',
+    'no regular payments': 'geen reguliere uitkeringen',
+    'no per-share figure': 'geen cijfer per aandeel',
+    // yields
+    'position closed': 'positie gesloten',
+    'no payments in the window': 'geen uitkeringen in het venster',
+    'no cost basis': 'geen kostprijsbasis',
+    'no current value': 'geen huidige waarde',
+    'Received, 12 months': 'Ontvangen, 12 maanden',
+    'incl. {n} special': 'incl. {n} bijzondere',
+    'Cost of shares held': 'Kostprijs gehouden aandelen',
+    'Value today': 'Waarde vandaag',
+    // track record
+    '{years} yr paid': '{years} jr uitgekeerd',
+    '{raises} raised · {cuts} cut': '{raises} verhoogd · {cuts} verlaagd',
+    'largest cut {pct}': 'grootste verlaging {pct}',
+    'Years paid': 'Jaren uitgekeerd',
+    'held from {date}': 'gehouden sinds {date}',
+    'Growth per year': 'Groei per jaar',
+    'fewer than two complete years held': 'minder dan twee volledige jaren gehouden',
+    'first complete year paid nothing': 'eerste volledige jaar keerde niets uit',
+    'regular payments per share, {from}–{to}, complete years only': 'reguliere uitkeringen per aandeel, {from}–{to}, alleen volledige jaren',
+    // next expected
+    'not seen yet': 'nog niet gezien',
+    'stopped: expected by {by}': 'gestopt: verwacht vóór {by}',
+    'estimate, from the payment rhythm: last regular payment {last} plus {days} days, ±{margin}':
+      'geschat uit het betaalritme: laatste reguliere uitkering {last} plus {days} dagen, ±{margin}',
+    // forward income, per position
+    'Expected annual income': 'Verwacht jaarinkomen',
+    '{n} × {per} per share · {k} of {m} regular payments since {from}': '{n} × {per} per aandeel · {k} van {m} reguliere uitkeringen sinds {from}',
+    '{n} of {m} regular payments since {from}': '{n} van {m} reguliere uitkeringen sinds {from}',
+    'stopped: last payment {last}, the next was expected by {by}': 'gestopt: laatste uitkering {last}, de volgende werd verwacht vóór {by}',
+    'Kept out of it': 'Buiten gelaten',
+    'no special payments in the window': 'geen bijzondere uitkeringen in het venster',
+    'special by amount': 'bijzonder op bedrag',
+    'special, off-rhythm': 'bijzonder, buiten het ritme',
+    'not determined': 'niet vastgesteld',
+    // the payment list
+    'tax only': 'alleen belasting',
+    special: 'bijzonder',
+    regular: 'regulier',
+    '{dev} from the median of {n} earlier payments': '{dev} ten opzichte van de mediaan van {n} eerdere uitkeringen',
+    'inside the cycle': 'binnen de cyclus',
+    'by default: fewer than {n} earlier payments to compare': 'standaard: minder dan {n} eerdere uitkeringen om mee te vergelijken',
+    'not compared': 'niet vergeleken',
+    new: 'nieuw',
+    unchanged: 'ongewijzigd',
+    'no payment 11–13 months earlier': 'geen uitkering 11–13 maanden eerder',
+    'vs {date}': 't.o.v. {date}',
+    'Gross / share': 'Bruto / aandeel',
+    'Tax / share': 'Belasting / aandeel',
+    Label: 'Label',
+    'vs a year earlier': 't.o.v. een jaar eerder',
+    Shares: 'Aandelen',
+    'A trade within {n} days before the pay-date: the share count on the pay-date may not be the count that earned the payment.':
+      'Een transactie binnen {n} dagen vóór de betaaldatum: het aantal aandelen op de betaaldatum is misschien niet het aantal dat de uitkering verdiende.',
+    'trade within {n} days': 'transactie binnen {n} dagen',
+    'No payment of this position could be divided by a share count — see “Not attributable” below.':
+      'Geen enkele uitkering van deze positie kon door een aantal aandelen worden gedeeld — zie “Niet toe te rekenen” hieronder.',
+    'In EUR per share, from the euro amount that settled over the shares held on the pay-date. Labels are trailing only: a later payment never relabels an earlier one.':
+      'In EUR per aandeel, uit het afgewikkelde eurobedrag gedeeld door de aandelen die op de betaaldatum werden gehouden. Labels kijken alleen terug: een latere uitkering herlabelt nooit een eerdere.',
+    // not attributable
+    'Not attributable: {n} row(s), {total}': 'Niet toe te rekenen: {n} regel(s), {total}',
+    'These dividend rows are in every total on this page but could not be turned into a per-share figure, so they are in none of the columns above. Each says why.':
+      'Deze dividendregels zitten in elk totaal op deze pagina, maar konden niet in een cijfer per aandeel worden omgezet, dus staan ze in geen van de kolommen hierboven. Elke regel zegt waarom.',
+    Kind: 'Soort',
+    Why: 'Waarom',
+    'no product': 'geen product',
+    'withholding tax': 'bronbelasting',
+    dividend: 'dividend',
+    'no shares held on the pay-date': 'geen aandelen gehouden op de betaaldatum',
+    'the row names no product': 'de regel noemt geen product',
+    'the amount is not positive (a reversal)': 'het bedrag is niet positief (een terugboeking)',
+
     'What moved, in this range': 'Wat er bewoog in deze periode',
     'Currency exposure': 'Valuta-exposure',
     'Uninvested cash over time': 'Niet-belegde cash door de tijd',
