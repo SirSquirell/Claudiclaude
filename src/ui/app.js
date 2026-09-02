@@ -32,7 +32,7 @@ import {
 } from './charts.js';
 import { buildBugReport } from '../lib/report.js';
 import { fieldAlarms } from '../lib/parse.js';
-import { captured, installErrorCapture } from './errors.js';
+import { captured, installErrorCapture, record } from './errors.js';
 import * as frown from './frown.js';
 
 /**
@@ -2179,6 +2179,29 @@ const onScreen = (sel) => {
   return !!el && el.closest('.grid[data-tab]')?.dataset.tab === state.tab;
 };
 
+/**
+ * One section of the page failing must not take the rest of the page with it.
+ *
+ * `render()` is one straight run through every section, so an exception in the
+ * last one left everything after the throw undrawn — and, worse, everything
+ * before it *was* drawn, so the page looked fine while the range change that
+ * caused the render never reached the tiles or the crumb. Reported from a real
+ * account on 2026-09-02: a drag on the value chart drew its selection and then
+ * "nothing happened", because a later section threw on that account's data
+ * before the zoom state was painted. Each section now runs inside this guard:
+ * the error is recorded for the bug report (same ring the window handler
+ * feeds) and said on screen with the section's name, and the next section
+ * still runs. Rule 4 in UI form: a failure is surfaced, never swallowed.
+ */
+function section(name, fn) {
+  try {
+    fn();
+  } catch (err) {
+    record('render', `${name}: ${err?.message ?? err}`, err?.stack);
+    banner('error', tr('The {name} section could not be drawn: {message}. The rest of the page is unaffected; the details are in the bug report.', { name, message: String(err?.message ?? err) }));
+  }
+}
+
 function render() {
   const { data } = state;
   if (!data) return;
@@ -2246,7 +2269,7 @@ function render() {
     $('#frown-toggle').classList.remove('on');
   }
 
-  renderTiles(r, from, to, data.live);
+  section('tiles', () => renderTiles(r, from, to, data.live));
   const slice = (arr) => arr.slice(from, to + 1);
 
   const gran = state.granularity === 'auto' ? autoGranularity(to - from + 1) : state.granularity;
@@ -2259,7 +2282,7 @@ function render() {
   // chosen day. It now applies to every time series. A value is a level, so a
   // bucket takes the observation it ended on; a flow is summed, which the
   // aggregators already do.
-  renderZoomState(r, from, to);
+  section('zoom state', () => renderZoomState(r, from, to));
   wireZoom();
 
   const ends = bucketEnds(r.days, from, to, gran);
@@ -2371,21 +2394,21 @@ function render() {
   }
 
   const months = monthlyTable(r);
-  renderMonthMatrix(months, t, r.days[from], r.days[to]);
-  renderMonthCompare(months, t);
+  section('month matrix', () => renderMonthMatrix(months, t, r.days[from], r.days[to]));
+  section('month comparison', () => renderMonthCompare(months, t));
 
   lastWindow = { result: r, from, to };
-  renderHoldings(r, composition, compColours, t, from, to);
+  section('holdings', () => renderHoldings(r, composition, compColours, t, from, to));
   wireSnapshots();
   placeWatermarks();
-  renderYears(r);
-  renderWithholding(r);
-  renderDividendsTab(r, t);
-  renderOutlook(r, t);
-  renderAnnualised(r, from, to);
-  renderPriceReturn(r, from, to);
-  renderTransactions(data, r, from, to);
-  renderFooter(r, data);
+  section('years', () => renderYears(r));
+  section('withholding', () => renderWithholding(r));
+  section('dividends', () => renderDividendsTab(r, t));
+  section('outlook', () => renderOutlook(r, t));
+  section('annualised return', () => renderAnnualised(r, from, to));
+  section('price return', () => renderPriceReturn(r, from, to));
+  section('transactions', () => renderTransactions(data, r, from, to));
+  section('footer', () => renderFooter(r, data));
 }
 
 /**

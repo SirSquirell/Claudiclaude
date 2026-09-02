@@ -16,6 +16,20 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.70.3] — 2026-09-02
+
+**No resync needed** — display only.
+
+### Fixed
+
+- **One failing section no longer blocks the rest of the page.** `render()` ran every section in
+  one straight line, so an exception in a late section (the Dividends tab or Outlook on an account
+  whose data the fixtures never had) left the tiles, the crumb and the zoom state undrawn while the
+  chart above them looked fine — which is one way a drag on the value chart can "do nothing" on
+  release. Every section from the tiles down now runs inside a guard: the error is recorded in the
+  same ring the bug report reads, named on screen in a red banner with the section and the message,
+  and the following sections still run. Nothing is swallowed; it is said where it happened.
+
 ## [0.70.2] — 2026-09-02
 
 **No resync needed** — display only.

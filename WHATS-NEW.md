@@ -1,4 +1,4 @@
-# Wat er nieuw is — 0.70.2
+# Wat er nieuw is — 0.70.3
 
 **Geen resync nodig.** Er verandert geen enkel bedrag in je geschiedenis: alles wat hieronder
 staat wordt bij elke opening opnieuw uitgerekend uit de regels die de extensie al had. Alleen deze
@@ -9,6 +9,14 @@ release; de volledige geschiedenis staat in [CHANGELOG.md](CHANGELOG.md), instal
 > resync-vragen.
 
 ---
+
+## Een fout in één onderdeel houdt de rest van de pagina niet meer tegen
+
+Ging er iets mis in het tekenen van bijvoorbeeld het tabblad Dividenden, dan stopte de hele
+pagina daar stil, zonder melding, en bleef bijvoorbeeld een zoom op de grafiek uit. Nu tekent elk
+onderdeel apart: gaat er één stuk, dan staat er een rode balk met de naam van dat onderdeel en de
+foutmelding, en de rest van de pagina werkt door. Zie je zo'n balk, kopieer dan het bugrapport
+(menu Meer) en stuur het op; daar staat de fout in.
 
 ## Slepen op de waardegrafiek zoomt weer, ook waar het niet deed
 

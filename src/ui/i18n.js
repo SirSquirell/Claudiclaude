@@ -463,6 +463,7 @@ const DICT = {
     'no payment 11–13 months earlier': 'geen uitkering 11–13 maanden eerder',
     'vs {date}': 't.o.v. {date}',
     selection: 'selectie',
+    'The {name} section could not be drawn: {message}. The rest of the page is unaffected; the details are in the bug report.': 'De sectie {name} kon niet getekend worden: {message}. De rest van de pagina werkt gewoon; de details staan in het bugrapport.',
     'Received gross': 'Ontvangen bruto',
     Withheld: 'Ingehouden',
     Net: 'Netto',
