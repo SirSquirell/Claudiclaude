@@ -11,23 +11,32 @@
  * pattern check, and a clever check nobody runs is worth less than a blunt one
  * wired into `npm test`.
  *
- *   node tools/check-leaks.mjs            # everything git tracks
- *   node tools/check-leaks.mjs --staged   # only what is staged, for a pre-commit hook
+ *   node tools/check-leaks.mjs                # everything git tracks
+ *   node tools/check-leaks.mjs --staged       # only what is staged, for a pre-commit hook
+ *   node tools/check-leaks.mjs fixtures/real/ # these paths, tracked or not — a HAR's output
  *
  * Exits non-zero on a finding. False positive? Put `leak-check: ok` in a comment
  * on that line and say why — the exemption is visible in review, which a silent
  * skip list is not.
  */
 import { execSync } from 'node:child_process';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 
 const staged = process.argv.includes('--staged');
+const paths = process.argv.slice(2).filter((a) => !a.startsWith('--'));
 const list = staged
   ? 'git diff --cached --name-only --diff-filter=ACM'
   : 'git ls-files';
 
-const files = execSync(list, { encoding: 'utf8' })
-  .split('\n')
+/** Every file under the given paths, git-tracked or not — the HAR output is neither. */
+function walk(p) {
+  if (!existsSync(p)) return [];
+  if (!statSync(p).isDirectory()) return [p];
+  return readdirSync(p).flatMap((name) => walk(join(p, name)));
+}
+
+const files = (paths.length ? paths.flatMap(walk) : execSync(list, { encoding: 'utf8' }).split('\n'))
   .map((f) => f.trim())
   .filter(Boolean)
   .filter((f) => existsSync(f))

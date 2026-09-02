@@ -30,16 +30,18 @@ The "with content" part matters; without it the file has URLs but no response bo
 node tools/har-to-fixtures.mjs ~/Downloads/trader.degiro.nl.har
 ```
 
-This writes to `fixtures/real/` (git-ignored) and replaces `sessionId`, `JSESSIONID`,
-`intAccount`, `userToken`, IBAN, email, name and address with fixed dummy values. It
-prints which endpoints it found and which it did not.
+This writes to `fixtures/real/` (git-ignored). It keeps, per endpoint, **only the field
+names `src/lib/parse.js` reads** and drops everything else — an allowlist, so a field
+nobody thought of cannot ship. The identifiers the parser does need (`intAccount`, the
+`userToken`, the display name) are kept as fixed dummies. It prints which endpoints it
+found and which it did not.
 
 ## 4. Check the redaction yourself
 
-The redaction is a set of regexes, not a guarantee. Before anything leaves
-`fixtures/real/`:
+An allowlist is a mechanism, not a guarantee. Before anything leaves `fixtures/real/`:
 
 ```bash
+node tools/check-leaks.mjs fixtures/real/
 grep -ril "<your surname>" fixtures/real/
 grep -ril "<your account number>" fixtures/real/
 grep -ril "NL..<your bank>" fixtures/real/

@@ -181,9 +181,14 @@ When a real HAR arrives:
 ```bash
 node tools/har-to-fixtures.mjs ~/Downloads/trader.degiro.nl.har   # writes fixtures/real/
 # read the files, grep for your own name/IBAN/account number
+node tools/check-leaks.mjs fixtures/real/                          # must be clean before the mv
 mv fixtures/real/*.json fixtures/
 npm test
 ```
+
+`har-to-fixtures.mjs` keeps, per endpoint, only the field names `parse.js` reads and drops
+everything else (rule 7: an allowlist, not a redaction regex per identifier). When `parse.js`
+gains a candidate field, `KEEP` in that tool gains it too.
 
 The parsers in `parse.js` accept several candidate field names per value on purpose.
 Once a real capture confirms the shapes, **tighten them** and delete the fallbacks —
