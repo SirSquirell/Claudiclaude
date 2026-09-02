@@ -204,14 +204,17 @@ async function handle(msg) {
        */
       const url = `${chrome.runtime.getURL('src/ui/app.html')}?demo=1`;
 
-      // Hergebruik een al open tab van de options page in plaats van er bij
-      // elke klik een nieuwe bij te maken.
-      const existing = await chrome.tabs.query({
+      // Hergebruik een al open *demo*-tab in plaats van er bij elke klik een
+      // nieuwe bij te maken. Alleen een demo-tab: een tab die het echte account
+      // toont wordt nooit weggenavigeerd — een klik op een website mag niet
+      // iemands eigen cijfers van het scherm halen.
+      const open = await chrome.tabs.query({
         url: `${chrome.runtime.getURL('src/ui/app.html')}*`,
       });
-      if (existing.length) {
-        await chrome.tabs.update(existing[0].id, { url, active: true });
-        await chrome.windows.update(existing[0].windowId, { focused: true });
+      const demo = open.find((t) => typeof t.url === 'string' && t.url.includes('demo=1'));
+      if (demo) {
+        await chrome.tabs.update(demo.id, { active: true });
+        await chrome.windows.update(demo.windowId, { focused: true });
       } else {
         await chrome.tabs.create({ url });
       }
