@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { perShareSeries, RECENT_TRADE_DAYS } from '../src/lib/dividends.js';
+import { perShareSeries, RECENT_TRADE_DAYS, detectRhythm, classifyPayments } from '../src/lib/dividends.js';
 import { computePortfolio } from '../src/lib/engine.js';
 import { CATEGORY } from '../src/lib/classify.js';
 
@@ -185,4 +185,149 @@ test('US-121 guardrail: points plus undetermined equal computePortfolio dividend
   }
   assert.equal(series.undetermined.length, 2, 'the two rows on the sold-out position are counted, not lost');
   assert.equal(series.byProduct.P.points.length, 3, 'two pay-dates while held, the second tax landing a day late');
+});
+
+// ---------------------------------------------------------------------------
+// US-124 detectRhythm
+// ---------------------------------------------------------------------------
+
+const dated = (...dates) => dates.map((date) => ({ date }));
+
+test('US-124: monthly, quarterly, semi-annual and annual payers are detected with confidence 1', () => {
+  const monthly = dated('2024-01-15', '2024-02-15', '2024-03-15', '2024-04-15', '2024-05-15');
+  const quarterly = dated('2023-03-15', '2023-06-15', '2023-09-15', '2023-12-15', '2024-03-15');
+  const semi = dated('2022-05-10', '2022-11-10', '2023-05-10', '2023-11-10');
+  const annual = dated('2021-06-01', '2022-06-01', '2023-06-01');
+  for (const [pts, rhythm, perYear] of [[monthly, 'monthly'], [quarterly, 'quarterly'], [semi, 'semiannual'], [annual, 'annual']]) {
+    const r = detectRhythm(pts);
+    assert.equal(r.rhythm, rhythm);
+    assert.equal(r.confidence, 1);
+    assert.ok(r.intervalDays > 0);
+    assert.equal(r.reason, null);
+  }
+});
+
+test('US-124: a quarterly payer that skipped one quarter is still quarterly, with the confidence it earned', () => {
+  const r = detectRhythm(dated('2023-03-15', '2023-06-15', '2023-12-15', '2024-03-15'));
+  assert.equal(r.rhythm, 'quarterly');
+  near(r.confidence, 2 / 3);
+  assert.deepEqual(r.gaps, [92, 183, 91]);
+});
+
+test('US-124: fewer than three points, or gaps that disagree, is irregular — an answer, not a guess', () => {
+  assert.equal(detectRhythm(dated('2024-01-01', '2024-04-01')).rhythm, 'irregular');
+  assert.equal(detectRhythm(dated('2024-01-01', '2024-04-01')).reason, 'too-few-points');
+  assert.equal(detectRhythm([]).rhythm, 'irregular');
+  // Fifty-day gaps: between the monthly and the quarterly bucket, in neither.
+  const split = detectRhythm(dated('2020-01-01', '2020-02-20', '2020-04-10', '2020-05-30'));
+  assert.equal(split.rhythm, 'irregular');
+  assert.equal(split.reason, 'gap-outside-buckets');
+  // Two quarterly gaps, two annual gaps: the median (228 days) falls in the
+  // semi-annual bucket and no gap agrees with it.
+  const straddle = detectRhythm(dated('2020-01-01', '2020-04-01', '2020-07-01', '2021-07-01', '2022-07-01'));
+  assert.equal(straddle.rhythm, 'irregular');
+  assert.equal(straddle.reason, 'gaps-disagree');
+  // Three gaps in three buckets: nothing to agree with.
+  const mixed = detectRhythm(dated('2020-01-01', '2020-02-01', '2020-05-01', '2021-05-01'));
+  assert.equal(mixed.rhythm, 'irregular');
+  assert.equal(mixed.reason, 'gaps-disagree');
+  assert.equal(mixed.intervalDays, null);
+});
+
+test('US-124: order of the input does not matter', () => {
+  const r = detectRhythm(dated('2024-03-15', '2023-03-15', '2023-09-15', '2023-06-15', '2023-12-15'));
+  assert.equal(r.rhythm, 'quarterly');
+});
+
+// ---------------------------------------------------------------------------
+// US-125 classifyPayments
+// ---------------------------------------------------------------------------
+
+test('US-125: a triple-size payment between two quarters is special by amount, and the regular ones stay regular', () => {
+  const { transactions, cashRows } = quarterlyPayer('Q');
+  cashRows.push(div('Q', '2023-07-20', 0.9 * 100)); // 0.90/share, three times the 0.30 regular
+  const c = classifyPayments(perShareSeries(transactions, cashRows));
+  assert.equal(c.classified, true);
+  const q = c.byProduct.Q;
+  const special = q.points.filter((p) => p.label === 'special');
+  assert.equal(special.length, 1);
+  assert.equal(special[0].date, '2023-07-20');
+  assert.equal(special[0].rule, 'amount');
+  near(special[0].deviationPct, 260, 1e-6, 'the trailing-24-month median of the others is 0.25: four 2022 payments, two 2023');
+  assert.ok(special[0].comparedAgainst >= 2);
+  assert.equal(q.points.filter((p) => p.label === 'regular').length, 12);
+  assert.equal(q.rhythm.rhythm, 'quarterly', 'the rhythm is read off the regular payments only');
+  assert.equal(q.rhythm.confidence, 1);
+});
+
+test('US-125: an extra payment of the regular size inside a quarter is special by rhythm', () => {
+  const { transactions, cashRows } = quarterlyPayer('Q');
+  cashRows.push(div('Q', '2023-07-20', 0.3 * 100)); // same amount, 35 days after the June payment
+  const c = classifyPayments(perShareSeries(transactions, cashRows));
+  const p = c.byProduct.Q.points.find((x) => x.date === '2023-07-20');
+  assert.equal(p.label, 'special');
+  assert.equal(p.rule, 'off-rhythm');
+  assert.equal(c.byProduct.Q.rhythm.rhythm, 'quarterly');
+});
+
+test('US-125: the 2024 cut (0.30 → 0.20, 33 %) and the 2023 raise (0.25 → 0.30) are not specials', () => {
+  const { transactions, cashRows } = quarterlyPayer('Q');
+  const c = classifyPayments(perShareSeries(transactions, cashRows));
+  assert.ok(c.byProduct.Q.points.every((p) => p.label === 'regular'));
+});
+
+test('US-125: an interim/final payer\'s larger final has a yearly twin and is regular', () => {
+  const transactions = [buy('IF', '2020-01-02', 100, 10)];
+  const cashRows = [];
+  for (const y of [2020, 2021, 2022, 2023]) {
+    cashRows.push(div('IF', `${y}-05-10`, 40)); // interim 0.40
+    cashRows.push(div('IF', `${y}-09-10`, 80)); // final 0.80, +100 % against a 0.40 median
+  }
+  const c = classifyPayments(perShareSeries(transactions, cashRows));
+  const pts = c.byProduct.IF.points;
+  assert.ok(pts.every((p) => p.label === 'regular'), JSON.stringify(pts.map((p) => [p.date, p.label, p.rule])));
+  assert.equal(pts[1].comparedAgainst, 1, 'the first final has one earlier payment — too few for the amount rule');
+  assert.equal(pts[1].rule, null);
+  assert.equal(c.byProduct.IF.rhythm.rhythm, 'irregular', '4-month and 8-month gaps alternate: no single bucket');
+});
+
+test('US-125: the first payments carry comparedAgainst below the minimum, so a UI can show the label is a default', () => {
+  const { transactions, cashRows } = quarterlyPayer('Q');
+  const c = classifyPayments(perShareSeries(transactions, cashRows));
+  const [first, second, third] = c.byProduct.Q.points;
+  assert.equal(first.comparedAgainst, 0);
+  assert.equal(second.comparedAgainst, 1);
+  assert.equal(third.comparedAgainst, 2);
+  assert.equal(first.deviationPct, null);
+  assert.equal(third.rule, null);
+  assert.equal(typeof third.deviationPct, 'number');
+});
+
+test('US-125: a tax-only point has no label and does not enter the rhythm', () => {
+  const s = perShareSeries([buy('T', '2024-01-01', 50, 1)], [div('T', '2024-02-01', 10), tax('T', '2024-02-02', 1.5)]);
+  const c = classifyPayments(s);
+  assert.equal(c.byProduct.T.points[1].label, null);
+  assert.equal(c.byProduct.T.points[0].label, 'regular');
+});
+
+test('US-125: classifying twice changes nothing', () => {
+  const { transactions, cashRows } = quarterlyPayer('Q');
+  cashRows.push(div('Q', '2023-07-20', 90));
+  const once = classifyPayments(perShareSeries(transactions, cashRows));
+  assert.deepEqual(classifyPayments(once), once);
+});
+
+test('US-125 property: classification is trailing — a later payment never relabels an earlier one', () => {
+  const { transactions, cashRows } = quarterlyPayer('Q');
+  cashRows.push(div('Q', '2023-07-20', 90));
+  cashRows.push(div('Q', '2024-07-20', 30));
+  cashRows.sort((a, b) => (a.date < b.date ? -1 : 1));
+  const full = classifyPayments(perShareSeries(transactions, cashRows)).byProduct.Q.points;
+  for (let k = 1; k <= cashRows.length; k++) {
+    const prefix = classifyPayments(perShareSeries(transactions, cashRows.slice(0, k))).byProduct.Q?.points ?? [];
+    for (let i = 0; i < prefix.length; i++) {
+      assert.equal(prefix[i].label, full[i].label, `${prefix[i].date} label with ${k} rows`);
+      assert.equal(prefix[i].rule, full[i].rule, `${prefix[i].date} rule with ${k} rows`);
+    }
+  }
 });

@@ -33,9 +33,24 @@
  *     `grossPerShare` or `taxPerShare` is null on a date that had only the
  *     other kind of row — no pairing is assumed (US-102 AC3). `gross` and `tax`
  *     are the day's euro totals. `heldTo` is null while the position is open.
+ *
+ *   detectRhythm(points) →                                           (US-124)
+ *     { rhythm: 'monthly'|'quarterly'|'semiannual'|'annual'|'irregular',
+ *       confidence, intervalDays, gaps, reason }
+ *     `intervalDays` is the nominal length of the detected interval, null when
+ *     irregular; `reason` says why it is irregular, null otherwise.
+ *
+ *   classifyPayments(series) →                                       (US-125)
+ *     the same shape as perShareSeries, plus `classified: true`, a `rhythm`
+ *     (detectRhythm over the regular payments) per product, and on every
+ *     point: label 'regular'|'special'|null (null for a tax-only point),
+ *     rule 'amount'|'off-rhythm'|null, comparedAgainst (how many earlier
+ *     regular payments the amount rule saw), deviationPct (from their median,
+ *     null when there were too few). Trailing only: a point's label never
+ *     depends on a later point.
  */
 import { CATEGORY } from './classify.js';
-import { addDays, dayRange } from './dates.js';
+import { addDays, dayRange, daysBetween, subMonths } from './dates.js';
 import { positionLedger } from './engine.js';
 
 /**
@@ -191,4 +206,179 @@ export function perShareSeries(transactions = [], cashRows = [], products = {}) 
 
   undetermined.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
   return { unit: UNIT, byProduct, undetermined };
+}
+
+// ---------------------------------------------------------------------------
+// US-124: payment rhythm
+// ---------------------------------------------------------------------------
+
+/**
+ * Gap buckets in days, inclusive lower bound, exclusive upper. Wide on purpose:
+ * pay-dates drift by weeks around holidays and a monthly payer's gap runs 28 to
+ * 35 days. A gap in no bucket is a fact about an irregular payer, not a
+ * rounding problem.
+ */
+export const RHYTHM_BUCKETS = {
+  monthly: [20, 45],
+  quarterly: [60, 125],
+  semiannual: [150, 230],
+  annual: [300, 431],
+};
+
+/** Nominal interval per rhythm, in days, for "how overdue is the next one". */
+export const NOMINAL_INTERVAL_DAYS = {
+  monthly: 365.25 / 12,
+  quarterly: 365.25 / 4,
+  semiannual: 365.25 / 2,
+  annual: 365.25,
+};
+
+/** Regular payments per year, per rhythm. What one full cycle of data means. */
+export const PAYMENTS_PER_YEAR = { monthly: 12, quarterly: 4, semiannual: 2, annual: 1 };
+
+/**
+ * Below this share of gaps agreeing with the median gap's bucket, the answer
+ * is irregular. 0.6 lets a quarterly payer skip one quarter in four and still
+ * be quarterly (2 of 3 gaps agree), and refuses a payer whose gaps are split
+ * evenly between two buckets.
+ */
+export const MIN_RHYTHM_CONFIDENCE = 0.6;
+
+/** Two gaps are the least that can agree or disagree with each other. */
+export const MIN_POINTS_FOR_RHYTHM = 3;
+
+const IRREGULAR = (gaps, reason) => ({ rhythm: 'irregular', confidence: 0, intervalDays: null, gaps, reason });
+
+function median(values) {
+  const v = [...values].sort((a, b) => a - b);
+  const m = v.length >> 1;
+  return v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2;
+}
+
+function bucketOf(gapDays) {
+  for (const [rhythm, [lo, hi]] of Object.entries(RHYTHM_BUCKETS)) {
+    if (gapDays >= lo && gapDays < hi) return rhythm;
+  }
+  return null;
+}
+
+/**
+ * US-124. The rhythm behind a list of dated payments, from the gaps between
+ * them. Pass regular payments only — a special in the list is a gap that
+ * disagrees, which is exactly what US-125 uses this for.
+ *
+ * @param {Array<{date: string}>} points any order; sorted here
+ */
+export function detectRhythm(points) {
+  const dates = points.map((p) => p.date).sort();
+  const gaps = [];
+  for (let i = 1; i < dates.length; i++) gaps.push(daysBetween(dates[i - 1], dates[i]));
+  if (dates.length < MIN_POINTS_FOR_RHYTHM) return IRREGULAR(gaps, 'too-few-points');
+
+  const rhythm = bucketOf(median(gaps));
+  if (!rhythm) return IRREGULAR(gaps, 'gap-outside-buckets');
+  const agreeing = gaps.filter((g) => bucketOf(g) === rhythm).length;
+  const confidence = agreeing / gaps.length;
+  if (confidence < MIN_RHYTHM_CONFIDENCE) return IRREGULAR(gaps, 'gaps-disagree');
+  return { rhythm, confidence, intervalDays: NOMINAL_INTERVAL_DAYS[rhythm], gaps, reason: null };
+}
+
+// ---------------------------------------------------------------------------
+// US-125: special dividends
+// ---------------------------------------------------------------------------
+
+/**
+ * A payment more than this far from the median of the recent regular ones is
+ * a special. 60 % is wide enough that a raise of half again passes as a raise;
+ * a doubling does not, and a genuine special is usually several times the
+ * regular amount.
+ */
+export const SPECIAL_AMOUNT_DEVIATION = 0.6;
+
+/** The amount rule compares against the regular payments this far back. */
+export const SPECIAL_LOOKBACK_MONTHS = 24;
+
+/** A median of one number is not a median: the amount rule needs two others. */
+export const MIN_COMPARISON_PAYMENTS = 2;
+
+/**
+ * A payment that recurs yearly is regular by definition, whatever its size:
+ * the larger final of an interim/final payer, or a fixed year-end extra. A
+ * twin is a regular payment 11 to 13 months earlier within this tolerance.
+ */
+export const YEARLY_TWIN_TOLERANCE = 0.2;
+export const YEARLY_WINDOW_MONTHS = [11, 13];
+
+/**
+ * With a rhythm known, a payment closer than this fraction of the interval to
+ * the previous regular one is an extra payment inside the cycle.
+ */
+export const OFF_RHYTHM_FRACTION = 0.5;
+
+/** Earlier regular payments whose date falls inside [date − hi months, date − lo months]. */
+function inYearlyWindow(regular, date) {
+  const [lo, hi] = YEARLY_WINDOW_MONTHS;
+  const from = subMonths(date, hi);
+  const to = subMonths(date, lo);
+  return regular.filter((q) => q.date >= from && q.date <= to);
+}
+
+function hasYearlyTwin(regular, p) {
+  return inYearlyWindow(regular, p.date).some(
+    (q) => Math.abs(q.grossPerShare - p.grossPerShare) / q.grossPerShare <= YEARLY_TWIN_TOLERANCE,
+  );
+}
+
+/**
+ * US-125. Label every gross point regular or special, trailing only.
+ *
+ * Idempotent: classifying a classified series returns an equal series. Every
+ * downstream function accepts either and classifies for itself when needed.
+ */
+export function classifyPayments(series) {
+  const byProduct = {};
+  for (const [id, prod] of Object.entries(series.byProduct ?? {})) {
+    const points = [...prod.points].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+    const regular = [];
+    const out = [];
+    for (const p of points) {
+      if (p.grossPerShare === null) {
+        out.push({ ...p, label: null, rule: null, comparedAgainst: 0, deviationPct: null });
+        continue;
+      }
+      const others = regular.filter((q) => q.date >= subMonths(p.date, SPECIAL_LOOKBACK_MONTHS));
+      const twin = hasYearlyTwin(regular, p);
+      let deviationPct = null;
+      let rule = null;
+
+      if (others.length >= MIN_COMPARISON_PAYMENTS) {
+        const med = median(others.map((q) => q.grossPerShare));
+        deviationPct = ((p.grossPerShare - med) / med) * 100;
+        if (Math.abs(deviationPct) / 100 > SPECIAL_AMOUNT_DEVIATION && !twin) rule = 'amount';
+      }
+      if (!rule && !twin && regular.length) {
+        const rhythm = detectRhythm(regular);
+        if (rhythm.rhythm !== 'irregular') {
+          const gap = daysBetween(regular.at(-1).date, p.date);
+          if (gap < OFF_RHYTHM_FRACTION * rhythm.intervalDays) rule = 'off-rhythm';
+        }
+      }
+
+      const labelled = { ...p, label: rule ? 'special' : 'regular', rule, comparedAgainst: others.length, deviationPct };
+      out.push(labelled);
+      if (!rule) regular.push(labelled);
+    }
+    byProduct[id] = { ...prod, points: out, rhythm: detectRhythm(regular) };
+  }
+  return { ...series, classified: true, byProduct };
+}
+
+/** The series, classified if it is not already. */
+function classified(series) {
+  return series.classified ? series : classifyPayments(series);
+}
+
+/** Regular gross points of one classified product, sorted. */
+function regularPoints(prod) {
+  return prod.points.filter((p) => p.label === 'regular');
 }

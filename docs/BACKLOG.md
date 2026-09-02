@@ -8050,7 +8050,7 @@ closed position; the total equals the sum of the determined rows.
 
 ---
 
-### US-124 — Payment rhythm, and the next expected payment *(new, refined — `detectRhythm` ships with US-125, the estimate and its UI later)*
+### US-124 — Payment rhythm, and the next expected payment *(partly built — `detectRhythm` shipped with US-125; the estimate and its UI are open)*
 
 **Layer A, later B.** From the gaps between regular payments: monthly, quarterly, semi-annual,
 annual, or irregular, with a confidence; from that, an estimated next pay-date with a margin. The
@@ -8072,7 +8072,7 @@ a screen.
 
 #### Acceptance criteria
 
-- [ ] `detectRhythm` returns `{rhythm, confidence, intervalDays, gaps}`; `rhythm ∈ monthly |
+- [x] `detectRhythm` returns `{rhythm, confidence, intervalDays, gaps}`; `rhythm ∈ monthly |
       quarterly | semiannual | annual | irregular`. Buckets on the gap in days: monthly 20–44,
       quarterly 60–124, semi-annual 150–229, annual 300–430. The median gap picks the bucket;
       `confidence` is the share of gaps inside that bucket; below 0.6, or with fewer than three
@@ -8089,12 +8089,12 @@ US-121. The UI half depends on US-122 and US-123 having a place to render.
 #### Test
 
 Monthly, quarterly and annual synthetic payers detected with confidence 1; a quarterly payer with
-one skipped quarter still quarterly at 0.67; two points → irregular; gaps that disagree →
+one skipped quarter still quarterly at 2/3; two points → irregular; gaps that disagree →
 irregular.
 
 ---
 
-### US-125 — Special dividends, recognised and kept out of every projection *(new, refined)*
+### US-125 — Special dividends, recognised and kept out of every projection *(built — engine function only, no UI yet)*
 
 **Layer A.** A payment far outside the amount or the rhythm of the others is labelled `special`
 and does not enter US-122, US-123 or US-124. Without it every forward figure extrapolates a
@@ -8116,20 +8116,20 @@ both, and the rule that fired is returned so the reader can disagree with it.
 
 #### Acceptance criteria
 
-- [ ] **Amount rule.** A payment is `special` (`rule: 'amount'`) when its per-share amount deviates
+- [x] **Amount rule.** A payment is `special` (`rule: 'amount'`) when its per-share amount deviates
       more than 60 % from the median of the other regular payments in the trailing 24 months, and
       there are at least two of them (a median of one number is not a median). Exemption: a payment
       with a regular twin 11 to 13 months earlier within ±20 % is never a special by amount — an
       interim/final payer's larger final recurs yearly and is regular by definition.
-- [ ] **Rhythm rule.** With a rhythm detected from the regular payments before it, a payment
+- [x] **Rhythm rule.** With a rhythm detected from the regular payments before it, a payment
       closer than half an interval to the previous regular payment is `special`
       (`rule: 'off-rhythm'`). Never fires while the rhythm is irregular.
-- [ ] Classification is trailing only: a payment's label depends on the payments before it, never
+- [x] Classification is trailing only: a payment's label depends on the payments before it, never
       on later ones, so a new payment landing never relabels history. Tested as a prefix property.
-- [ ] A payment the rules could not test (fewer than two earlier regular payments) is `regular`
+- [x] A payment the rules could not test (fewer than two earlier regular payments) is `regular`
       with `rule: null` and `comparedAgainst: n`, so the UI can show that the label is a default
       rather than a finding.
-- [ ] Thresholds (60 %, 24 months, two payments, ±20 %, half an interval) are named constants at
+- [x] Thresholds (60 %, 24 months, two payments, ±20 %, half an interval) are named constants at
       the top of the module, with the reason for each.
 
 #### Dependencies
