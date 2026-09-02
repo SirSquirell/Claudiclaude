@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { perShareSeries, RECENT_TRADE_DAYS, detectRhythm, classifyPayments, changes } from '../src/lib/dividends.js';
+import { perShareSeries, RECENT_TRADE_DAYS, detectRhythm, classifyPayments, changes, forwardIncome } from '../src/lib/dividends.js';
 import { computePortfolio } from '../src/lib/engine.js';
 import { CATEGORY } from '../src/lib/classify.js';
 
@@ -414,4 +414,118 @@ test('US-122 property: today moving forward never changes a past label; only sto
     if (r.stopped) sawStopped = true;
   }
   assert.ok(sawStopped);
+});
+
+// ---------------------------------------------------------------------------
+// US-123 forwardIncome
+// ---------------------------------------------------------------------------
+
+test('US-123: a quarterly payer — the last four regular per-share payments times today\'s quantity', () => {
+  const { transactions, cashRows } = quarterlyPayer('Q');
+  const s = perShareSeries(transactions, cashRows);
+  const end23 = forwardIncome(s, { Q: 100 }, '2023-12-31');
+  assert.equal(end23.unit, 'EUR');
+  assert.equal(end23.byProduct.length, 1);
+  const q = end23.byProduct[0];
+  near(q.perShareAnnual, 1.2, 1e-9, 'four raised quarters of 0.30');
+  near(q.income, 120, 1e-9);
+  assert.equal(q.rhythm, 'quarterly');
+  assert.equal(q.expectedPerYear, 4);
+  assert.equal(q.paymentsInWindow, 4);
+  assert.equal(q.trimmed, false);
+  assert.deepEqual(q.payments, ['2023-03-15', '2023-06-15', '2023-09-15', '2023-12-15']);
+  near(end23.total, 120, 1e-9);
+  assert.equal(end23.determinedCount, 1);
+  assert.equal(end23.undeterminedCount, 0);
+
+  // Mid-2023: two old quarters and two raised ones.
+  const mid23 = forwardIncome(s, { Q: 100 }, '2023-08-01');
+  near(mid23.byProduct[0].perShareAnnual, 1.1, 1e-9);
+  // A different holding today scales the figure; the per-share rate does not move.
+  near(forwardIncome(s, { Q: 250 }, '2023-12-31').total, 300, 1e-9);
+});
+
+test('US-123: a special in the window must not enter the figure, and is listed as excluded', () => {
+  const { transactions, cashRows } = quarterlyPayer('Q');
+  cashRows.push(div('Q', '2023-07-20', 90));
+  const r = forwardIncome(perShareSeries(transactions, cashRows), { Q: 100 }, '2023-12-31');
+  near(r.total, 120, 1e-9);
+  assert.deepEqual(r.byProduct[0].excluded, [{ date: '2023-07-20', grossPerShare: 0.9, rule: 'amount' }]);
+});
+
+test('US-123: an annual payer with one payment is undetermined — no rhythm can be read from one point', () => {
+  const r = forwardIncome(perShareSeries([buy('A', '2024-01-01', 10, 1)], [div('A', '2024-06-01', 5)]), { A: 10 }, '2024-12-31');
+  assert.equal(r.byProduct.length, 0);
+  assert.equal(r.total, 0);
+  assert.equal(r.undeterminedCount, 1);
+  assert.equal(r.undetermined[0].productId, 'A');
+  assert.equal(r.undetermined[0].reason, 'irregular-rhythm');
+  assert.equal(r.undetermined[0].detail.rhythmReason, 'too-few-points');
+});
+
+test('US-123: an annual payer with three payments is determined at one payment per year', () => {
+  const tx = [buy('A', '2021-01-01', 10, 1)];
+  const rows = [div('A', '2021-06-01', 5), div('A', '2022-06-01', 6), div('A', '2023-06-01', 7)];
+  const r = forwardIncome(perShareSeries(tx, rows), { A: 10 }, '2023-12-31');
+  near(r.total, 7, 1e-9, 'the latest 0.70 per share times ten');
+  assert.equal(r.byProduct[0].expectedPerYear, 1);
+});
+
+test('US-123: a closed position is listed under closed, neither projected nor undetermined', () => {
+  const { transactions, cashRows } = quarterlyPayer('Q');
+  const r = forwardIncome(perShareSeries(transactions, cashRows), { Q: 0 }, '2024-12-31');
+  assert.deepEqual(r.closed, ['Q']);
+  assert.equal(r.undeterminedCount, 0);
+  assert.equal(r.total, 0);
+  const missing = forwardIncome(perShareSeries(transactions, cashRows), {}, '2024-12-31');
+  assert.deepEqual(missing.closed, ['Q'], 'a product absent from the quantities is not held');
+});
+
+test('US-123: a stopped stream is undetermined, not projected from stale payments', () => {
+  const { transactions, cashRows } = quarterlyPayer('Q');
+  const r = forwardIncome(perShareSeries(transactions, cashRows), { Q: 100 }, '2025-06-01');
+  assert.equal(r.undetermined[0].reason, 'stopped');
+  assert.equal(r.undetermined[0].detail.lastDate, '2024-12-15');
+});
+
+test('US-123: pay-date drift — five in a strict year are trimmed to four, three are rescued by half an interval', () => {
+  const tx = [buy('D', '2022-01-01', 10, 1)];
+  // Regular quarterlies whose December payment slid from the 20th to the 10th.
+  const rows = [
+    div('D', '2022-12-20', 1), div('D', '2023-03-15', 1), div('D', '2023-06-15', 1), div('D', '2023-09-15', 1), div('D', '2023-12-10', 1),
+  ];
+  const s = perShareSeries(tx, rows);
+  const five = forwardIncome(s, { D: 10 }, '2023-12-19');
+  assert.equal(five.byProduct[0].paymentsInWindow, 4);
+  assert.equal(five.byProduct[0].trimmed, true);
+  assert.deepEqual(five.byProduct[0].payments.at(-1), '2023-12-10');
+  near(five.total, 4, 1e-9);
+
+  // Without the December payment, the strict window (2022-12-25, 2023-12-25]
+  // holds three; stretched back by half a quarter it reaches 2022-12-20.
+  const short = forwardIncome(perShareSeries(tx, rows.slice(0, 4)), { D: 10 }, '2023-12-25');
+  assert.equal(short.byProduct.length, 1);
+  assert.equal(short.byProduct[0].paymentsInWindow, 4);
+  assert.equal(short.byProduct[0].trimmed, false);
+});
+
+test('US-123: too few payments even after the tolerance is incomplete-cycle, with the counts', () => {
+  // A quarterly stream younger than a year: three payments, rhythm readable,
+  // but not one full cycle of them yet.
+  const tx = [buy('D', '2024-01-01', 10, 1)];
+  const rows = [div('D', '2024-03-15', 1), div('D', '2024-06-15', 1), div('D', '2024-09-15', 1)];
+  const r = forwardIncome(perShareSeries(tx, rows), { D: 10 }, '2024-10-01');
+  assert.equal(r.undetermined[0].reason, 'incomplete-cycle');
+  assert.equal(r.undetermined[0].detail.paymentsInWindow, 3);
+  assert.equal(r.undetermined[0].detail.expectedPerYear, 4);
+});
+
+test('US-123: the total is the sum of the determined rows, and says how many were not', () => {
+  const q = quarterlyPayer('Q');
+  const tx = [...q.transactions, buy('A', '2024-01-01', 10, 1)];
+  const rows = [...q.cashRows, div('A', '2024-06-01', 5)];
+  const r = forwardIncome(perShareSeries(tx, rows), { Q: 100, A: 10 }, '2024-12-31');
+  near(r.total, 80, 1e-9, 'four 0.20 quarters on 100 shares; A is undetermined and not in the total');
+  assert.equal(r.determinedCount, 1);
+  assert.equal(r.undeterminedCount, 1);
 });

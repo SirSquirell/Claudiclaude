@@ -58,6 +58,19 @@
  *     older history exists but nothing 11 to 13 months earlier does. `comparedTo` is { date, grossPerShare } or null. `pct` is
  *     the change in EUR per share. `stopped` is set when the detected rhythm
  *     says a payment is more than 1.5 intervals overdue as of `today`.
+ *
+ *   forwardIncome(series, currentQuantities, today) →                (US-123)
+ *     { unit: 'EUR', total, determinedCount, undeterminedCount,
+ *       byProduct: [{ productId, income, perShareAnnual, quantity, rhythm,
+ *                     expectedPerYear, paymentsInWindow, trimmed, windowFrom,
+ *                     payments: [date], excluded: [{ date, grossPerShare, rule }] }],
+ *       undetermined: [{ productId, reason, detail }],
+ *       closed: [productId] }
+ *     `currentQuantities` is { [productId]: quantity today }. Regular
+ *     per-share payments of the trailing twelve months (half an interval of
+ *     tolerance, at most one cycle's worth) times today's quantity. Reasons:
+ *     'irregular-rhythm', 'stopped', 'incomplete-cycle'. `total` sums the
+ *     determined products only.
  */
 import { CATEGORY } from './classify.js';
 import { addDays, dayRange, daysBetween, subMonths } from './dates.js';
@@ -458,4 +471,92 @@ export function changes(series, today) {
     byProduct[id] = { productId: id, payments, stopped: stoppedAsOf(prod, today) };
   }
   return { unit: UNIT, byProduct };
+}
+
+// ---------------------------------------------------------------------------
+// US-123: forward twelve-month income
+// ---------------------------------------------------------------------------
+
+/** The trailing window a forward figure is read from. */
+export const FORWARD_WINDOW_MONTHS = 12;
+
+/**
+ * Pay-dates drift by days around a year boundary, so a strict twelve-month
+ * window holds five quarterlies one week and three the next. The window is
+ * stretched back by this fraction of an interval when it holds too few, and
+ * trimmed to the most recent cycle's worth when it holds too many.
+ */
+export const FORWARD_WINDOW_TOLERANCE = 0.5;
+
+/**
+ * US-123. Expected annual income from the regular payments of the last year,
+ * at today's share count. Specials are excluded and listed.
+ */
+export function forwardIncome(series, currentQuantities = {}, today) {
+  const c = classified(series);
+  const byProduct = [];
+  const undetermined = [];
+  const closed = [];
+
+  for (const [id, prod] of Object.entries(c.byProduct)) {
+    const quantity = currentQuantities[id] ?? currentQuantities[Number(id)];
+    if (!(quantity > 0)) {
+      closed.push(id);
+      continue;
+    }
+    if (prod.rhythm.rhythm === 'irregular') {
+      undetermined.push({ productId: id, reason: 'irregular-rhythm', detail: { rhythmReason: prod.rhythm.reason, regularPayments: regularPoints(prod).length } });
+      continue;
+    }
+    const stopped = stoppedAsOf(prod, today);
+    if (stopped) {
+      undetermined.push({ productId: id, reason: 'stopped', detail: stopped });
+      continue;
+    }
+
+    const expectedPerYear = PAYMENTS_PER_YEAR[prod.rhythm.rhythm];
+    const gross = prod.points.filter((p) => p.grossPerShare !== null && p.date <= today);
+    let windowFrom = subMonths(today, FORWARD_WINDOW_MONTHS);
+    let regular = gross.filter((p) => p.label === 'regular' && p.date > windowFrom);
+    let trimmed = false;
+    if (regular.length < expectedPerYear) {
+      windowFrom = addDays(windowFrom, -Math.round(FORWARD_WINDOW_TOLERANCE * prod.rhythm.intervalDays));
+      regular = gross.filter((p) => p.label === 'regular' && p.date > windowFrom);
+    }
+    if (regular.length < expectedPerYear) {
+      undetermined.push({ productId: id, reason: 'incomplete-cycle', detail: { paymentsInWindow: regular.length, expectedPerYear, windowFrom } });
+      continue;
+    }
+    if (regular.length > expectedPerYear) {
+      regular = regular.slice(regular.length - expectedPerYear);
+      trimmed = true;
+    }
+
+    const perShareAnnual = regular.reduce((k, p) => k + p.grossPerShare, 0);
+    byProduct.push({
+      productId: id,
+      income: perShareAnnual * quantity,
+      perShareAnnual,
+      quantity,
+      rhythm: prod.rhythm.rhythm,
+      expectedPerYear,
+      paymentsInWindow: regular.length,
+      trimmed,
+      windowFrom,
+      payments: regular.map((p) => p.date),
+      excluded: gross
+        .filter((p) => p.label === 'special' && p.date > windowFrom)
+        .map((p) => ({ date: p.date, grossPerShare: p.grossPerShare, rule: p.rule })),
+    });
+  }
+
+  return {
+    unit: 'EUR',
+    total: byProduct.reduce((k, p) => k + p.income, 0),
+    determinedCount: byProduct.length,
+    undeterminedCount: undetermined.length,
+    byProduct,
+    undetermined,
+    closed,
+  };
 }

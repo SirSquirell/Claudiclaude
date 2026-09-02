@@ -8003,7 +8003,7 @@ payment two intervals ago); the today-invariance property.
 
 ---
 
-### US-123 — Expected annual income, forward twelve months *(new, refined)*
+### US-123 — Expected annual income, forward twelve months *(built — engine function only, no UI yet)*
 
 **Layer A.** Per position and in total: the regular per-share payments of the trailing twelve
 months times the shares held today. SSD's "projected annual income", from the account's own rows.
@@ -8023,20 +8023,20 @@ together.
 
 #### Acceptance criteria
 
-- [ ] Per product: the sum of regular per-share payments dated in the trailing twelve months (plus
+- [x] Per product: the sum of regular per-share payments dated in the trailing twelve months (plus
       half an interval of tolerance, so a payment three days outside the window does not drop a
       quarter), taking at most one rhythm cycle's worth — the most recent `expectedPerYear` of them
       — times the current quantity. Specials are excluded and listed under `excluded` with the rule
       that excluded them, so the reader can see what the figure left out.
-- [ ] `undetermined` with a reason when the product has fewer than one full rhythm cycle of data:
+- [x] `undetermined` with a reason when the product has fewer than one full rhythm cycle of data:
       `irregular-rhythm` when US-124 cannot detect one (this covers an annual payer with a single
       payment), `incomplete-cycle` when fewer regular payments fall in the window than the rhythm
       expects per year, `stopped` when US-122 says the stream has stopped. A product with
       `currentQuantity ≤ 0` is listed under `closed`, not projected and not undetermined.
-- [ ] The total is the sum over determined products only, and the result states how many products
+- [x] The total is the sum over determined products only, and the result states how many products
       and which are undetermined, so the total can never read as complete when it is not (US-105's
       principle, applied locally).
-- [ ] Figures are in EUR; the UI caption says "from the last twelve months of payments, in EUR,
+- [x] Figures are in EUR; the UI caption says "from the last twelve months of payments, in EUR,
       at today's share count".
 
 #### Dependencies
