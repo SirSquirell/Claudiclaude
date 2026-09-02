@@ -7890,7 +7890,7 @@ Two engine-side decisions hold for the whole dividend set, so they are stated on
 
 ---
 
-### US-121 — Dividend per share, from the account's own payments *(built — engine function only, no UI yet)*
+### US-121 — Dividend per share, from the account's own payments *(built, 0.70.0 — engine in 0.69.x, the per-share list in every row of the Dividends table in 0.70.0)*
 
 **Layer A.** The base for US-122 to US-128: per position, the series (date, gross per share, tax
 withheld per share), derived from the DIVIDEND and DIVIDEND_TAX cash rows and the number of shares
@@ -7953,7 +7953,7 @@ same-day trade (flag set); the guardrail against `computePortfolio` on the same 
 
 ---
 
-### US-122 — Raises and cuts, signalled from the account's own history *(built — engine function only, no UI yet)*
+### US-122 — Raises and cuts, signalled from the account's own history *(built, 0.70.0 — as Notices and as a column in the opened row)*
 
 **Layer A.** Each regular payment compared with the closest regular payment eleven to thirteen
 months earlier: raised, unchanged, cut, new, or — for a whole product — stopped. SSD's "dividend
@@ -8003,7 +8003,7 @@ payment two intervals ago); the today-invariance property.
 
 ---
 
-### US-123 — Expected annual income, forward twelve months *(built — engine function only, no UI yet)*
+### US-123 — Expected annual income, forward twelve months *(built, 0.70.0 — the tile on the Dividends tab)*
 
 **Layer A.** Per position and in total: the regular per-share payments of the trailing twelve
 months times the shares held today. SSD's "projected annual income", from the account's own rows.
@@ -8051,7 +8051,7 @@ closed position; the total equals the sum of the determined rows.
 
 ---
 
-### US-124 — Payment rhythm, and the next expected payment *(partly built — `detectRhythm` shipped with US-125; the estimate and its UI are open)*
+### US-124 — Payment rhythm, and the next expected payment *(built, 0.70.0 — `nextExpected` and its column; the bundle half waits on US-104)*
 
 **Layer A, later B.** From the gaps between regular payments: monthly, quarterly, semi-annual,
 annual, or irregular, with a confidence; from that, an estimated next pay-date with a margin. The
@@ -8078,10 +8078,12 @@ a screen.
       quarterly 60–124, semi-annual 150–229, annual 300–430. The median gap picks the bucket;
       `confidence` is the share of gaps inside that bucket; below 0.6, or with fewer than three
       points, the answer is `irregular` — an answer, not a guess.
-- [ ] `nextExpected`: last regular payment plus the nominal interval, with a margin of ±15 % of the
+- [x] `nextExpected`: last regular payment plus the nominal interval, with a margin of ±15 % of the
       interval; `null` with a reason when the rhythm is irregular or the stream is `stopped`.
-- [ ] The row on the Dividends tab is labelled "estimate, from the payment rhythm" and disappears
+- [x] The row on the Dividends tab is labelled "estimate, from the payment rhythm" and disappears
       the moment US-104's bundle carries an announced date for that ISIN.
+      *Built 0.70.0 as far as it can be: the column is labelled as an estimate from the rhythm. The
+      bundle does not exist (US-104 is out of this repo's scope), so nothing replaces the estimate yet.*
 
 #### Dependencies
 
@@ -8095,7 +8097,7 @@ irregular.
 
 ---
 
-### US-125 — Special dividends, recognised and kept out of every projection *(built — engine function only, no UI yet)*
+### US-125 — Special dividends, recognised and kept out of every projection *(built, 0.70.0 — labelled in the opened row, with the rule)*
 
 **Layer A.** A payment far outside the amount or the rhythm of the others is labelled `special`
 and does not enter US-122, US-123 or US-124. Without it every forward figure extrapolates a
@@ -8144,7 +8146,7 @@ A quarterly payer with one triple-size special (amount rule); a fifth payment in
 
 ---
 
-### US-126 — Yield on cost and current yield, per position *(built — engine function only, no UI yet)*
+### US-126 — Yield on cost and current yield, per position *(built, 0.70.0 — two columns on the Dividends table)*
 
 **Layer A.** Gross dividend received in the trailing twelve months, divided by what the shares held
 cost, and divided by what they are worth today. Two columns on the Holdings dividend view — the
@@ -8188,7 +8190,7 @@ in the window; a closed position; a special in the window counted in received.
 
 ---
 
-### US-127 — A track record per position, in place of a safety score *(built — engine function only, no UI yet)*
+### US-127 — A track record per position, in place of a safety score *(built, 0.70.0 — a column and the opened row)*
 
 **Layer A.** Years paid without a gap within this account's own history, raises, cuts, the largest
 cut, growth per year over the window, first and last payment. Facts in a table, no score.
@@ -8231,7 +8233,7 @@ mid-year sale excluded from the complete years.
 
 ---
 
-### US-128 — An income goal on the Outlook page *(new, refined)*
+### US-128 — An income goal on the Outlook page *(built, 0.70.0)*
 
 **Layer A.** The user sets a goal in euros per month; Outlook shows where the expected annual
 income (US-123) stands against it, and what a monthly contribution plus an assumed dividend growth
@@ -8251,15 +8253,23 @@ nowhere else. US-123 makes the starting point a measurement instead of a guess.
 
 #### Acceptance criteria
 
-- [ ] The card shows current forward income (US-123) as a percentage of the goal, and the year the
+- [x] The card shows current forward income (US-123) as a percentage of the goal, and the year the
       goal is reached under the stated assumptions, or "not reached within the horizon".
-- [ ] Every assumption (monthly contribution, dividend growth, yield on new money) is an input on
+- [x] Every assumption (monthly contribution, dividend growth, yield on new money) is an input on
       the card, prefilled only from measured figures and labelled as such; nothing is prefilled
       from a market average.
-- [ ] Carries US-123's undetermined count: a goal measured against an income figure that is
+- [x] Carries US-123's undetermined count: a goal measured against an income figure that is
       missing three positions says so on the card.
-- [ ] `projectPortfolio`'s `MAX_HORIZON_MONTHS` and `PLAUSIBLE_ANNUAL` guards are reused, not
+- [x] `projectPortfolio`'s `MAX_HORIZON_MONTHS` and `PLAUSIBLE_ANNUAL` guards are reused, not
       redefined.
+
+*Built 0.70.0.* Two pure functions in `src/lib/dividends.js`: `measuredDividendGrowth(track,
+forward)` — US-127's per-position CAGRs weighted by US-123's forward income, the default for the
+growth input, labelled *measured* with its positions and years — and `incomeGoal({annualIncome,
+goalPerMonth, monthly, growthPct, yieldPct, reinvest, months, today})`, month by month: the stream
+grows at the growth rate and new money (the deposit, plus the month's dividend when reinvested) buys
+income at the yield. `MAX_HORIZON_MONTHS` and `PLAUSIBLE_ANNUAL` are exported from `engine.js` for it
+(the only engine change, additive). The goal is held in `state.outlook` like the other Outlook inputs.
 
 #### Dependencies
 

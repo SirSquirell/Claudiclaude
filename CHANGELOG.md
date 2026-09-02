@@ -18,6 +18,12 @@ plain increments — this is not a library and nothing depends on its API.
 
 ## [0.70.0] — 2026-09-02
 
+**No resync needed** — no computed portfolio value changed. This release is the second half of the
+dividend layer: the pure functions US-121 to US-127 shipped as engine code in 0.69.x now have a
+screen, US-124's estimate and US-128's goal are built, and every figure is recomputed from the raw
+rows on every load, so there is nothing stored to refresh. `engine.js` changed by two `export`
+keywords and nothing else; `classify.js`, `parse.js` and the fixtures are untouched.
+
 ### Added
 
 - **US-121, US-125, US-126, US-127 — the Dividends tab's holdings table carries the per-share layer.**
