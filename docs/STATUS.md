@@ -219,6 +219,10 @@ one-time job in GitHub's UI, the owner's to do. `main` and `poc` stay. **`poc` d
 `main`**: it sits at `5a8465f` (the branch-policy commit), 56 commits behind `main` and with 228
 commits of its own that `main` does not have — a scratchpad, as the policy says, never a backlog.
 
+## Proposed, not decided
+
+[PRODUCT-BRIEF.md](PRODUCT-BRIEF.md) (2026-09-02, Dutch): ten feature proposals, a sales model (open core, paid data bundle, offline-verified licence, no accounts) and the backend that fits US-101/US-104 (static signed bundle, static benchmark files, nothing that sees a portfolio). Nothing in it has a story number yet; numbers are claimed only when a story lands in `BACKLOG.md` on `main`.
+
 ## Refined, not built
 
 Kept current as new stories open and old ones land — every open story number appears either here,
