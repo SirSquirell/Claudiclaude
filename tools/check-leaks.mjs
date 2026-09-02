@@ -47,6 +47,18 @@ const words = existsSync(wordFile)
 const IDENTIFYING_KEYS = ['displayName', 'intAccount', 'userToken', 'clientId'];
 
 /**
+ * An IBAN: country, two check digits, then 11 to 30 alphanumerics. `client.json`
+ * carries the account holder's, and a real HAR carries it verbatim.
+ *
+ * One exemption, by value rather than by comment: `NL91ABNA0417164300` is the
+ * example IBAN the Dutch banks publish for exactly this purpose, and the tests
+ * and `sync.js` use it to prove an IBAN is *rejected*. Every other match has to
+ * be a placeholder or justified in place.
+ */
+const IBAN = /\b[A-Z]{2}\d{2}[A-Z0-9]{11,30}\b/g;
+const EXAMPLE_IBAN = 'NL91ABNA0417164300';
+
+/**
  * A value that is obviously not real. Repeated digits, or something that says
  * so in words. Anything else has to be justified in place.
  */
@@ -113,6 +125,10 @@ for (const file of files) {
           if (!isPlaceholder(m[2])) report(file, i + 1, 'account-like number', m[2]);
         }
       }
+    }
+
+    for (const m of line.matchAll(IBAN)) {
+      if (m[0] !== EXAMPLE_IBAN && !isPlaceholder(m[0])) report(file, i + 1, 'IBAN', m[0].slice(0, 8) + '…');
     }
 
     for (const word of words) {
