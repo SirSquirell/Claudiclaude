@@ -735,6 +735,63 @@ function detectSplits(close, days, tradeDays) {
  * Reconstruct the whole history.
  * @param {EngineInput} input
  */
+/**
+ * The position ledger: how many units of each product the account held on
+ * each day, exactly as booked.
+ *
+ * `qtyByProduct` is the running share count per day, in the units DEGIRO
+ * booked the trades in, untouched (the reasoning is at the call site in
+ * `computePortfolio`, §3b). `tradedByProduct` is the euros that moved into a
+ * position on a day: a buy is money in, a sale is money out. It is to one
+ * instrument exactly what `netExternal` is to the account, and it is what
+ * makes a per-holding result computable without arguing about cost basis —
+ * see `pnlOf` in `computePortfolio`. `totalBase` is what actually settled,
+ * fee included, and it is already signed the right way round by DEGIRO:
+ * negative when money left to buy. The sign is flipped here so that "into the
+ * position" is positive, matching `netExternal`'s convention for the account.
+ * `tradeDaysByProduct` is the set of days each product traded on.
+ *
+ * Exported (US-121) so `dividends.js` reads a pay-date's share count off the
+ * same ledger the valuation uses. Pure: `idxOf` maps an ISO day to an index in
+ * `0..n-1`, or a negative number for a day to skip.
+ *
+ * @param {Array<{date: string, productId: any, quantity: number, totalBase: number}>} transactions
+ * @param {number} n number of days in the window
+ * @param {(iso: string) => number} idxOf
+ * @returns {{qtyByProduct: Map<any, Float64Array>, tradedByProduct: Map<any, Float64Array>, tradeDaysByProduct: Map<any, Set<string>>}}
+ */
+export function positionLedger(transactions, n, idxOf) {
+  /** @type {Map<string, Float64Array>} productId -> qty per day */
+  const qtyByProduct = new Map();
+  const tradeDaysByProduct = new Map();
+  const tradedByProduct = new Map();
+
+  for (const t of transactions) {
+    const i = idxOf(t.date);
+    if (i < 0) continue;
+    let arr = qtyByProduct.get(t.productId);
+    if (!arr) {
+      arr = new Float64Array(n);
+      qtyByProduct.set(t.productId, arr);
+      tradedByProduct.set(t.productId, new Float64Array(n));
+      tradeDaysByProduct.set(t.productId, new Set());
+    }
+    arr[i] += t.quantity;
+    tradedByProduct.get(t.productId)[i] += -t.totalBase;
+    tradeDaysByProduct.get(t.productId).add(t.date);
+  }
+  for (const arr of qtyByProduct.values()) {
+    let running = 0;
+    for (let i = 0; i < n; i++) {
+      running += arr[i];
+      // Kill floating-point dust so a fully sold position reads as exactly 0.
+      if (Math.abs(running) < 1e-9) running = 0;
+      arr[i] = running;
+    }
+  }
+  return { qtyByProduct, tradedByProduct, tradeDaysByProduct };
+}
+
 export function computePortfolio(input) {
   const {
     transactions = [],
@@ -927,45 +984,10 @@ export function computePortfolio(input) {
   // one daily close and landed in different regimes. Converting the price
   // cannot do that: a position that nets to zero is worth zero whatever the
   // factor does.
-  /** @type {Map<string, Float64Array>} productId -> qty per day */
-  const qtyByProduct = new Map();
-  const tradeDaysByProduct = new Map();
-  /**
-   * Euros that moved into a position on a day: a buy is money in, a sale is
-   * money out. It is to one instrument exactly what `netExternal` is to the
-   * account, and it is what makes a per-holding result computable without
-   * arguing about cost basis — see `pnlOf` below.
-   *
-   * `totalBase` is what actually settled, fee included, and it is already
-   * signed the right way round by DEGIRO: negative when money left to buy. The
-   * sign is flipped here so that "into the position" is positive, matching
-   * `netExternal`'s convention for the account.
-   */
-  const tradedByProduct = new Map();
-
-  for (const t of transactions) {
-    const i = idxOf(t.date);
-    if (i < 0) continue;
-    let arr = qtyByProduct.get(t.productId);
-    if (!arr) {
-      arr = new Float64Array(n);
-      qtyByProduct.set(t.productId, arr);
-      tradedByProduct.set(t.productId, new Float64Array(n));
-      tradeDaysByProduct.set(t.productId, new Set());
-    }
-    arr[i] += t.quantity;
-    tradedByProduct.get(t.productId)[i] += -t.totalBase;
-    tradeDaysByProduct.get(t.productId).add(t.date);
-  }
-  for (const arr of qtyByProduct.values()) {
-    let running = 0;
-    for (let i = 0; i < n; i++) {
-      running += arr[i];
-      // Kill floating-point dust so a fully sold position reads as exactly 0.
-      if (Math.abs(running) < 1e-9) running = 0;
-      arr[i] = running;
-    }
-  }
+  // US-121 moved the loop itself into `positionLedger`, exported, so the
+  // dividend module divides a payment by the same share count this valuation
+  // multiplies — one arithmetic, not two that can drift apart.
+  const { qtyByProduct, tradedByProduct, tradeDaysByProduct } = positionLedger(transactions, n, idxOf);
 
   if (rescaled.length) {
     /**

@@ -7890,7 +7890,7 @@ Two engine-side decisions hold for the whole dividend set, so they are stated on
 
 ---
 
-### US-121 — Dividend per share, from the account's own payments *(new, refined)*
+### US-121 — Dividend per share, from the account's own payments *(built — engine function only, no UI yet)*
 
 **Layer A.** The base for US-122 to US-128: per position, the series (date, gross per share, tax
 withheld per share), derived from the DIVIDEND and DIVIDEND_TAX cash rows and the number of shares
@@ -7915,31 +7915,31 @@ a total without the share count on that day.
 
 #### Acceptance criteria
 
-- [ ] Per-share gross for a `DIVIDEND` row = `row.change ÷ quantity held on row.date`, where the
+- [x] Per-share gross for a `DIVIDEND` row = `row.change ÷ quantity held on row.date`, where the
       quantity comes from the transactions up to and including that date, through the same ledger
       `computePortfolio` uses (`positionLedger`, additive export, same dust rule). Rows on the same
       product and date are summed first; the per-share figure is the day's total over the day's
       quantity.
-- [ ] Per-share tax likewise, from `DIVIDEND_TAX` rows, independently of the gross rows: a tax row
+- [x] Per-share tax likewise, from `DIVIDEND_TAX` rows, independently of the gross rows: a tax row
       on a date with no gross row still yields a point (with `grossPerShare: null`), and the reverse.
       No pairing is assumed or required. Tax keeps the sign the data has (negative), matching
       `dividendTax`.
-- [ ] Quantity zero or negative on the row's date → the row is not a point but an entry in
+- [x] Quantity zero or negative on the row's date → the row is not a point but an entry in
       `undetermined` with `reason: 'no-position-on-pay-date'`, carrying the euro amount, the date and
       the product, and counted. Never a silent zero or a division by zero.
-- [ ] A row without a `productId` → `undetermined`, `reason: 'no-product'`; a gross row whose day
+- [x] A row without a `productId` → `undetermined`, `reason: 'no-product'`; a gross row whose day
       total is not positive → `undetermined`, `reason: 'non-positive-amount'` (a reversal cannot be
       read as a payment). Both counted, both carry the amount.
-- [ ] A trade on the product within the 30 days up to and including the row's date → the point is
+- [x] A trade on the product within the 30 days up to and including the row's date → the point is
       kept and flagged `quantityChangedRecently: true`, because the ex-date and the pay-date can
       straddle a trade and the quantity on the pay-date may not be the quantity that earned it. The
       UI that shows the point must show the flag.
-- [ ] Every per-share figure is in EUR per share and says so (`unit: 'EUR/share'` on the series). No
+- [x] Every per-share figure is in EUR per share and says so (`unit: 'EUR/share'` on the series). No
       conversion.
-- [ ] **Guardrail:** per product, `Σ grossPerShare × quantity` over the points plus the amounts of
+- [x] **Guardrail:** per product, `Σ grossPerShare × quantity` over the points plus the amounts of
       that product's `undetermined` DIVIDEND rows equals `byProduct[].dividendGross` to the cent, and
       the same for tax against `dividendTax`. Two measurements of the same money never disagree.
-- [ ] No existing computed value changes: `npm test` passes unmodified except for the new file.
+- [x] No existing computed value changes: `npm test` passes unmodified except for the new file.
 
 #### Dependencies
 
