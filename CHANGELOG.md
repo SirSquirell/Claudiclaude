@@ -16,6 +16,78 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.69.0] — 2026-09-02
+
+**No resync needed** — nothing about the stored history or any figure changes. This release is
+about what may leave the extension and who may ask it to do things; every number-producing path
+(`engine.js`, `classify.js`, `parse.js`, the fixtures) is untouched.
+
+### Security
+
+- **The service worker's message router now checks who is asking (US-118).** It answered any
+  message that reached it. Both content scripts run on other people's pages, and a tab on
+  trader.degiro.nl or asteria.prulwerk.nl could ask for `wipe`, `export`, `disconnect`,
+  `diagnose` or the full `status`. A sender with a foreign extension id is ignored; a
+  trader.degiro.nl tab may send exactly what the strip and the ready-watcher send
+  (`banner-status`, `sync`, `tab-ready`, `openApp`); an asteria.prulwerk.nl tab only `open-demo`;
+  everything else only from the extension's own pages. Refusal is silence, the same thing an
+  unreachable worker already looks like.
+- **The strip on trader.degiro.nl no longer receives the live snapshot.** It asked for `status`,
+  which carries positions; a new `banner-status` message returns the four fields its text is
+  decided from — last sync time, whether an error is set (not its text), syncing, disconnected.
+- **The demo button never navigates a tab showing the real account.** `open-demo` reused any open
+  app tab and pointed it at `?demo=1`; it now reuses a tab only if that tab is already in demo
+  mode, and opens a new one otherwise.
+- **The connection check carries a count of unrecognised cash rows, not their wording (US-117).**
+  `unknownWordings` listed up to twenty-five raw descriptions; a description names a holding,
+  which is why the bug report already refused the same field. It is `unknownCount` now.
+- **`tools/har-to-fixtures.mjs` is an allowlist.** It kept everything and redacted the identifiers
+  it knew about; it now rebuilds each fixture from the field names `parse.js` actually reads, per
+  endpoint, and drops the rest. The identifiers the parser needs are fixed dummies. Round-tripped
+  against the synthetic fixtures: every parser returns the same result from the rebuilt files.
+- **`tools/check-leaks.mjs` refuses an IBAN** (country, two check digits, 11–30 alphanumerics),
+  with one exemption for the published example IBAN the tests use to prove rejection, and it takes
+  paths now so the git-ignored `fixtures/real/` can be checked before anything is moved.
+- **`npm run demo` listens on 127.0.0.1 only.** It serves the repository tree.
+
+### Fixed
+
+- The manifest names the extension **Asteria**, which is what every page, the README and the
+  project site already called it; the description says it reads the session the browser already
+  holds. INSTALL.md names the card a reader will see.
+- README said the manifest grants "exactly two hosts". It names three: the two it fetches from
+  and asteria.prulwerk.nl, where a content script announces the version and relays the demo button
+  and fetches nothing.
+
+### Added
+
+- **CI (US-119):** `.github/workflows/ci.yml` runs `npm test` on every push and pull request to
+  `main` — Node 20, read-only token, no install step because there are no dependencies.
+- `test/sw.test.js`: the router driven through a fake `chrome` — foreign senders, both
+  content-script origins, `open-demo` against an open real-account tab, and US-79's alarm handling
+  (disconnect clears, Sync re-arms, `tab-ready` stays scheduled), all executed rather than asserted
+  by regexes over the source. The regex assertions it replaced are gone from `test/sync-e2e.test.js`.
+
+### Docs
+
+- `docs/STATUS.md` is one page again: the fifteen light-scan entries moved to `docs/SCANS.md`.
+  Two claims corrected against the repository — `poc` does not equal `main` (it has diverged, 228
+  own commits, 56 behind), and the backlog is 7 600 lines, not 2 000.
+- `docs/NEXT.md` is a table saying where each of its items went; everything in it was built or
+  superseded (US-11 in 0.14.0, US-12 in 0.12.0 and US-55/62/63, US-13 in 0.12.0, B11 in 0.29.0,
+  T-1 as `check-leaks.mjs`, §1 as US-17).
+- `CLAUDE.md`'s layout names every module under `src/lib/` and `src/content/`, and states that
+  GitHub Pages serves the whole repository at `demo.asteria.prulwerk.nl`. The HAR block runs
+  `check-leaks` over `fixtures/real/` before the `mv`.
+- `docs/ENDPOINT-REPORT.md` no longer says "nothing here is confirmed" under a section that
+  confirms things, and states `HISTORY_START = 2019-01-01` with the walk back to 2008, not 2013.
+- `docs/BACKLOG.md`: US-53, US-37, US-34, US-35 and the `###` stories US-11, 14, 15, 18–21,
+  27–33 carry the state the CHANGELOG records; US-36 (Interactive Brokers) has a heading; the
+  rescale-by-4,369 investigation is US-114 and the architecture-brief hand-over US-115; US-116
+  (tighten the parser's field candidates — blocked on a real `fieldStats` the owner supplies),
+  US-117, US-118, US-119 and US-120 (delete the 37 stale `claude/*` branches — owner action) are
+  refined. `tools/check-backlog.mjs` checks `###` headings too.
+
 ## [0.68.0] — 2026-08-28
 
 **No resync needed** — nothing about the stored history or any figure changes. What changes is

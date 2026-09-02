@@ -1,35 +1,46 @@
-# Wat er nieuw is — 0.68.0
+# Wat er nieuw is — 0.69.0
 
 Wat er verandert ten opzichte van de vorige versie, in gewone taal. Alleen deze release: de
 volledige geschiedenis staat in [CHANGELOG.md](CHANGELOG.md), installeren doe je met
 [INSTALL.md](INSTALL.md).
 
-> **Hoef je te resyncen voor deze versie? Nee** — er verandert niets aan je opgeslagen
-> geschiedenis of aan enig bedrag. Wat verandert is *het moment* waarop de extensie uit zichzelf
-> gegevens ophaalt. Zie [CHANGELOG.md](CHANGELOG.md) voor oudere resync-vragen.
+> **Hoef je te resyncen voor deze versie? Nee** — geen resync nodig. Er verandert niets aan je
+> opgeslagen geschiedenis of aan enig bedrag. Deze versie gaat over wát de extensie naar buiten
+> laat en wíe haar iets mag vragen. Zie [CHANGELOG.md](CHANGELOG.md) voor oudere resync-vragen.
 
 ---
 
-## De sync wacht nu tot je DEGIRO-scherm zelf klaar is
+## De extensie heet nu Asteria
 
-0.65.0 loste al op dat de extensie hooguit één keer per etmaal vanzelf synct. Wat bleef was het
-*moment*: die ene sync begon zodra de DEGIRO-pagina haar eigen laadgebeurtenis afvuurde — en dat
-is precies het ogenblik vlak vóórdat DEGIRO zelf een stortvloed aan verzoeken afvuurt om je
-portefeuilleoverzicht te vullen. De extensie begon dus haar eigen (langzamere, met opzet
-afgeremde) verzoeken op het slechtst denkbare moment, over dezelfde sessie.
+Het kaartje op `chrome://extensions` heette nog "DEGIRO Portfolio History", terwijl elke pagina, de
+handleiding en de site het al Asteria noemden. Dat is gelijkgetrokken. Er verandert verder niets
+aan de installatie: het is dezelfde extensie, met een andere naam op het kaartje.
 
-Vanaf nu wacht de extensie tot je DEGIRO-tabblad zelf **stil** is — gemeten aan hoeveel verzoeken
-de pagina nog doet, nooit aan wát ze opvragen — voordat ze zelf begint. Blijft de pagina continu
-actief (bijvoorbeeld door live koersen), dan wacht de extensie niet voor altijd: na vijftien
-seconden begint de sync alsnog, als vangnet.
+## Strenger over wie de extensie iets mag vragen
 
-Wat je hiervan merkt:
+Asteria draait twee kleine scripts op andermans pagina's: de strip op trader.degiro.nl en de
+demoknop op asteria.prulwerk.nl. Tot nu toe beantwoordde de achtergrondworker élk verzoek dat
+hem bereikte, ook vanaf zo'n pagina. Vanaf nu:
 
-- Je DEGIRO-scherm heeft de extensie minder vaak als concurrent tijdens het laden.
-- Er verandert niets aan hoe vaak er gesynct wordt (nog steeds hooguit één keer per etmaal
-  vanzelf) — alleen aan het moment waarop die ene keer valt.
-- Zelf op Sync drukken werkt zoals altijd, direct en nooit geweigerd.
+- Een tabblad op trader.degiro.nl mag precies vier dingen vragen: de status voor de strip, een
+  sync, het "de pagina is klaar"-signaal en "open Asteria". Wissen, exporteren, loskoppelen en de
+  verbindingscheck kunnen alleen nog vanuit de eigen pagina's van de extensie.
+- Een tabblad op asteria.prulwerk.nl mag alleen de demo openen.
+- De strip krijgt niet langer je volledige status (met je posities) toegestuurd, maar alleen de
+  vier gegevens waaruit zijn regel wordt bepaald: wanneer de laatste sync was, óf er een fout was,
+  of hij bezig is, en of het account is losgekoppeld.
 
-Dit is een eerste, voorzichtige versie: de precieze getallen (hoe lang "stil" moet zijn, en de
-vijftien seconden) zijn nog niet tegen een echt, ingelogd DEGIRO-scherm afgezet. Merk je dat je
-scherm alsnog hapert bij het laden, laat het weten.
+Je merkt hier niets van, en dat is de bedoeling.
+
+## De demoknop pakt nooit je eigen cijfers van het scherm
+
+Klikte je op de site op "Bekijk de demo" terwijl Asteria al openstond met je echte account, dan
+werd dát tabblad naar de demo genavigeerd. Nu wordt alleen een tabblad hergebruikt dat al de demo
+toont; anders komt er een nieuw tabblad bij.
+
+## De verbindingscheck noemt geen omschrijvingen meer
+
+De check die je in een bugmelding plakt, gaf tot nu toe de letterlijke omschrijving van
+cashregels die de extensie niet herkende. Zo'n omschrijving noemt een fonds ("Dividend ASML").
+Vanaf nu staat er alleen nog *hoeveel* regels niet herkend zijn; de tekst zelf staat in de
+volledige export, die je alleen deelt met iemand die je vertrouwt.

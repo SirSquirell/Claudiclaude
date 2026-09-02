@@ -3,7 +3,7 @@
 `docs/BACKLOG.md` is 7 600 lines of reasoning and evidence, which is the right place for *why* and
 a bad place to find out *where things stand*. This is the index.
 
-**Last updated at 0.68.0, on 2026-09-02.** It had been stale since 0.21.0 once, which is fifteen
+**Last updated at 0.69.0, on 2026-09-02.** It had been stale since 0.21.0 once, which is fifteen
 releases — if it looks stale again, trust the CHANGELOG and fix this.
 
 ## Light scans
