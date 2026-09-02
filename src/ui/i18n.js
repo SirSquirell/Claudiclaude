@@ -462,6 +462,7 @@ const DICT = {
     unchanged: 'ongewijzigd',
     'no payment 11–13 months earlier': 'geen uitkering 11–13 maanden eerder',
     'vs {date}': 't.o.v. {date}',
+    selection: 'selectie',
     'Received gross': 'Ontvangen bruto',
     Withheld: 'Ingehouden',
     Net: 'Netto',

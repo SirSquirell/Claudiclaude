@@ -1042,6 +1042,7 @@ function wireFormatStrip(host, window_, track) {
   let dragging = false;
   let capturedId = null;
   let from = 0;
+  let lastX = 0;
   let travelPx = 0;
 
   /** Land on an item boundary, inside the track, at the end of a gesture. */
@@ -1060,6 +1061,7 @@ function wireFormatStrip(host, window_, track) {
     stripX.stop();
     dragging = true;
     from = e.clientX;
+    lastX = e.clientX;
     travelPx = 0;
     trail = [{ v: stripX.x, t: performance.now() }];
   });
@@ -1086,7 +1088,10 @@ function wireFormatStrip(host, window_, track) {
       host.setPointerCapture(e.pointerId);
     }
     const { windowW, max } = shiftRangeOf(window_, track);
-    const raw = stripX.x + e.movementX;
+    // Position delta, not `movementX`: Chromium reports 0 for touch, pen and
+    // some Windows mouse drivers, which froze the strip under a moving finger.
+    const raw = stripX.x + (e.clientX - lastX);
+    lastX = e.clientX;
     // Past an edge the strip keeps moving, ever more slowly — the same
     // resistance the value chart uses at the ends of the history.
     if (raw > 0) stripX.snap(rubber(raw, windowW));
@@ -1416,7 +1421,10 @@ function noteBaseline(sel, chart, r, from) {
 function renderWindowCrumb(r, from, to) {
   const el = $('#window-crumb');
   if (!el) return;
-  const label = state.range === 'ALL' ? tr('whole history') : tr(RANGE_WORDS[state.range] ?? state.range);
+  // A dragged window is 'from..to'; the crumb already prints both dates, so the
+  // word in front of them says how the window came to be, not the dates again.
+  const dragged = typeof state.range === 'string' && state.range.includes('..');
+  const label = state.range === 'ALL' ? tr('whole history') : dragged ? tr('selection') : tr(RANGE_WORDS[state.range] ?? state.range);
   const points = to - from + 1;
   if (points < 3) {
     el.className = 'window-crumb thin';
@@ -2483,6 +2491,15 @@ function wireZoom() {
    * Measuring the hand rather than the history is the fix in both directions.
    */
   let travelPx = 0;
+  /**
+   * Where the pointer went down, in canvas pixels. Travel is measured against
+   * this rather than summed from `movementX`: Chromium reports `movementX` as
+   * 0 for touch and pen pointers and, on some Windows drivers and remote
+   * desktops, for the mouse as well. Summing zeros made every drag a "click",
+   * so the selection drew while the finger moved and then nothing happened on
+   * release — reported from a real account on 2026-09-02.
+   */
+  let downX = 0;
   // A twentieth of a day: below what a pixel on this chart can show, and the
   // window rounds to a whole day regardless. See `restDistance`.
   const moving = new Spring(0, { restDistance: 0.05 });
@@ -2606,12 +2623,16 @@ function wireZoom() {
     }
     trail = [{ v: moving.x, t: performance.now() }];
     travelPx = 0;
-    canvas.setPointerCapture(e.pointerId);
+    downX = e.offsetX;
+    // A pointer id the browser does not know (a synthetic event, some pens on
+    // release) throws here; the drag still works without the capture, it only
+    // loses the release outside the canvas.
+    try { canvas.setPointerCapture(e.pointerId); } catch { /* see above */ }
   });
 
   canvas.addEventListener('pointermove', (e) => {
     if (anchor == null) return;
-    travelPx += Math.abs(e.movementX);
+    travelPx = Math.max(travelPx, Math.abs(e.offsetX - downX));
     const here = indexAtX(e.offsetX);
     if (here == null) return;
     const at = resist(here + grabOffset);

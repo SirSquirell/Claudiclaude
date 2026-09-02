@@ -1,4 +1,4 @@
-# Wat er nieuw is — 0.70.1
+# Wat er nieuw is — 0.70.2
 
 **Geen resync nodig.** Er verandert geen enkel bedrag in je geschiedenis: alles wat hieronder
 staat wordt bij elke opening opnieuw uitgerekend uit de regels die de extensie al had. Alleen deze
@@ -9,6 +9,14 @@ release; de volledige geschiedenis staat in [CHANGELOG.md](CHANGELOG.md), instal
 > resync-vragen.
 
 ---
+
+## Slepen op de waardegrafiek zoomt weer, ook waar het niet deed
+
+Trok je een venster over de grafiek, dan tekende de selectie wel maar gebeurde er bij loslaten
+niets. Dat lag aan hoe Chrome op sommige machines de muisbeweging doorgeeft (bij aanraking, pen
+en bepaalde Windows-drivers als nul), waardoor de extensie de sleep als een klik zag. Nu telt de
+afstand vanaf het indrukken. Loslaten zoomt de hele pagina naar het venster: de tegels, de
+grafieken en het kruimelpad volgen mee, en "Terug" brengt je naar de vorige stand.
 
 ## Het tabblad Dividenden laat nu zien wat elke positie per aandeel uitkeerde
 

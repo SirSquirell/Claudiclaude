@@ -16,6 +16,23 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.70.2] — 2026-09-02
+
+**No resync needed** — display only.
+
+### Fixed
+
+- **Dragging a window on the value chart did nothing on release**, on machines where Chromium
+  reports `movementX` as 0 on pointer events: every touch and pen pointer, and the mouse on some
+  Windows drivers and remote desktops. The selection drew while the pointer moved (that path never
+  read `movementX`), then the release summed those zeros into "no travel", judged the gesture a
+  click and cleared it. Reported from a real account. Travel is now the distance from where the
+  pointer went down, so the same gesture zooms everywhere; verified in a headless browser with a
+  mouse, a flick, a release outside the canvas, and synthetic touch and mouse events carrying
+  `movementX: 0`, all four of which now zoom. The formats strip in the rail used `movementX` for
+  its position too and froze under the same pointers; it now follows the pointer's own position.
+  `setPointerCapture` is guarded so a pointer id the browser rejects no longer aborts the gesture.
+
 ## [0.70.1] — 2026-09-02
 
 **No resync needed** — display only. The opened row on the Dividends tab now also shows, per
