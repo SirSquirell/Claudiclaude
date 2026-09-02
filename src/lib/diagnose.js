@@ -210,18 +210,21 @@ export async function runDiagnostics() {
     const parsed = parseCashMovements(cash.body);
     const byCategory = {};
     for (const r of parsed) byCategory[r.category] = (byCategory[r.category] ?? 0) + 1;
-    // Descriptions are DEGIRO's own wording, not personal data — and they are
-    // exactly what a new classification rule needs.
-    const unknownWordings = [...new Set(parsed.filter((r) => r.category === 'UNKNOWN').map((r) => r.description))].slice(0, 25);
+    // A count, and deliberately not the wording. A description reads
+    // "Dividend ASML" or "Koop 12 NVDA", so it names a holding — which is why
+    // `report.js` refuses the field, and this output is pasted into the same
+    // bug reports. The wording a new rule needs is in the full export, which
+    // goes only to someone you trust.
+    const unknownCount = parsed.filter((r) => r.category === 'UNKNOWN').length;
     const sample = (cash.body?.data?.cashMovements ?? cash.body?.cashMovements ?? [])[0] ?? null;
     add('accountoverview', true, {
       status: cash.status,
       parsedRows: parsed.length,
       rowKeys: topKeys(sample, 20),
       byCategory,
-      unknownWordings,
-      note: unknownWordings.length
-        ? `${unknownWordings.length} unrecognised description(s) — these need rules in classify.js.`
+      unknownCount,
+      note: unknownCount
+        ? `${unknownCount} unrecognised cash row(s) — the wording is in the full export, not here; these need rules in classify.js.`
         : 'Every cash movement was classified.',
     });
   } else {
