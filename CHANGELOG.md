@@ -16,6 +16,16 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.70.1] — 2026-09-02
+
+**No resync needed** — display only. The opened row on the Dividends tab now also shows, per
+payment, the euro amounts as DEGIRO booked them: **received gross**, **withheld** and **net**.
+The per-share figures were there since 0.70.0 but the question a reader actually asks of a
+payment row is "how much came in", and the module already carried the answer (`gross` and `tax`
+on every point of `perShareSeries`); the table simply did not print it. Net is the sum of the two
+booked amounts, nothing else. The caption under the table now says which columns are booked
+amounts and which are derived.
+
 ## [0.70.0] — 2026-09-02
 
 **No resync needed** — no computed portfolio value changed. This release is the second half of the

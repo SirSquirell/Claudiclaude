@@ -5056,6 +5056,9 @@ function dividendDetail(id, p, m, { prod, y, t, n, f, fu }) {
     ? `<table class="div-payments">
         <thead><tr>
           <th>${esc(tr('Date'))}</th>
+          <th class="num">${esc(tr('Received gross'))}</th>
+          <th class="num">${esc(tr('Withheld'))}</th>
+          <th class="num">${esc(tr('Net'))}</th>
           <th class="num">${esc(tr('Gross / share'))}</th>
           <th class="num">${esc(tr('Tax / share'))}</th>
           <th>${esc(tr('Label'))}</th>
@@ -5065,6 +5068,9 @@ function dividendDetail(id, p, m, { prod, y, t, n, f, fu }) {
         </tr></thead>
         <tbody>${points.map((pt) => `<tr>
           <td>${esc(formatDay(pt.date))}</td>
+          <td class="num">${pt.gross == null ? muted('·') : esc(fmtEurCents(pt.gross))}</td>
+          <td class="num">${pt.tax == null ? muted('·') : esc(fmtEurCents(pt.tax))}</td>
+          <td class="num">${pt.gross == null && pt.tax == null ? muted('·') : esc(fmtEurCents((pt.gross ?? 0) + (pt.tax ?? 0)))}</td>
           <td class="num">${pt.grossPerShare == null ? muted('·') : esc(fmtPrice(pt.grossPerShare, 'EUR'))}</td>
           <td class="num">${pt.taxPerShare == null ? muted('·') : esc(fmtPrice(pt.taxPerShare, 'EUR'))}</td>
           <td>${labelText(pt)}</td>
@@ -5075,7 +5081,7 @@ function dividendDetail(id, p, m, { prod, y, t, n, f, fu }) {
       </table>`
     : `<p class="hint">${esc(tr('No payment of this position could be divided by a share count — see “Not attributable” below.'))}</p>`;
 
-  return `<div class="div-facts">${facts.join('')}</div>${list}<p class="hint div-caption">${esc(tr('In EUR per share, from the euro amount that settled over the shares held on the pay-date. Labels are trailing only: a later payment never relabels an earlier one.'))}</p>`;
+  return `<div class="div-facts">${facts.join('')}</div>${list}<p class="hint div-caption">${esc(tr('Received, withheld and net are the euro amounts that settled on the pay-date, exactly as DEGIRO booked them; the per-share figures divide them by the shares held on the pay-date. Labels are trailing only: a later payment never relabels an earlier one.'))}</p>`;
 }
 
 /**

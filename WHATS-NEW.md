@@ -1,4 +1,4 @@
-# Wat er nieuw is — 0.70.0
+# Wat er nieuw is — 0.70.1
 
 **Geen resync nodig.** Er verandert geen enkel bedrag in je geschiedenis: alles wat hieronder
 staat wordt bij elke opening opnieuw uitgerekend uit de regels die de extensie al had. Alleen deze
@@ -11,6 +11,12 @@ release; de volledige geschiedenis staat in [CHANGELOG.md](CHANGELOG.md), instal
 ---
 
 ## Het tabblad Dividenden laat nu zien wat elke positie per aandeel uitkeerde
+
+**Nieuw in 0.70.1** (uitgebracht vlak na 0.70.0, daarom staan ze hier samen): in de opengeklikte
+rij staat per uitkering nu ook **wat er precies binnenkwam**: ontvangen bruto, ingehouden
+belasting en netto, in euro's zoals DEGIRO ze boekte. De bedragen per aandeel staan ernaast; die
+zijn daarvan afgeleid, de eurobedragen niet.
+
 
 Tot nu toe stond er per positie alleen hoeveel euro er in totaal binnenkwam. Nu staat er ook wat
 dat per aandeel was, en wat je daaruit kunt aflezen:

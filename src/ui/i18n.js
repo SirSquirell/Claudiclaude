@@ -462,6 +462,9 @@ const DICT = {
     unchanged: 'ongewijzigd',
     'no payment 11–13 months earlier': 'geen uitkering 11–13 maanden eerder',
     'vs {date}': 't.o.v. {date}',
+    'Received gross': 'Ontvangen bruto',
+    Withheld: 'Ingehouden',
+    Net: 'Netto',
     'Gross / share': 'Bruto / aandeel',
     'Tax / share': 'Belasting / aandeel',
     Label: 'Label',
@@ -472,8 +475,8 @@ const DICT = {
     'trade within {n} days': 'transactie binnen {n} dagen',
     'No payment of this position could be divided by a share count — see “Not attributable” below.':
       'Geen enkele uitkering van deze positie kon door een aantal aandelen worden gedeeld — zie “Niet toe te rekenen” hieronder.',
-    'In EUR per share, from the euro amount that settled over the shares held on the pay-date. Labels are trailing only: a later payment never relabels an earlier one.':
-      'In EUR per aandeel, uit het afgewikkelde eurobedrag gedeeld door de aandelen die op de betaaldatum werden gehouden. Labels kijken alleen terug: een latere uitkering herlabelt nooit een eerdere.',
+    'Received, withheld and net are the euro amounts that settled on the pay-date, exactly as DEGIRO booked them; the per-share figures divide them by the shares held on the pay-date. Labels are trailing only: a later payment never relabels an earlier one.':
+      'Ontvangen, ingehouden en netto zijn de eurobedragen die op de betaaldatum zijn afgewikkeld, precies zoals DEGIRO ze boekte; de bedragen per aandeel delen die door de aandelen die op de betaaldatum werden gehouden. Labels kijken alleen terug: een latere uitkering herlabelt nooit een eerdere.',
     // not attributable
     'Not attributable: {n} row(s), {total}': 'Niet toe te rekenen: {n} regel(s), {total}',
     'These dividend rows are in every total on this page but could not be turned into a per-share figure, so they are in none of the columns above. Each says why.':
