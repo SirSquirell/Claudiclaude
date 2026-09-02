@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { perShareSeries, RECENT_TRADE_DAYS, detectRhythm, classifyPayments } from '../src/lib/dividends.js';
+import { perShareSeries, RECENT_TRADE_DAYS, detectRhythm, classifyPayments, changes } from '../src/lib/dividends.js';
 import { computePortfolio } from '../src/lib/engine.js';
 import { CATEGORY } from '../src/lib/classify.js';
 
@@ -330,4 +330,88 @@ test('US-125 property: classification is trailing — a later payment never rela
       assert.equal(prefix[i].rule, full[i].rule, `${prefix[i].date} rule with ${k} rows`);
     }
   }
+});
+
+// ---------------------------------------------------------------------------
+// US-122 changes
+// ---------------------------------------------------------------------------
+
+test('US-122: a quarterly payer with one raise and one cut — labels and percentages against the payment a year earlier', () => {
+  const { transactions, cashRows } = quarterlyPayer('Q');
+  const ch = changes(perShareSeries(transactions, cashRows), '2024-12-31');
+  assert.equal(ch.unit, 'EUR/share');
+  const pay = ch.byProduct.Q.payments;
+  assert.equal(pay.length, 12);
+  assert.deepEqual(pay.slice(0, 4).map((p) => p.label), ['new', 'new', 'new', 'new'], 'the first year has nothing to compare with');
+  for (const p of pay.slice(4, 8)) {
+    assert.equal(p.label, 'raised');
+    near(p.pct, 20, 1e-9);
+    assert.equal(p.comparedTo.date, p.date.replace('2023', '2022'));
+    near(p.comparedTo.grossPerShare, 0.25);
+  }
+  for (const p of pay.slice(8)) {
+    assert.equal(p.label, 'cut');
+    near(p.pct, -33.3333333333, 1e-6);
+  }
+  assert.equal(ch.byProduct.Q.stopped, null, 'the last payment was 16 days ago');
+});
+
+test('US-122: the same amount a year later is unchanged, and a change inside the tolerance too', () => {
+  const transactions = [buy('U', '2022-01-01', 100, 1)];
+  const cashRows = [div('U', '2022-06-01', 50), div('U', '2023-06-01', 50), div('U', '2024-06-01', 50.4)];
+  const pay = changes(perShareSeries(transactions, cashRows), '2024-12-31').byProduct.U.payments;
+  assert.equal(pay[1].label, 'unchanged');
+  assert.equal(pay[1].pct, 0);
+  assert.equal(pay[2].label, 'unchanged', '+0,8 % is inside the 1 % tolerance');
+});
+
+test('US-122: earlier history but nothing 11 to 13 months back is null with a reason, never "new" or "unchanged"', () => {
+  const transactions = [buy('G', '2020-01-01', 100, 1)];
+  const cashRows = [div('G', '2020-06-01', 50), div('G', '2020-12-01', 50), div('G', '2022-06-01', 50)];
+  const pay = changes(perShareSeries(transactions, cashRows), '2022-12-31').byProduct.G.payments;
+  assert.equal(pay[2].label, null);
+  assert.equal(pay[2].reason, 'no-payment-11-13-months-earlier');
+  assert.equal(pay[1].label, 'new', 'six months after the first payment the stream is still younger than a year');
+});
+
+test('US-122: specials are not compared and do not serve as a comparison', () => {
+  const { transactions, cashRows } = quarterlyPayer('Q');
+  cashRows.push(div('Q', '2023-07-20', 90));
+  const pay = changes(perShareSeries(transactions, cashRows), '2024-12-31').byProduct.Q.payments;
+  assert.equal(pay.length, 12, 'twelve regular payments, the special is absent');
+  assert.ok(pay.every((p) => p.date !== '2023-07-20'));
+  const jun24 = pay.find((p) => p.date === '2024-06-15');
+  assert.equal(jun24.comparedTo.date, '2023-06-15');
+});
+
+test('US-122: a stream is stopped once the next payment is 1.5 intervals overdue, and not before', () => {
+  const { transactions, cashRows } = quarterlyPayer('Q');
+  const s = perShareSeries(transactions, cashRows);
+  assert.equal(changes(s, '2025-03-20').byProduct.Q.stopped, null, '95 days after 2024-12-15 is one late quarter, not a stop');
+  const stopped = changes(s, '2025-06-01').byProduct.Q.stopped;
+  assert.ok(stopped, '168 days: the following payment is due too');
+  assert.equal(stopped.lastDate, '2024-12-15');
+  assert.equal(stopped.expectedBy, '2025-05-01', '2024-12-15 plus 137 days, 1.5 quarters');
+  assert.equal(stopped.overdueDays, 31);
+  assert.equal(stopped.rhythm, 'quarterly');
+});
+
+test('US-122: an irregular payer is never called stopped — nothing predicts its next payment', () => {
+  const transactions = [buy('I', '2020-01-01', 100, 1)];
+  const cashRows = [div('I', '2020-02-01', 10), div('I', '2020-03-01', 10), div('I', '2020-09-01', 10), div('I', '2021-09-01', 10)];
+  assert.equal(changes(perShareSeries(transactions, cashRows), '2026-01-01').byProduct.I.stopped, null);
+});
+
+test('US-122 property: today moving forward never changes a past label; only stopped may appear', () => {
+  const { transactions, cashRows } = quarterlyPayer('Q');
+  cashRows.push(div('Q', '2023-07-20', 90));
+  const s = perShareSeries(transactions, cashRows);
+  const base = changes(s, '2024-12-16').byProduct.Q.payments;
+  let sawStopped = false;
+  for (const today of ['2025-01-01', '2025-03-15', '2025-06-01', '2026-01-01', '2030-12-31']) {
+    const r = changes(s, today).byProduct.Q;
+    assert.deepEqual(r.payments, base, `labels identical with today = ${today}`);
+    if (r.stopped) sawStopped = true;
+  }
+  assert.ok(sawStopped);
 });

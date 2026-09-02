@@ -7953,7 +7953,7 @@ same-day trade (flag set); the guardrail against `computePortfolio` on the same 
 
 ---
 
-### US-122 — Raises and cuts, signalled from the account's own history *(new, refined)*
+### US-122 — Raises and cuts, signalled from the account's own history *(built — engine function only, no UI yet)*
 
 **Layer A.** Each regular payment compared with the closest regular payment eleven to thirteen
 months earlier: raised, unchanged, cut, new, or — for a whole product — stopped. SSD's "dividend
@@ -7975,21 +7975,22 @@ supplies the figure and this story fixes the threshold, in writing.
 
 #### Acceptance criteria
 
-- [ ] Per product, per regular payment: `label ∈ raised | unchanged | cut | new`, `pct` (change in
+- [x] Per product, per regular payment: `label ∈ raised | unchanged | cut | new`, `pct` (change in
       per-share EUR against the comparison payment), and the comparison payment's date and amount.
-- [ ] The comparison is the regular payment closest in date inside `[date − 13 months, date − 11
-      months]`. `new` when the product has no regular payment before this one at all. A payment
-      with earlier history but nothing inside the window gets `label: null` and
-      `reason: 'no-payment-11-13-months-earlier'` — not `new`, not `unchanged`.
-- [ ] `unchanged` when `|pct| < 1 %`; a per-share figure formed from a cent-rounded euro total over
+- [x] The comparison is the regular payment closest in date inside `[date − 13 months, date − 11
+      months]`. `new` while the stream is younger than a year: every earlier regular payment is
+      less than eleven months before this one. A payment with older history but nothing inside
+      the window gets `label: null` and `reason: 'no-payment-11-13-months-earlier'` — not `new`,
+      not `unchanged`.
+- [x] `unchanged` when `|pct| < 1 %`; a per-share figure formed from a cent-rounded euro total over
       a share count carries rounding of that order, and an FX-driven wobble is not a decision by the
       company. Above that, the sign decides. The threshold is a named constant.
-- [ ] `stopped`, per product, when the detected rhythm (US-124) predicts a payment and the last
+- [x] `stopped`, per product, when the detected rhythm (US-124) predicts a payment and the last
       regular payment is more than 1.5 intervals before `today`. Carries the last payment's date and
       the date the next one was expected by. Never emitted when the rhythm is irregular.
-- [ ] `today` moving forward never changes a past label: only `stopped` may appear. Tested as a
+- [x] `today` moving forward never changes a past label: only `stopped` may appear. Tested as a
       property over several `today` values on the same series.
-- [ ] The UI (when built) states that the comparison is in EUR per share and after the fact.
+- [x] The UI (when built) states that the comparison is in EUR per share and after the fact.
 
 #### Dependencies
 

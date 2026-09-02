@@ -48,6 +48,16 @@
  *     regular payments the amount rule saw), deviationPct (from their median,
  *     null when there were too few). Trailing only: a point's label never
  *     depends on a later point.
+ *
+ *   changes(series, today) →                                         (US-122)
+ *     { unit, byProduct: { [productId]: { productId,
+ *         payments: [{ date, grossPerShare, label, pct, comparedTo, reason }],
+ *         stopped: null | { lastDate, expectedBy, overdueDays, rhythm } } } }
+ *     One entry per regular payment; label 'raised'|'unchanged'|'cut'|'new'
+ *     (the stream is younger than eleven months), or null with a reason when
+ *     older history exists but nothing 11 to 13 months earlier does. `comparedTo` is { date, grossPerShare } or null. `pct` is
+ *     the change in EUR per share. `stopped` is set when the detected rhythm
+ *     says a payment is more than 1.5 intervals overdue as of `today`.
  */
 import { CATEGORY } from './classify.js';
 import { addDays, dayRange, daysBetween, subMonths } from './dates.js';
@@ -381,4 +391,71 @@ function classified(series) {
 /** Regular gross points of one classified product, sorted. */
 function regularPoints(prod) {
   return prod.points.filter((p) => p.label === 'regular');
+}
+
+// ---------------------------------------------------------------------------
+// US-122: raises and cuts
+// ---------------------------------------------------------------------------
+
+/**
+ * Below this, a change is noise rather than a decision: a per-share figure is
+ * a cent-rounded euro total over a share count, and a foreign payer's figure
+ * moves with the exchange rate. One percent is the rounding of a €0,50
+ * dividend on a hundred shares.
+ */
+export const UNCHANGED_TOLERANCE_PCT = 1;
+
+/**
+ * A stream is stopped when the next payment its rhythm predicts is this many
+ * intervals overdue. One interval late is a shifted pay-date; one and a half
+ * means the following payment is already due too.
+ */
+export const STOPPED_AFTER_INTERVALS = 1.5;
+
+/**
+ * Whether a classified product's regular payments have stopped as of `today`:
+ * null when its rhythm is irregular (nothing predicts a next payment) or when
+ * the next payment is not yet overdue.
+ */
+function stoppedAsOf(prod, today) {
+  const regular = regularPoints(prod);
+  if (!regular.length || prod.rhythm.rhythm === 'irregular') return null;
+  const lastDate = regular.at(-1).date;
+  const expectedBy = addDays(lastDate, Math.round(STOPPED_AFTER_INTERVALS * prod.rhythm.intervalDays));
+  if (today <= expectedBy) return null;
+  return { lastDate, expectedBy, overdueDays: daysBetween(expectedBy, today), rhythm: prod.rhythm.rhythm };
+}
+
+/**
+ * US-122. Each regular payment against the closest regular payment 11 to 13
+ * months earlier.
+ */
+export function changes(series, today) {
+  const c = classified(series);
+  const byProduct = {};
+  for (const [id, prod] of Object.entries(c.byProduct)) {
+    const regular = regularPoints(prod);
+    const payments = regular.map((p, i) => {
+      const earlier = regular.slice(0, i);
+      const candidates = inYearlyWindow(earlier, p.date);
+      if (!candidates.length) {
+        // Younger than a year: every earlier payment is inside the last eleven
+        // months, so there is nothing to compare with yet. Older history with
+        // a hole where the comparison should be is a different fact.
+        const olderHistory = earlier.some((q) => q.date < subMonths(p.date, YEARLY_WINDOW_MONTHS[0]));
+        return olderHistory
+          ? { date: p.date, grossPerShare: p.grossPerShare, label: null, pct: null, comparedTo: null, reason: 'no-payment-11-13-months-earlier' }
+          : { date: p.date, grossPerShare: p.grossPerShare, label: 'new', pct: null, comparedTo: null, reason: null };
+      }
+      // Closest to exactly a year before.
+      const target = subMonths(p.date, 12);
+      const q = candidates.reduce((best, x) =>
+        Math.abs(daysBetween(target, x.date)) < Math.abs(daysBetween(target, best.date)) ? x : best);
+      const pct = ((p.grossPerShare - q.grossPerShare) / q.grossPerShare) * 100;
+      const label = Math.abs(pct) < UNCHANGED_TOLERANCE_PCT ? 'unchanged' : pct > 0 ? 'raised' : 'cut';
+      return { date: p.date, grossPerShare: p.grossPerShare, label, pct, comparedTo: { date: q.date, grossPerShare: q.grossPerShare }, reason: null };
+    });
+    byProduct[id] = { productId: id, payments, stopped: stoppedAsOf(prod, today) };
+  }
+  return { unit: UNIT, byProduct };
 }
