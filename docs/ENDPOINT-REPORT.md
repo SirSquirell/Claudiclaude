@@ -96,7 +96,10 @@ day it reverses — 55 such spikes in this account.
 
 ## Everything else: still unconfirmed
 
-**The honest answer for the rest: nothing here is confirmed.**
+**The honest answer for the rest: nothing below this heading is confirmed.** What the
+section above confirms came from account *exports* — responses, not requests — so the
+request shapes (paths, parameters, envelopes) are unverified even where the response
+fields are known.
 
 `fixtures/` contains no captured traffic. There was no HAR to read, and DEGIRO cannot
 be reached without a logged-in browser. So the fixtures were *generated* to match the
@@ -143,7 +146,7 @@ Kept in `config.js` and `degiro.js` for debugging only.
 | Assumed | `{data: [{id, productId, date, buysell, price, quantity, totalPlusFeeInBaseCurrency, feeInBaseCurrency, …}]}` |
 | Spec gap | §2 does not say whether `quantity` is signed on a sell, or whether the sign lives only in `buysell`. Both happen in the wild. |
 | Defended | `parseTransactions` normalises: if `buysell` starts with `S` and quantity is positive, it is negated. A ledger that gets this wrong doubles your position on every sale, so it is covered by a test. |
-| Note | `fromDate=01/01/2015` in the spec. `config.js` uses `2013-01-01`; the endpoint clamps to account opening anyway, and a hardcoded 2015 silently truncates an older account. |
+| Note | `fromDate=01/01/2015` in the spec. `config.js` starts at `HISTORY_START = 2019-01-01` and `sync.js` walks further back a year at a time while rows keep arriving, down to `HISTORY_FLOOR = 2008-01-01`; a hardcoded 2015 would silently truncate an older account, and asking for everything since 2013 in one query made the endpoint time out on busy accounts. |
 
 ### `GET /reporting/secure/v6/accountoverview`
 

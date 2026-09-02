@@ -37,17 +37,21 @@ const path = new URL('../docs/BACKLOG.md', import.meta.url);
 const text = readFileSync(path, 'utf8');
 
 /**
- * Story headings only — `## US-52 — …` and `## US-35b — …`.
+ * Story headings at both levels — `## US-52 — …`, `## US-35b — …` and the
+ * `### US-14 — …` sub-headings inside the review sections.
  *
- * `###` is deliberately excluded: the early stories (US-01 … US-15) are
- * sub-headings inside the two review sections, written with a zero prefix, and
- * they are history rather than a claim on a number. Including them made the
- * first version of this script report thirty-seven missing numbers, all of them
- * false — which is why *gaps* are not one of the three questions. A gap is
- * normal here: numbers retire into `docs/RETIRED.md`, get dissolved into another
- * story, or are dropped outright, and none of that is a defect.
+ * `###` used to be excluded: the early stories (US-01 … US-15) are sub-headings
+ * inside the two review sections, and including them made the first version of
+ * this script report thirty-seven missing numbers, all false — which is why
+ * *gaps* are not one of the three questions. A gap is normal here: numbers
+ * retire into `docs/RETIRED.md`, get dissolved into another story, or are
+ * dropped outright, and none of that is a defect. But a `###` story is still a
+ * claim on a number (US-102 … US-110 are all `###`), so it is checked for
+ * duplicates and counted towards the highest number. The state-tag check
+ * exempts the zero-prefixed 0.10.0 review headings (`US-01` … `US-09`): they are
+ * history, not a backlog, and tagging them would be inventing a state.
  */
-const HEADING = /^## (US-(\d+)[a-z]?) — (.+?)\s*$/gm;
+const HEADING = /^###? (US-(\d+)[a-z]?) — (.+?)\s*$/gm;
 const NEXT_FREE = /\*\*Next free number: US-(\d+)\.\*\*/;
 
 const stories = [];
@@ -83,7 +87,7 @@ if (!nextFree) {
 }
 
 // 3. Every heading says what state it is in.
-const untagged = stories.filter((s) => !/\*\([^)]+\)\*$/.test(s.title));
+const untagged = stories.filter((s) => !/^US-0/.test(s.id) && !/\*\([^)]+\)\*$/.test(s.title));
 for (const s of untagged) {
   problems.push(`${s.id} has no state in its heading: "${s.title}" — add *(new, refined)*, *(built, 0.47.0)* or similar.`);
 }

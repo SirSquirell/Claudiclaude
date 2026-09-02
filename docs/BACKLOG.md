@@ -441,7 +441,7 @@ DoD item *"automated tests zijn succesvol"* means something here.
 
 ---
 
-### US-11 — Report a bug without handing over your portfolio *(new, refined)*
+### US-11 — Report a bug without handing over your portfolio *(built, 0.14.0 — as US-11b, the clipboard export)*
 
 **As a tester I want to report a defect without sending someone my holdings and amounts.**
 
@@ -787,7 +787,7 @@ not a per-chart setting: the whole page describes one selection.
 
 ---
 
-### US-30 — A year you can read *(new, refined)*
+### US-30 — A year you can read *(built, 0.34.0)*
 
 **As someone doing their yearly review — or handing something to an accountant — I want one block
 per calendar year instead of twelve cells in a grid.**
@@ -822,7 +822,7 @@ dividend received, tax withheld, fees, interest, best and worst month, number of
 - ☐ It reads sensibly when the account opened in December: a three-week first year is a three-week
   first year, and is not annualised into anything.
 
-### US-31 — Annualised return *(refined — **decided**: a toggle, money-weighted first)*
+### US-31 — Annualised return *(built, 0.62.0 — decided: a toggle, money-weighted first)*
 
 **As someone comparing this to a savings rate or a fund, I want one number per year.**
 
@@ -867,7 +867,7 @@ already computes it, so the second half of the toggle is nearly free.
 - ☐ Under one year, no annualised number is shown at all.
 - ☐ The solver is bounded: it terminates on a pathological input rather than iterating forever.
 
-### US-32 — Dutch, with a flag *(new)*
+### US-32 — Dutch, with a flag *(built, 0.32.0)*
 
 **As a Dutch user I want the interface in Dutch.**
 
@@ -893,7 +893,7 @@ page that silently falls back looks finished and is not; the count says how far 
 
 ---
 
-### US-33 — Where does this go from here *(new, refined — the riskiest thing in this backlog)*
+### US-33 — Where does this go from here *(built, 0.35.0 — the Outlook section)*
 
 **As a long-term investor I want to see where my whole portfolio goes over the next few years, so
 I stop maintaining a worse copy of that in a spreadsheet.**
@@ -1099,7 +1099,7 @@ so no account data entered this repository.
 
 Three sections, and they are not three stories: one of them is a table we already ship.
 
-### US-27 — Profit and loss per product *(new)*
+### US-27 — Profit and loss per product *(built, 0.31.0)*
 
 **As someone who wants to know which products made me money, I want one row per product —
 including the ones I no longer hold — with what I put in, what came out and what it left me.**
@@ -1166,7 +1166,7 @@ rather than in a tooltip.
   shows no warrants chip.
 - ☐ Best-first and worst-first sorting is stable for equal values, so the order does not jitter.
 
-### US-28 — The transaction history, on the page *(new)*
+### US-28 — The transaction history, on the page *(built, 0.31.0)*
 
 **As someone checking a number, I want to see the transactions behind it without exporting JSON.**
 
@@ -1188,7 +1188,7 @@ way to look at that list.
 - ☐ Newest first, with the columns the proposal names.
 - ☐ No visible pause on an account with several thousand transactions.
 
-### US-29 — Two columns on the holdings table, not a second table *(new, small)*
+### US-29 — Two columns on the holdings table, not a second table *(built, 0.31.0)*
 
 **As a reader I want the current price and what I paid on average, beside the holding.**
 
@@ -1439,7 +1439,7 @@ measuring it.
 One message, two stories. The second one appears to contradict a rule in CLAUDE.md and turns
 out not to, which is the interesting part.
 
-### US-14 — See the result per holding, not just the total *(new)*
+### US-14 — See the result per holding, not just the total *(built, 0.13.0)*
 
 **As a user I want to see how much each holding has made or lost, so that the coloured chart
 tells me which position is carrying the portfolio and which is dragging on it.**
@@ -1504,7 +1504,7 @@ row, or the least trustworthy number on the page becomes the most specific-looki
 - ☐ A holding whose price series is missing or whose contract size is unanchored says so in
   its own row.
 
-### US-15 — The colours should follow what you hold, not what you once held *(new)*
+### US-15 — The colours should follow what you hold, not what you once held *(built, 0.13.0)*
 
 **Reported after 0.12.0:** *"it takes my largest positions ever, and the rest is Other, even
 though I no longer hold those positions. If I now buy something alongside my 3 holdings it
@@ -1995,7 +1995,7 @@ are not.
 `hasSeries`. Between them, realised/unrealised, biggest movers, the scatter and data coverage
 are all reads rather than new computation. That was not planned for; it is a dividend.
 
-### US-18 — Notifications get a place of their own
+### US-18 — Notifications get a place of their own *(built, 0.26.0 — the Notices section)*
 
 **As someone reading this page I want to see, in one place, everything the reconstruction is
 unsure about — and I do not want to be able to make it go away.**
@@ -2025,7 +2025,7 @@ sync log — the same three the bug report reads.
 - ☐ With a red severity present, the affected tiles say so without the panel being open.
 - ☐ The five states are all reachable: warnings, clean, syncing, failed, first run.
 
-### US-19 — Five tabs instead of one scroll
+### US-19 — Five tabs instead of one scroll *(built, 0.21.0)*
 
 **As a user I want to find the chart I came for without scrolling past six I did not.**
 
@@ -2038,7 +2038,7 @@ global — the whole page describes one window, and that is the promise US-06 ma
 tiles should follow the tab rather than showing all twelve everywhere. Twelve tiles above every
 tab is a wall in front of the content.
 
-### US-20 — The six new KPIs
+### US-20 — The six new KPIs *(built, 0.22.0 — five of them; the annualised return became US-31)*
 
 | KPI | Where it comes from | State |
 |---|---|---|
@@ -2057,7 +2057,7 @@ beside it without naming both is how a page contradicts itself.
 *Recommendation:* build the money-weighted one, because "what did my money earn" is the
 question a private investor is actually asking — and label both, everywhere, in words.
 
-### US-21 — The five new visualisations
+### US-21 — The five new visualisations *(built — across 0.25.0 to 0.29.0)*
 
 | Chart | Where it comes from | State |
 |---|---|---|
@@ -2086,7 +2086,7 @@ is drawn in them.
 
 ---
 
-## US-34 — Trading 212 *(new, refined — a spike with a brief, not yet a story)*
+## US-34 — Trading 212 *(spike finished — the build is US-39 … US-45)*
 
 > As someone who holds part of my money at Trading 212, I want it in the same chart as my DEGIRO
 > account, so that "what am I worth" is one number rather than two tabs and a calculator.
@@ -2198,7 +2198,7 @@ Written now, while it is cheap to agree to:
 
 ---
 
-## US-35 — "Put that frown upside down" *(new, to refine — a joke, and the joke has a constraint)*
+## US-35 — "Put that frown upside down" *(superseded by US-35b, US-35c and US-35d)*
 
 > As someone who is 17k down, I want a switch that flips the chart upside down so it looks like I
 > am up, because the alternative is looking at it the right way round.
@@ -2502,7 +2502,17 @@ Both keep the stamp over them, and both are drawn in the gain colour whatever th
 
 ---
 
-## US-37 — Trading 212 R1: can the account data be read without storing a credential? *(refined)*
+## US-36 — Interactive Brokers, phase 1 *(parked — see MULTI-BROKER.md §9)*
+
+One DevTools capture (2026-08-18) shows an ordinary session-backed portal; what it does not show is
+R1, and the one experiment that decides it — a portfolio request re-run with `credentials: 'include'`
+and with `'omit'` — has not been run. The whole finding, and the reasons nothing is built, are in
+[MULTI-BROKER.md §9](MULTI-BROKER.md); this heading exists so the number is claimed here, as the
+branch policy requires, rather than only in STATUS.md.
+
+---
+
+## US-37 — Trading 212 R1: can the account data be read without storing a credential? *(spike PASS, 2026-08-13 — see STATUS.md)*
 
 The last question standing for Trading 212. `MULTI-BROKER.md` §8 has the rest, measured.
 
@@ -3437,7 +3447,7 @@ wrong card — the card's split is a composition of the position's value, never 
 
 ---
 
-## US-53 — Paid vs grown on sell transactions *(decided — option b, no split on a sell row; in [Unreleased])*
+## US-53 — Paid vs grown on sell transactions *(built, 0.48.0 — option b, no split on a sell row)*
 
 > *"and I want the paid vs grown also in all sell transactions."*
 
@@ -3971,9 +3981,10 @@ it gains an icon it breaks the same way. Use `currentTarget`.
 
 ---
 
-## Investigation — a price series was rescaled by factor 4,369
+## US-114 — A price series was rescaled by factor 4,369 *(open, refined — an investigation)*
 
-Not a story, because what to do depends on what it is.
+Not a story, because what to do depends on what it is. Numbered on 2026-09-02 so it can be referred
+to; the text is the original, with acceptance criteria added at the end.
 
 The split audit rescaled one instrument's history by **factor 4,369, spread 1,05**, on the owner's
 account. A split ratio is 2, 3, 4, 10 or 1-for-10; **4,369 is none of those**. The instrument's last
@@ -3996,6 +4007,26 @@ it has, **say so** — that is more useful than a threshold nobody can justify.
 
 Do not change the rescale threshold to make one account look right. That constant polices every
 account, and tuning it to one series is how the next account gets silently mis-scaled.
+
+### Acceptance criteria
+
+- [ ] A written finding in `docs/ENDPOINT-REPORT.md` naming which of the two hypotheses holds for
+      this series — or stating that the data cannot separate them, with the numbers that show why.
+- [ ] If hypothesis 1: the audit *refuses* a series whose fitted factor is not a plausible split
+      ratio and raises a warning naming the instrument, instead of rescaling it.
+- [ ] If hypothesis 2: the finding is about identity, and the warning says the vwd id serves a
+      different instrument after the named date. No factor is applied.
+- [ ] `RESCALE` thresholds in `config.js` are unchanged by this story.
+
+### Dependencies
+
+An export from an account that held the instrument (the owner's). Nothing in `fixtures/` reproduces
+a series that spans a reverse split.
+
+### Test
+
+Synthetic: a price series with a 1-for-10 step half-way and a trade on each side. The audit must
+either refuse or split the regimes — a single fitted factor across both is the failing case.
 
 ---
 
@@ -7610,4 +7641,226 @@ sync did in fact happen** — the popup's own "Synced at …" line, or Sync in t
 A build that fixes the hang by never syncing has failed, and it fails invisibly.
 
 
-**Next free number: US-114.**
+## US-115 — Hand over the architecture brief *(open, refined — an external agent's report)*
+
+An architecture report plus a multi-broker proposal were asked for from an external agent, and the
+brief that asks for them is written: `docs/COPILOT-ARCHITECTURE-BRIEF.md`. It front-loads what the
+agent cannot know from the code alone — the real tree, the nine rules, what of the proposal already
+exists in `docs/MULTI-BROKER.md` — because the first attempt analysed a project tree that does not
+exist here. Numbered on 2026-09-02; it had sat unnumbered in STATUS.md's *Refined, not built* table.
+
+### Why
+
+Rule 8 says nothing is built for a second broker until one exists. A second pair of eyes on the
+boundary (`src/lib/brokers/`, `combine.js`) *before* that day is cheap, and the brief is the only
+form in which the question can be asked without also handing over an account.
+
+### Scope / not in scope
+
+- In: hand the brief and the repository to the agent; file its report under `docs/` verbatim, dated,
+  with a one-paragraph note saying what was acted on and what was not.
+- Not in scope: acting on the report in the same change. Every recommendation becomes its own
+  story or is declined in writing — a report is not a backlog.
+
+### Acceptance criteria
+
+- [ ] The report is in `docs/`, dated, unedited, and its filename says who produced it.
+- [ ] A short reply note lists each recommendation as *accepted → US-nnn*, *declined — reason*, or
+      *already so — see file*. Nothing is left unaddressed.
+- [ ] The report was produced from the repository only: no export, no fixture beyond `fixtures/`,
+      no account data of any kind reached the agent (rule 7).
+
+### Dependencies
+
+An owner with access to the external agent. Nothing in this repository can run it.
+
+### Test
+
+Documentation only. `npm test` is unaffected; `tools/check-leaks.mjs` runs over the filed report.
+
+---
+
+## US-116 — Tighten `parse.js`'s field candidates from a real `fieldStats` *(blocked: needs a real fieldStats, owner supplies it)*
+
+`parse.js` reads every value through `pick(row, [candidate, candidate, …])` because no real response
+has ever been seen from inside this repository, and CLAUDE.md says the candidates earn their place
+only until a real capture confirms the shape. `getFieldStats()` already records, per field, which
+candidate matched on how many rows, and the bug report carries it. **Rule 8 is the reason to do this
+and rule 7 is the reason it cannot be done here**: a candidate that has never matched is an untested
+branch that will run for the first time on somebody's real account, and the only evidence that
+settles which ones those are lives in a report from a real account.
+
+### Why
+
+A fallback that silently returns `0` is worse than a loud failure (rule 4, rule 8). Twenty-odd
+candidates that never fire are twenty-odd paths the tests cover only with synthetic shapes.
+
+### Scope / not in scope
+
+- In: read one real `fieldStats`; for every `pick()` list, delete each candidate with `matched: 0`
+  when the field's `rows` count is large enough to be evidence (hundreds, not three); record the
+  confirmed name per field in `docs/ENDPOINT-REPORT.md`; update `KEEP` in
+  `tools/har-to-fixtures.mjs` to the same list.
+- Not in scope: changing what any parser *returns*, adding a candidate, or touching `engine.js`.
+  A field that never matched on *any* candidate is a separate finding (US-17's alarm already raises
+  it), not a deletion.
+
+### Acceptance criteria
+
+- [ ] Every deleted candidate is named in the commit with the `rows` and `matched` numbers that
+      justified it, taken from the report, with the account referred to as "the report", never by
+      anyone's name (rule 7's corollary).
+- [ ] `docs/ENDPOINT-REPORT.md` lists the confirmed field name per value, under a dated heading,
+      and the *unconfirmed* section shrinks accordingly.
+- [ ] `fixtures/` still parse identically before and after — the fixtures use the first candidate
+      everywhere, so this is a check that nothing else moved.
+- [ ] No computed value changes for the synthetic account: `npm test` and the parity test pass
+      unmodified.
+
+### Dependencies
+
+**One real bug report's `fieldStats`, supplied by the owner.** Nothing in this repository can
+produce it, and no session may go looking for one.
+
+### Test
+
+The existing `test/parse.test.js` and `test/parity.test.js`, unmodified. A new test asserts that
+every remaining candidate list has length 1 for fields the report confirmed, so a candidate cannot
+creep back in without a second real capture to justify it.
+
+---
+
+## US-117 — The connection check carries counts, never cash-row wording *(built, 0.69.0)*
+
+`diagnose.js` reported `unknownWordings`: up to twenty-five raw descriptions of cash rows the
+classifier did not recognise, on the argument that DEGIRO's wording is not personal data.
+`report.js` already refused that same field, with the reason written above it: a description reads
+"Dividend ASML" or "Koop 12 NVDA", so it names a holding, and even the first word is unsafe. The
+connection check is pasted into the same bug reports as the report, so the two disagreeing was a
+hole rather than a nuance.
+
+### Scope / not in scope
+
+- In: `unknownCount`, a number, in place of the list. The note beside it says where the wording is
+  (the full export, which goes only to someone you trust).
+- Not in scope: classifying anything. The rows are still `UNKNOWN`, still counted, still surfaced in
+  the UI (rule 4).
+
+### Acceptance criteria
+
+- [x] No field of the connection check's output carries a cash-row description.
+- [x] The count of unrecognised rows is still stated, so "one row out of 655" and "two hundred"
+      remain distinguishable.
+- [x] No computed value changes: the classifier and the engine are untouched.
+
+### Dependencies
+
+None.
+
+### Test
+
+`npm test` unchanged — nothing read the old field. The guard is `report.js`'s allowlist, which was
+already right; this brought `diagnose.js` to the same standard.
+
+---
+
+## US-118 — The message router checks the sender; open-demo never navigates a real tab *(built, 0.69.0)*
+
+`sw.js` answered any message that reached it. Both content scripts run on other people's pages
+(trader.degiro.nl, asteria.prulwerk.nl), and a content script's messages are only as trustworthy as
+the page it runs in; a tab on either host could ask for `wipe`, `export`, `disconnect` or the full
+`status` — which carries the live snapshot, positions included. Separately, `open-demo` reused *any*
+open app tab and navigated it to `?demo=1`, so a click on the project site could take a reader's own
+figures off the screen.
+
+### Scope / not in scope
+
+- In: a sender check in front of the router — foreign `sender.id` ignored; a trader.degiro.nl tab
+  may send exactly what `banner.js` and `readywatch.js` send (`banner-status`, `sync`, `tab-ready`,
+  `openApp`); an asteria.prulwerk.nl tab only `open-demo`; everything else only from the
+  extension's own `chrome-extension://` pages. A new `banner-status` message returning the four
+  fields `bannermodel.js` reads (`lastSyncAt`, `hasError`, `syncing`, `disconnected`), and
+  `banner.js` uses it. `open-demo` reuses a tab only if its URL already carries `demo=1`.
+- Not in scope: any change to what the extension's own pages can do, or to any figure.
+
+### Acceptance criteria
+
+- [x] A message with a foreign `sender.id`, or no sender URL, gets no reply.
+- [x] From a trader.degiro.nl tab, `wipe`/`export`/`diagnose`/`disconnect`/`status` get no reply;
+      `banner-status` replies with exactly four fields and no positions.
+- [x] From an asteria.prulwerk.nl tab only `open-demo` is answered.
+- [x] With an app tab open on the real account, `open-demo` opens a new tab and never calls
+      `tabs.update` with a URL on the existing one.
+- [x] US-79's alarm handling (disconnect clears, Sync re-arms, `tab-ready` stays `scheduled`) is
+      asserted by executing the router, not by regexes over its source.
+
+### Dependencies
+
+None.
+
+### Test
+
+`test/sw.test.js`: a forty-line fake `chrome` (id, `getURL`, listener capture, tab stubs) drives
+`sw.js` with real messages from four kinds of sender. The regex assertions it replaced were removed
+from `test/sync-e2e.test.js`; the two a fake `chrome` cannot see stayed.
+
+---
+
+## US-119 — CI: `npm test` on every push *(built, 0.69.0)*
+
+The suite ran only where somebody remembered to run it. `.github/workflows/ci.yml` runs `npm test`
+on every push and pull request to `main`, with a read-only token and no install step — there are no
+dependencies, and the four checks (`check-leaks`, `check-palette`, `check-type`, `check-backlog`)
+already run in front of the tests.
+
+### Acceptance criteria
+
+- [x] A push to `main` runs `npm test` on Node 20 with `permissions: contents: read`.
+- [x] No `npm ci`: `package.json` has no dependencies, and adding an install step would be a step
+      that can fail for reasons unrelated to the code.
+
+### Dependencies
+
+GitHub Actions enabled on the repository, which it is by default.
+
+### Test
+
+The workflow *is* the test run. Its first green run on `main` is the acceptance.
+
+---
+
+## US-120 — Branch hygiene: delete the stale `claude/*` branches *(owner action — GitHub UI)*
+
+Every light scan since 2026-08-20 ends with the same line: the stale `claude/*` branches cannot be
+deleted from a session, because the git proxy refuses `push --delete`. Measured on 2026-09-02, from
+this session: **37 remote `claude/*` branches** besides this session's own transport branch.
+`main` was rewritten on 2026-08-20, so **25 of them share no common ancestor with `main` at all**
+and cannot be compared by `rev-list`; of the 12 that do, **11 are fully contained in `main`** (zero
+commits ahead) and one, `claude/feature-requests-user-stories-u0rxdl`, is ten commits of text that
+`main` already has in another form (confirmed in earlier scans, see `docs/SCANS.md`).
+`claude/portfolio-visualization-testing-xs5ck4` is among the 25 without an ancestor; earlier scans
+compared it by diff content and found the same. No branch carries a story `main` does not have.
+
+### Scope / not in scope
+
+- In: the owner deletes all `claude/*` branches in GitHub's branch list. `main` and `poc` stay.
+- Not in scope: `poc`. It has diverged (228 commits of its own, 56 behind), and the policy says it
+  is a scratchpad until promoted or dropped — that is a separate decision.
+
+### Acceptance criteria
+
+- [ ] `git branch -r` shows `origin/main`, `origin/poc` and nothing else (a session's own transport
+      branch may exist while it runs and is deleted when it lands).
+- [ ] The *Branches* paragraph in STATUS.md is reduced to one line saying so.
+
+### Dependencies
+
+The owner, in a browser. Nothing in this repository can do it.
+
+### Test
+
+`git ls-remote --heads origin | grep -c claude/` returns 0.
+
+---
+
+**Next free number: US-121.**

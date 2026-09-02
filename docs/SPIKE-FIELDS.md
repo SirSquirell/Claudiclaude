@@ -94,5 +94,5 @@ half is the reason to look at the whole inventory rather than to grep for seven 
 ## Findings
 
 *Empty. Fill in from one paste of the command's output, then update `docs/BACKLOG.md` §7 (B1) and
-`docs/NEXT.md` §1 — the candidate table there is explicitly "things to check for", and it stays
-that way until this section says otherwise.*
+`docs/ENDPOINT-REPORT.md` — the candidate field names in `parse.js` are explicitly "things to check
+for" (US-116), and they stay that way until this section says otherwise.*
