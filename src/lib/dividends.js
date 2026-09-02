@@ -82,6 +82,17 @@
  *     twelve months, specials included. Cost is the engine's average buy price
  *     times today's quantity. A figure is null with a reason ('closed',
  *     'no-payments', 'no-cost-basis', 'no-current-value') rather than 0 %.
+ *
+ *   trackRecord(series, today) →                                     (US-127)
+ *     { unit: 'EUR/share', boundedByWindow: true,
+ *       byProduct: [{ productId, heldFrom, heldTo, firstPayment, lastPayment,
+ *                     regularPayments, rhythm, yearsPaid: [year],
+ *                     consecutiveYearsPaid, raises, cuts, largestCutPct,
+ *                     cagrPct, cagrYears: [first, last] | null, cagrReason }] }
+ *     Facts only, bounded by this account's own history — every consumer says
+ *     so beside the years figure. `cagrPct` is measured over complete calendar
+ *     years the position was held from first day to last, on regular per-share
+ *     payments; null with 'too-short' or 'zero-first-year'.
  */
 import { CATEGORY } from './classify.js';
 import { addDays, dayRange, daysBetween, subMonths } from './dates.js';
@@ -619,4 +630,82 @@ export function yields(series, positions = [], today) {
     return row;
   });
   return { unit: 'EUR', windowFrom, byProduct };
+}
+
+// ---------------------------------------------------------------------------
+// US-127: track record
+// ---------------------------------------------------------------------------
+
+/**
+ * US-127. What this account saw of each position's dividends: years paid
+ * without a gap, raises, cuts, the largest cut, growth per year. No score.
+ */
+export function trackRecord(series, today) {
+  const c = classified(series);
+  const ch = changes(c, today);
+  const byProduct = [];
+
+  for (const [id, prod] of Object.entries(c.byProduct)) {
+    const regular = regularPoints(prod).filter((p) => p.date <= today);
+    if (!regular.length) continue;
+
+    const years = [...new Set(regular.map((p) => p.date.slice(0, 4)))].sort();
+    let consecutive = 1;
+    for (let i = years.length - 1; i > 0; i--) {
+      if (Number(years[i]) - Number(years[i - 1]) === 1) consecutive++;
+      else break;
+    }
+
+    const payments = ch.byProduct[id]?.payments ?? [];
+    const cuts = payments.filter((p) => p.label === 'cut');
+    const raises = payments.filter((p) => p.label === 'raised').length;
+    const largestCutPct = cuts.length ? Math.min(...cuts.map((p) => p.pct)) : null;
+
+    // Complete years: held on 1 January and on 31 December, and the year is
+    // over. A year with a purchase in February or a sale in November holds
+    // fewer payments than the company made, and comparing it to a full one
+    // would read the trade as a change in the dividend.
+    const completeYears = [];
+    if (prod.heldFrom) {
+      const firstYear = Number(prod.heldFrom.slice(0, 4));
+      const lastYear = Number(today.slice(0, 4));
+      for (let y = firstYear; y <= lastYear; y++) {
+        const jan1 = `${y}-01-01`;
+        const dec31 = `${y}-12-31`;
+        if (jan1 < prod.heldFrom || dec31 >= today) continue;
+        if (prod.heldTo !== null && prod.heldTo <= dec31) continue;
+        completeYears.push(String(y));
+      }
+    }
+    const perYear = completeYears.map((y) => regular.filter((p) => p.date.startsWith(y)).reduce((k, p) => k + p.grossPerShare, 0));
+    let cagrPct = null;
+    let cagrYears = null;
+    let cagrReason = null;
+    if (completeYears.length < 2) cagrReason = 'too-short';
+    else if (!(perYear[0] > 0)) cagrReason = 'zero-first-year';
+    else {
+      cagrPct = ((perYear.at(-1) / perYear[0]) ** (1 / (completeYears.length - 1)) - 1) * 100;
+      cagrYears = [completeYears[0], completeYears.at(-1)];
+    }
+
+    byProduct.push({
+      productId: id,
+      heldFrom: prod.heldFrom,
+      heldTo: prod.heldTo,
+      firstPayment: regular[0].date,
+      lastPayment: regular.at(-1).date,
+      regularPayments: regular.length,
+      rhythm: prod.rhythm.rhythm,
+      yearsPaid: years,
+      consecutiveYearsPaid: consecutive,
+      raises,
+      cuts: cuts.length,
+      largestCutPct,
+      cagrPct,
+      cagrYears,
+      cagrReason,
+    });
+  }
+
+  return { unit: UNIT, boundedByWindow: true, byProduct };
 }

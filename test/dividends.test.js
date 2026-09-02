@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { perShareSeries, RECENT_TRADE_DAYS, detectRhythm, classifyPayments, changes, forwardIncome, yields } from '../src/lib/dividends.js';
+import { perShareSeries, RECENT_TRADE_DAYS, detectRhythm, classifyPayments, changes, forwardIncome, yields, trackRecord } from '../src/lib/dividends.js';
 import { computePortfolio } from '../src/lib/engine.js';
 import { CATEGORY } from '../src/lib/classify.js';
 
@@ -604,4 +604,80 @@ test('US-126: computePortfolio\'s byProduct entries are accepted as positions un
   assert.equal(q.current, result.byProduct[0].current, 'the engine values an unpriced position at its last trade');
   near(q.yieldOnCostPct, 2, 1e-9);
   near(q.currentYieldPct, 80 / result.byProduct[0].current * 100, 1e-9);
+});
+
+// ---------------------------------------------------------------------------
+// US-127 trackRecord
+// ---------------------------------------------------------------------------
+
+test('US-127: the quarterly payer — years, raises, cuts, largest cut and CAGR over the complete years, by hand', () => {
+  const { transactions, cashRows } = quarterlyPayer('Q');
+  const tr = trackRecord(perShareSeries(transactions, cashRows), '2025-01-15');
+  assert.equal(tr.unit, 'EUR/share');
+  assert.equal(tr.boundedByWindow, true);
+  const q = tr.byProduct[0];
+  assert.equal(q.productId, 'Q');
+  assert.equal(q.heldFrom, '2022-01-10');
+  assert.equal(q.heldTo, null);
+  assert.equal(q.firstPayment, '2022-03-15');
+  assert.equal(q.lastPayment, '2024-12-15');
+  assert.equal(q.regularPayments, 12);
+  assert.equal(q.rhythm, 'quarterly');
+  assert.deepEqual(q.yearsPaid, ['2022', '2023', '2024']);
+  assert.equal(q.consecutiveYearsPaid, 3);
+  assert.equal(q.raises, 4);
+  assert.equal(q.cuts, 4);
+  near(q.largestCutPct, -33.3333333333, 1e-6);
+  // Bought on 10 January 2022, so 2022 is not a complete year; 2023 and 2024 are.
+  assert.deepEqual(q.cagrYears, ['2023', '2024']);
+  near(q.cagrPct, -33.3333333333, 1e-6, '1.20 per share in 2023 to 0.80 in 2024, one year');
+  assert.equal(q.cagrReason, null);
+});
+
+test('US-127: a position held from before 1 January counts that year as complete', () => {
+  const { cashRows } = quarterlyPayer('Q');
+  const q = trackRecord(perShareSeries([buy('Q', '2021-12-20', 100, 40)], cashRows), '2025-01-15').byProduct[0];
+  assert.deepEqual(q.cagrYears, ['2022', '2024']);
+  near(q.cagrPct, (Math.sqrt(0.8 / 1.0) - 1) * 100, 1e-9, '1.00 to 0.80 over two years');
+});
+
+test('US-127: one complete year is too short for a growth rate — null with the reason', () => {
+  const { transactions, cashRows } = quarterlyPayer('Q');
+  const q = trackRecord(perShareSeries(transactions, cashRows), '2024-01-15').byProduct[0];
+  assert.equal(q.cagrPct, null);
+  assert.equal(q.cagrReason, 'too-short');
+  assert.equal(q.cagrYears, null);
+  assert.equal(q.consecutiveYearsPaid, 2, 'the facts that can be stated still are');
+});
+
+test('US-127: a year with a mid-year sale is not a complete year', () => {
+  const transactions = [buy('M', '2021-12-01', 100, 10), sell('M', '2023-06-01', 100, 11)];
+  const cashRows = [];
+  for (const y of [2022, 2023]) for (const m of ['03', '06', '09', '12']) if (`${y}-${m}-15` < '2023-06-01') cashRows.push(div('M', `${y}-${m}-15`, 25));
+  const q = trackRecord(perShareSeries(transactions, cashRows), '2024-01-01').byProduct[0];
+  assert.equal(q.heldTo, '2023-06-01');
+  assert.equal(q.cagrReason, 'too-short', '2022 is the only complete year');
+  assert.deepEqual(q.yearsPaid, ['2022', '2023']);
+});
+
+test('US-127: a special does not appear as growth, and a gap year breaks the streak', () => {
+  const { cashRows } = quarterlyPayer('Q');
+  cashRows.push(div('Q', '2024-07-20', 90));
+  const withSpecial = trackRecord(perShareSeries([buy('Q', '2021-12-20', 100, 40)], cashRows), '2025-01-15').byProduct[0];
+  near(withSpecial.cagrPct, (Math.sqrt(0.8 / 1.0) - 1) * 100, 1e-9);
+  assert.equal(withSpecial.regularPayments, 12);
+
+  const gap = trackRecord(
+    perShareSeries([buy('G', '2019-01-01', 10, 1)], [div('G', '2019-06-01', 1), div('G', '2020-06-01', 1), div('G', '2022-06-01', 1), div('G', '2023-06-01', 1)]),
+    '2024-01-01',
+  ).byProduct[0];
+  assert.deepEqual(gap.yearsPaid, ['2019', '2020', '2022', '2023']);
+  assert.equal(gap.consecutiveYearsPaid, 2, 'counted back from the last payment to the gap');
+});
+
+test('US-127: payments after today are not part of the record', () => {
+  const { transactions, cashRows } = quarterlyPayer('Q');
+  const q = trackRecord(perShareSeries(transactions, cashRows), '2023-07-01').byProduct[0];
+  assert.equal(q.lastPayment, '2023-06-15');
+  assert.equal(q.regularPayments, 6);
 });

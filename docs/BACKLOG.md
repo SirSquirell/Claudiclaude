@@ -8188,7 +8188,7 @@ in the window; a closed position; a special in the window counted in received.
 
 ---
 
-### US-127 — A track record per position, in place of a safety score *(new, refined)*
+### US-127 — A track record per position, in place of a safety score *(built — engine function only, no UI yet)*
 
 **Layer A.** Years paid without a gap within this account's own history, raises, cuts, the largest
 cut, growth per year over the window, first and last payment. Facts in a table, no score.
@@ -8207,16 +8207,16 @@ US-103 already named this as the one free input for the EU leg.
 
 #### Acceptance criteria
 
-- [ ] Per product: `firstPayment`, `lastPayment`, `consecutiveYearsPaid` (calendar years ending at
+- [x] Per product: `firstPayment`, `lastPayment`, `consecutiveYearsPaid` (calendar years ending at
       the last payment's year, each with at least one regular payment, counted back until a gap or
       the start of the data), `raises`, `cuts`, `largestCutPct` (from US-122's labels),
       `cagrPct` and the complete years it was measured over, `heldFrom`, and `boundedByWindow:
       true` — every consumer must say "in this account's history" beside the years figure.
-- [ ] `cagrPct` is measured over complete calendar years only: a year counts when the position was
+- [x] `cagrPct` is measured over complete calendar years only: a year counts when the position was
       held from its first day to its last and the year ends before `today`. Fewer than two such
       years, or a zero first year → `null` with `reason`. The sum compared is regular per-share
       payments, so a special does not appear as growth.
-- [ ] No field is a judgement: no "safe", no "reliable", no ranking, no colour semantics in the
+- [x] No field is a judgement: no "safe", no "reliable", no ranking, no colour semantics in the
       data.
 
 #### Dependencies
