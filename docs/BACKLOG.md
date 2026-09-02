@@ -7863,4 +7863,801 @@ The owner, in a browser. Nothing in this repository can do it.
 
 ---
 
-**Next free number: US-121.**
+## US-121 to US-139 — Nineteen stories from the product brief *(refined 2026-09-02; each story below carries its own state)*
+
+`docs/PRODUCT-BRIEF.md` §2 lists ten product features and §2b lists nine dividend features in the
+direction of Simply Safe Dividends. Refined here in the order the brief's own build order gives
+them: §2b's features 11 to 19 first (US-121 to US-129), because everything in that set stands on
+US-121, then §2's features 1 to 10 in the table's order (US-130 to US-139). Layer per US-102's
+architecture cut: **A** is computable locally from DEGIRO's own rows, **B** needs US-104's bundle.
+
+Three of them touch SPEC §7's "stop after 7" list and say so in their heading: US-129 and US-130
+are the "two numbers you type over" kind of tax reporting, and US-138 is the Portfolio Performance
+export §7 permits "unless asked" — the brief is the ask, and the amendment is recorded rather than
+implied.
+
+Two engine-side decisions hold for the whole dividend set, so they are stated once:
+
+- **Everything is in euros per share, from what settled.** A cash row's `change` is the euro
+  amount that landed. A foreign payer's per-share figure therefore moves with the exchange rate
+  even when the declared dividend did not; no story below converts it back, and every screen that
+  shows a per-share figure or a change between two of them says "in EUR".
+- **Nothing derived is persisted, nothing existing changes.** The per-share series and everything
+  built on it are recomputed from the raw rows on every load (rule 2), live in a new pure module
+  `src/lib/dividends.js` so `engine.js` does not grow, and change no value `computePortfolio`
+  already produces. The one engine change is additive: its position ledger becomes an exported
+  helper so the dividend module uses the same quantity arithmetic rather than a second copy.
+
+---
+
+### US-121 — Dividend per share, from the account's own payments *(new, refined)*
+
+**Layer A.** The base for US-122 to US-128: per position, the series (date, gross per share, tax
+withheld per share), derived from the DIVIDEND and DIVIDEND_TAX cash rows and the number of shares
+held on each row's date. SSD reads this from a data feed; this project reads it from what actually
+arrived on the account, which is the one input SSD does not have.
+
+#### Why
+
+Every question in §2b — was it raised, what is next year's income, is this one a special, what is
+the yield on cost — is a question about the per-share amount, not about the euro total. The total
+already exists (`dividendByProduct`, US-102); the per-share figure does not, and cannot be read off
+a total without the share count on that day.
+
+#### Scope / not in scope
+
+- In: one pure function, `perShareSeries(transactions, cashRows, products)` in
+  `src/lib/dividends.js`; the position ledger exported from `engine.js` as `positionLedger` so both
+  use one quantity arithmetic; tests.
+- Not in scope: any screen (US-122 to US-127 each add their own), pairing a DIVIDEND row to its
+  DIVIDEND_TAX row (US-102 AC3 says that is unverified against a real capture — nothing here
+  depends on it), converting anything out of euros.
+
+#### Acceptance criteria
+
+- [ ] Per-share gross for a `DIVIDEND` row = `row.change ÷ quantity held on row.date`, where the
+      quantity comes from the transactions up to and including that date, through the same ledger
+      `computePortfolio` uses (`positionLedger`, additive export, same dust rule). Rows on the same
+      product and date are summed first; the per-share figure is the day's total over the day's
+      quantity.
+- [ ] Per-share tax likewise, from `DIVIDEND_TAX` rows, independently of the gross rows: a tax row
+      on a date with no gross row still yields a point (with `grossPerShare: null`), and the reverse.
+      No pairing is assumed or required. Tax keeps the sign the data has (negative), matching
+      `dividendTax`.
+- [ ] Quantity zero or negative on the row's date → the row is not a point but an entry in
+      `undetermined` with `reason: 'no-position-on-pay-date'`, carrying the euro amount, the date and
+      the product, and counted. Never a silent zero or a division by zero.
+- [ ] A row without a `productId` → `undetermined`, `reason: 'no-product'`; a gross row whose day
+      total is not positive → `undetermined`, `reason: 'non-positive-amount'` (a reversal cannot be
+      read as a payment). Both counted, both carry the amount.
+- [ ] A trade on the product within the 30 days up to and including the row's date → the point is
+      kept and flagged `quantityChangedRecently: true`, because the ex-date and the pay-date can
+      straddle a trade and the quantity on the pay-date may not be the quantity that earned it. The
+      UI that shows the point must show the flag.
+- [ ] Every per-share figure is in EUR per share and says so (`unit: 'EUR/share'` on the series). No
+      conversion.
+- [ ] **Guardrail:** per product, `Σ grossPerShare × quantity` over the points plus the amounts of
+      that product's `undetermined` DIVIDEND rows equals `byProduct[].dividendGross` to the cent, and
+      the same for tax against `dividendTax`. Two measurements of the same money never disagree.
+- [ ] No existing computed value changes: `npm test` passes unmodified except for the new file.
+
+#### Dependencies
+
+US-102 (the gross/tax split per product, for the guardrail). Nothing else.
+
+#### Test
+
+`test/dividends.test.js`: a quarterly payer; a position sold between ex-date and pay-date (counted
+as undetermined, amount carried); a tax row a day after its gross row (two points, no pairing); a
+same-day trade (flag set); the guardrail against `computePortfolio` on the same synthetic input.
+
+---
+
+### US-122 — Raises and cuts, signalled from the account's own history *(new, refined)*
+
+**Layer A.** Each regular payment compared with the closest regular payment eleven to thirteen
+months earlier: raised, unchanged, cut, new, or — for a whole product — stopped. SSD's "dividend
+cut alert", except that this one is after the fact, from the account's own rows, and says so.
+
+#### Why
+
+A cut is the one dividend event a holder wants to know about, and it is directly observable in the
+per-share series without a single external field. The Holdings dividend view (US-110) deliberately
+refused to call a drop a "cut" because it had no per-share figure and no threshold; US-121
+supplies the figure and this story fixes the threshold, in writing.
+
+#### Scope / not in scope
+
+- In: `changes(series, today)` in `src/lib/dividends.js`; later, a column on the Dividends tab's
+  holdings view and a Notices item per change since the previous sync.
+- Not in scope: predicting a cut (that is US-108's, and it needs fundamentals this project does
+  not have); comparing specials (US-125 excludes them first).
+
+#### Acceptance criteria
+
+- [ ] Per product, per regular payment: `label ∈ raised | unchanged | cut | new`, `pct` (change in
+      per-share EUR against the comparison payment), and the comparison payment's date and amount.
+- [ ] The comparison is the regular payment closest in date inside `[date − 13 months, date − 11
+      months]`. `new` when the product has no regular payment before this one at all. A payment
+      with earlier history but nothing inside the window gets `label: null` and
+      `reason: 'no-payment-11-13-months-earlier'` — not `new`, not `unchanged`.
+- [ ] `unchanged` when `|pct| < 1 %`; a per-share figure formed from a cent-rounded euro total over
+      a share count carries rounding of that order, and an FX-driven wobble is not a decision by the
+      company. Above that, the sign decides. The threshold is a named constant.
+- [ ] `stopped`, per product, when the detected rhythm (US-124) predicts a payment and the last
+      regular payment is more than 1.5 intervals before `today`. Carries the last payment's date and
+      the date the next one was expected by. Never emitted when the rhythm is irregular.
+- [ ] `today` moving forward never changes a past label: only `stopped` may appear. Tested as a
+      property over several `today` values on the same series.
+- [ ] The UI (when built) states that the comparison is in EUR per share and after the fact.
+
+#### Dependencies
+
+US-121, US-125 (only regular payments are compared), US-124's `detectRhythm` (for `stopped`).
+
+#### Test
+
+A quarterly payer with one raise and one cut across three years; a payer that stops (the last
+payment two intervals ago); the today-invariance property.
+
+---
+
+### US-123 — Expected annual income, forward twelve months *(new, refined)*
+
+**Layer A.** Per position and in total: the regular per-share payments of the trailing twelve
+months times the shares held today. SSD's "projected annual income", from the account's own rows.
+
+#### Why
+
+It is the one number an income investor looks at first, and every ingredient is already on the
+account. Without US-125 it is wrong by every special ever received, which is why the two ship
+together.
+
+#### Scope / not in scope
+
+- In: `forwardIncome(series, currentQuantities, today)`; later a KPI on the Dividends tab beside
+  the trailing yield US-110 already shows, and the input to US-128.
+- Not in scope: any growth assumption (US-128 makes that explicit and adjustable), announced
+  payouts (US-104's bundle, later), net of tax (US-107's switch applies on top).
+
+#### Acceptance criteria
+
+- [ ] Per product: the sum of regular per-share payments dated in the trailing twelve months (plus
+      half an interval of tolerance, so a payment three days outside the window does not drop a
+      quarter), taking at most one rhythm cycle's worth — the most recent `expectedPerYear` of them
+      — times the current quantity. Specials are excluded and listed under `excluded` with the rule
+      that excluded them, so the reader can see what the figure left out.
+- [ ] `undetermined` with a reason when the product has fewer than one full rhythm cycle of data:
+      `irregular-rhythm` when US-124 cannot detect one (this covers an annual payer with a single
+      payment), `incomplete-cycle` when fewer regular payments fall in the window than the rhythm
+      expects per year, `stopped` when US-122 says the stream has stopped. A product with
+      `currentQuantity ≤ 0` is listed under `closed`, not projected and not undetermined.
+- [ ] The total is the sum over determined products only, and the result states how many products
+      and which are undetermined, so the total can never read as complete when it is not (US-105's
+      principle, applied locally).
+- [ ] Figures are in EUR; the UI caption says "from the last twelve months of payments, in EUR,
+      at today's share count".
+
+#### Dependencies
+
+US-121, US-124 (`detectRhythm`), US-125 (specials out).
+
+#### Test
+
+A quarterly payer with a raise (the trailing sum picks up the raised quarters only); a special in
+the window that must not enter the figure; an annual payer with one payment (undetermined); a
+closed position; the total equals the sum of the determined rows.
+
+---
+
+### US-124 — Payment rhythm, and the next expected payment *(new, refined — `detectRhythm` ships with US-125, the estimate and its UI later)*
+
+**Layer A, later B.** From the gaps between regular payments: monthly, quarterly, semi-annual,
+annual, or irregular, with a confidence; from that, an estimated next pay-date with a margin. The
+Income Calendar without a bundle, marked as an estimate; US-104's bundle replaces the estimate with
+announced dates when it exists.
+
+#### Why
+
+US-122's `stopped` and US-123's "one full cycle" both need the rhythm, so the detector is built
+with them. The estimated next date is the user-facing half and waits until the three of them have
+a screen.
+
+#### Scope / not in scope
+
+- In: `detectRhythm(points)` (built); later `nextExpected(points, rhythm, today)` returning an
+  estimated window, and its row on the Dividends tab.
+- Not in scope: ex-dates (not observable from a cash row), announced amounts, anything from the
+  bundle.
+
+#### Acceptance criteria
+
+- [ ] `detectRhythm` returns `{rhythm, confidence, intervalDays, gaps}`; `rhythm ∈ monthly |
+      quarterly | semiannual | annual | irregular`. Buckets on the gap in days: monthly 20–44,
+      quarterly 60–124, semi-annual 150–229, annual 300–430. The median gap picks the bucket;
+      `confidence` is the share of gaps inside that bucket; below 0.6, or with fewer than three
+      points, the answer is `irregular` — an answer, not a guess.
+- [ ] `nextExpected`: last regular payment plus the nominal interval, with a margin of ±15 % of the
+      interval; `null` with a reason when the rhythm is irregular or the stream is `stopped`.
+- [ ] The row on the Dividends tab is labelled "estimate, from the payment rhythm" and disappears
+      the moment US-104's bundle carries an announced date for that ISIN.
+
+#### Dependencies
+
+US-121. The UI half depends on US-122 and US-123 having a place to render.
+
+#### Test
+
+Monthly, quarterly and annual synthetic payers detected with confidence 1; a quarterly payer with
+one skipped quarter still quarterly at 0.67; two points → irregular; gaps that disagree →
+irregular.
+
+---
+
+### US-125 — Special dividends, recognised and kept out of every projection *(new, refined)*
+
+**Layer A.** A payment far outside the amount or the rhythm of the others is labelled `special`
+and does not enter US-122, US-123 or US-124. Without it every forward figure extrapolates a
+one-off.
+
+#### Why
+
+A single special of three times the regular amount makes the forward income wrong by 75 % for a
+quarterly payer, and makes the next regular payment read as a 67 % cut. The label exists to stop
+both, and the rule that fired is returned so the reader can disagree with it.
+
+#### Scope / not in scope
+
+- In: `classifyPayments(series)` returning the same series with `label`, `rule` and the number of
+  payments the rule compared against on every gross point, and a detected rhythm per product.
+- Not in scope: a user override (nothing here is persisted yet; when a UI lands, an override is a
+  separate story), stock dividends, return-of-capital classification (the cash row does not carry
+  it).
+
+#### Acceptance criteria
+
+- [ ] **Amount rule.** A payment is `special` (`rule: 'amount'`) when its per-share amount deviates
+      more than 60 % from the median of the other regular payments in the trailing 24 months, and
+      there are at least two of them (a median of one number is not a median). Exemption: a payment
+      with a regular twin 11 to 13 months earlier within ±20 % is never a special by amount — an
+      interim/final payer's larger final recurs yearly and is regular by definition.
+- [ ] **Rhythm rule.** With a rhythm detected from the regular payments before it, a payment
+      closer than half an interval to the previous regular payment is `special`
+      (`rule: 'off-rhythm'`). Never fires while the rhythm is irregular.
+- [ ] Classification is trailing only: a payment's label depends on the payments before it, never
+      on later ones, so a new payment landing never relabels history. Tested as a prefix property.
+- [ ] A payment the rules could not test (fewer than two earlier regular payments) is `regular`
+      with `rule: null` and `comparedAgainst: n`, so the UI can show that the label is a default
+      rather than a finding.
+- [ ] Thresholds (60 %, 24 months, two payments, ±20 %, half an interval) are named constants at
+      the top of the module, with the reason for each.
+
+#### Dependencies
+
+US-121, US-124's `detectRhythm`.
+
+#### Test
+
+A quarterly payer with one triple-size special (amount rule); a fifth payment inside a quarter
+(rhythm rule); an interim/final payer whose finals are not specials; the prefix property.
+
+---
+
+### US-126 — Yield on cost and current yield, per position *(new, refined)*
+
+**Layer A.** Gross dividend received in the trailing twelve months, divided by what the shares held
+cost, and divided by what they are worth today. Two columns on the Holdings dividend view — the
+classic SSD table.
+
+#### Why
+
+Both are what an income investor means by "yield" and neither exists here: US-110's trailing yield
+is one figure for the account. Per position, from the engine's own cost and value, no new data.
+
+#### Scope / not in scope
+
+- In: `yields(series, positions, today)` taking `computePortfolio`'s `byProduct` entries as the
+  positions; later the two columns.
+- Not in scope: a forward yield (US-123 ÷ value is one line in the UI when wanted, not a third
+  measurement), net yields (US-107's switch).
+
+#### Acceptance criteria
+
+- [ ] Received = the sum of the euro gross amounts of all gross points in the trailing twelve
+      months, specials included — this is what was received, not a projection. The result carries
+      how many of those were specials.
+- [ ] Cost of the shares held = `bought ÷ boughtQty × quantity today`, the average price the engine
+      already exposes for exactly this purpose, times the current holding — no FIFO, no new
+      convention. `yieldOnCostPct = received ÷ cost × 100`.
+- [ ] `currentYieldPct = received ÷ current × 100`, with `current` the engine's own valuation.
+- [ ] Either figure is `null` with a reason (`no-cost-basis`, `no-current-value`, `no-payments`)
+      when its denominator is zero or negative or nothing was received; never `0 %` standing in for
+      "cannot say". A closed position has no yield.
+- [ ] The columns (when built) carry "gross, trailing twelve months, EUR" in their header
+      explanation (US-93's pattern).
+
+#### Dependencies
+
+US-121; the engine's `byProduct` (`bought`, `boughtQty`, `qty`, `current`).
+
+#### Test
+
+A position with a known cost and value and four quarterly payments; a position with no payments
+in the window; a closed position; a special in the window counted in received.
+
+---
+
+### US-127 — A track record per position, in place of a safety score *(new, refined)*
+
+**Layer A.** Years paid without a gap within this account's own history, raises, cuts, the largest
+cut, growth per year over the window, first and last payment. Facts in a table, no score.
+
+#### Why
+
+US-108's score will read "cannot be determined" for most European names for a long time. What can
+be said honestly about them is what the account itself saw, bounded by how long it held them, and
+US-103 already named this as the one free input for the EU leg.
+
+#### Scope / not in scope
+
+- In: `trackRecord(series, today)`; later a table on the Dividends tab.
+- Not in scope: a number from 0 to 100, a bucket, a colour that ranks — US-108 AC4's reasoning
+  applies twice over here. Anything before the position was held.
+
+#### Acceptance criteria
+
+- [ ] Per product: `firstPayment`, `lastPayment`, `consecutiveYearsPaid` (calendar years ending at
+      the last payment's year, each with at least one regular payment, counted back until a gap or
+      the start of the data), `raises`, `cuts`, `largestCutPct` (from US-122's labels),
+      `cagrPct` and the complete years it was measured over, `heldFrom`, and `boundedByWindow:
+      true` — every consumer must say "in this account's history" beside the years figure.
+- [ ] `cagrPct` is measured over complete calendar years only: a year counts when the position was
+      held from its first day to its last and the year ends before `today`. Fewer than two such
+      years, or a zero first year → `null` with `reason`. The sum compared is regular per-share
+      payments, so a special does not appear as growth.
+- [ ] No field is a judgement: no "safe", no "reliable", no ranking, no colour semantics in the
+      data.
+
+#### Dependencies
+
+US-121, US-122, US-125.
+
+#### Test
+
+A quarterly payer over four complete years with a raise and a cut: years paid, counts, largest
+cut and CAGR checked by hand; a position with one complete year → CAGR `null`; a year with a
+mid-year sale excluded from the complete years.
+
+---
+
+### US-128 — An income goal on the Outlook page *(new, refined)*
+
+**Layer A.** The user sets a goal in euros per month; Outlook shows where the expected annual
+income (US-123) stands against it, and what a monthly contribution plus an assumed dividend growth
+rate do to the number of years until the goal. Assumptions visible and adjustable; no advice.
+
+#### Why
+
+The scope table under US-102 put "forecast with reinvestment assumptions" on Outlook (US-33) and
+nowhere else. US-123 makes the starting point a measurement instead of a guess.
+
+#### Scope / not in scope
+
+- In: a pure `incomeGoal({forwardIncome, goalPerMonth, monthly, growthPct, yieldPct})` beside
+  `projectPortfolio`, a card on Outlook, the goal persisted like the other Outlook inputs.
+- Not in scope: a recommendation of any input, a default growth rate presented as a fact (the
+  default is this account's own measured rate from US-127's CAGR when it exists, else empty).
+
+#### Acceptance criteria
+
+- [ ] The card shows current forward income (US-123) as a percentage of the goal, and the year the
+      goal is reached under the stated assumptions, or "not reached within the horizon".
+- [ ] Every assumption (monthly contribution, dividend growth, yield on new money) is an input on
+      the card, prefilled only from measured figures and labelled as such; nothing is prefilled
+      from a market average.
+- [ ] Carries US-123's undetermined count: a goal measured against an income figure that is
+      missing three positions says so on the card.
+- [ ] `projectPortfolio`'s `MAX_HORIZON_MONTHS` and `PLAUSIBLE_ANNUAL` guards are reused, not
+      redefined.
+
+#### Dependencies
+
+US-123, US-127, US-33 (Outlook).
+
+#### Test
+
+Goal reached in year n by hand arithmetic; an implausible growth input refused; the undetermined
+count propagated.
+
+---
+
+### US-129 — Recoverable withholding tax, per country *(new, refined — Layer A + B; needs a SPEC §7 amendment)*
+
+**Layer A + B.** US-106 gives the effective rate and the reclaimable/lost split. This adds, per
+country, the treaty rate, the part creditable in the Dutch return, the part recoverable only from
+the source state (Switzerland, France, Germany) and the part that is gone. Treaty rates are public
+at the Belastingdienst, so a free source for the bundle.
+
+#### Why
+
+It is a European problem SSD does not have, and it is the difference between a "reclaimable" figure
+and knowing where to reclaim it. It also feeds US-130.
+
+**SPEC §7 says "no tax reporting".** This story shows where a euro of withheld tax can be
+recovered; it produces no return and files nothing. The amendment to record: "§7's 'no tax
+reporting' excludes filing and advice; it does not exclude showing the figures the reader types over
+(US-129, US-130)."
+
+#### Scope / not in scope
+
+- In: `withholding.js` gains, per country, the recovery path; the bundle (US-104) gains the
+  per-country treaty table with `asOf`; the Withholding-tax card shows three columns instead of
+  two.
+- Not in scope: the forms, the deadlines, anything that resembles a filing.
+
+#### Acceptance criteria
+
+- [ ] Per country: `treatyRate`, `creditableInNL`, `recoverableAtSource`, `lost`, each in euros per
+      calendar year, summing exactly to what was withheld (US-106 AC3's discipline).
+- [ ] A country the table does not cover is `null` with `unknown-country`, never a guessed 15 %.
+- [ ] Each rate carries its `asOf` and its source; overridable per position as in US-106 AC4.
+
+#### Dependencies
+
+US-106, US-104 (the table travels in the bundle), the SPEC §7 amendment above.
+
+#### Test
+
+DE at 26.375 %: 15 creditable, 11.375 recoverable at source, 0 lost. CH at 35 %: 15 creditable,
+20 recoverable at source. An unknown country refuses.
+
+---
+
+### US-130 — Box 3 and withholding tax: the two numbers you type over *(new, refined — needs a SPEC §7 amendment)*
+
+**Layer A.** The account's value on 1 January of each year (the Dutch reference date) and the
+foreign dividend tax withheld per country per year, gross and net. Every DEGIRO customer needs both
+each spring and currently reads them off the annual statement by hand.
+
+#### Why
+
+Both figures already exist in the engine's daily series and cash rows; the only work is picking the
+right day and grouping by year and country. **SPEC §7 says "no tax reporting"**: this is not a
+return, it is two figures — the amendment US-129 records covers this story.
+
+#### Scope / not in scope
+
+- In: a "Tax figures" card on Income & cost: per year, value on 1 January (positions plus cash,
+  the same `value` series the chart draws), withheld tax per country (US-106's country per
+  position), gross and net dividend. Copyable, nothing more.
+- Not in scope: the box-3 calculation itself (rates change yearly and are the Belastingdienst's),
+  debts, other assets, anything advisory.
+
+#### Acceptance criteria
+
+- [ ] Value on 1 January is `value[dayIndex('YYYY-01-01')]`, the same figure the value chart shows
+      for that day; a year whose 1 January is before the account's first day shows nothing.
+- [ ] A year the reconciliation flags red (rule 6) is shown with that warning beside it — a
+      figure the engine cannot vouch for is not offered as one to copy.
+- [ ] Withheld per country uses US-106's country per position, overrides included; a position with
+      no country lands under "unknown", counted, not dropped.
+- [ ] Amounts hidden by the privacy toggle stay hidden here too.
+
+#### Dependencies
+
+US-106, US-129's amendment.
+
+#### Test
+
+Synthetic account across two year boundaries: the 1 January values match the chart's series; a
+per-country sum equals `dividendTax` for the year to the cent.
+
+---
+
+### US-131 — The cost report: what DEGIRO and the funds cost together *(new, refined — Layer A + B)*
+
+**Layer A + B.** Transaction fees, connection fees, currency costs and the TER of ETFs, per year, in
+euros and as a percentage of the average value. TER comes from the issuers' KIDs via the bundle.
+
+#### Why
+
+The fees are already classified (`FEE`) and summed per year (`incomeByYear.fees`); FX cost is
+observable from the conversion legs; TER is the only missing input and it is free. Nobody knows
+this total today.
+
+#### Scope / not in scope
+
+- In: `costReport(result, terByIsin)` pure; a card on Income & cost with the four lines per year
+  and the percentage.
+- Not in scope: DEGIRO's own cost statement reconciliation (not reachable through the endpoints
+  this project uses), an opinion on whether the costs are high.
+
+#### Acceptance criteria
+
+- [ ] Fees per year are `incomeByYear.fees` unchanged; FX cost is the spread implied by the
+      conversion legs against the day's derived rate (`fxFromConversions`), stated as an estimate.
+- [ ] TER cost = TER × average position value over the year, per ETF; an ISIN without a TER in the
+      bundle is listed as "TER unknown", counted, never assumed 0 or a category average.
+- [ ] Percentage = total ÷ average account value for the year; a year with fewer than 30 days of
+      data shows euros only.
+
+#### Dependencies
+
+US-104 (TER in the bundle), US-105 (ISIN matching).
+
+#### Test
+
+A synthetic year with two ETFs, one with a TER and one without: euros match by hand, the unknown
+is named.
+
+---
+
+### US-132 — The behaviour mirror *(new, refined)*
+
+**Layer A.** Average holding period, trades per year, buys after a rise and sells after a fall
+counted, and the difference between the account's real entry points and a monthly DCA of the same
+amounts. Only this project has the full transaction history to compute it.
+
+#### Why
+
+Unique to the data this project holds, and it touches nobody but the reader.
+
+#### Scope / not in scope
+
+- In: `behaviour(result, transactions)` pure; a card on Rendement.
+- Not in scope: any wording that judges ("you panic-sold"): the card counts, it does not
+  characterise. A rise/fall is defined against the position's own price series over the
+  preceding 30 days and the definition is printed on the card.
+
+#### Acceptance criteria
+
+- [ ] Holding period per closed lot by FIFO pairing of that product's trades, stated as the
+      convention it is; open positions counted from purchase to `today`.
+- [ ] "Buy after a rise" = a buy on a day the product's close is ≥ 10 % above its close 30 days
+      earlier; the mirror for sells. Both thresholds named constants shown on the card.
+- [ ] DCA comparison: the same total deposited, spread evenly over the months of the account's
+      life, bought into the same instruments at the same weights the account actually ended up
+      with; the difference is stated with the assumption spelled out.
+- [ ] A product without a price series is excluded from the rise/fall counts and the exclusion is
+      counted.
+
+#### Dependencies
+
+None beyond `computePortfolio`.
+
+#### Test
+
+Three trades with known closes: the counts by hand; a closed round trip's holding period.
+
+---
+
+### US-133 — Currency exposure *(new, refined)*
+
+**Layer A.** Value by currency, and how much of a period's result came from exchange rates. FX is
+already derived per transaction; this is presentation of what exists.
+
+#### Scope / not in scope
+
+- In: `currencyExposure(result, fromIndex, toIndex)` pure; a card on Composition.
+- Not in scope: hedging advice, a rate forecast.
+
+#### Acceptance criteria
+
+- [ ] Value per currency on the last day, from `byProduct[].currency` and `cashByCurrency`;
+      products valued through an implied rate (US-96) are grouped under the currency the trades
+      state, not the record's.
+- [ ] FX contribution over a window = Σ per product of (value in own currency at start) × (rate
+      end − rate start), stated as an approximation and shown beside the total result.
+- [ ] A currency the engine has no rate for (1:1 fallback, already an engine error) is listed as
+      "rate unknown" on the card.
+
+#### Dependencies
+
+None.
+
+#### Test
+
+Two products in two currencies with a known rate move: the contribution by hand.
+
+---
+
+### US-134 — Cash drag *(new, refined)*
+
+**Layer A.** Uninvested balance over time and what it cost against the account's own return. One
+chart, one number.
+
+#### Scope / not in scope
+
+- In: `cashDrag(result, fromIndex, toIndex)` pure; a chart on Rendement.
+- Not in scope: a recommendation to invest it.
+
+#### Acceptance criteria
+
+- [ ] Drag = Σ over days of cash balance × the positions' daily return that day, over the window;
+      stated as "had the cash been in the positions at their weights that day".
+- [ ] Negative when the positions fell — cash then helped, and the card says so with the same
+      neutrality.
+- [ ] A day the cash balance is negative (margin) contributes zero and is counted.
+
+#### Dependencies
+
+None.
+
+#### Test
+
+A flat cash balance beside a position that gains 10 %: drag equals 10 % of the balance.
+
+---
+
+### US-135 — Rebalancing helper *(new, refined)*
+
+**Layer A.** Target weights per position; the difference to today's weights, and what the next
+contribution would have to buy to move toward them. Arithmetic only.
+
+#### Scope / not in scope
+
+- In: `rebalance(byProduct, targets, contribution)` pure; a card on Composition with editable
+  targets, persisted like the withholding overrides.
+- Not in scope: sectors (nothing in the data carries one), a suggested target, a buy/sell order.
+
+#### Acceptance criteria
+
+- [ ] Targets that do not sum to 100 % are shown with the gap, not normalised silently.
+- [ ] The helper only ever allocates the contribution (buys), never proposes a sale; the card
+      says why.
+- [ ] Wording is "to reach your targets" and never "should".
+
+#### Dependencies
+
+None.
+
+#### Test
+
+Three positions, targets and a contribution: the allocation by hand; targets summing to 90 %.
+
+---
+
+### US-136 — Notices on the bundle *(new, refined — Layer A + B, depends on US-104)*
+
+**Layer A + B.** Ex-date next week, a position above X % of value, a dividend change in the bundle.
+The existing Notices pattern: on open only, no mail, no push.
+
+#### Scope / not in scope
+
+- In: three notice kinds; the concentration one is Layer A and can ship first; the two dividend
+  ones read the bundle.
+- Not in scope: anything that leaves the browser (rule 7), a badge count on the icon.
+
+#### Acceptance criteria
+
+- [ ] Concentration: threshold per account (default 20 %), notice when a position crosses it
+      upward since the previous sync.
+- [ ] Ex-date and bundle dividend change: from US-104's records, matched by US-105; an unmatched
+      position never produces a notice and never suppresses one silently — the attention list
+      covers it.
+- [ ] Each notice is dismissible and does not return for the same event.
+
+#### Dependencies
+
+US-104, US-105 for the two bundle kinds; US-122 replaces the bundle's dividend change with the
+account's own where both exist.
+
+#### Test
+
+A position crossing 20 % between two synthetic syncs; a notice dismissed stays dismissed.
+
+---
+
+### US-137 — Backup and restore of the raw store *(new, refined)*
+
+**Layer A.** The raw API responses (rule 2) exported as one encrypted file and restored from it. A
+reinstall or a new laptop currently costs five years of throttled requests.
+
+#### Why
+
+The single feature paying users miss first, and the one whose absence contradicts rule 2's own
+claim that everything else can be rebuilt from the raw store.
+
+#### Scope / not in scope
+
+- In: `backup.js` — the raw store serialised, encrypted with a passphrase the user types
+  (WebCrypto, AES-GCM, PBKDF2), written through the existing download path; restore verifies the
+  passphrase, replaces the raw store, and lets `computePortfolio` rebuild.
+- Not in scope: cloud storage, automatic backups, a merge of two stores (multi-account is out).
+
+#### Acceptance criteria
+
+- [ ] The file is an **allowlist** of raw stores (rule 7): transactions, cash movements, products,
+      prices, and the version; session, account meta and every derived cache are not in it.
+      `tools/audit-export.mjs` covers the backup format too.
+- [ ] Encryption is mandatory; an empty passphrase is refused. The file name carries no account
+      identifier.
+- [ ] Restore refuses a file from a newer schema version, and asks before replacing a store that
+      has more rows than the file.
+- [ ] After restore, the reconciliation check runs and shows its result before anything else.
+
+#### Dependencies
+
+None.
+
+#### Test
+
+Round trip through the fake IndexedDB: byte-identical raw store; a wrong passphrase refused; the
+audit finds no undeclared field.
+
+---
+
+### US-138 — Interop: export to Portfolio Performance, import of the years before 2019 *(new, refined — needs the SPEC §7 amendment it already anticipates)*
+
+**Layer A.** A CSV in the format Portfolio Performance imports, so nobody is locked in; and import
+of DEGIRO's own account-statement CSV for the years before `HISTORY_START`.
+
+**SPEC §7: "no export to Portfolio Performance unless asked."** The brief asks. Record the
+amendment as: "asked, 2026-09-02; the export is an allowlist per rule 7."
+
+#### Scope / not in scope
+
+- In: `interop.js` — a PP transactions CSV (date, type, ISIN, shares, amount, fees, taxes,
+  currency) and a PP account CSV; a CSV import that becomes a second kind of persisted raw truth,
+  labelled as imported, never merged into the API store.
+- Not in scope: import as the primary source (the brief keeps that for when the scrape breaks),
+  any other tool's format.
+
+#### Acceptance criteria
+
+- [ ] The export writes only the columns PP documents; no name, account number or token can enter
+      it (`audit-export.mjs` extended).
+- [ ] Imported rows are stored apart from the API rows with their file name and import date, and
+      `computePortfolio` treats them identically; a row that fails to parse is counted and shown,
+      never skipped silently.
+- [ ] An imported period overlapping the API period is refused with the overlap dates named — two
+      sources for one day is a double count.
+- [ ] The reconciliation check still runs on the combined history and says so if it no longer
+      holds.
+
+#### Dependencies
+
+The SPEC §7 amendment above; US-137's allowlist tooling.
+
+#### Test
+
+Export of the synthetic account re-parsed against PP's documented columns; an import of a
+synthetic statement for 2018 ahead of a 2019 API history; an overlapping import refused.
+
+---
+
+### US-139 — The year review *(new, refined)*
+
+**Layer A.** One page per calendar year: return, deposits, dividend, costs, best and worst
+position, with amounts on or off, as PDF and as an image. With amounts off it is shareable, and
+therefore the only free marketing channel.
+
+#### Scope / not in scope
+
+- In: a `Year` view reading `incomeByYear`, `windowReturnPct` and the per-product window result
+  for one calendar year; an image via canvas and a print stylesheet for the PDF.
+- Not in scope: a comparison against anyone else, a benchmark line (US-98), a rank.
+
+#### Acceptance criteria
+
+- [ ] With amounts off, the page carries **no** euro figure, no share count and no position name
+      beyond what the privacy mask already allows — percentages and the masked names only. This is
+      a rule-7 allowlist: the render function receives only the declared fields.
+- [ ] The rendered image is checked in a test against the same allowlist (the text it draws is
+      enumerable).
+- [ ] A year the reconciliation flags is rendered with the flag; it cannot be turned off for the
+      image.
+- [ ] Return is US-31's pair (time-weighted and money-weighted) with both named, as everywhere.
+
+#### Dependencies
+
+None.
+
+#### Test
+
+A synthetic year rendered twice; the amounts-off render contains no digit followed by a currency
+symbol and no unmasked name.
+
+---
+
+**Next free number: US-140.**
