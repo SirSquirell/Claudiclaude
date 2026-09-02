@@ -286,9 +286,12 @@ test('US-79 — nothing anywhere removes DEGIRO’s own cookie, and the alarm is
    * image of rule 9 — the extension reads a session it did not create and writes
    * nothing back. The only cookie call in this codebase is a `get`.
    *
-   * AC3's other half is here too: `sw.js` owns the alarms, so the disconnect
-   * message clears the periodic sync and a user-pressed sync re-arms it. Without
-   * the clear, the next firing re-caches the identifiers.
+   * AC3's other half — the disconnect message clears the alarm, a pressed Sync
+   * re-arms it, and `tab-ready` reaches `runSync` as `scheduled` — used to be
+   * asserted here by regexes over `sw.js`'s source. It is now *executed*, against
+   * a fake `chrome`, in `test/sw.test.js`. What stays here is what a fake
+   * `chrome` cannot see: the one caller that is not a message at all (the alarm),
+   * and the absence of two things across five files.
    */
   const src = ['../src/sw.js', '../src/lib/sync.js', '../src/lib/session.js', '../src/ui/app.js', '../src/ui/popup.js']
     .map((f) => readFileSync(new URL(f, import.meta.url), 'utf8'))
@@ -296,16 +299,7 @@ test('US-79 — nothing anywhere removes DEGIRO’s own cookie, and the alarm is
   assert.ok(!/cookies\.remove|cookies\.set/.test(src), 'the broker’s cookie is not ours to delete or write');
 
   const sw = readFileSync(new URL('../src/sw.js', import.meta.url), 'utf8');
-  const disconnectCase = sw.slice(sw.indexOf("case 'disconnect'"), sw.indexOf("case 'openApp'"));
-  assert.match(disconnectCase, /chrome\.alarms\.clear\(SYNC\.alarmName\)/);
-  assert.match(disconnectCase, /disconnectAccount\(\)/);
-  const syncCase = sw.slice(sw.indexOf("case 'sync'"), sw.indexOf("case 'diagnose'"));
-  assert.match(syncCase, /chrome\.alarms\.create\(SYNC\.alarmName/, 'pressing Sync re-arms what the disconnect cleared');
-  // The two callers that are not a person: the alarm, and the page itself
-  // (US-113's `tab-ready`, once `readywatch.js` calls the tab quiet).
-  assert.match(sw, /runSync\(\{ scheduled: true \}\).*alarm-sync/s);
-  const tabReadyCase = sw.slice(sw.indexOf("case 'tab-ready'"), sw.indexOf("case 'diagnose'"));
-  assert.match(tabReadyCase, /runSync\(\{ scheduled: true \}\)/, 'a page-driven sync is scheduled, not a person pressing sync');
+  assert.match(sw, /runSync\(\{ scheduled: true \}\).*alarm-sync/s, 'the alarm is a caller that is not a person');
   assert.ok(!/tabs\.onUpdated/.test(sw), 'the old per-page-load trigger is removed, not left beside the new one');
 });
 
