@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { perShareSeries, RECENT_TRADE_DAYS, detectRhythm, classifyPayments, changes, forwardIncome, yields, trackRecord } from '../src/lib/dividends.js';
+import { perShareSeries, RECENT_TRADE_DAYS, detectRhythm, nextExpected, NEXT_EXPECTED_MARGIN, classifyPayments, changes, forwardIncome, yields, trackRecord } from '../src/lib/dividends.js';
 import { computePortfolio } from '../src/lib/engine.js';
 import { CATEGORY } from '../src/lib/classify.js';
 
@@ -237,6 +237,56 @@ test('US-124: fewer than three points, or gaps that disagree, is irregular — a
 test('US-124: order of the input does not matter', () => {
   const r = detectRhythm(dated('2024-03-15', '2023-03-15', '2023-09-15', '2023-06-15', '2023-12-15'));
   assert.equal(r.rhythm, 'quarterly');
+});
+
+test('US-124: the next expected payment is the last regular one plus the interval, with a ±15 % window', () => {
+  const { transactions, cashRows } = quarterlyPayer('Q');
+  const q = classifyPayments(perShareSeries(transactions, cashRows)).byProduct.Q;
+  const n = nextExpected(q.points, q.rhythm, '2025-01-31');
+  assert.equal(n.reason, null);
+  assert.equal(n.lastDate, '2024-12-15');
+  assert.equal(n.expected, '2025-03-16', '2024-12-15 + 91 days (a quarter, rounded)');
+  assert.equal(n.marginDays, 14, `15 % of a quarter, rounded — NEXT_EXPECTED_MARGIN is ${NEXT_EXPECTED_MARGIN}`);
+  assert.equal(n.from, '2025-03-02');
+  assert.equal(n.to, '2025-03-30');
+  assert.equal(n.overdue, false);
+  assert.equal(n.intervalDays, q.rhythm.intervalDays);
+});
+
+test('US-124: a window that has passed is overdue, and past 1.5 intervals the stream is stopped', () => {
+  const { transactions, cashRows } = quarterlyPayer('Q');
+  const q = classifyPayments(perShareSeries(transactions, cashRows)).byProduct.Q;
+  const overdue = nextExpected(q.points, q.rhythm, '2025-04-15');
+  assert.equal(overdue.reason, null);
+  assert.equal(overdue.overdue, true, 'the whole window is before today, the payment has not been seen');
+  const stopped = nextExpected(q.points, q.rhythm, '2025-05-02');
+  assert.equal(stopped.expected, null);
+  assert.equal(stopped.reason, 'stopped');
+  assert.equal(stopped.detail.expectedBy, '2025-05-01', 'the same 1.5-interval rule US-122 uses');
+  assert.equal(stopped.detail.overdueDays, 1);
+  assert.equal(stopped.lastDate, '2024-12-15');
+});
+
+test('US-124: irregular rhythm or no payments is null with a reason, never a date', () => {
+  const two = [{ date: '2024-01-15', grossPerShare: 1 }, { date: '2024-02-15', grossPerShare: 1 }];
+  const r = nextExpected(two, detectRhythm(two), '2024-03-01');
+  assert.equal(r.expected, null);
+  assert.equal(r.reason, 'irregular-rhythm');
+  assert.equal(r.detail.rhythmReason, 'too-few-points');
+  assert.equal(r.detail.regularPayments, 2);
+  const none = nextExpected([], detectRhythm([]), '2024-03-01');
+  assert.equal(none.reason, 'no-payments');
+  assert.equal(none.lastDate, null);
+});
+
+test('US-124: a special after the last regular payment does not move the estimate', () => {
+  const { transactions, cashRows } = quarterlyPayer('Q');
+  cashRows.push(div('Q', '2025-01-20', 90));
+  const q = classifyPayments(perShareSeries(transactions, cashRows)).byProduct.Q;
+  assert.equal(q.points.at(-1).label, 'special');
+  const n = nextExpected(q.points, q.rhythm, '2025-01-31');
+  assert.equal(n.lastDate, '2024-12-15', 'only regular payments set the clock');
+  assert.equal(n.expected, '2025-03-16');
 });
 
 // ---------------------------------------------------------------------------

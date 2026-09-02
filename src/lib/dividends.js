@@ -40,6 +40,17 @@
  *     `intervalDays` is the nominal length of the detected interval, null when
  *     irregular; `reason` says why it is irregular, null otherwise.
  *
+ *   nextExpected(points, rhythm, today) →                            (US-124)
+ *     { expected, from, to, lastDate, intervalDays, marginDays, overdue,
+ *       reason: null }
+ *     or { expected: null, from: null, to: null, lastDate, reason, detail }
+ *     The last regular payment plus the nominal interval, with a margin of
+ *     ±15 % of the interval on either side. An estimate from the rhythm, never
+ *     an announced date — every consumer says so. `overdue` is true when the
+ *     whole window is before `today` (the payment has not been seen yet, but
+ *     the stream is not stopped either). Null with reason 'no-payments',
+ *     'irregular-rhythm' or 'stopped' (STOPPED_AFTER_INTERVALS, as US-122).
+ *
  *   classifyPayments(series) →                                       (US-125)
  *     the same shape as perShareSeries, plus `classified: true`, a `rhythm`
  *     (detectRhythm over the regular payments) per product, and on every
@@ -326,6 +337,47 @@ export function detectRhythm(points) {
   const confidence = agreeing / gaps.length;
   if (confidence < MIN_RHYTHM_CONFIDENCE) return IRREGULAR(gaps, 'gaps-disagree');
   return { rhythm, confidence, intervalDays: NOMINAL_INTERVAL_DAYS[rhythm], gaps, reason: null };
+}
+
+/**
+ * The window around the estimated next pay-date, as a fraction of the interval.
+ * 15 % of a quarter is two weeks either side, of a year seven weeks — about the
+ * drift real pay-dates show around holidays and year boundaries, and wide
+ * enough that the estimate is a window rather than a day nobody can promise.
+ */
+export const NEXT_EXPECTED_MARGIN = 0.15;
+
+/**
+ * US-124. Where the next regular payment is expected, from the rhythm alone.
+ *
+ * @param {Array<{date: string, label?: string}>} points a product's points; labelled ones are filtered to 'regular', unlabelled ones are taken as they are
+ * @param {{rhythm: string, intervalDays: number|null, reason: string|null}} rhythm from detectRhythm
+ * @param {string} today
+ */
+export function nextExpected(points, rhythm, today) {
+  const regular = points.filter((p) => (p.label === undefined ? true : p.label === 'regular') && p.grossPerShare !== null);
+  const dates = regular.map((p) => p.date).sort();
+  const lastDate = dates.at(-1) ?? null;
+  const refused = (reason, detail = null) => ({ expected: null, from: null, to: null, lastDate, reason, detail });
+  if (!lastDate) return refused('no-payments');
+  if (rhythm.rhythm === 'irregular') return refused('irregular-rhythm', { rhythmReason: rhythm.reason, regularPayments: dates.length });
+
+  const stoppedBy = addDays(lastDate, Math.round(STOPPED_AFTER_INTERVALS * rhythm.intervalDays));
+  if (today > stoppedBy) return refused('stopped', { lastDate, expectedBy: stoppedBy, overdueDays: daysBetween(stoppedBy, today) });
+
+  const marginDays = Math.round(NEXT_EXPECTED_MARGIN * rhythm.intervalDays);
+  const expected = addDays(lastDate, Math.round(rhythm.intervalDays));
+  const to = addDays(expected, marginDays);
+  return {
+    expected,
+    from: addDays(expected, -marginDays),
+    to,
+    lastDate,
+    intervalDays: rhythm.intervalDays,
+    marginDays,
+    overdue: to < today,
+    reason: null,
+  };
 }
 
 // ---------------------------------------------------------------------------

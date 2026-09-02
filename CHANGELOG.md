@@ -18,6 +18,15 @@ plain increments — this is not a library and nothing depends on its API.
 
 ## [0.70.0] — 2026-09-02
 
+### Added
+
+- **US-124 — the next expected payment, estimated from the rhythm.** `nextExpected(points, rhythm,
+  today)` in `src/lib/dividends.js`: the last regular payment plus the nominal interval, with a
+  window of ±15 % of the interval either side; null with a reason (`no-payments`,
+  `irregular-rhythm`, `stopped` — the same 1.5-interval rule US-122 uses) rather than a date nobody
+  can stand behind. Pure, tested, additive; the column on the Dividends tab lands with the table
+  below.
+
 ### Fixed
 
 - **CI ran on Node 20 and found no tests.** `npm test` calls `node --test "test/*.test.js"`; Node
