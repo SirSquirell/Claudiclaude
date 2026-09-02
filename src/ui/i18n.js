@@ -366,6 +366,15 @@ const DICT = {
     Received: 'Ontvangen',
     Projected: 'Geprojecteerd',
 
+    // --- US-122: raises, cuts and stopped streams as notices -----------------------
+    'Dividend cut': 'Dividend verlaagd',
+    'Dividend raised': 'Dividend verhoogd',
+    'Dividend stopped': 'Dividend gestopt',
+    '{name}: {pct} per share on {date} against the payment of {prev} — {now} vs {before} per share, in EUR as settled, so part of a foreign payer’s change can be the exchange rate. Read after the fact from this account’s own rows, not announced.':
+      '{name}: {pct} per aandeel op {date} ten opzichte van de uitkering van {prev} — {now} tegenover {before} per aandeel, in EUR zoals afgewikkeld, dus bij een buitenlandse betaler kan een deel van de verandering de wisselkoers zijn. Achteraf afgelezen uit de eigen regels van dit account, niet aangekondigd.',
+    '{name}: the last regular payment was on {last} and its {rhythm} rhythm expected the next by {by}, {days} day(s) ago. Read from this account’s own rows: a payment that has not landed, not an announcement.':
+      '{name}: de laatste reguliere uitkering was op {last} en volgens het ritme ({rhythm}) werd de volgende vóór {by} verwacht, {days} dag(en) geleden. Afgelezen uit de eigen regels van dit account: een uitkering die niet is binnengekomen, geen aankondiging.',
+
     // --- US-123: the expected annual income tile ---------------------------------
     'no position with a per-share dividend history yet': 'nog geen positie met een dividendgeschiedenis per aandeel',
     'last 12 months of regular payments × today’s shares, in EUR · {n} of {m} positions':

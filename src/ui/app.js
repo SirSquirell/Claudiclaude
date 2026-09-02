@@ -9,7 +9,7 @@ import { aggregatePnl, annualisedReturn, buildComposition, projectPortfolio, pro
 import { isinCountry, treatyRateFor, withholdingSplit, TREATY_RATE } from '../lib/withholding.js';
 import { perShareSeries, classifyPayments, changes as dividendChanges, forwardIncome, yields as dividendYields, trackRecord, nextExpected, MIN_COMPARISON_PAYMENTS, RECENT_TRADE_DAYS } from '../lib/dividends.js';
 import { CATEGORY } from '../lib/classify.js';
-import { formatDay, monthKey, weekKey } from '../lib/dates.js';
+import { formatDay, monthKey, subMonths, weekKey } from '../lib/dates.js';
 import { GESTURE } from '../lib/config.js';
 import {
   candleChart,
@@ -3813,6 +3813,39 @@ function renderBanners(data, r) {
     const level = w.level === 'error' ? 'error' : w.level === 'info' ? 'info' : 'warn';
     const title = NOTE_TITLES[w.code] ?? w.code;
     add(level, w.count > 1 ? `${title} (${w.count}×)` : title, w.message);
+  }
+
+  /**
+   * US-122. Raises, cuts and stopped streams, from the account's own rows.
+   *
+   * One notice per product: its latest regular payment labelled raised or cut
+   * within the last twelve months, and a stopped stream. A cut and a stop are
+   * warnings — the level this section already uses for "the data behind the
+   * page is not what it looks like" — and a raise is a note, because nothing
+   * needs doing about it. After the fact and in EUR per share as settled, and
+   * the text says both: a foreign payer's change is partly the exchange rate.
+   */
+  const dm = dividendModel(data, r);
+  const since = subMonths(dm.today, 12);
+  for (const [id, ch] of Object.entries(dm.changes.byProduct)) {
+    const name = dm.series.byProduct[id]?.name ?? id;
+    const latest = ch.payments.filter((c) => (c.label === 'raised' || c.label === 'cut') && c.date > since).at(-1);
+    if (latest) {
+      add(
+        latest.label === 'cut' ? 'warn' : 'info',
+        latest.label === 'cut' ? 'Dividend cut' : 'Dividend raised',
+        tr('{name}: {pct} per share on {date} against the payment of {prev} — {now} vs {before} per share, in EUR as settled, so part of a foreign payer’s change can be the exchange rate. Read after the fact from this account’s own rows, not announced.',
+          { name, pct: fmtPct(latest.pct), date: formatDay(latest.date), prev: formatDay(latest.comparedTo.date), now: fmtPrice(latest.grossPerShare, 'EUR'), before: fmtPrice(latest.comparedTo.grossPerShare, 'EUR') }),
+      );
+    }
+    if (ch.stopped) {
+      add(
+        'warn',
+        'Dividend stopped',
+        tr('{name}: the last regular payment was on {last} and its {rhythm} rhythm expected the next by {by}, {days} day(s) ago. Read from this account’s own rows: a payment that has not landed, not an announcement.',
+          { name, last: formatDay(ch.stopped.lastDate), rhythm: rhythmWord(ch.stopped.rhythm), by: formatDay(ch.stopped.expectedBy), days: ch.stopped.overdueDays }),
+      );
+    }
   }
 
   state.notes = notes;

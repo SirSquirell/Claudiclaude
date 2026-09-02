@@ -37,6 +37,13 @@ plain increments — this is not a library and nothing depends on its API.
   and count. The page now receives the classified cash rows (`datasource.js`), so the layer is
   recomputed from raw rows on every load and is never persisted. No figure the engine produces
   changed.
+- **US-122 — raises, cuts and stopped streams are Notices.** Per position, the latest regular
+  payment labelled raised or cut within the last twelve months becomes an entry in the Notices
+  section — a cut at warning level, a raise as a note — naming the change per share, the payment it
+  was compared with, both per-share amounts, and that the figures are in EUR as settled (a foreign
+  payer's change is partly the exchange rate). A stream whose detected rhythm says the next payment
+  is more than 1.5 intervals overdue is a warning too. The existing Notices model; nothing new was
+  built for it, and none of it reaches the bug report, which reads the engine's warnings only.
 - **US-123 — an *Expected annual income* tile on the Dividends tab.** The regular per-share payments
   of the last twelve months (one rhythm cycle's worth, specials out) times today's share count, in
   EUR, gross; the tile says on how many of the positions with a dividend history it could be formed
