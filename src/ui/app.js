@@ -3118,6 +3118,26 @@ function buildTiles(r, from = 0, to = r.days.length - 1, live = null) {
         note: w.reason ? tr('needs a longer trailing window') : tr('trailing 12 months, income ÷ average value'),
       };
     })(),
+    (() => {
+      /**
+       * US-123. The projection beside the measurement: the regular per-share
+       * payments of the last twelve months at today's share count, specials
+       * out. The count of positions it could and could not be formed for is
+       * on the tile itself, so the total never reads as complete when it is
+       * not — a product with an irregular rhythm, a stopped stream or less than
+       * one cycle of payments is left out and says so in its opened row.
+       */
+      const fi = dividendModel(state.data, r).forward;
+      const m = fi.determinedCount + fi.undeterminedCount;
+      return {
+        tabs: ['dividends'],
+        label: 'Expected annual income',
+        value: fmtEurCents(fi.total),
+        note: m === 0
+          ? tr('no position with a per-share dividend history yet')
+          : tr('last 12 months of regular payments × today’s shares, in EUR · {n} of {m} positions', { n: fi.determinedCount, m }),
+      };
+    })(),
     {
       tabs: ['dividends'],
       label: 'Beta',
@@ -3491,6 +3511,7 @@ const TILE_TIPS = {
   Result: 'What the account made, with deposits and withdrawals taken out, so paying money in never looks like a gain. The percentage chains the daily returns rather than dividing by the opening value, so a deposit landing mid-range does not flatter it.',
   Today: 'DEGIRO’s own result so far today on the positions you hold, taken from the last sync — so it matches the figure in DEGIRO itself. If the market is still open it can still move before the close. When that live figure is not available it falls back to the last day’s reconstructed change, which is zero on a day with no trading.',
   'Dividend received': 'Cash that actually landed, net of the tax withheld at source. The withheld amount is stated separately because you may be able to reclaim part of it.',
+  'Expected annual income': 'From the last twelve months of payments, in EUR, at today’s share count: per position, the regular per-share payments of one rhythm cycle times the shares held today, gross. Special payments are left out and listed in the position’s opened row. Positions with no detectable rhythm, a stopped stream or less than one full cycle of payments are not in the total, and the count says how many. Not a forecast — no growth is assumed; the Outlook page is where that assumption lives.',
   'Fees paid': 'Transaction and service costs only: courtage, connectivity, custody and third-party charges. It does not include what a margin balance costs you — that is Interest, and on a leveraged account it is usually the larger of the two.',
   Interest: 'Credit and debit interest, including the financing cost of a margin (debit) balance. Negative means you paid it. Kept apart from Fees because a financing cost is not a fee.',
   'Total cost': 'Fees, withheld dividend tax and interest paid, added together — what holding this account has cost you. Each is easy to ignore alone, which is the argument for the sum.',

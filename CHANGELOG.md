@@ -37,6 +37,12 @@ plain increments — this is not a library and nothing depends on its API.
   and count. The page now receives the classified cash rows (`datasource.js`), so the layer is
   recomputed from raw rows on every load and is never persisted. No figure the engine produces
   changed.
+- **US-123 — an *Expected annual income* tile on the Dividends tab.** The regular per-share payments
+  of the last twelve months (one rhythm cycle's worth, specials out) times today's share count, in
+  EUR, gross; the tile says on how many of the positions with a dividend history it could be formed
+  ("5 of 7 positions"), and each excluded position's opened row says why. It stands beside US-110's
+  growth chart, whose card is renamed *Income projection, from measured growth* so the two cannot be
+  read as the same figure: the tile assumes nothing, the chart compounds a measured rate.
 - **US-124 — the next expected payment, estimated from the rhythm.** `nextExpected(points, rhythm,
   today)` in `src/lib/dividends.js`: the last regular payment plus the nominal interval, with a
   window of ±15 % of the interval either side; null with a reason (`no-payments`,

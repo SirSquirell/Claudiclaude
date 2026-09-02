@@ -339,7 +339,7 @@ const DICT = {
     'Income by position': 'Inkomen per positie',
     'Share of dividend income received, not share of value — the gap between the two is where concentration hides. The seven largest positions by income, the rest folded into "Other".':
       'Aandeel in ontvangen dividendinkomen, niet aandeel in waarde — het verschil tussen de twee is waar concentratie zich verbergt. De zeven grootste posities op inkomen, de rest samengevoegd in "Overig".',
-    'Income forecast': 'Inkomstenprognose',
+    'Income projection, from measured growth': 'Inkomstenprojectie, uit gemeten groei',
     'Holdings, dividend view': 'Posities, dividendweergave',
     'A dividend-scoped column set, not the general Positions table. Consistency is the same per-year total as a small sparkline — the fastest way to see a year that paid less than the one before it, which a single lifetime total hides.':
       'Een op dividend toegespitste kolomset, niet de algemene Posities-tabel. Consistentie toont hetzelfde totaal per jaar als een klein lijngrafiekje — de snelste manier om een jaar te zien dat minder opleverde dan het jaar ervoor, wat één totaal over de hele looptijd verbergt.',
@@ -365,6 +365,13 @@ const DICT = {
     'Then a projection, not history: {v} by {when}.': 'Daarna een projectie, geen geschiedenis: {v} in {when}.',
     Received: 'Ontvangen',
     Projected: 'Geprojecteerd',
+
+    // --- US-123: the expected annual income tile ---------------------------------
+    'no position with a per-share dividend history yet': 'nog geen positie met een dividendgeschiedenis per aandeel',
+    'last 12 months of regular payments × today’s shares, in EUR · {n} of {m} positions':
+      'laatste 12 maanden reguliere uitkeringen × aandelen van vandaag, in EUR · {n} van {m} posities',
+    'From the last twelve months of payments, in EUR, at today’s share count: per position, the regular per-share payments of one rhythm cycle times the shares held today, gross. Special payments are left out and listed in the position’s opened row. Positions with no detectable rhythm, a stopped stream or less than one full cycle of payments are not in the total, and the count says how many. Not a forecast — no growth is assumed; the Outlook page is where that assumption lives.':
+      'Uit de laatste twaalf maanden uitkeringen, in EUR, tegen het aantal aandelen van vandaag: per positie de reguliere uitkeringen per aandeel van één ritmecyclus maal de nu gehouden aandelen, bruto. Bijzondere uitkeringen blijven erbuiten en staan in de geopende rij van de positie. Posities zonder herkenbaar ritme, met een gestopte stroom of met minder dan één volledige cyclus aan uitkeringen zitten niet in het totaal, en de telling zegt hoeveel dat er zijn. Geen voorspelling — er wordt geen groei aangenomen; die aanname hoort op de pagina Vooruitblik.',
 
     // --- US-121 … US-127: the per-share dividend layer -------------------------
     'A dividend-scoped column set, not the general Positions table. Consistency is the same per-year total as a small sparkline — the fastest way to see a year that paid less than the one before it, which a single lifetime total hides. Open a row for every payment per share.':
