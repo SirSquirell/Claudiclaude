@@ -50,6 +50,18 @@ plain increments — this is not a library and nothing depends on its API.
   ("5 of 7 positions"), and each excluded position's opened row says why. It stands beside US-110's
   growth chart, whose card is renamed *Income projection, from measured growth* so the two cannot be
   read as the same figure: the tile assumes nothing, the chart compounds a measured rate.
+- **US-128 — an income goal on the Outlook page.** A goal per month in EUR against the expected
+  annual income (US-123): the income now, the share of the goal, the gap, and the month the goal
+  would be met under the Outlook page's own deposit, yield, reinvestment switch and horizon plus one
+  assumption of its own — dividend growth a year, prefilled with the account's measured rate (US-127's
+  per-position CAGRs weighted by expected income, labelled *measured* with the positions and years
+  it covers) and labelled *your assumption* the moment it is typed over. Every assumption is on the
+  card; the income figure carries US-123's count of positions it could not be formed for. Two pure
+  functions in `src/lib/dividends.js`, `measuredDividendGrowth` and `incomeGoal`, tested by hand
+  arithmetic; `incomeGoal` refuses a growth or yield beyond `projectPortfolio`'s own ±50 % and caps
+  the horizon at its 60 months — both constants are now exported from `engine.js` (the only change
+  there, additive, no logic touched) rather than redefined. The goal is held like the other Outlook
+  inputs: for the page, not persisted.
 - **US-124 — the next expected payment, estimated from the rhythm.** `nextExpected(points, rhythm,
   today)` in `src/lib/dividends.js`: the last regular payment plus the nominal interval, with a
   window of ±15 % of the interval either side; null with a reason (`no-payments`,

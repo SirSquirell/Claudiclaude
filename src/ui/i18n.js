@@ -672,6 +672,49 @@ const DICT = {
     'You hold {cash} in cash against {div} of dividend received, so at most {share}% of it can still be sitting uninvested \u2014 the rest demonstrably went somewhere. A ceiling rather than a measurement, so it only sets the default of the switch above.':
       'Je hebt {cash} aan cash tegenover {div} ontvangen dividend, dus hooguit {share}% daarvan kan nog stilstaan \u2014 de rest is aantoonbaar ergens heen gegaan. Een bovengrens en geen meting, dus het zet alleen de stand van de schakelaar hierboven.',
 
+    // --- US-128: the income goal -------------------------------------------------
+    'Income goal': 'Inkomensdoel',
+    'Where the expected annual income from the Dividends tab stands against a goal per month, and when the goal would be met if the monthly deposit and the yield set above kept going and the dividends themselves kept growing at the rate below. Arithmetic on stated assumptions; none of them is a recommendation, and none of it is a forecast.':
+      'Waar het verwachte jaarinkomen van het tabblad Dividenden staat tegenover een doel per maand, en wanneer dat doel gehaald zou worden als de maandelijkse inleg en het rendement hierboven doorlopen en de dividenden zelf blijven groeien met het percentage hieronder. Rekenwerk op benoemde aannames; geen ervan is een aanbeveling, en niets ervan is een voorspelling.',
+    'Goal per month (EUR)': 'Doel per maand (EUR)',
+    'Dividend growth % a year': 'Dividendgroei % per jaar',
+    'no measured rate: no position has two complete calendar years of regular payments and an expected income':
+      'geen gemeten percentage: geen positie heeft twee volledige kalenderjaren reguliere uitkeringen én een verwacht inkomen',
+    'measured {rate} a year over {n} of {m} positions, {from}–{to}, weighted by expected income':
+      'gemeten {rate} per jaar over {n} van {m} posities, {from}–{to}, gewogen naar verwacht inkomen',
+    'your assumption': 'jouw aanname',
+    'nothing entered, so 0 % is used': 'niets ingevuld, dus 0 % wordt gebruikt',
+    measured: 'gemeten',
+    'nothing entered': 'niets ingevuld',
+    'Expected income now': 'Verwacht inkomen nu',
+    'a month · {n} of {m} positions with a dividend history · {k} not projectable':
+      'per maand · {n} van {m} posities met dividendgeschiedenis · {k} niet te projecteren',
+    'set above': 'hierboven ingesteld',
+    'Yield on new money': 'Rendement op nieuw geld',
+    'set by you, above': 'door jou ingesteld, hierboven',
+    'from your history, above': 'uit jouw historie, hierboven',
+    'Dividend growth': 'Dividendgroei',
+    yes: 'ja',
+    no: 'nee',
+    '{n} years': '{n} jaar',
+    'Enter a goal per month to see where this stands against it and how the assumptions above move the date.':
+      'Vul een doel per maand in om te zien waar dit tegenover staat en hoe de aannames hierboven de datum verschuiven.',
+    'Nothing is computed: a {what} of {rate} a year is beyond the ±{bound}% the Outlook projection itself treats as plausible. Set a smaller number.':
+      'Er wordt niets berekend: een {what} van {rate} per jaar ligt buiten de ±{bound}% die de Vooruitblik-projectie zelf als plausibel beschouwt. Kies een kleiner getal.',
+    'dividend growth': 'dividendgroei',
+    yield: 'rendement',
+    'already — the expected income is at or above the goal': 'al gehaald — het verwachte inkomen ligt op of boven het doel',
+    'not within the {n}-year horizon': 'niet binnen de horizon van {n} jaar',
+    '{when} · in {n} months': '{when} · over {n} maanden',
+    'Of the goal': 'Van het doel',
+    'of {goal} a month': 'van {goal} per maand',
+    Gap: 'Tekort',
+    'a month': 'per maand',
+    none: 'geen',
+    'Goal reached': 'Doel gehaald',
+    'The expected income is a measurement — the Dividends tab says what it rests on and which positions it leaves out. Everything after it is arithmetic on the assumptions shown: the stream grows at the dividend growth rate, and each month’s deposit (plus the month’s dividend, when put back to work) buys income at the yield. In EUR; none of it is advice, and the date moves with every assumption.':
+      'Het verwachte inkomen is een meting — het tabblad Dividenden zegt waarop het rust en welke posities het buiten laat. Alles daarna is rekenwerk op de getoonde aannames: de stroom groeit met het dividendgroeipercentage, en de inleg van elke maand (plus het dividend van die maand, als het weer aan het werk gaat) koopt inkomen tegen het rendement. In EUR; niets ervan is advies, en de datum verschuift met elke aanname.',
+
     // --- unreadable rows -------------------------------------------------------
     'DEGIRO sent rows this extension could not read': 'DEGIRO stuurde regels die deze extensie niet kon lezen',
     '{n} row(s) arrived in a shape the parser did not recognise and were left out: {reasons}. Everything above is missing them, so treat it as incomplete rather than wrong \u2014 and send the bug report, because this is what a renamed field looks like.':

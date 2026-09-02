@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { perShareSeries, RECENT_TRADE_DAYS, detectRhythm, nextExpected, NEXT_EXPECTED_MARGIN, classifyPayments, changes, forwardIncome, yields, trackRecord } from '../src/lib/dividends.js';
+import { perShareSeries, RECENT_TRADE_DAYS, detectRhythm, nextExpected, NEXT_EXPECTED_MARGIN, classifyPayments, changes, forwardIncome, yields, trackRecord, measuredDividendGrowth, incomeGoal } from '../src/lib/dividends.js';
+import { MAX_HORIZON_MONTHS, PLAUSIBLE_ANNUAL } from '../src/lib/engine.js';
 import { computePortfolio } from '../src/lib/engine.js';
 import { CATEGORY } from '../src/lib/classify.js';
 
@@ -730,4 +731,74 @@ test('US-127: payments after today are not part of the record', () => {
   const q = trackRecord(perShareSeries(transactions, cashRows), '2023-07-01').byProduct[0];
   assert.equal(q.lastPayment, '2023-06-15');
   assert.equal(q.regularPayments, 6);
+});
+
+// ---------------------------------------------------------------------------
+// US-128 measuredDividendGrowth, incomeGoal
+// ---------------------------------------------------------------------------
+
+test('US-128: the account’s dividend growth is the per-position CAGR weighted by forward income', () => {
+  const track = { byProduct: [
+    { productId: 'A', cagrPct: 10, cagrYears: ['2022', '2024'] },
+    { productId: 'B', cagrPct: -2, cagrYears: ['2023', '2025'] },
+    { productId: 'C', cagrPct: null, cagrYears: null, cagrReason: 'too-short' },
+    { productId: 'D', cagrPct: 40, cagrYears: ['2022', '2025'] },
+  ] };
+  const forward = { byProduct: [{ productId: 'A', income: 300 }, { productId: 'B', income: 100 }, { productId: 'C', income: 500 }] };
+  const g = measuredDividendGrowth(track, forward);
+  near(g.growthPct, (10 * 300 + -2 * 100) / 400, 1e-9, 'C has no CAGR and D no forward income, so neither weighs');
+  assert.equal(g.basis, 'measured');
+  assert.equal(g.products, 2);
+  assert.equal(g.of, 4);
+  assert.deepEqual(g.years, ['2022', '2025']);
+
+  const none = measuredDividendGrowth({ byProduct: [track.byProduct[2]] }, forward);
+  assert.equal(none.growthPct, null);
+  assert.equal(none.basis, 'none');
+  assert.equal(none.reason, 'no-measured-growth');
+  assert.equal(none.of, 1);
+});
+
+test('US-128: the goal is reached in the month hand arithmetic says, and the horizon is projectPortfolio’s', () => {
+  // €1 200 a year, growing 12 % a year, no new money: the goal of €110 a month
+  // needs 1.10× — at 12 % a year that is (1.12)^(m/12) ≥ 1.1, m ≥ 10.09, so month 11.
+  const g = incomeGoal({ annualIncome: 1200, goalPerMonth: 110, growthPct: 12, months: 60, today: '2026-08-18' });
+  assert.equal(g.refused, null);
+  assert.equal(g.currentPerMonth, 100);
+  near(g.pctOfGoal, 90.909090909, 1e-6);
+  assert.equal(g.gapPerMonth, 10);
+  assert.equal(g.monthsToGoal, 11);
+  assert.equal(g.reachedOn, '2027-07-18');
+  assert.equal(g.path.length, 60);
+  near(g.path[10], (1200 * 1.12 ** (11 / 12)) / 12, 1e-9);
+
+  // New money only: €600 a month at a 4 % yield adds €24 a year each month, so
+  // €1 200 → €1 320 a year takes 5 months.
+  const contrib = incomeGoal({ annualIncome: 1200, goalPerMonth: 110, monthly: 600, yieldPct: 4, months: 12 });
+  assert.equal(contrib.monthsToGoal, 5);
+  assert.equal(contrib.reachedOn, null, 'no today, no date');
+
+  // Reinvested dividends buy income too: month one adds (600 + 100) × 4 %.
+  const re = incomeGoal({ annualIncome: 1200, goalPerMonth: 110, monthly: 600, yieldPct: 4, reinvest: true, months: 12 });
+  near(re.path[0], (1200 + 700 * 0.04) / 12, 1e-9);
+
+  const already = incomeGoal({ annualIncome: 2400, goalPerMonth: 100, months: 12 });
+  assert.equal(already.monthsToGoal, 0);
+  assert.equal(already.gapPerMonth, 0);
+
+  const never = incomeGoal({ annualIncome: 1200, goalPerMonth: 1000, growthPct: 3, months: 12 });
+  assert.equal(never.monthsToGoal, null, 'not within the horizon is null, not a guess past it');
+
+  const capped = incomeGoal({ annualIncome: 1200, goalPerMonth: 1000, months: 999 });
+  assert.equal(capped.horizonMonths, MAX_HORIZON_MONTHS);
+  assert.equal(capped.path.length, MAX_HORIZON_MONTHS);
+});
+
+test('US-128: an implausible growth or yield is refused, and so is no goal', () => {
+  assert.equal(incomeGoal({ annualIncome: 1200, goalPerMonth: 100, growthPct: PLAUSIBLE_ANNUAL + 1 }).refused, 'implausible-growth');
+  assert.equal(incomeGoal({ annualIncome: 1200, goalPerMonth: 100, growthPct: -(PLAUSIBLE_ANNUAL + 1) }).refused, 'implausible-growth');
+  assert.equal(incomeGoal({ annualIncome: 1200, goalPerMonth: 100, yieldPct: PLAUSIBLE_ANNUAL + 1 }).refused, 'implausible-yield');
+  assert.equal(incomeGoal({ annualIncome: 1200, goalPerMonth: 100, growthPct: NaN }).refused, 'implausible-growth');
+  assert.equal(incomeGoal({ annualIncome: 1200, goalPerMonth: 0 }).refused, 'no-goal');
+  assert.equal(incomeGoal({ annualIncome: 1200, goalPerMonth: PLAUSIBLE_ANNUAL, growthPct: PLAUSIBLE_ANNUAL }).refused, null, 'the bound itself is allowed, as in projectPortfolio');
 });

@@ -597,6 +597,26 @@
         </div>
       </div>
 
+      <!-- US-128: an income goal against the expected annual income (US-123). -->
+      <div data-tab="outlook" class="grid" style="margin-top: 16px">
+        <div class="card" id="income-goal-card">
+          <h2 data-i18n>Income goal</h2>
+          <p class="hint" data-i18n>Where the expected annual income from the Dividends tab stands against a goal per
+            month, and when the goal would be met if the monthly deposit and the yield set above kept going and the
+            dividends themselves kept growing at the rate below. Arithmetic on stated assumptions; none of them is a
+            recommendation, and none of it is a forecast.</p>
+          <div class="controls" style="margin: 0 0 14px">
+            <label class="check"><span data-i18n>Goal per month (EUR)</span>
+              <input type="number" id="goal-per-month" min="0" step="50" style="width: 7rem" /></label>
+            <label class="check"><span data-i18n>Dividend growth % a year</span>
+              <input type="number" id="goal-growth" step="0.5" style="width: 6rem" /></label>
+            <span class="muted" id="goal-growth-basis" style="font-size: var(--hint)"></span>
+          </div>
+          <div class="div-facts" id="goal-facts"></div>
+          <p class="hint" id="goal-note" style="margin-top: 12px"></p>
+        </div>
+      </div>
+
       <div data-tab="notices" class="grid" style="margin-top: 16px">
         <div class="card">
           <div class="card-head">

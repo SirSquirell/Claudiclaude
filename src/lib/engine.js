@@ -43,7 +43,7 @@ const STALE_FX_DAYS = 92;
 
 /** Five years. A ceiling, not a default — see US-33: past it the band is so
  *  wide the picture stops distinguishing anything. */
-const MAX_HORIZON_MONTHS = 60;
+export const MAX_HORIZON_MONTHS = 60;
 
 /**
  * Below this many **independent** stretches, a scenario is an example, not
@@ -92,7 +92,7 @@ const MIN_RETURN_SPLIT_DAYS = 30;
  * Refusing beats clamping. Clamping would invent a number, and this project's
  * standing rule is that a figure must not look more confident than it is.
  */
-const PLAUSIBLE_ANNUAL = 50;
+export const PLAUSIBLE_ANNUAL = 50;
 
 /**
  * How far the rates implied by one instrument's own trades may disagree before

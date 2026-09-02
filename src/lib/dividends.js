@@ -104,10 +104,32 @@
  *     so beside the years figure. `cagrPct` is measured over complete calendar
  *     years the position was held from first day to last, on regular per-share
  *     payments; null with 'too-short' or 'zero-first-year'.
+ *
+ *   measuredDividendGrowth(track, forward) →                         (US-128)
+ *     { growthPct, basis: 'measured', products, of, years: [from, to] }
+ *     or { growthPct: null, basis: 'none', reason, products: 0, of }
+ *     One dividend growth rate for the account, from US-127's per-position
+ *     CAGRs weighted by US-123's forward income — the growth the income stream
+ *     would show if each position's own measured per-share rate continued.
+ *     Positions without a CAGR (too few complete years) or without a forward
+ *     income carry no weight, and the result says how many did. Null with
+ *     'no-measured-growth' when none qualifies.
+ *
+ *   incomeGoal(input) →                                              (US-128)
+ *     { unit: 'EUR', refused: null, horizonMonths, goalPerMonth, currentPerMonth,
+ *       pctOfGoal, gapPerMonth, monthsToGoal, reachedOn, path: [perMonth] }
+ *     or { unit: 'EUR', refused: 'no-goal'|'implausible-growth'|'implausible-yield' }
+ *     Month by month from `annualIncome`: the stream grows at `growthPct` a
+ *     year, and new money — `monthly` plus, when `reinvest`, the month's own
+ *     dividend — buys income at `yieldPct`. `monthsToGoal` is the first month
+ *     the income per month meets the goal, 0 when it already does, null when
+ *     the horizon ends first. Horizon and plausibility are `projectPortfolio`'s
+ *     own guards, imported, not redefined. Arithmetic on stated assumptions;
+ *     the caller shows every one of them.
  */
 import { CATEGORY } from './classify.js';
 import { addDays, dayRange, daysBetween, subMonths } from './dates.js';
-import { positionLedger } from './engine.js';
+import { MAX_HORIZON_MONTHS, PLAUSIBLE_ANNUAL, positionLedger } from './engine.js';
 
 /**
  * A trade this close before (or on) a pay-date means the share count on the
@@ -760,4 +782,77 @@ export function trackRecord(series, today) {
   }
 
   return { unit: UNIT, boundedByWindow: true, byProduct };
+}
+
+// ---------------------------------------------------------------------------
+// US-128: an income goal
+// ---------------------------------------------------------------------------
+
+/**
+ * US-128. The account's own dividend growth, one figure, for the goal card's
+ * default. Weighted by forward income because that is what grows: a position
+ * paying €500 a year and raising 5 % moves the stream more than one paying €20
+ * and raising 30 %.
+ *
+ * @param {ReturnType<typeof trackRecord>} track
+ * @param {ReturnType<typeof forwardIncome>} forward
+ */
+export function measuredDividendGrowth(track, forward) {
+  const incomeById = new Map(forward.byProduct.map((p) => [p.productId, p.income]));
+  const qualifying = track.byProduct.filter((t) => t.cagrPct !== null && (incomeById.get(t.productId) ?? 0) > 0);
+  const of = track.byProduct.length;
+  if (!qualifying.length) return { growthPct: null, basis: 'none', reason: 'no-measured-growth', products: 0, of };
+  const weight = qualifying.reduce((k, t) => k + incomeById.get(t.productId), 0);
+  const growthPct = qualifying.reduce((k, t) => k + t.cagrPct * incomeById.get(t.productId), 0) / weight;
+  const years = [
+    qualifying.map((t) => t.cagrYears[0]).sort()[0],
+    qualifying.map((t) => t.cagrYears[1]).sort().at(-1),
+  ];
+  return { growthPct, basis: 'measured', products: qualifying.length, of, years };
+}
+
+/**
+ * US-128. Months until the dividend income per month meets a goal, under
+ * stated assumptions.
+ *
+ * @param {object} input
+ * @param {number} input.annualIncome   forwardIncome().total, EUR a year
+ * @param {number} input.goalPerMonth   the goal, EUR a month
+ * @param {number} [input.monthly]      contribution per month, EUR
+ * @param {number} [input.growthPct]    dividend growth a year, per cent
+ * @param {number} [input.yieldPct]     yield on new money a year, per cent
+ * @param {boolean} [input.reinvest]    whether each month's dividend buys income too
+ * @param {number} [input.months]       horizon, capped at MAX_HORIZON_MONTHS
+ * @param {string} [input.today]        ISO day; `reachedOn` is this plus the months
+ */
+export function incomeGoal({ annualIncome, goalPerMonth, monthly = 0, growthPct = 0, yieldPct = 0, reinvest = false, months = MAX_HORIZON_MONTHS, today = null }) {
+  const refuse = (refused) => ({ unit: 'EUR', refused });
+  if (!(goalPerMonth > 0)) return refuse('no-goal');
+  if (!Number.isFinite(growthPct) || Math.abs(growthPct) > PLAUSIBLE_ANNUAL) return refuse('implausible-growth');
+  if (!Number.isFinite(yieldPct) || Math.abs(yieldPct) > PLAUSIBLE_ANNUAL) return refuse('implausible-yield');
+
+  const horizonMonths = Math.max(1, Math.min(MAX_HORIZON_MONTHS, Math.round(months)));
+  const currentPerMonth = annualIncome / 12;
+  const monthlyGrowth = (1 + growthPct / 100) ** (1 / 12);
+  const path = [];
+  let annual = annualIncome;
+  let monthsToGoal = currentPerMonth >= goalPerMonth ? 0 : null;
+  for (let m = 1; m <= horizonMonths; m++) {
+    const newMoney = monthly + (reinvest ? annual / 12 : 0);
+    annual = annual * monthlyGrowth + newMoney * (yieldPct / 100);
+    path.push(annual / 12);
+    if (monthsToGoal === null && annual / 12 >= goalPerMonth) monthsToGoal = m;
+  }
+  return {
+    unit: 'EUR',
+    refused: null,
+    horizonMonths,
+    goalPerMonth,
+    currentPerMonth,
+    pctOfGoal: (currentPerMonth / goalPerMonth) * 100,
+    gapPerMonth: Math.max(0, goalPerMonth - currentPerMonth),
+    monthsToGoal,
+    reachedOn: monthsToGoal === null || today === null ? null : subMonths(today, -monthsToGoal),
+    path,
+  };
 }

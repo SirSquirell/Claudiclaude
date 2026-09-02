@@ -7,7 +7,8 @@
 
 import { aggregatePnl, annualisedReturn, buildComposition, projectPortfolio, projectDividendIncome, candleSeries, maxDrawdown, monthlyTable, priceVsTotalReturn, rangeEndIndex, rangeStartIndex, windowReturnPct } from '../lib/engine.js';
 import { isinCountry, treatyRateFor, withholdingSplit, TREATY_RATE } from '../lib/withholding.js';
-import { perShareSeries, classifyPayments, changes as dividendChanges, forwardIncome, yields as dividendYields, trackRecord, nextExpected, MIN_COMPARISON_PAYMENTS, RECENT_TRADE_DAYS } from '../lib/dividends.js';
+import { perShareSeries, classifyPayments, changes as dividendChanges, forwardIncome, yields as dividendYields, trackRecord, nextExpected, measuredDividendGrowth, incomeGoal, MIN_COMPARISON_PAYMENTS, RECENT_TRADE_DAYS } from '../lib/dividends.js';
+import { PLAUSIBLE_ANNUAL } from '../lib/engine.js';
 import { CATEGORY } from '../lib/classify.js';
 import { formatDay, monthKey, subMonths, weekKey } from '../lib/dates.js';
 import { GESTURE } from '../lib/config.js';
@@ -81,8 +82,12 @@ const state = {
    *  persisted preferences (US-87), not view state, so they live beside the
    *  theme in localStorage rather than here. */
   productType: 'ALL',
-  /** Outlook: horizon in months, contribution, and whether rates are derived. */
-  outlook: { months: 60, monthly: 0, manual: false, growthPct: null, yieldPct: null, reinvest: null },
+  /** Outlook: horizon in months, contribution, and whether rates are derived.
+   *  US-128 adds the income goal and the dividend growth beside them, held the
+   *  same way — for the page, not persisted, like every other Outlook input.
+   *  `dividendGrowthBasis` says whether the rate is the measured default or the
+   *  reader's own number, because the card must say which. */
+  outlook: { months: 60, monthly: 0, manual: false, growthPct: null, yieldPct: null, reinvest: null, goalPerMonth: 0, dividendGrowthPct: null, dividendGrowthBasis: null },
   /** 'money' (what my money earned) or 'time' (how the portfolio performed). */
   annualisedView: 'money',
   /**
@@ -1924,6 +1929,18 @@ function wireActions() {
   }
   $('#outlook-reinvest').addEventListener('change', (e) => {
     state.outlook.reinvest = e.target.checked;
+    render();
+  });
+  // US-128: the goal and the growth assumption, same contract as the inputs above.
+  $('#goal-per-month').addEventListener('change', (e) => {
+    const v = Number(e.target.value);
+    state.outlook.goalPerMonth = Number.isFinite(v) ? v : 0;
+    render();
+  });
+  $('#goal-growth').addEventListener('change', (e) => {
+    const v = Number(e.target.value);
+    state.outlook.dividendGrowthPct = e.target.value === '' || !Number.isFinite(v) ? null : v;
+    state.outlook.dividendGrowthBasis = state.outlook.dividendGrowthPct === null ? null : 'assumed';
     render();
   });
 
@@ -4473,11 +4490,101 @@ function renderOutlook(r, t) {
     ? tr('Built from the {n} separate {years}-year stretches your own history actually contains — worst, middle and best of them. Overlapping stretches, so treat {n} as fewer independent observations than it looks.', { n: p.windows, years })
     : tr('Your history is too short to contain even three {years}-year stretches, so these are an example rather than a scenario drawn from your own past. Treat them as arithmetic on an assumed rate, not as something measured.', { years });
 
+  renderIncomeGoal(r, p);
+
   const d = p.rates.derived;
   $('#outlook-reinvest-note').textContent = d.maxIdleShare == null
     ? tr('No dividends received yet, so nothing turns on whether they were put back to work.')
     : tr('You hold {cash} in cash against {div} of dividend received, so at most {share}% of it can still be sitting uninvested — the rest demonstrably went somewhere. A ceiling rather than a measurement, so it only sets the default of the switch above.',
         { cash: fmtEurCents(d.cashNow), div: fmtEurCents(d.dividendSeen ?? 0), share: d.maxIdleShare });
+}
+
+/**
+ * US-128. The goal card: the expected annual income (US-123) against a goal per
+ * month, and the months to it under the assumptions the page already holds —
+ * the Outlook horizon, deposit, yield and reinvestment switch — plus one of its
+ * own, the dividend growth, prefilled with the account's own measured rate
+ * (US-127's CAGRs weighted by income) when there is one and labelled as
+ * measured or as the reader's. Everything shown is what `incomeGoal` returned;
+ * the card states every assumption and recommends none.
+ */
+function renderIncomeGoal(r, p) {
+  const o = state.outlook;
+  const dm = dividendModel(state.data, r);
+  const measured = measuredDividendGrowth(dm.track, dm.forward);
+  const growthInput = $('#goal-growth');
+  const goalInput = $('#goal-per-month');
+
+  if (o.dividendGrowthPct == null && o.dividendGrowthBasis === null && measured.growthPct != null) {
+    o.dividendGrowthPct = measured.growthPct;
+    o.dividendGrowthBasis = 'measured';
+    growthInput.value = measured.growthPct.toFixed(1);
+  }
+  if (document.activeElement !== goalInput) goalInput.value = o.goalPerMonth > 0 ? String(o.goalPerMonth) : '';
+
+  const measuredNote = measured.growthPct == null
+    ? tr('no measured rate: no position has two complete calendar years of regular payments and an expected income')
+    : tr('measured {rate} a year over {n} of {m} positions, {from}–{to}, weighted by expected income', { rate: fmtPct(measured.growthPct), n: measured.products, m: measured.of, from: measured.years[0], to: measured.years[1] });
+  $('#goal-growth-basis').textContent = o.dividendGrowthBasis === 'measured'
+    ? measuredNote
+    : o.dividendGrowthBasis === 'assumed'
+      ? `${tr('your assumption')} · ${measuredNote}`
+      : `${tr('nothing entered, so 0 % is used')} · ${measuredNote}`;
+
+  const fi = dm.forward;
+  const positions = fi.determinedCount + fi.undeterminedCount;
+  const growthPct = o.dividendGrowthPct ?? 0;
+  const g = incomeGoal({
+    annualIncome: fi.total,
+    goalPerMonth: o.goalPerMonth,
+    monthly: o.monthly,
+    growthPct,
+    yieldPct: p.rates.yieldPct,
+    reinvest: o.reinvest,
+    months: o.months,
+    today: dm.today,
+  });
+
+  const kv = (label, value) => `<span class="kv"><b>${esc(label)}</b> ${value}</span>`;
+  const basisWord = { measured: tr('measured'), assumed: tr('your assumption') }[o.dividendGrowthBasis] ?? tr('nothing entered');
+  const incomeNow = kv(tr('Expected income now'), `${esc(fmtEurCents(fi.total / 12))} ${muted(tr('a month · {n} of {m} positions with a dividend history · {k} not projectable', { n: fi.determinedCount, m: positions, k: fi.undeterminedCount }))}`);
+  const assumptions = [
+    kv(tr('Monthly deposit'), `${esc(fmtEurCents(o.monthly))} ${muted(tr('set above'))}`),
+    kv(tr('Yield on new money'), `${esc(fmtPct(p.rates.yieldPct))} ${muted(o.manual ? tr('set by you, above') : tr('from your history, above'))}`),
+    kv(tr('Dividend growth'), `${esc(fmtPct(growthPct))} ${muted(basisWord)}`),
+    kv(tr('Dividends put back to work'), esc(o.reinvest ? tr('yes') : tr('no'))),
+    kv(tr('Horizon'), esc(tr('{n} years', { n: (o.months / 12).toFixed(0) }))),
+  ];
+
+  let facts;
+  let note;
+  if (g.refused === 'no-goal') {
+    facts = [incomeNow];
+    note = tr('Enter a goal per month to see where this stands against it and how the assumptions above move the date.');
+  } else if (g.refused) {
+    facts = [incomeNow, ...assumptions];
+    note = tr('Nothing is computed: a {what} of {rate} a year is beyond the ±{bound}% the Outlook projection itself treats as plausible. Set a smaller number.', {
+      what: g.refused === 'implausible-growth' ? tr('dividend growth') : tr('yield'),
+      rate: fmtPct(g.refused === 'implausible-growth' ? growthPct : p.rates.yieldPct),
+      bound: PLAUSIBLE_ANNUAL,
+    });
+  } else {
+    const reached = g.monthsToGoal === 0
+      ? tr('already — the expected income is at or above the goal')
+      : g.monthsToGoal === null
+        ? tr('not within the {n}-year horizon', { n: (g.horizonMonths / 12).toFixed(0) })
+        : tr('{when} · in {n} months', { when: formatDay(g.reachedOn), n: g.monthsToGoal });
+    facts = [
+      incomeNow,
+      kv(tr('Of the goal'), `${esc(pct(g.pctOfGoal))} ${muted(tr('of {goal} a month', { goal: fmtEurCents(g.goalPerMonth) }))}`),
+      kv(tr('Gap'), g.gapPerMonth > 0 ? `${esc(fmtEurCents(g.gapPerMonth))} ${muted(tr('a month'))}` : muted(tr('none'))),
+      kv(tr('Goal reached'), esc(reached)),
+      ...assumptions,
+    ];
+    note = tr('The expected income is a measurement — the Dividends tab says what it rests on and which positions it leaves out. Everything after it is arithmetic on the assumptions shown: the stream grows at the dividend growth rate, and each month’s deposit (plus the month’s dividend, when put back to work) buys income at the yield. In EUR; none of it is advice, and the date moves with every assumption.');
+  }
+  $('#goal-facts').innerHTML = facts.join('');
+  $('#goal-note').textContent = note;
 }
 
 /**

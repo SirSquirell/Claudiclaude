@@ -1214,6 +1214,22 @@ button.primary:hover {
   margin-top: 12px;
 }
 
+/* US-128: the goal card's facts, one per cell so a label never runs into the
+   previous value. */
+#goal-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+  gap: 6px 16px;
+}
+#goal-facts .kv {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 6px;
+  margin: 0;
+  font-size: 0.8125rem;
+}
+
 /* One column on a narrow screen: the picture stays first, because it is what
    the sheet is for. */
 @media (max-width: 48em) {
