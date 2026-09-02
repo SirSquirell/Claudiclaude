@@ -63,8 +63,46 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   runSync({ scheduled: true }).catch((err) => recordError('alarm-sync', err));
 });
 
-/** Message API used by the popup and the full page. */
-chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+/**
+ * Who may ask for what.
+ *
+ * Every message reaches this one router, and until now it answered anyone who
+ * could send one: the popup, the app page, and both content scripts alike. A
+ * content script runs on somebody else's page, so it gets the few cases it
+ * needs and no more — `wipe`, `export`, `disconnect` and `diagnose` are not
+ * things a tab on a broker's site should be able to trigger, whatever else is
+ * running there. The extension's own pages (popup, options page in a tab) are
+ * told apart by their `chrome-extension://` URL, not by the absence of a tab:
+ * the app page *is* a tab.
+ *
+ * Refusal is silence, not an error: the reply channel stays closed and the
+ * sender's promise resolves with nothing, which is what an unreachable worker
+ * already looks like to both content scripts.
+ */
+const TAB_ALLOWED = {
+  // src/content/banner.js and src/content/readywatch.js, on trader.degiro.nl.
+  'https://trader.degiro.nl': new Set(['banner-status', 'sync', 'tab-ready', 'openApp']),
+  // src/content/site.js — the demo button on the project site (US-97).
+  'https://asteria.prulwerk.nl': new Set(['open-demo']),
+};
+
+function permitted(msg, sender) {
+  if (sender?.id !== chrome.runtime.id) return false;
+  if (typeof sender.url !== 'string') return false;
+  let origin;
+  try {
+    origin = new URL(sender.url).origin;
+  } catch {
+    return false;
+  }
+  const allowed = TAB_ALLOWED[origin];
+  if (allowed) return allowed.has(msg?.type);
+  return sender.url.startsWith(chrome.runtime.getURL(''));
+}
+
+/** Message API used by the popup, the full page and the two content scripts. */
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (!permitted(msg, sender)) return;
   handle(msg)
     .then((data) => sendResponse({ ok: true, data }))
     .catch((err) => {
