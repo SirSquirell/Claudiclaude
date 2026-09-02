@@ -71,6 +71,17 @@
  *     tolerance, at most one cycle's worth) times today's quantity. Reasons:
  *     'irregular-rhythm', 'stopped', 'incomplete-cycle'. `total` sums the
  *     determined products only.
+ *
+ *   yields(series, positions, today) →                               (US-126)
+ *     { unit: 'EUR', windowFrom,
+ *       byProduct: [{ productId, received, paymentsInWindow, specialsInWindow,
+ *                     quantity, cost, current, yieldOnCostPct, currentYieldPct,
+ *                     reasons: { yieldOnCost, currentYield } }] }
+ *     `positions` are computePortfolio's `byProduct` entries (bought,
+ *     boughtQty, qty[], current). Received is the euro gross of the trailing
+ *     twelve months, specials included. Cost is the engine's average buy price
+ *     times today's quantity. A figure is null with a reason ('closed',
+ *     'no-payments', 'no-cost-basis', 'no-current-value') rather than 0 %.
  */
 import { CATEGORY } from './classify.js';
 import { addDays, dayRange, daysBetween, subMonths } from './dates.js';
@@ -559,4 +570,53 @@ export function forwardIncome(series, currentQuantities = {}, today) {
     undetermined,
     closed,
   };
+}
+
+// ---------------------------------------------------------------------------
+// US-126: yield on cost, current yield
+// ---------------------------------------------------------------------------
+
+/**
+ * US-126. Trailing-twelve-month gross received over what the shares held
+ * cost, and over what they are worth.
+ *
+ * @param {Array<{productId, bought: number, boughtQty: number, qty: number[], current: number}>} positions
+ */
+export function yields(series, positions = [], today) {
+  const c = classified(series);
+  const windowFrom = subMonths(today, FORWARD_WINDOW_MONTHS);
+  const byProduct = positions.map((pos) => {
+    const id = String(pos.productId);
+    const quantity = Array.isArray(pos.qty) ? (pos.qty.at(-1) ?? 0) : Number(pos.qty ?? 0);
+    const points = (c.byProduct[id]?.points ?? []).filter((p) => p.grossPerShare !== null && p.date > windowFrom && p.date <= today);
+    const received = points.reduce((k, p) => k + p.gross, 0);
+    const cost = pos.boughtQty > 0 ? (pos.bought / pos.boughtQty) * quantity : 0;
+    const current = pos.current ?? 0;
+
+    const row = {
+      productId: id,
+      received,
+      paymentsInWindow: points.length,
+      specialsInWindow: points.filter((p) => p.label === 'special').length,
+      quantity,
+      cost,
+      current,
+      yieldOnCostPct: null,
+      currentYieldPct: null,
+      reasons: { yieldOnCost: null, currentYield: null },
+    };
+
+    const shared = !(quantity > 0) ? 'closed' : received <= 0 ? 'no-payments' : null;
+    if (shared) {
+      row.reasons.yieldOnCost = shared;
+      row.reasons.currentYield = shared;
+      return row;
+    }
+    if (cost > 0) row.yieldOnCostPct = (received / cost) * 100;
+    else row.reasons.yieldOnCost = 'no-cost-basis';
+    if (current > 0) row.currentYieldPct = (received / current) * 100;
+    else row.reasons.currentYield = 'no-current-value';
+    return row;
+  });
+  return { unit: 'EUR', windowFrom, byProduct };
 }

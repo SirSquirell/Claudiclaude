@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { perShareSeries, RECENT_TRADE_DAYS, detectRhythm, classifyPayments, changes, forwardIncome } from '../src/lib/dividends.js';
+import { perShareSeries, RECENT_TRADE_DAYS, detectRhythm, classifyPayments, changes, forwardIncome, yields } from '../src/lib/dividends.js';
 import { computePortfolio } from '../src/lib/engine.js';
 import { CATEGORY } from '../src/lib/classify.js';
 
@@ -528,4 +528,80 @@ test('US-123: the total is the sum of the determined rows, and says how many wer
   near(r.total, 80, 1e-9, 'four 0.20 quarters on 100 shares; A is undetermined and not in the total');
   assert.equal(r.determinedCount, 1);
   assert.equal(r.undeterminedCount, 1);
+});
+
+// ---------------------------------------------------------------------------
+// US-126 yields
+// ---------------------------------------------------------------------------
+
+/** A hand-built position in the shape of computePortfolio's byProduct entries. */
+const position = (productId, bought, boughtQty, quantity, current) => ({ productId, bought, boughtQty, qty: [0, quantity], current });
+
+test('US-126: yield on cost and current yield for a quarterly payer, from trailing gross received', () => {
+  const { transactions, cashRows } = quarterlyPayer('Q');
+  const y = yields(perShareSeries(transactions, cashRows), [position('Q', 4000, 100, 100, 5000)], '2024-12-31');
+  assert.equal(y.unit, 'EUR');
+  assert.equal(y.windowFrom, '2023-12-31');
+  const q = y.byProduct[0];
+  near(q.received, 80, 1e-9, 'four 2024 payments of 0.20 on 100 shares');
+  assert.equal(q.paymentsInWindow, 4);
+  assert.equal(q.specialsInWindow, 0);
+  assert.equal(q.cost, 4000);
+  near(q.yieldOnCostPct, 2, 1e-9);
+  near(q.currentYieldPct, 1.6, 1e-9);
+  assert.deepEqual(q.reasons, { yieldOnCost: null, currentYield: null });
+});
+
+test('US-126: received is what landed — a special counts and is reported as such', () => {
+  const { transactions, cashRows } = quarterlyPayer('Q');
+  cashRows.push(div('Q', '2024-07-20', 60));
+  const q = yields(perShareSeries(transactions, cashRows), [position('Q', 4000, 100, 100, 5000)], '2024-12-31').byProduct[0];
+  near(q.received, 140, 1e-9);
+  assert.equal(q.specialsInWindow, 1);
+  near(q.yieldOnCostPct, 3.5, 1e-9);
+});
+
+test('US-126: cost is the average buy price times the shares held today, after a partial sale', () => {
+  const { transactions, cashRows } = quarterlyPayer('Q');
+  const q = yields(perShareSeries(transactions, cashRows), [position('Q', 4000, 100, 50, 2500)], '2024-12-31').byProduct[0];
+  assert.equal(q.cost, 2000);
+  near(q.yieldOnCostPct, 4, 1e-9, 'the same 80 received over half the cost');
+});
+
+test('US-126: null with a reason — closed, no payments, no cost basis, no current value — never 0 %', () => {
+  const { transactions, cashRows } = quarterlyPayer('Q');
+  const s = perShareSeries(transactions, cashRows);
+  const closed = yields(s, [position('Q', 4000, 100, 0, 0)], '2024-12-31').byProduct[0];
+  assert.equal(closed.yieldOnCostPct, null);
+  assert.deepEqual(closed.reasons, { yieldOnCost: 'closed', currentYield: 'closed' });
+
+  const none = yields(s, [position('Q', 4000, 100, 100, 5000)], '2022-02-01').byProduct[0];
+  assert.deepEqual(none.reasons, { yieldOnCost: 'no-payments', currentYield: 'no-payments' });
+  assert.equal(none.received, 0);
+
+  const noCost = yields(s, [position('Q', 0, 0, 100, 5000)], '2024-12-31').byProduct[0];
+  assert.equal(noCost.yieldOnCostPct, null);
+  assert.equal(noCost.reasons.yieldOnCost, 'no-cost-basis');
+  near(noCost.currentYieldPct, 1.6, 1e-9, 'the other figure still stands');
+
+  const noValue = yields(s, [position('Q', 4000, 100, 100, 0)], '2024-12-31').byProduct[0];
+  assert.equal(noValue.currentYieldPct, null);
+  assert.equal(noValue.reasons.currentYield, 'no-current-value');
+  near(noValue.yieldOnCostPct, 2, 1e-9);
+
+  const never = yields(s, [position('Z', 100, 10, 10, 120)], '2024-12-31').byProduct[0];
+  assert.equal(never.reasons.yieldOnCost, 'no-payments', 'a position that never paid is a row, not an omission');
+});
+
+test('US-126: computePortfolio\'s byProduct entries are accepted as positions unchanged', () => {
+  const { transactions, cashRows } = quarterlyPayer('Q');
+  const today = '2024-12-31';
+  const result = computePortfolio({ transactions, cashRows, products: {}, prices: {}, today });
+  const y = yields(perShareSeries(transactions, cashRows), result.byProduct, today);
+  const q = y.byProduct.find((r) => r.productId === 'Q');
+  assert.equal(q.quantity, 100);
+  assert.equal(q.cost, 4000);
+  assert.equal(q.current, result.byProduct[0].current, 'the engine values an unpriced position at its last trade');
+  near(q.yieldOnCostPct, 2, 1e-9);
+  near(q.currentYieldPct, 80 / result.byProduct[0].current * 100, 1e-9);
 });

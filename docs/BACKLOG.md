@@ -8144,7 +8144,7 @@ A quarterly payer with one triple-size special (amount rule); a fifth payment in
 
 ---
 
-### US-126 — Yield on cost and current yield, per position *(new, refined)*
+### US-126 — Yield on cost and current yield, per position *(built — engine function only, no UI yet)*
 
 **Layer A.** Gross dividend received in the trailing twelve months, divided by what the shares held
 cost, and divided by what they are worth today. Two columns on the Holdings dividend view — the
@@ -8164,17 +8164,17 @@ is one figure for the account. Per position, from the engine's own cost and valu
 
 #### Acceptance criteria
 
-- [ ] Received = the sum of the euro gross amounts of all gross points in the trailing twelve
+- [x] Received = the sum of the euro gross amounts of all gross points in the trailing twelve
       months, specials included — this is what was received, not a projection. The result carries
       how many of those were specials.
-- [ ] Cost of the shares held = `bought ÷ boughtQty × quantity today`, the average price the engine
+- [x] Cost of the shares held = `bought ÷ boughtQty × quantity today`, the average price the engine
       already exposes for exactly this purpose, times the current holding — no FIFO, no new
       convention. `yieldOnCostPct = received ÷ cost × 100`.
-- [ ] `currentYieldPct = received ÷ current × 100`, with `current` the engine's own valuation.
-- [ ] Either figure is `null` with a reason (`no-cost-basis`, `no-current-value`, `no-payments`)
+- [x] `currentYieldPct = received ÷ current × 100`, with `current` the engine's own valuation.
+- [x] Either figure is `null` with a reason (`no-cost-basis`, `no-current-value`, `no-payments`)
       when its denominator is zero or negative or nothing was received; never `0 %` standing in for
       "cannot say". A closed position has no yield.
-- [ ] The columns (when built) carry "gross, trailing twelve months, EUR" in their header
+- [x] The columns (when built) carry "gross, trailing twelve months, EUR" in their header
       explanation (US-93's pattern).
 
 #### Dependencies
