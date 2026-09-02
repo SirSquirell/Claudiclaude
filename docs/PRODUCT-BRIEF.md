@@ -48,6 +48,37 @@ bundel nodig. Geen van deze tien heeft een server nodig die iets van de gebruike
 Niet in de lijst, bewust: multi-account (SPEC), CSV-import als primaire bron (pas als de scrape
 breekt), alles wat op een server moet rekenen.
 
+## 2b. Richting Simply Safe Dividends: wat er nog niet in US-102 tot US-109 zit
+
+Toegevoegd 2026-09-02 na de vraag van de eigenaar of de richting SSD is. Ja, dus hier de lijst
+die daar wél op mikt. Uitgangspunt: SSD's kern is een safety score uit fundamentals, en US-108
+zegt zelf dat die voor Europese namen meestal "niet te bepalen" zal zijn. Wat dit project heeft
+en SSD niet: de volledige betaalhistorie van de gebruiker uit DEGIRO. Elke dividenduitkering
+gedeeld door het aantal stuks op de ex-datum is een dividend-per-aandeel-reeks per positie,
+zonder bundel. Zeven van de negen hieronder komen daaruit en zijn dus laag A.
+
+| # | Feature | Laag | Wat SSD hier doet, en wat wij anders doen |
+|---|---|---|---|
+| 11 | **Dividend per aandeel uit eigen ontvangsten** | A | De basis voor alles hieronder: per positie de reeks (datum, bruto per stuk, ingehouden per stuk), afgeleid uit cash-regels en het aantal stuks op dat moment. SSD haalt dit uit een datafeed; wij uit wat er echt op de rekening kwam. Eén engine-functie, veel tests, geen nieuwe data. |
+| 12 | **Verhogingen en verlagingen gesignaleerd** | A | Vergelijk elke uitkering met dezelfde uitkering een jaar eerder: verhoogd, gelijk, verlaagd, gestopt. Als Notice en als kolom. Dit is SSD's "dividend cut alert", maar dan achteraf uit eigen data in plaats van vooraf uit fundamentals. Eerlijk erbij zetten dat het achteraf is. |
+| 13 | **Verwacht jaarinkomen (forward 12 maanden)** | A | Som van de laatste twaalf maanden per aandeel maal het huidige aantal stuks, per positie en totaal. SSD's "projected annual income". Specials (feature 15) uitgesloten, anders klopt het getal niet. |
+| 14 | **Betaalritme en volgende verwachte uitkering** | A, later B | Uit het patroon (maandelijks, kwartaal, halfjaar, jaar) de volgende ex- en betaaldatum schatten met een marge. Dat is de Income Calendar zonder bundel, gemarkeerd als schatting. US-104's bundel vervangt de schatting door aangekondigde data zodra die er is. |
+| 15 | **Speciale dividenden herkennen** | A | Een uitkering die ver buiten het ritme of het bedrag valt wordt apart gelabeld en telt niet mee in 12, 13 en 14. Zonder dit extrapoleert elke forward-berekening een eenmalige meevaller. |
+| 16 | **Yield on cost en huidig rendement per positie** | A | Ontvangen dividend laatste twaalf maanden gedeeld door de kostprijs, en gedeeld door de huidige waarde. Twee kolommen op Holdings, de klassieke SSD-tabel. |
+| 17 | **Track record per positie als vervanger van de safety score** | A | Aantal jaren onafgebroken betaald in eigen data, aantal verhogingen, aantal verlagingen, grootste verlaging, groei per jaar over de eigen periode. Geen score, geen cijfer van 0 tot 99: een tabel met feiten. Dit is wat je voor Europese namen eerlijk kunt zeggen; US-108 blijft voor de VS-namen waar EDGAR wel dekt. |
+| 18 | **Inkomensdoel op de Outlook-pagina** | A | Doel in euro per maand; de pagina rekent uit waar je staat met het verwachte jaarinkomen (13), en wat maandelijkse inleg plus een aanname voor dividendgroei doen met het aantal jaren tot het doel. Dit is de "LATER, hoort op Outlook (US-33)"-regel uit de scopetabel, nu concreet. Aannames zichtbaar en aanpasbaar, geen advies. |
+| 19 | **Terugvorderbare bronbelasting** | A + B | US-106 geeft het effectieve tarief. Hierbij: per land het verdragstarief (meestal 15 %), wat daarvan in de NL-aangifte verrekenbaar is, en wat je alleen bij de bronstaat terugkrijgt (Zwitserland, Frankrijk, Duitsland) of kwijt bent. Verdragstarieven zijn openbaar bij de Belastingdienst, dus vrije bron voor de bundel. SSD doet dit niet, want het is een Europees probleem. Sluit aan op feature 1. |
+
+Wat SSD heeft en hier bewust niet komt, ongewijzigd uit de scopetabel: de fundamentals-score voor
+Europa (geen vrije bron), analistenkoersdoelen en fair value (betaald), screener en idea lists
+(grenst aan advies), mail en maandrecap (backend).
+
+Volgorde als de richting SSD is: 11 eerst, want alles hangt eraan. Dan 13, 15 en 12 samen, want
+die maken het getal betrouwbaar. Dan 16 en 17 als kolommen en een tabel. Dan 14. Dan 18 op
+Outlook. 19 pas met de bundel. De PoC van US-109 blijft staan, maar hoeft niet meer als eerste:
+met 11 tot 17 heb je een dividendtab die voor Europese portefeuilles meer zegt dan een score die
+"niet te bepalen" toont.
+
 ## 3. Verkoopvoorzet
 
 ### Positionering
@@ -188,7 +219,7 @@ US-102 en de verkoop verandert er niets aan; het is juist het verkoopargument.
 
 ## 5. Wat dit aan stories oplevert
 
-Als je akkoord bent: tien feature-stories (sectie 2), één story "Web Store en SPEC-amendement",
+Als je akkoord bent: tien feature-stories (sectie 2), negen dividendstories (sectie 2b), één story "Web Store en SPEC-amendement",
 één story "licentie en Plus-schakelaar", één story "bundelpipeline" (US-104 herzien met de
 bronnen uit 4.1), en een aanscherping van US-101 (4.2). Ze claimen nummers pas als ze op `main`
 in de backlog landen; daarom staan hier geen nummers.
