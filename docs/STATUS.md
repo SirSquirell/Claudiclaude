@@ -8,7 +8,7 @@ releases — if it looks stale again, trust the CHANGELOG and fix this.
 
 ## Light scans
 
-Seventeen re-confirmation passes (2026-08-20 to 2026-09-03) are in [SCANS.md](SCANS.md), newest
+Eighteen re-confirmation passes (2026-08-20 to 2026-09-04) are in [SCANS.md](SCANS.md), newest
 first. Their standing result: no `claude/*` branch carries a story `main` does not have, the backlog
 numbering is clean, and the rule spot checks pass. What they kept finding — 38 stale remote
 branches the git proxy cannot delete — is now **US-120**, an owner action in GitHub's UI. The
@@ -16,7 +16,10 @@ sixteenth pass found the ledger's first real design/motion defect —
 **US-140**, a table row's arrival fade that can freeze mid-opacity when a row below the fold is
 jumped to instantly (keyboard focus, a screen reader, `scrollIntoView`) rather than reached by an
 ordinary scroll — refined as a story rather than patched live, still open. The seventeenth pass
-found nothing new; see SCANS.md for both.
+found nothing new. The eighteenth pass chased down what first looked like a second one — the
+Holdings table's Positions card missing from a mid-sequence screenshot — and confirmed it was its
+own screenshot taken inside the documented reveal stagger's delay window, not a stuck card; see
+SCANS.md for all three.
 
 ## Owner's screenshots, 2026-08-22
 

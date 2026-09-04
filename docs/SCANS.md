@@ -8,6 +8,62 @@ state is in STATUS.md; this is the evidence that it was checked.
 
 ---
 
+## Light scan, 2026-09-04 (eighteenth pass)
+
+This session's own transport branch (`claude/eager-cannon-utwiux`) was identical to `origin/main`
+at start (both at 0.70.3, the seventeenth pass's own commit) — worked directly off `main`.
+
+**Branches.** 38 remote `claude/*` branches plus `poc`, unchanged count from the seventeenth pass.
+No branch's newest commit postdates `claude/fable-5-tr3otb` (2026-09-02, already counted last
+pass); `danny-portfolio-degiro-compat-0iwoyd` and every other previously-named branch are still
+present and unchanged. Nothing in the set carries a story `main` doesn't have. Git proxy still
+refuses branch deletion, so the 38 stale branches remain GitHub-UI cleanup for the owner.
+
+**GitHub.** Zero open issues, zero open PRs — same as every prior pass, nothing to close.
+
+**Backlog numbering**, via `tools/check-backlog.mjs`: 136 stories, highest US-140, next free
+US-141, no duplicate numbers, every heading states its state — unchanged from the seventeenth pass.
+`## Last updated` still matches `CHANGELOG.md`'s 0.70.3 entry.
+
+**Rule compliance / security.** Same spot checks as every prior pass, all still clean: `fetch()`
+appears only in `src/lib/degiro.js`, `src/ui/datasource.js` (demo fixtures) and `src/ui/app.js`
+(the extension's own `manifest.json`, for the version string). `degiro.js` still refuses to retry
+401/403. `EXPORTABLE_META` in `store.js` is still an allowlist, `redactMeta` still redacts anything
+not listed. `node tools/check-leaks.mjs` clean (166 tracked files).
+
+**Design pass** (`apple-design` skill loaded first, before judging anything). Headless Playwright
+at 1440px and 380px, light and dark, driven across all eight tabs via `npm run demo`: zero page
+errors, zero console errors, zero horizontal overflow at the document level in every combination,
+including under `reducedMotion: 'reduce'`. A full-page screenshot of Holdings at 1440px, taken
+mid-sequence after clicking through the other seven tabs at 350ms intervals, showed the Positions
+table entirely missing — the same "chase it down, don't assume a screenshot artifact" playbook the
+ninth and sixteenth passes used, so it was: `revealOnArrival()`'s global `shown` counter (shared
+across every tab's cards, capped at index 8) had given that card the maximum 480ms
+`animation-delay`, and the 350ms wait after the click landed inside that delay window, where
+`animation-fill-mode: both` holds the card at the keyframe's `from` state (`opacity: 0`). Polling
+the same card's computed opacity every 250ms past that point showed it reach `1` by ~750ms and
+stay there — confirmed transient, not stuck, and consistent with the documented stagger cap
+(`src/ui/styles.css` around `.card.arriving`). Not a defect; a reminder that this app's own reveal
+mechanism can still fool a screenshot taken too soon after a tab switch. Screenshotted every tab at
+380px, light and dark, and looked closely: Overview, Performance, Composition, Income & cost,
+Dividends, Holdings, Outlook and Notices all held their card layout, spacing and type hierarchy
+with nothing clipped, misaligned or overlapping. The Income & cost withholding-tax table's wide
+row is a `.table-scroll` container with its own `overflow-x: auto` (776px of content in a 326px
+box) — scrollable, not a leak. `backdrop-filter` still does not appear in `src/ui/styles.css`,
+consistent with `docs/redesign/DESIGN-BRIEF.md` §8's flat-container rule. No new design or motion
+defect found; **US-140** (the row-arrival-fade freeze found in the sixteenth pass) is unchanged and
+still open in `docs/BACKLOG.md` — not something to patch live in a scan.
+
+**Optimization.** No new candidate. Same conclusion as every prior pass: `src/ui/app.js` stays
+unbundled by design (MV3, no build step), and rule 8 rules out a refactor with no story or defect
+behind it.
+
+**Brokers.** No new candidate. Trade Republic, Trading 212 (§8) and Interactive Brokers (§9) in
+`docs/MULTI-BROKER.md` remain scoped as far as possible without a human at a funded, logged-in tab.
+
+`npm test` 672/672, `npm run palette` zero collisions in both themes, `node tools/check-leaks.mjs`
+clean.
+
 ## Light scan, 2026-09-03 (seventeenth pass)
 
 This session's own transport branch (`claude/eager-cannon-cbiypv`) was identical to `origin/main`
