@@ -8,6 +8,55 @@ state is in STATUS.md; this is the evidence that it was checked.
 
 ---
 
+## Light scan, 2026-09-05 (nineteenth pass)
+
+This session's own transport branch (`claude/eager-cannon-6d2r3g`) was identical to `origin/main`
+at start (both at 0.70.3, the eighteenth pass's own commit) — worked directly off `main`.
+
+**Branches.** 38 remote `claude/*` branches plus `poc`, same count and same names as the eighteenth
+pass — checked by comparing every branch's newest-commit timestamp against `origin/main`: none
+postdates `claude/fable-5-tr3otb` (2026-09-02, already counted twice) except this session's own
+transport branch. Every branch re-checked against `origin/main` with `merge-base --is-ancestor`;
+none is merged, and the `ahead` counts for the previously-named highest ones are unchanged
+(`degiro-reconciliation-issues-7t3iyc` 250, `eager-cannon-b3ncc4` 237, `v47-nav-aspect-ratio-v0wa42`
+222, `paid-vs-grown-discrepancy-rk40yw` 222, `account-total-bug-veh3bv` 216, `v47-bug-2jcvd3` 216,
+`remaining-build-items-05dbxv` 212). Nothing in the set carries a story `main` does not have. Git
+proxy still refuses branch deletion, so the 38 stale branches remain GitHub-UI cleanup for the
+owner.
+
+**GitHub.** Zero open issues, zero open PRs — same as every prior pass, nothing to close.
+
+**Backlog numbering**, via `tools/check-backlog.mjs`: 136 stories, highest US-140, next free
+US-141, no duplicate numbers, every heading states its state — unchanged from the eighteenth pass.
+`## Last updated` still matches `CHANGELOG.md`'s 0.70.3 entry.
+
+**Rule compliance / security.** Same spot checks as every prior pass, all still clean: `fetch()`
+appears only in `src/lib/degiro.js`, `src/ui/datasource.js` (demo fixtures) and `src/ui/app.js`
+(the extension's own `manifest.json`, for the version string). `degiro.js` still refuses to retry
+401/403. `EXPORTABLE_META` in `store.js` is still an allowlist, `redactMeta` still redacts anything
+not listed. `node tools/check-leaks.mjs` clean (166 tracked files).
+
+**Design pass** (`apple-design` skill loaded first, before judging anything). Headless Playwright
+at 1440px and 380px, light and dark, driven across all eight tabs via `npm run demo`: zero page
+errors, zero console errors, zero horizontal overflow at the document level in every combination,
+including under `reducedMotion: 'reduce'` and under `?demo=1&frozen=1`. Screenshotted every tab at
+380px, light and dark, and looked closely rather than only measuring: Overview, Income & cost,
+Dividends, Holdings and Notices held their card layout, spacing and type hierarchy with nothing
+clipped, misaligned or overlapping in either theme. `backdrop-filter` still does not appear in
+`src/ui/styles.css`, consistent with `docs/redesign/DESIGN-BRIEF.md` §8's flat-container rule. No
+new design or motion defect found; **US-140** (the row-arrival-fade freeze found in the sixteenth
+pass) is unchanged and still open in `docs/BACKLOG.md` — not something to patch live in a scan.
+
+**Optimization.** No new candidate. Same conclusion as every prior pass: `src/ui/app.js` stays
+unbundled by design (MV3, no build step), and rule 8 rules out a refactor with no story or defect
+behind it.
+
+**Brokers.** No new candidate. Trade Republic, Trading 212 (§8) and Interactive Brokers (§9) in
+`docs/MULTI-BROKER.md` remain scoped as far as possible without a human at a funded, logged-in tab.
+
+`npm test` 672/672, `npm run palette` zero collisions in both themes, `node tools/check-leaks.mjs`
+clean.
+
 ## Light scan, 2026-09-04 (eighteenth pass)
 
 This session's own transport branch (`claude/eager-cannon-utwiux`) was identical to `origin/main`
