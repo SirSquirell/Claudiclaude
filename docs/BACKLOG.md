@@ -8791,4 +8791,329 @@ documents and settings, checked by reading.
 
 ---
 
-**Next free number: US-142.**
+### US-142 — Provenance on every bundle row *(new, refined — from the 2026-09-06 backend audit; depends on US-104)*
+
+**Layer A.** The extension's whole claim is that its numbers are verified: the reconciliation check
+compares the last value against DEGIRO's own total and says so in red when it is off. The data
+bundle (US-104) is the first number in the product that does *not* come from DEGIRO, and today's
+design gives it a signature but no origin. A signed number of unknown origin is still a number of
+unknown origin. Every row in the bundle therefore carries where it came from and when, and the UI
+shows it next to the figure.
+
+**Layer B.** The build writes one `provenance` block per source (URL fetched, `fetchedAt`, sha256 of
+the raw input, licence) and every row carries the id of the source it was derived from. The
+extension shows "GLEIF, 3 sep 2026" under a withholding rate the way it already shows "in EUR" under
+a per-share figure: as a label, never as a tooltip only. This is rule 7 pointed the other way: only
+data whose origin is stated comes in.
+
+#### Acceptance criteria
+
+- [ ] `bundle-v1.json` has a top-level `sources` map; every data row has a `src` key naming one of
+      them. A row without `src` fails the schema check in the pipeline *and* in `bundle.js`.
+- [ ] Each source entry has `url`, `fetchedAt` (ISO), `sha256` of the raw download and `licence`.
+- [ ] Every Plus figure on screen carries its source name and date in the same visual position the
+      dividend layer uses for "in EUR". No figure from the bundle appears without one.
+- [ ] `har-to-fixtures`-style allowlist: the pipeline emits only the fields the schema names.
+
+#### Dependencies
+
+US-104 (the pipeline), US-143 (the schema it is checked against).
+
+#### Test
+
+`test/bundle.test.js`: a synthetic bundle with one row missing `src` is refused with a message naming
+the row; a valid one parses and `sourceOf(row)` returns the entry. A pipeline test asserts the
+`sources` block is rewritten on every build, never carried over.
+
+---
+
+### US-143 — One bundle schema, checked on both sides *(new, refined — from the 2026-09-06 backend audit)*
+
+**Layer A.** `parse.js` still carries candidate field names because DEGIRO's shapes were never
+confirmed (US-116). That is forgivable against a broker we do not control. Against our own pipeline
+it is not: the bundle's producer and consumer are both ours, so there is exactly one schema, it lives
+in one file, and both sides fail on it.
+
+**Layer B.** `schema/bundle-v1.json` (JSON Schema, draft 2020-12) in this repo is the truth. The
+extension ships it and `bundle.js` validates against it with a small hand-written validator (no
+dependency; the schema is flat enough). The pipeline repo or directory copies it in CI and refuses to
+publish a bundle that does not validate. A CI step diffs the two copies so they cannot drift.
+
+#### Acceptance criteria
+
+- [ ] `schema/bundle-v1.json` exists, is the only definition of the bundle shape, and every field the
+      extension reads is required in it. No optional fields "for later" (rule 8).
+- [ ] `bundle.js` refuses a bundle that fails the schema, with the path of the first failing field
+      in the error; the old bundle stays in use (US-146).
+- [ ] The pipeline validates its output against the same file before signing, and its CI diffs the
+      copy against this repo's.
+- [ ] A schema change is a `bundle-v2` file and a new URL, never an edit of v1 in place.
+
+#### Dependencies
+
+None. US-142 and US-146 build on it.
+
+#### Test
+
+Schema fixtures under `fixtures/bundle/`: one valid, one with a wrong type, one with an extra field,
+one with a missing required field. `test/bundle-schema.test.js` asserts accept / refuse / refuse /
+refuse, each with the field path in the message.
+
+---
+
+### US-144 — Signed releases with build provenance *(new, refined — red-team findings 1 and 9, owner action plus one workflow)*
+
+**Layer A.** The install today is "download the ZIP from `main`". Nothing says which commit built
+it, and nothing lets a reader check that the ZIP they hold is the one the repo produced. For a
+product whose pitch is *safe*, the release itself has to be the first verifiable thing.
+
+**Layer B.** A `release.yml` workflow runs on a tag `v*`: it runs `npm test`, builds the ZIP from the
+tagged tree only, writes its sha256, attaches both to a GitHub Release, and attaches a build
+provenance attestation (`actions/attest-build-provenance`, pinned by SHA per US-141 finding 13). `manifest.json`
+gains `version_name` with the short commit hash so the popup can name the build. INSTALL.md points
+at the Release, not at `main`. Branch protection on `main` (the owner's) is what makes the tag mean
+anything.
+
+#### Acceptance criteria
+
+- [ ] Pushing tag `vX.Y.Z` produces a Release with `asteria-X.Y.Z.zip`, `asteria-X.Y.Z.zip.sha256`
+      and an attestation; the workflow fails if `manifest.json`'s version does not equal the tag.
+- [ ] `version_name` is `X.Y.Z (abcdef0)` and the popup shows it under the version.
+- [ ] `INSTALL.md` describes downloading from Releases and checking the sha256 in one command.
+- [ ] The owner has enabled branch protection on `main` before the first tagged release; recorded
+      here with the date.
+
+#### Dependencies
+
+US-141 (finding 1, owner). US-141 (finding 13) for the pinned action.
+
+#### Test
+
+The workflow is exercised by a tag on a fork or a dry run; in `npm test`, a check that
+`version_name` starts with the manifest `version`.
+
+---
+
+### US-145 — `health.json` next to the bundle *(new, refined — from the 2026-09-06 backend audit; depends on US-104)*
+
+**Layer A.** Without telemetry (brief §4.5, and it stays that way) the only thing that can tell a
+reader or the owner whether the data side is healthy is the data side itself. One static file,
+rewritten by every pipeline run, is a status page that costs nothing and reveals nothing about any
+user.
+
+**Layer B.** `health.json` beside the bundle: `builtAt`, bundle `version`, per-source `fetchedAt`,
+row count and `ok`, and the last failure's code if the build failed (in which case the previous
+bundle stands and `health.json` says so). The extension reads it on the same weekly alarm and shows
+"data van 5 sep 2026" in the Plus screens; the site can show it on a status line.
+
+#### Acceptance criteria
+
+- [ ] Every pipeline run, successful or not, rewrites `health.json`; on failure the bundle is not
+      replaced and `health.json` names the failing source and step.
+- [ ] The extension shows the bundle's date wherever bundle data is shown (shared label with US-142).
+- [ ] No field in `health.json` can vary per user; it is the same bytes for everyone.
+
+#### Dependencies
+
+US-104.
+
+#### Test
+
+Pipeline tests for both branches (success rewrites, failure rewrites with the code and leaves the
+bundle). `test/bundle.test.js`: the date label is derived from `health.json`, not from the fetch time.
+
+---
+
+### US-146 — Last-good bundle: a bad refresh never empties a screen *(new, refined — from the 2026-09-06 backend audit; depends on US-143)*
+
+**Layer A.** A weekly refresh will fail eventually: a signature that does not verify, a schema that
+does not validate, a network that is not there. None of those is a reason to show a Plus user an
+empty screen. The extension keeps the last bundle that passed both checks and says how old it is.
+
+**Layer B.** `bundle.js` stores exactly one bundle in IndexedDB under `bundle/current` with its
+version and `verifiedAt`. A refresh writes to `bundle/incoming`, verifies signature then schema, and
+swaps only on success; on failure it records the reason in the error ring and leaves `current`. The
+bundle is a cache under rule 2: deleting it costs nothing but a refetch.
+
+#### Acceptance criteria
+
+- [ ] A refresh that fails signature or schema leaves the previous bundle in use; the Plus screens
+      show it with its date and a one-line notice naming the failure code (never the raw error).
+- [ ] A refresh with a bundle version *lower* than the current one is refused (anti-rollback,
+      TIERS §4), and says so.
+- [ ] Wipe removes the bundle too; the next sync refetches it.
+
+#### Dependencies
+
+US-143 (schema), TIERS §4 (signature).
+
+#### Test
+
+`test/bundle.test.js` under the fake IndexedDB: good→bad keeps good; good→older keeps good; good→newer
+swaps; the failure code lands in the error ring.
+
+---
+
+### US-147 — Count bundle fetches, and nothing else *(new, refined — from the 2026-09-06 backend audit; decision needed on hosting)*
+
+**Layer A.** The one business number the brief cannot answer is "how many people actually use Plus".
+The weekly bundle refresh is already a heartbeat that only Plus installs send; counting *requests*
+per week, with no identifier, gives active installs within the error of people with two machines,
+and reveals nothing about anyone.
+
+**Layer B.** GitHub Pages does not expose request counts, so this needs the bundle on Cloudflare R2
+(free tier) or behind a Worker that increments one counter per request and forwards to Pages. The
+Worker logs nothing else: no IP, no user-agent, no path parameters (the bundle has none). The privacy
+statement names the count in one sentence.
+
+#### Acceptance criteria
+
+- [ ] A decision recorded here: R2 or Worker, with the reason.
+- [ ] The Worker or R2 analytics expose one number per week, nothing per request.
+- [ ] The privacy statement states that bundle downloads are counted and that a download carries no
+      identifier.
+- [ ] The extension's request has no query string, no custom header and no cookie.
+
+#### Dependencies
+
+US-104 hosting decision. Owner action for the Cloudflare account (same account as prulwerk.nl DNS).
+
+#### Test
+
+`test/bundle.test.js`: the fetch call has exactly the URL from config and default options. The
+rest is configuration, checked by reading the Worker.
+
+---
+
+### US-148 — Money-weighted return next to annualised return *(new, refined — from the 2026-09-06 KPI pass)*
+
+**Layer A.** `annualisedReturn` (engine.js) is time-weighted in spirit: it asks what the portfolio
+did. The reader also wants to know what *their money* did, timing included: the internal rate of
+return over their own deposits and withdrawals. The two diverge exactly when the reader bought high
+or sold low, which is the most useful thing a return figure can say. Both stand side by side, both
+labelled with what they answer.
+
+**Layer B.** `moneyWeightedReturn(result, from, to)` in engine.js: cashflows are the external
+movements in the range (deposits negative, withdrawals positive), the opening value as a negative
+flow on the first day and the closing value as a positive flow on the last; solve the rate by
+bisection on the daily-compounded NPV, `PLAUSIBLE_ANNUAL` as the bound. Returns `null` with a reason
+when there is no sign change (all flows one way) or when the range is under 30 days.
+
+#### Acceptance criteria
+
+- [ ] The Performance tab's *Annualised return* card shows two figures: time-weighted (existing) and
+      money-weighted, each with a one-line "what this answers" under it.
+- [ ] The two agree within 0,01 pt on a range with a single deposit at the start and none after.
+- [ ] A range with no external flows and a range under 30 days shows "not computable" with the
+      reason, never 0 %.
+- [ ] Pure: the function takes the engine result and two indices and nothing else.
+
+#### Dependencies
+
+None.
+
+#### Test
+
+`test/engine-mwr.test.js`: single-deposit case equals annualised; a deposit right before a fall
+gives MWR below TWR; the two null cases; the bisection converges to 1e-6 on a synthetic series.
+
+---
+
+### US-149 — Recovery time after the deepest fall *(new, refined — from the 2026-09-06 KPI pass)*
+
+**Layer A.** The *Deepest fall* tile says how far the portfolio fell and between which dates. It does
+not say when it got back. The recovery date and the number of days under water are the second half
+of that number, and they are already in the series `maxDrawdown` walks.
+
+**Layer B.** `maxDrawdown` returns two more fields: `recoveredOn` (the first day after the trough on
+which value, corrected for external flows, reaches the previous peak again; `null` if not yet) and
+`underwaterDays`. The tile shows "recovered 14 nov 2025, 276 days" or "not yet recovered, 380 days
+and counting".
+
+#### Acceptance criteria
+
+- [ ] The tile's second line carries the recovery date and the day count, or "not yet".
+- [ ] Recovery is measured on the same flow-corrected series the drawdown is, so a deposit cannot
+      "recover" a drawdown.
+- [ ] On the fixtures the value is checked against a hand count once and recorded in the test.
+
+#### Dependencies
+
+None.
+
+#### Test
+
+Extends `test/engine.test.js`'s drawdown cases: a synthetic series with a fall, a deposit during the
+fall, and a recovery; assert the deposit does not end the drawdown and the recovery date is the first
+peak-reaching day.
+
+---
+
+### US-150 — Income concentration: how much of your dividend rests on the top three *(new, refined — from the 2026-09-06 KPI pass)*
+
+**Layer A.** The Dividends tab shows income by position. What it does not say is the risk that
+implies: if three payers are 80 % of the income, one cut is a fifth of the income. One number, with
+the positions named, on the Dividends hero ledger.
+
+**Layer B.** `incomeConcentration(payments, window)` in `dividends.js`: share of the trailing
+twelve months' regular gross income from the top one and top three payers, with their names. Pure,
+from data the tab already has. Positions not attributable stay out and the label says how many.
+
+#### Acceptance criteria
+
+- [ ] The Dividends ledger gets "Top 3 payers: 71 % (SHELL, VWRL, INGA)" with the window stated.
+- [ ] Special dividends are excluded, as everywhere in the layer.
+- [ ] With fewer than three payers the label says "all N positions" rather than a percentage of
+      itself.
+
+#### Dependencies
+
+None.
+
+#### Test
+
+`test/dividends.test.js`: three synthetic payers 50/30/20 give top1 50 %, top3 100 %; a special
+dividend on the largest does not move it; two payers give the "all 2 positions" label.
+
+---
+
+### US-151 — Redesign: the statement register and the Plus surface *(POC, refined — `docs/prototypes/redesign-tiers.html`, 2026-09-06)*
+
+**Layer A.** The current skin is warm paper, terracotta accent, system font and a card around every
+block. It was a good 0.46; it is now also the default look of generated dashboards, which is the
+opposite of what a verification tool wants to signal. The prototype moves the app to a statement
+register: ruled instead of boxed, a serif for titles and the one hero figure, cool paper with ink
+navy as the primary, the brand orange reserved for the mark and for Plus. The reconciliation moves
+into the rail as a permanent seal, because it is the product's signature.
+
+**Layer B.** The prototype also settles the free/Plus surface: Plus items under a rule in the nav with
+a dot, an *Upgrade* button in the rail while free, locked panels that show *what they would show and
+why it is external* (replacement, not blur, per US-46's rule), a comparison table with the reader's
+own column painted, and a licence screen with key id, bundle version and revocation status. Every
+Plus figure carries its source and date (US-142).
+
+#### Acceptance criteria
+
+- [ ] Tokens: `--pos`/`--neg` and the seven categorical slots are unchanged; `npm run palette` still
+      reports zero collisions in both themes after the surface change (re-measured, not assumed).
+- [ ] Type: two web fonts bundled in `vendor/` (MV3 forbids remote fonts), subset to latin, with the
+      sizes in rem as today.
+- [ ] The hero ledger is one ruled row; charts sit on the page; the only inset surface is a Plus
+      panel.
+- [ ] Rail seal: last value, DEGIRO's total, days measured, source; red when reconciliation fails.
+- [ ] Upgrade button visible while free, gone in Plus; comparison table marks the reader's column.
+- [ ] `?demo=1` and `?frozen=1` still render; the strip and popup are restyled in the same tokens.
+
+#### Dependencies
+
+The licence and bundle stories from TIERS §8 for the Plus states to be real; the visual change can
+land first with the Plus panels in their locked form only.
+
+#### Test
+
+`npm run palette` (mechanical), the existing overflow and DOM tests, and one screenshot set in
+`docs/prototypes/` before and after, as the earlier UI reviews did.
+
+---
+
+**Next free number: US-152.**
