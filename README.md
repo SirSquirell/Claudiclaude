@@ -64,12 +64,15 @@ fifty, and a line drawn from a bookkeeping artefact should not be drawn.
 **[→ Step-by-step guide, in Dutch (INSTALL.md)](INSTALL.md)** — no terminal, no Node, about
 two minutes.
 
-The short version: **Code → Download ZIP**, unzip somewhere permanent, then
-`chrome://extensions` → **Developer mode** on → **Load unpacked** → pick the folder that
-contains `manifest.json`.
+The short version: download `asteria-X.Y.Z.zip` from the latest
+[Release](https://github.com/SirSquirell/Claudiclaude/releases), unzip it somewhere permanent,
+then `chrome://extensions` → **Developer mode** on → **Load unpacked** → pick the folder that
+contains `manifest.json`. Picking a folder above it gives *"Manifest file is missing or
+unreadable"*.
 
-GitHub's ZIP nests a folder inside a folder, so that is usually one level *in* from where you
-unzipped. Picking the outer one gives *"Manifest file is missing or unreadable"*.
+Every release ZIP comes with its sha256 and a GitHub build attestation naming the commit it was
+built from; INSTALL.md has the one-line check. **Code → Download ZIP** gives you whatever `main`
+is at that moment, which is not a release.
 
 Then click the extension icon → **Open full chart** → **Open the demo** to see the charts on
 sample data before pointing it at your own account. When you are ready: log in at
@@ -89,6 +92,11 @@ known to be wrong, is in [docs/LIMITATIONS.md](docs/LIMITATIONS.md) — worth re
 you judge a number on screen.
 
 ## Where the data comes from
+
+**The code is open, the name is not.** Everything here is licensed under the Apache License 2.0
+([LICENSE](LICENSE)); a copy under another name is allowed and encouraged. The name "Asteria", the
+mark and the lockup are excluded from that grant ([TRADEMARK.md](TRADEMARK.md)), so that a copy
+under *this* name is the code this repository built and nothing else.
 
 **There is no password and no API key.** The extension reads the `JSESSIONID` cookie your own
 login already put in the browser, per request, and never writes it anywhere — not to the

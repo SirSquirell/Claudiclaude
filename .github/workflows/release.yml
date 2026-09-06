@@ -1,0 +1,77 @@
+# US-144: a tag `vX.Y.Z` becomes a GitHub Release carrying the install ZIP, its
+# sha256 and a build provenance attestation, so that a reader can check the ZIP
+# they hold is the one this repository produced from that commit.
+#
+# The ZIP holds only what the extension loads: manifest.json, src/, vendor/ and
+# icons/. Not docs/, test/, fixtures/, tools/ or this directory — none of it is
+# read by Chrome, and the tree it comes from is the tag, never the checkout's
+# working copy. Inside the ZIP, `version_name` becomes "X.Y.Z (abcdef0)"; the
+# committed manifest keeps the plain version (test/manifest.test.js).
+#
+# Every action is pinned to a commit SHA, tag in the comment (US-141, finding 13).
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      # Same as ci.yml: npm test refuses to run the leak check without the list.
+      - name: Write .leakwords from the LEAKWORDS secret
+        env:
+          LEAKWORDS: ${{ secrets.LEAKWORDS }}
+        run: |
+          if [ -z "$LEAKWORDS" ]; then
+            echo "::error::Repository secret LEAKWORDS is not set; tools/check-leaks.mjs cannot check names. Add it under Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+          printf '%s\n' "$LEAKWORDS" > .leakwords
+      - run: npm test
+
+      - name: The tag must be the manifest version
+        id: version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          version="$(node -p 'require("./manifest.json").version')"
+          if [ "$tag" != "$version" ]; then
+            echo "::error::tag is v$tag but manifest.json says $version; bump the manifest or retag."
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Build the ZIP from the tagged tree
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -eu
+          sha="$(git rev-parse --short=7 HEAD)"
+          rm -rf build && mkdir -p build/tree
+          git archive --format=tar HEAD manifest.json src vendor icons | tar -x -C build/tree
+          node tools/stamp-version.mjs build/tree/manifest.json "$sha"
+          (cd build/tree && zip -X -r -q "../asteria-$VERSION.zip" .)
+          (cd build && sha256sum "asteria-$VERSION.zip" > "asteria-$VERSION.zip.sha256")
+          unzip -l "build/asteria-$VERSION.zip"
+          cat "build/asteria-$VERSION.zip.sha256"
+
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: build/asteria-${{ steps.version.outputs.version }}.zip
+
+      - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          files: |
+            build/asteria-${{ steps.version.outputs.version }}.zip
+            build/asteria-${{ steps.version.outputs.version }}.zip.sha256
+          fail_on_unmatched_files: true

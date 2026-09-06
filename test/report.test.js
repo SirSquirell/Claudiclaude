@@ -113,6 +113,10 @@ test('the contract-size defect is still diagnosable', () => {
 
 test('the shape of the account is described without identifying it', () => {
   const a = buildBugReport(poisonedInput()).account;
+  // The first day is a year, not a date (US-141, finding 15): an opening day is
+  // an identifier to anyone holding the broker's records, a year is a shape.
+  assert.equal(a.firstDay, '2021');
+  assert.equal(a.days, 2);
   assert.equal(a.transactions, 1457);
   assert.equal(a.heldPositions, 2);
   assert.equal(a.heldWithoutPrices, 1, 'the one with no series');

@@ -22,6 +22,7 @@ import { subMonths, todayISO } from './dates.js';
 import { parseCashMovements, parseChartResponse, parseProducts, parseTransactions, parseUpdate, unwrapJsonp } from './parse.js';
 import { readSessionId } from './session.js';
 import { getMeta } from './store.js';
+import { fieldNames } from './sync.js';
 
 /** Which of the candidate keys a parser would actually have found. */
 function whichKey(obj, keys) {
@@ -30,10 +31,16 @@ function whichKey(obj, keys) {
   return null;
 }
 
-function topKeys(obj, limit = 14) {
-  if (!obj || typeof obj !== 'object') return [];
-  return Object.keys(obj).slice(0, limit);
-}
+/**
+ * The first few keys of a response, as evidence of its shape.
+ *
+ * Through `fieldNames`, not `Object.keys` (US-141, finding 12): a key is only
+ * reported if it is shaped like an identifier and carries no run of three
+ * digits. A products response is keyed by product id, and a key that *is* a
+ * number is a value wearing a name's clothes — the same rule `sync.js` applies
+ * before a field name may enter the bug report.
+ */
+const topKeys = (obj, limit = 14) => fieldNames(obj, limit);
 
 /**
  * Does the stated cash total account for every euro entry in `cashFunds`?

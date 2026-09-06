@@ -2,21 +2,34 @@
 
 Geen terminal nodig, geen Node, niks installeren. Vijf stappen, ongeveer twee minuten.
 
-## 1. Download de map
+## 1. Download de release
 
-Ga naar de repo op GitHub → groene knop **Code** → **Download ZIP**.
+Ga naar de [Releases-pagina](https://github.com/SirSquirell/Claudiclaude/releases) op GitHub
+en download bij de nieuwste release het bestand **`asteria-X.Y.Z.zip`** (X.Y.Z is het
+versienummer). Niet de knop **Code → Download ZIP** gebruiken: dat is de hele broncode van
+het moment, niet een gecontroleerde release.
 
 Pak het ZIP-bestand uit op een plek waar het mag blijven staan — bijvoorbeeld
-`Documenten\degiro-portfolio`. **Niet in Downloads laten staan**: Chrome laadt de
-extensie elke keer opnieuw vanaf die map, dus als je hem later opruimt werkt de
-extensie niet meer.
-
-**Let op: er zit een map in een map.** GitHub's ZIP pakt uit als
-`Claudiclaude-main\Claudiclaude-main\`, en alleen de binnenste bevat `manifest.json`.
-Je kunt de binnenste map er gerust uit slepen en de lege buitenste weggooien.
+`Documenten\asteria`. **Niet in Downloads laten staan**: Chrome laadt de extensie elke keer
+opnieuw vanaf die map, dus als je hem later opruimt werkt de extensie niet meer.
 
 Controleer even dat je in de goede map staat: je moet `manifest.json` zien staan, naast
 mappen als `src` en `icons`. Die map heb je zo nodig.
+
+### Wil je controleren dat het bestand klopt?
+
+Hoeft niet, mag wel. Naast de ZIP staat `asteria-X.Y.Z.zip.sha256`. Download die in dezelfde
+map en voer één opdracht uit in een terminal, in die map:
+
+```
+sha256sum -c asteria-X.Y.Z.zip.sha256
+```
+
+Op een Mac heet die opdracht `shasum -a 256 -c asteria-X.Y.Z.zip.sha256`; in Windows
+PowerShell vergelijk je `Get-FileHash asteria-X.Y.Z.zip` met de waarde in het `.sha256`-bestand.
+Staat er `OK`, dan is de ZIP byte voor byte wat de release heeft gebouwd. Elke release draagt
+daarnaast een build-attestatie van GitHub die zegt uit welke commit hij is gebouwd, en de
+`manifest.json` in de ZIP noemt diezelfde commit achter het versienummer.
 
 ## 2. Zet Chrome in ontwikkelaarsmodus
 
@@ -30,7 +43,7 @@ mappen als `src` en `icons`. Die map heb je zo nodig.
 
 > **"Manifest file is missing or unreadable"?** Dan heb je de buitenste map geselecteerd.
 > Klik **Retry**, ga één niveau dieper en kies de map waar `manifest.json` in staat. Dit is
-> de meest gemaakte fout en hij ligt aan de ZIP, niet aan jou.
+> de meest gemaakte fout.
 
 Er verschijnt nu een kaartje "Asteria". Klik op het puzzelstukje in
 de werkbalk en zet de extensie vast (het speldje), dan blijft het icoontje zichtbaar.

@@ -330,7 +330,12 @@ export function buildBugReport({ result, meta = {}, counts = {}, version = null,
     // not an identity.
     account: {
       days: r?.days?.length ?? 0,
-      firstDay: r?.days?.[0] ?? null,
+      // The year only (US-141, finding 15). The exact first day is the day the
+      // account was opened, which with `days` pins `lastDay` and identifies a
+      // person to anyone holding DEGIRO's records; the year says what kind of
+      // history this is — five years or five weeks — and that is all a defect
+      // has ever needed.
+      firstDay: r?.days?.[0]?.slice(0, 4) ?? null,
       lastDay: r?.days?.at?.(-1) ?? null,
       transactions: counts.transactions ?? 0,
       cashRows: counts.cashflows ?? 0,
