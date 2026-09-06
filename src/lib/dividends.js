@@ -126,6 +126,19 @@
  *     the horizon ends first. Horizon and plausibility are `projectPortfolio`'s
  *     own guards, imported, not redefined. Arithmetic on stated assumptions;
  *     the caller shows every one of them.
+ *
+ *   incomeConcentration(series, today) →                             (US-150)
+ *     { unit: 'EUR', windowFrom, total, payerCount,
+ *       top1: { pct, payers: [{ productId, name, gross, pct }], allOf },
+ *       top3: { pct, payers: [{ productId, name, gross, pct }], allOf },
+ *       unattributedPayments }
+ *     The share of the trailing twelve months' regular gross income that the
+ *     largest payer, and the largest three, account for — with their names.
+ *     Specials excluded, as in forwardIncome. With fewer payers than the top
+ *     asks for, `pct` is null and `allOf` is the payer count, so the label
+ *     reads "all 2 positions" rather than a percentage of itself; `payers` then
+ *     lists all of them. Gross rows that could not be attributed to a position
+ *     stay out of the total and are counted in `unattributedPayments`.
  */
 import { CATEGORY } from './classify.js';
 import { addDays, dayRange, daysBetween, subMonths } from './dates.js';
@@ -855,4 +868,55 @@ export function incomeGoal({ annualIncome, goalPerMonth, monthly = 0, growthPct 
     reachedOn: monthsToGoal === null || today === null ? null : subMonths(today, -monthsToGoal),
     path,
   };
+}
+
+// ---------------------------------------------------------------------------
+// US-150: income concentration
+// ---------------------------------------------------------------------------
+
+/**
+ * US-150. How much of the trailing year's regular dividend income rests on the
+ * largest payer, and on the largest three.
+ *
+ * The Dividends tab lists income by position; this is the risk that list
+ * implies, as one number with the names on it: if three payers are 80 % of the
+ * income, one cut is a fifth of it. Same window as `yields` (the twelve months
+ * up to `today`) and the same exclusion as `forwardIncome`: a special is not
+ * income that recurs, so a payer whose one-off makes it the largest is not the
+ * one the reader depends on. Gross, in euros as they landed.
+ *
+ * Fewer payers than the top asks for is not "100 %". A share of the whole of
+ * two positions says nothing about concentration that the count does not, so
+ * the share is null and `allOf` carries the count instead. Payments that could
+ * not be attributed to a position (`undetermined`, per US-121) are left out of
+ * the total and counted, so the label can say the figure is over what could be
+ * attributed.
+ *
+ * @returns {{unit: 'EUR', windowFrom: string, total: number, payerCount: number,
+ *   top1: {pct: number|null, payers: Array<{productId, name, gross, pct}>, allOf: number|null},
+ *   top3: {pct: number|null, payers: Array<{productId, name, gross, pct}>, allOf: number|null},
+ *   unattributedPayments: number}}
+ */
+export function incomeConcentration(series, today) {
+  const c = classified(series);
+  const windowFrom = subMonths(today, FORWARD_WINDOW_MONTHS);
+  const inWindow = (date) => date > windowFrom && date <= today;
+
+  const payers = [];
+  for (const prod of Object.values(c.byProduct)) {
+    const gross = prod.points.filter((p) => p.label === 'regular' && inWindow(p.date)).reduce((k, p) => k + p.gross, 0);
+    if (gross > 0) payers.push({ productId: prod.productId, name: prod.name, gross, pct: 0 });
+  }
+  payers.sort((a, b) => b.gross - a.gross || (a.productId < b.productId ? -1 : 1));
+  const total = payers.reduce((k, p) => k + p.gross, 0);
+  for (const p of payers) p.pct = (p.gross / total) * 100;
+
+  const top = (n) =>
+    payers.length < n
+      ? { pct: null, payers, allOf: payers.length }
+      : { pct: payers.slice(0, n).reduce((k, p) => k + p.pct, 0), payers: payers.slice(0, n), allOf: null };
+
+  const unattributedPayments = (c.undetermined ?? []).filter((u) => u.category === CATEGORY.DIVIDEND && inWindow(u.date)).length;
+
+  return { unit: 'EUR', windowFrom, total, payerCount: payers.length, top1: top(1), top3: top(3), unattributedPayments };
 }

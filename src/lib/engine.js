@@ -2206,7 +2206,8 @@ export function usableReturnDay(prev, pnl) {
 }
 
 /**
- * The deepest peak-to-trough fall over a window, in euros and as a share.
+ * The deepest peak-to-trough fall over a window, in euros and as a share, and
+ * (US-149) when, if ever, the curve got back to where it fell from.
  *
  * Measured on the **deposit-free** curve — the running sum of `pnl` — and never
  * on portfolio value. A withdrawal drops the value line without anything having
@@ -2219,17 +2220,35 @@ export function usableReturnDay(prev, pnl) {
  * meaningless; the portfolio's value on the peak day is what the fall was
  * actually a fall *of*.
  *
- * @returns {{amount: number, pct: number, from: number, to: number}} `amount`
- *   is negative or zero, and the indices are into the same arrays, not the window.
+ * Recovery is read off the same curve, for the same reason: a deposit during
+ * the fall lifts the value line back past the old high and has recovered
+ * nothing. The curve is back when it is within half a cent of the peak —
+ * `pnl` is not rounded to cents, and a peak regained to the cent is regained
+ * as far as any figure on screen can tell.
+ *
+ * @returns {{amount: number, pct: number, from: number, to: number,
+ *   recoveredOn: string|null, underwaterDays: number}} `amount` is negative or
+ *   zero, and the indices are into the same arrays, not the window.
+ *   `recoveredOn` is the ISO day the curve first reached the peak again after
+ *   the trough, null while it has not; `underwaterDays` runs from the peak day
+ *   to that day, or to the end of the window while not recovered, and is 0
+ *   when there was no fall.
  */
 export function maxDrawdown(result, fromIndex = 0, toIndex = result.days.length - 1) {
+  const first = Math.max(0, fromIndex);
+  const last = Math.min(toIndex, result.days.length - 1);
   let running = 0;
   let peak = 0;
-  let peakAt = Math.max(0, fromIndex);
+  let peakAt = first;
   let worst = { amount: 0, pct: 0, from: peakAt, to: peakAt };
+  let worstPeak = 0;
+  // The curve, kept so the recovery walk below reads the same numbers the
+  // fall was measured on rather than summing them a second time.
+  const curve = [];
 
-  for (let i = Math.max(0, fromIndex); i <= toIndex && i < result.days.length; i++) {
+  for (let i = first; i <= last; i++) {
     running += result.pnl[i] ?? 0;
+    curve.push(running);
     if (running > peak) {
       peak = running;
       peakAt = i;
@@ -2238,10 +2257,25 @@ export function maxDrawdown(result, fromIndex = 0, toIndex = result.days.length 
     if (fall < worst.amount) {
       const base = result.value[peakAt];
       worst = { amount: fall, pct: base > 0 ? (fall / base) * 100 : 0, from: peakAt, to: i };
+      worstPeak = peak;
     }
   }
 
-  return worst;
+  let recoveredAt = null;
+  if (worst.amount < 0) {
+    for (let i = worst.to + 1; i <= last; i++) {
+      if (curve[i - first] >= worstPeak - 0.005) {
+        recoveredAt = i;
+        break;
+      }
+    }
+  }
+
+  return {
+    ...worst,
+    recoveredOn: recoveredAt === null ? null : result.days[recoveredAt],
+    underwaterDays: worst.amount < 0 ? (recoveredAt ?? last) - worst.from : 0,
+  };
 }
 
 /**
