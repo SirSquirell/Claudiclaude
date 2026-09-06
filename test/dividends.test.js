@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { perShareSeries, RECENT_TRADE_DAYS, detectRhythm, nextExpected, NEXT_EXPECTED_MARGIN, classifyPayments, changes, forwardIncome, yields, trackRecord, measuredDividendGrowth, incomeGoal } from '../src/lib/dividends.js';
+import { perShareSeries, RECENT_TRADE_DAYS, detectRhythm, nextExpected, NEXT_EXPECTED_MARGIN, classifyPayments, changes, forwardIncome, yields, trackRecord, measuredDividendGrowth, incomeGoal, incomeConcentration } from '../src/lib/dividends.js';
 import { MAX_HORIZON_MONTHS, PLAUSIBLE_ANNUAL } from '../src/lib/engine.js';
 import { computePortfolio } from '../src/lib/engine.js';
 import { CATEGORY } from '../src/lib/classify.js';
@@ -801,4 +801,87 @@ test('US-128: an implausible growth or yield is refused, and so is no goal', () 
   assert.equal(incomeGoal({ annualIncome: 1200, goalPerMonth: 100, growthPct: NaN }).refused, 'implausible-growth');
   assert.equal(incomeGoal({ annualIncome: 1200, goalPerMonth: 0 }).refused, 'no-goal');
   assert.equal(incomeGoal({ annualIncome: 1200, goalPerMonth: PLAUSIBLE_ANNUAL, growthPct: PLAUSIBLE_ANNUAL }).refused, null, 'the bound itself is allowed, as in projectPortfolio');
+});
+
+// ---------------------------------------------------------------------------
+// US-150 incomeConcentration
+// ---------------------------------------------------------------------------
+
+/**
+ * Three quarterly payers held from January 2023, 100 shares each, paying the
+ * same per-share amount every quarter of 2023 and 2024: A €0,125, B €0,075,
+ * C €0,05. In the twelve months to 2024-12-31 that is €50, €30 and €20 —
+ * 50 / 30 / 20 of a €100 total. Names are invented.
+ */
+function threePayers(ids = ['A', 'B', 'C']) {
+  const perShare = { A: 0.125, B: 0.075, C: 0.05 };
+  const transactions = [];
+  const cashRows = [];
+  for (const id of ids) {
+    transactions.push(buy(id, '2023-01-10', 100, 20));
+    for (const year of [2023, 2024]) {
+      for (const month of ['03', '06', '09', '12']) cashRows.push(div(id, `${year}-${month}-15`, perShare[id] * 100));
+    }
+  }
+  const products = { A: { name: 'Alpha NV' }, B: { name: 'Beta NV' }, C: { name: 'Gamma NV' } };
+  return { transactions, cashRows, products };
+}
+
+test('US-150: three payers at 50/30/20 give top1 50 % and top3 100 %, largest first, with names', () => {
+  const { transactions, cashRows, products } = threePayers();
+  const c = incomeConcentration(perShareSeries(transactions, cashRows, products), '2024-12-31');
+  assert.equal(c.unit, 'EUR');
+  assert.equal(c.windowFrom, '2023-12-31');
+  near(c.total, 100, 1e-9, 'the 2024 payments only; 2023 is outside the window');
+  assert.equal(c.payerCount, 3);
+  near(c.top1.pct, 50, 1e-9);
+  assert.equal(c.top1.allOf, null);
+  assert.deepEqual(c.top1.payers.map((p) => p.name), ['Alpha NV']);
+  near(c.top1.payers[0].gross, 50, 1e-9);
+  near(c.top3.pct, 100, 1e-9);
+  assert.equal(c.top3.allOf, null);
+  assert.deepEqual(c.top3.payers.map((p) => p.productId), ['A', 'B', 'C']);
+  near(c.top3.payers[2].pct, 20, 1e-9);
+  assert.equal(c.unattributedPayments, 0);
+});
+
+test('US-150: a special dividend on the largest payer does not move the shares', () => {
+  const { transactions, cashRows, products } = threePayers();
+  // €100 on A between two quarters: eight times its regular €12,50, no yearly
+  // twin — special by amount (US-125). Gross received would say 60 %; income
+  // that recurs still says 50 %.
+  cashRows.push(div('A', '2024-07-20', 100));
+  const s = classifyPayments(perShareSeries(transactions, cashRows, products));
+  assert.equal(s.byProduct.A.points.find((p) => p.date === '2024-07-20').label, 'special', 'the premise of the test');
+  const c = incomeConcentration(s, '2024-12-31');
+  near(c.total, 100, 1e-9);
+  near(c.top1.pct, 50, 1e-9);
+  near(c.top3.pct, 100, 1e-9);
+});
+
+test('US-150: fewer than three payers is "all N positions", not a percentage of itself', () => {
+  const { transactions, cashRows, products } = threePayers(['A', 'B']);
+  const c = incomeConcentration(perShareSeries(transactions, cashRows, products), '2024-12-31');
+  assert.equal(c.payerCount, 2);
+  near(c.top1.pct, 62.5, 1e-9, '50 of 80');
+  assert.equal(c.top3.pct, null);
+  assert.equal(c.top3.allOf, 2);
+  assert.deepEqual(c.top3.payers.map((p) => p.name), ['Alpha NV', 'Beta NV'], 'all of them, so the label can name them');
+
+  const none = incomeConcentration(perShareSeries([], []), '2024-12-31');
+  assert.equal(none.total, 0);
+  assert.equal(none.payerCount, 0);
+  assert.deepEqual(none.top1, { pct: null, payers: [], allOf: 0 });
+  assert.deepEqual(none.top3, { pct: null, payers: [], allOf: 0 });
+});
+
+test('US-150: a payment that cannot be attributed to a position stays out of the total and is counted', () => {
+  const { transactions, cashRows, products } = threePayers();
+  cashRows.push(div(null, '2024-05-01', 9)); // no product on the row
+  cashRows.push(div('D', '2024-05-02', 9)); // a product never held
+  cashRows.push(div(null, '2023-05-01', 9)); // outside the window
+  const c = incomeConcentration(perShareSeries(transactions, cashRows, products), '2024-12-31');
+  near(c.total, 100, 1e-9);
+  near(c.top1.pct, 50, 1e-9);
+  assert.equal(c.unattributedPayments, 2);
 });

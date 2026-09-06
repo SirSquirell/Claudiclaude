@@ -572,6 +572,40 @@ test('SPEC §6: the reconstructed total matches the reported total to the cent',
   near(result.totals.positions, meta.livePositionsValue);
 });
 
+test('US-149 — on the fixtures, the recovery date is the first day the curve is back at its peak, by hand', () => {
+  /**
+   * The story asks for this once: a hand count against the generated set, so
+   * a regression in the walk is caught on a real-shaped series and not only on
+   * eight-day toys. The literals are the fixtures' own (synthetic) values; the
+   * loop below is the hand count, written without looking at maxDrawdown.
+   */
+  const meta = fixture('meta.json');
+  const result = computePortfolio({
+    transactions: parseTransactions(fixture('transactions.json')),
+    cashRows: parseCashMovements(fixture('accountoverview.json')),
+    products: parseProducts(fixture('products-info.json')),
+    prices: loadPrices(parseChartResponse, meta),
+    today: meta.today,
+    liveTotal: parseUpdate(fixture('update.json')).totalValue,
+  });
+  const d = maxDrawdown(result);
+  assert.equal(result.days[d.from], '2025-02-11');
+  assert.equal(result.days[d.to], '2025-08-22');
+  assert.equal(d.recoveredOn, '2026-06-25');
+  assert.equal(d.underwaterDays, 499);
+
+  // By hand: cumulative P/L, the peak before the trough, the first later day at or above it.
+  const cum = [];
+  let run = 0;
+  for (const x of result.pnl) cum.push((run += x));
+  const peakValue = cum[d.from];
+  for (let i = d.from + 1; i <= d.to; i++) assert.ok(cum[i] < peakValue, `still under water on ${result.days[i]}`);
+  let recovered = null;
+  for (let i = d.to + 1; i < cum.length && recovered === null; i++) if (cum[i] >= peakValue - 0.005) recovered = i;
+  assert.equal(result.days[recovered], d.recoveredOn);
+  assert.equal(recovered - d.from, d.underwaterDays);
+});
+
 test('US-82 — the fixtures contain two closed positions, one of each kind', () => {
   /**
    * `fixtures/` held ten products and not one of them had ever been sold out, so
@@ -1516,6 +1550,54 @@ test('maxDrawdown honours the window it is given', () => {
   assert.equal(maxDrawdown(r, 0, 4).amount, -40);
 });
 
+// US-149 — recovery. `dd` has no netExternal because maxDrawdown never reads
+// it: a deposit is already absent from `pnl`, which is the whole point.
+
+test('US-149: a deposit during the fall recovers nothing; the first day back at the peak does', () => {
+  //            d0   d1   d2   d3    d4    d5    d6    d7
+  // pnl:       10   20  -10  -15     0    10    20     5
+  // running:   10   30   20    5     5    15    35    40   → peak 30 on d1, trough 5 on d3
+  // value:    100  130  120  105  1105  1115  1135  1140   ← €1 000 deposited on d4
+  const r = dd([10, 20, -10, -15, 0, 10, 20, 5], [100, 130, 120, 105, 1105, 1115, 1135, 1140]);
+  const out = maxDrawdown(r);
+  // The four fields that were there before US-149, unchanged.
+  assert.equal(out.amount, -25);
+  assert.equal(out.from, 1);
+  assert.equal(out.to, 3);
+  assert.ok(Math.abs(out.pct - (-25 / 130) * 100) < 1e-9);
+  // Value is back above 130 on d4 and the curve is still at 5: not recovered.
+  // d5 is at 15, d6 at 35 — the first day at or above the peak of 30.
+  assert.equal(out.recoveredOn, '2024-01-07');
+  assert.equal(out.underwaterDays, 5, 'from the peak day d1 to the recovery day d6');
+});
+
+test('US-149: not yet recovered counts from the peak to the end of the window, and the window bounds it', () => {
+  //            d0   d1   d2   d3   d4   d5   d6
+  // running:   10   30   20    5   10   30   31
+  const r = dd([10, 20, -10, -15, 5, 20, 1], [100, 130, 120, 105, 110, 130, 131]);
+  const whole = maxDrawdown(r);
+  assert.equal(whole.recoveredOn, '2024-01-06', 'd5 is exactly back at 30, which counts');
+  assert.equal(whole.underwaterDays, 4);
+
+  const cut = maxDrawdown(r, 0, 4);
+  assert.equal(cut.amount, -25);
+  assert.equal(cut.recoveredOn, null);
+  assert.equal(cut.underwaterDays, 3, 'd1 to d4, the last day of the window — and counting');
+});
+
+test('US-149: a cent short of the peak is still under water; no fall means no days under water', () => {
+  //            d0   d1   d2      d3
+  // running:   10   30    5   29.99
+  const short = maxDrawdown(dd([10, 20, -25, 24.99], [100, 130, 105, 129.99]));
+  assert.equal(short.recoveredOn, null);
+  assert.equal(short.underwaterDays, 2);
+
+  const rising = maxDrawdown(dd([5, 5, 5], [10, 15, 20]));
+  assert.equal(rising.amount, 0);
+  assert.equal(rising.recoveredOn, null);
+  assert.equal(rising.underwaterDays, 0);
+});
+
 // ---------------------------------------------------------------------------
 // A residual-cent conversion states no rate
 // ---------------------------------------------------------------------------
@@ -1800,6 +1882,24 @@ test('a known IRR is solved to four decimals', () => {
   const out = annualisedReturn(series(pnl, value, netExternal));
   assert.equal(out.reason, null);
   assert.ok(Math.abs(out.moneyWeighted - 10) < 0.01, `expected ~10 %, got ${out.moneyWeighted}`);
+});
+
+test('US-148: with a single deposit at the start and no other flow, the two figures agree within 0,01 pt', () => {
+  // The one case where timing cannot matter: all the money was in from day one,
+  // so what the money did and what the portfolio did are the same question.
+  // Growth spread over the days rather than landing on the last one, so the
+  // chained daily return has something to chain.
+  const n = 731;
+  const netExternal = new Array(n).fill(0);
+  netExternal[0] = 1000;
+  const value = Array.from({ length: n }, (_, i) => 1000 * 1.1 ** (i / 365));
+  const pnl = value.map((v, i) => (i === 0 ? 0 : v - value[i - 1]));
+
+  const out = annualisedReturn(series(pnl, value, netExternal));
+  assert.equal(out.reason, null);
+  assert.ok(Math.abs(out.moneyWeighted - 10) < 0.01, `money-weighted ${out.moneyWeighted}`);
+  assert.ok(Math.abs(out.timeWeighted - 10) < 0.01, `time-weighted ${out.timeWeighted}`);
+  assert.ok(Math.abs(out.moneyWeighted - out.timeWeighted) < 0.01, `${out.moneyWeighted} vs ${out.timeWeighted}`);
 });
 
 test('money-weighted and time-weighted disagree when the money arrived late', () => {
