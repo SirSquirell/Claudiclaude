@@ -3,7 +3,7 @@
 `docs/BACKLOG.md` is 7 600 lines of reasoning and evidence, which is the right place for *why* and
 a bad place to find out *where things stand*. This is the index.
 
-**Last updated at 0.70.4, on 2026-09-06.** It had been stale since 0.21.0 once, which is fifteen
+**Last updated at 0.71.0, on 2026-09-06.** It had been stale since 0.21.0 once, which is fifteen
 releases — if it looks stale again, trust the CHANGELOG and fix this.
 
 ## Light scans
@@ -20,6 +20,16 @@ found nothing new. The eighteenth pass chased down what first looked like a seco
 Holdings table's Positions card missing from a mid-sequence screenshot — and confirmed it was its
 own screenshot taken inside the documented reveal stagger's delay window, not a stuck card. The
 nineteenth pass found nothing new; see SCANS.md for all four.
+
+## Redesign, 0.71.0
+
+**US-151** is built: the statement register (cool paper, ink navy, two bundled faces, a serif hero,
+ruled ledger and sections, underlined range tabs), the seal in the rail, the table model on every
+table (sticky header, anchor column, named scroll landmark, edge shadows) and a Plus section that
+says *in preparation*. Palette and type checks re-measured green. Deferred from the story: column
+priorities on tables other than Positions, and the seal's two amount rows, which wait for the
+anonymize path to be confirmed against them. The design POCs stay in `docs/prototypes/`
+(`redesign-tiers.html`, `tables.html`).
 
 ## Red team, 2026-09-06
 

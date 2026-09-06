@@ -9077,7 +9077,7 @@ dividend on the largest does not move it; two payers give the "all 2 positions" 
 
 ---
 
-### US-151 — Redesign: the statement register and the Plus surface *(POC, refined — `docs/prototypes/redesign-tiers.html`, 2026-09-06)*
+### US-151 — Redesign: the statement register and the Plus surface *(built, 0.71.0 — POCs in `docs/prototypes/redesign-tiers.html` and `tables.html`; deferred: column priorities beyond Positions, the seal's amount rows, the Plus locked panels until their features exist)*
 
 **Layer A.** The current skin is warm paper, terracotta accent, system font and a card around every
 block. It was a good 0.46; it is now also the default look of generated dashboards, which is the

@@ -34,6 +34,23 @@
   display: none !important;
 }
 
+/* US-151. Bundled, because MV3 forbids remote fonts and a font that fails to
+   load falls back silently. Variable files, latin subset, licences beside them. */
+@font-face {
+  font-family: 'Source Sans 3';
+  font-style: normal;
+  font-weight: 200 900;
+  font-display: swap;
+  src: url('../../vendor/fonts/source-sans-3-latin.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Newsreader';
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+  src: url('../../vendor/fonts/newsreader-latin.woff2') format('woff2');
+}
+
 :root {
   color-scheme: light;
 
@@ -44,18 +61,23 @@
      moving the surface moves ten contrast pairs, and `npm run palette` is the
      only thing that can say whether they still clear 3:1. They do, by more than
      before: a whiter card lifts every slot. */
-  --page: #fbfaf8;
+  /* US-151, the statement register. Cool paper and ink navy replace the warm
+     cream and terracotta of 0.46: that pairing had become the default look of
+     generated dashboards, which is the opposite of what a verification tool
+     wants to signal. `--surface-1` stays white, so every categorical slot's
+     measured contrast is unchanged; `npm run palette` re-measured it anyway. */
+  --page: #f1f2f5;
   --surface-1: #ffffff;
-  --surface-2: #f4f2ee;
-  --surface-3: #eae6e0;
-  --rail: #f6f4f0;
-  --text-primary: #14181d;
-  --text-secondary: #5c6672;
-  --text-muted: #939ca7;
-  --grid: #e9e6e0;
-  --axis: #d6d2ca;
-  --border: #e9e6e0;
-  --border-strong: #d6d2ca;
+  --surface-2: #f6f7f9;
+  --surface-3: #eceef2;
+  --rail: #f1f2f5;
+  --text-primary: #0f1626;
+  --text-secondary: #4b5567;
+  --text-muted: #8a93a3;
+  --grid: #e6e8ed;
+  --axis: #c5cad4;
+  --border: #dfe2e8;
+  --border-strong: #c5cad4;
 
   /* categorical slots, repaired to zero collisions — see tools/check-palette.mjs */
   --series-1: #557cd4;
@@ -79,7 +101,19 @@
   --warning: #785000;
   --critical: #9e1628;
 
-  --accent: #b8532f;
+  /* Ink navy. The accent used to be a terracotta that was the page's one piece
+     of colour; the statement register has no decorative colour at all, so the
+     accent is the ink itself: the current-section bar, the range underline, the
+     sort arrow. The brand orange below is reserved for the mark and for Plus. */
+  --accent: #16213e;
+  --primary: #16213e;
+  --primary-ink: #ffffff;
+  /* Plus: the one place the brand colour paints an area. Text on the tint
+     measures 6:1; the full brand orange under white text does not clear 4.5:1
+     (see --brand-accent below), so Plus controls are tint-and-ink, never a
+     filled orange button. */
+  --plus-soft: #fbe9e0;
+  --plus-ink: #9a3a12;
 
   /* Asteria — the brand's own two values, deliberately separate from --accent.
      Not the same colour, and swapping them is not a rename: white on #d9531e
@@ -229,25 +263,33 @@
 
   /* Deliberately a pixel: a hairline that scales stops being a hairline. */
   --rule: 1px;
-  --font: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /* US-151: two faces are bundled in vendor/fonts (latin subsets, OFL). The
+     sans carries text and every figure — Source Sans 3, because its tabular
+     figures are digits of one width and nothing else; the first candidate set
+     its commas tabular too and every amount read as typewriting. The serif
+     carries titles and the one hero figure. Mono is the system's: it names
+     tickers and keys, and no reader needs a bundled file for that. */
+  --font: 'Source Sans 3', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-serif: 'Newsreader', Georgia, 'Times New Roman', serif;
+  --font-mono: ui-monospace, Menlo, Consolas, monospace;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
     color-scheme: dark;
 
-    --page: #0d1116;
-    --surface-1: #141920;
-    --surface-2: #1b222b;
-    --surface-3: #232b35;
-    --rail: #10151b;
-    --text-primary: #e8edf3;
-    --text-secondary: #98a3b0;
-    --text-muted: #6b7683;
-    --grid: #232b35;
-    --axis: #333d49;
-    --border: #232b35;
-    --border-strong: #333d49;
+    --page: #0c0f16;
+    --surface-1: #141924;
+    --surface-2: #1a2030;
+    --surface-3: #222a3c;
+    --rail: #0c0f16;
+    --text-primary: #e9ecf2;
+    --text-secondary: #aeb6c4;
+    --text-muted: #737d8f;
+    --grid: #1f2636;
+    --axis: #38425a;
+    --border: #262e40;
+    --border-strong: #38425a;
 
     --series-1: #4a86de;
     --series-2: #a383d0;
@@ -268,7 +310,11 @@
     --warning: #efbf68;
     --critical: #ff9aa4;
 
-    --accent: #e08355;
+    --accent: #e9ecf2;
+  --primary: #e9ecf2;
+  --primary-ink: #0f1626;
+  --plus-soft: #3a2117;
+  --plus-ink: #f5a27c;
   --brand-ink: #e8edf5;
   --brand-accent: #f97038;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
@@ -285,18 +331,18 @@
 :root[data-theme='dark'] {
   color-scheme: dark;
 
-  --page: #0d1116;
-  --surface-1: #141920;
-  --surface-2: #1b222b;
-  --surface-3: #232b35;
-  --rail: #10151b;
-  --text-primary: #e8edf3;
-  --text-secondary: #98a3b0;
-  --text-muted: #6b7683;
-  --grid: #232b35;
-  --axis: #333d49;
-  --border: #232b35;
-  --border-strong: #333d49;
+  --page: #0c0f16;
+  --surface-1: #141924;
+  --surface-2: #1a2030;
+  --surface-3: #222a3c;
+  --rail: #0c0f16;
+  --text-primary: #e9ecf2;
+  --text-secondary: #aeb6c4;
+  --text-muted: #737d8f;
+  --grid: #1f2636;
+  --axis: #38425a;
+  --border: #262e40;
+  --border-strong: #38425a;
 
   --series-1: #4a86de;
   --series-2: #a383d0;
@@ -317,7 +363,11 @@
   --warning: #efbf68;
   --critical: #ff9aa4;
 
-  --accent: #e08355;
+  --accent: #e9ecf2;
+  --primary: #e9ecf2;
+  --primary-ink: #0f1626;
+  --plus-soft: #3a2117;
+  --plus-ink: #f5a27c;
   --brand-ink: #e8edf5;
   --brand-accent: #f97038;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
@@ -343,12 +393,10 @@ body {
   line-height: var(--lead-body);
   letter-spacing: var(--track-body);
   /*
-   * US-58, stated plainly rather than promised: **no font is bundled.** The
-   * stack is the system UI face, so this does something on the platforms whose
-   * system font carries an optical axis — SF on Apple, Segoe UI Variable on
-   * Windows — and nothing at all elsewhere. It costs nothing where it is inert,
-   * and the tracking and leading buckets above are the part that works
-   * everywhere.
+   * US-58 said no font was bundled; US-151 bundles two (see the font-face
+   * rules at the top). Optical sizing now does something everywhere: Newsreader
+   * carries an `opsz` axis, so the hero figure and a card title are drawn from
+   * different masters rather than one scaled.
    */
   font-optical-sizing: auto;
   -webkit-font-smoothing: antialiased;
@@ -416,7 +464,7 @@ body {
   background: none;
   border-radius: var(--radius-sm);
   padding: 0.4375rem 0.5rem;
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
   font-weight: 500;
   letter-spacing: 0;
   text-transform: none;
@@ -430,10 +478,28 @@ body {
 }
 
 .rail-nav button[aria-current='page'] {
-  background: var(--surface-1);
+  background: transparent;
   color: var(--text-primary);
   font-weight: 600;
   box-shadow: inset 2px 0 0 var(--accent);
+}
+
+/* US-151: the rule between the sections that come from the account's own data
+   and the ones that need the data bundle (Plus). The dot marks a Plus section
+   on a free install; `body.plus` (nothing sets it yet) removes the dots. */
+.rail-sep {
+  height: var(--rule);
+  background: var(--border);
+  margin: 8px 0;
+}
+
+.rail-nav button .plus-dot {
+  float: right;
+  width: 6px;
+  height: 6px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--brand-accent);
 }
 
 .rail-foot {
@@ -449,14 +515,29 @@ body {
  * total value, and it must still be able to shout when it disagrees — hence the
  * .bad row keeping the critical colour.
  */
+/* US-151: the seal. The reconciliation verdict is the product's signature, so
+   it is set as a stamp above the other facts rather than as one row among
+   them. Sizes up from 11px to 12px; the .bad row keeps shouting. */
 .rail-state {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  font-size: 0.6875rem;
+  gap: 3px;
+  font-size: 0.75rem;
   line-height: 1.45;
-  color: var(--text-muted);
-  padding: 0 0.5rem 2px;
+  color: var(--text-secondary);
+  padding: 10px 0.5rem 4px;
+  border-top: var(--rule) solid var(--border);
+}
+
+.rail-state .row.ok {
+  color: var(--pos);
+  font-weight: 600;
+  order: -1;
+  margin-bottom: 2px;
+}
+
+.rail-state .row.ok .dot {
+  box-shadow: 0 0 0 3px var(--pos-soft);
 }
 
 .rail-state .row {
@@ -484,11 +565,33 @@ body {
 }
 
 button.primary {
-  background: var(--text-primary);
-  color: var(--surface-1);
-  border-color: var(--text-primary);
+  background: var(--primary);
+  color: var(--primary-ink);
+  border-color: var(--primary);
+  border-radius: var(--radius-sm);
   width: 100%;
   justify-content: center;
+}
+
+/* US-151: Upgrade. Tint and ink rather than a filled orange (white on the brand
+   orange measures 4,03:1). Hidden once the install is Plus. */
+button.upgrade {
+  background: var(--plus-soft);
+  color: var(--plus-ink);
+  border-color: var(--plus-soft);
+  border-radius: var(--radius-sm);
+  width: 100%;
+  justify-content: center;
+}
+
+button.upgrade:hover {
+  border-color: var(--brand-accent);
+  background: var(--plus-soft);
+}
+
+body.plus button.upgrade,
+body.plus .rail-nav .plus-dot {
+  display: none;
 }
 
 button.primary:hover {
@@ -1321,24 +1424,16 @@ header.top {
   box-shadow: var(--shadow);
 }
 
+/* US-151: the page title in the serif, at a size that says "statement" rather
+   than "toolbar". The 5px accent bar it used to carry is gone with the accent
+   colour itself: a title needs no decoration to be found. */
 h1 {
-  font-size: 1.25rem;
-  font-weight: 700;
+  font-family: var(--font-serif);
+  font-size: clamp(1.625rem, 1.2rem + 1.2vw, 2.125rem);
+  font-weight: 500;
+  line-height: var(--lead-display);
   margin: 0;
   letter-spacing: var(--track-title);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-/* The one piece of accent colour on the page, and it is decoration rather than
-   information — which is why it is the only place the accent is allowed. */
-h1::before {
-  content: '';
-  width: 5px;
-  height: 20px;
-  border-radius: 2px;
-  background: var(--accent);
 }
 
 .sub {
@@ -1425,22 +1520,17 @@ button:disabled {
      The `--len` rule on `.tile .value` is what actually guarantees it fits;
      this only stops the guarantee from being met with unreadably small type. */
   grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
-  /* The rules between tiles are not borders. The cells are separated by a
-     one-pixel gap and each paints its own hairline into it, so every rule is
-     exactly one pixel and two neighbours cannot double up.
-
-     The container used to be painted the *border* colour with the tiles laid on
-     top, which was simpler and had one bad case: a row that does not fill left
-     the remainder of the grid showing as a solid block of border colour. Seven
-     tiles in a six-column grid drew five empty cells of beige. The surface
-     colour underneath fixes that — an unfilled cell is now indistinguishable
-     from the card it sits in. */
+  /* US-151: the band is ruled, not boxed. The hero and its facts sit on the
+     page between two rules, the way a statement's total line does. `overflow`
+     stays hidden for the reason the old comment gave: a seven-figure amount
+     must be *fitted*, never sliced, and the `--len` rule below is what fits it. */
   gap: var(--rule);
   margin-bottom: var(--gap);
-  border: var(--rule) solid var(--border);
-  border-radius: var(--radius);
+  border: 0;
+  border-bottom: var(--rule) solid var(--border-strong);
+  border-radius: 0;
   overflow: hidden;
-  background: var(--surface-1);
+  background: transparent;
 }
 
 /* Nothing to show on a section with no figures of its own; an empty bordered
@@ -1578,16 +1668,53 @@ button:disabled {
 
 /* --- controls ----------------------------------------------------------- */
 
+/* US-151: the period control is a row of underlined tabs on a rule, not a pill
+   in a box. The `.group` inside the More menu keeps the segmented pill: a menu
+   row is a different place, and the rules below are scoped to `.controls`. */
 .controls {
   display: flex;
-  gap: 18px;
+  gap: 8px 22px;
   flex-wrap: wrap;
   align-items: center;
   margin-bottom: var(--gap);
-  padding: 12px 16px;
-  background: var(--surface-1);
-  border: var(--rule) solid var(--border);
-  border-radius: var(--radius);
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-bottom: var(--rule) solid var(--border);
+  border-radius: 0;
+}
+
+.controls .group {
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+  gap: 0;
+}
+
+.controls .group button {
+  border-radius: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  padding: 9px 10px;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  letter-spacing: var(--track-label);
+}
+
+.controls .group button:hover {
+  background: transparent;
+  color: var(--text-primary);
+}
+
+.controls .group button[aria-pressed='true'] {
+  background: transparent;
+  color: var(--text-primary);
+  border-color: transparent;
+  border-bottom-color: var(--text-primary);
+}
+
+.controls .group > .glabel {
+  margin-right: 8px;
 }
 
 .group {
@@ -1650,19 +1777,26 @@ label.check {
   }
 }
 
+/* US-151: a card is a section of the statement, not a box on a desk. A rule
+   above, the page as its ground, no radius and no shadow; hierarchy comes from
+   the serif title and the rule. The only inset surface left on the page is a
+   Plus panel, so "inset" now means "external data". */
 .card {
-  background: var(--surface-1);
-  border: var(--rule) solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: var(--pad) var(--pad) 14px;
+  background: transparent;
+  border: 0;
+  border-top: var(--rule) solid var(--border-strong);
+  border-radius: 0;
+  box-shadow: none;
+  padding: var(--pad) 0 14px;
 }
 
 .card h2 {
-  font-size: var(--title);
-  font-size: 0.875rem;
-  font-weight: 600;
-  margin: 0 0 2px;
+  font-family: var(--font-serif);
+  font-size: 1.375rem;
+  font-weight: 500;
+  letter-spacing: var(--track-title);
+  line-height: 1.2;
+  margin: 0 0 4px;
 }
 
 .card p.hint {
@@ -1898,10 +2032,27 @@ label.check {
 
 /* --- table -------------------------------------------------------------- */
 
+/*
+ * US-151, the table model (docs/prototypes/tables.html). One behaviour for all
+ * twelve tables: the header stays put while the body scrolls under it, the
+ * first column stays put while the rest scrolls behind it, and the scroll
+ * region is a focusable, named landmark (src/ui/tables.js adds the attributes
+ * and the edge shadows). `border-collapse: separate` is what lets a sticky
+ * header keep its bottom rule — collapsed borders belong to the table, not to
+ * the cell, and scroll away with it.
+ */
 table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: 0.8125rem;
+}
+
+/* Tabular figures on the cells that hold figures, and nowhere else: the
+   feature widens the comma and the full stop too, and a text column set
+   tabular reads "Holdings , Performance". The first column is the label. */
+td:not(:first-child),
+th:not(:first-child) {
   font-variant-numeric: tabular-nums;
 }
 
@@ -1911,6 +2062,7 @@ td {
   padding: 11px 12px;
   border-bottom: 1px solid var(--grid);
   white-space: nowrap;
+  background: var(--page);
 }
 
 th {
@@ -1919,7 +2071,71 @@ th {
   font-size: 0.6562rem;
   text-transform: uppercase;
   letter-spacing: var(--track);
-  border-bottom-color: var(--border);
+  border-bottom-color: var(--border-strong);
+}
+
+.table-scroll thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+/* The anchor column. A detail row's single cell is excluded: it spans the
+   table, and a sticky cell wider than its container cannot move anyway. */
+.table-scroll tbody td:first-child:not(.detail-cell),
+.table-scroll tbody th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+}
+
+.table-scroll thead th:first-child {
+  z-index: 3;
+}
+
+.table-scroll tbody tr:hover > td {
+  background: var(--surface-2);
+}
+
+/* The edge shadows live on the wrapper tables.js adds, outside the scrolling
+   box, and only show while there is something behind that edge. */
+.scroll-hold {
+  position: relative;
+}
+
+.scroll-hold::before,
+.scroll-hold::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 20px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--t-surface) var(--ease-out);
+  z-index: 4;
+}
+
+.scroll-hold::before {
+  left: var(--frozen, 0px);
+  background: linear-gradient(90deg, var(--scroll-edge), transparent);
+}
+
+.scroll-hold::after {
+  right: 0;
+  background: linear-gradient(90deg, transparent, var(--scroll-edge));
+}
+
+.scroll-hold[data-x='middle']::before,
+.scroll-hold[data-x='end']::before,
+.scroll-hold[data-x='middle']::after,
+.scroll-hold[data-x='start']::after {
+  opacity: 1;
+}
+
+.table-scroll:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 th:first-child,
@@ -2734,6 +2950,14 @@ tr.pos-detail > .detail-cell {
   white-space: normal;
   background: var(--surface-2);
 }
+
+/* The detail's content stays in view while the row scrolls under the anchor:
+   it is one cell spanning the table, so it would otherwise leave with the
+   columns. Sticky to the region's left edge, sized to the region. */
+tr.pos-detail > .detail-cell > * {
+  position: sticky;
+  left: 12px;
+}
 .pos-detail .kv {
   display: inline-flex;
   gap: 6px;
@@ -2920,7 +3144,7 @@ td .chip {
 .frown-btn.on {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--primary-ink);
 }
 
 .frown-wrap { position: relative; }
@@ -3388,8 +3612,16 @@ button.snap {
   --kpi-track: var(--track-display);
   /* Raising --kpi rather than setting font-size: the value's own rule is
      `min(--kpi, --fits)`, so the fit guard still wins on a seven-figure total
-     and nothing can be silently sliced. */
-  --kpi: clamp(2.375rem, 1.4rem + 3.2vw, 3.5rem);
+     and nothing can be silently sliced. US-151 lifts the ceiling to 68px and
+     sets the figure in the serif at its light weight: the one number the page
+     exists for, drawn the way a statement draws its total. */
+  --kpi: clamp(2.75rem, 1.6rem + 3.6vw, 4.25rem);
+  --kpi-w: 300;
+}
+
+.tile.is-hero .value {
+  font-family: var(--font-serif);
+  font-variant-numeric: tabular-nums lining-nums;
 }
 
 .tile.is-hero .label {
@@ -3398,17 +3630,25 @@ button.snap {
 
 .facts > .tile {
   flex: 0 0 auto;
-  width: 9.5rem;
-  /* 17px is body, and it was being tracked as display. */
-  --kpi: 1.0625rem;
-  --kpi-track: var(--track-body);
-  --kpi-lead: var(--lead-label);
+  width: 10.5rem;
+  /* US-151: a fact is a ledger cell. 22px, the title bucket, and a hairline on
+     its left so the row reads as one ruled line rather than three floating
+     numbers. */
+  --kpi: 1.375rem;
+  --kpi-track: var(--track-title);
+  --kpi-lead: var(--lead-display);
+  --kpi-w: 500;
+  border-left: var(--rule) solid var(--border);
+  padding-left: 1rem;
 }
 
 .figures-grid > .tile {
-  --kpi: 1.0625rem;
-  --kpi-track: var(--track-body);
-  --kpi-lead: var(--lead-label);
+  --kpi: 1.375rem;
+  --kpi-track: var(--track-title);
+  --kpi-lead: var(--lead-display);
+  --kpi-w: 500;
+  border-left: var(--rule) solid var(--border);
+  padding-left: 1rem;
 }
 
 .tile .label {
@@ -3418,7 +3658,7 @@ button.snap {
 .facts {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--pad) clamp(1.25rem, 3vw, 2.5rem);
+  gap: var(--pad) 1.25rem;
 }
 
 .allfigures {
@@ -3790,4 +4030,126 @@ button.primary:active:not(.press-cancelled) {
 /* The rotate belongs to the joke; it must not resize the row it lives in. */
 .topbar-right .frown-btn:hover {
   transform: rotate(-15deg);
+}
+
+
+/* --- US-151: the Plus section --------------------------------------------- */
+
+/*
+ * The one inset surface on the page. Everything else sits on the paper; a Plus
+ * panel is a tinted inset so that "inset" reads as "external data" everywhere
+ * it appears. The chip is the only place the brand colour paints an area.
+ */
+.plus-card {
+  background: var(--surface-2);
+  border: var(--rule) solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--pad);
+}
+
+.plus-status {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  margin: 0 0 14px;
+}
+
+.plus-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+  background: var(--plus-soft);
+  color: var(--plus-ink);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+}
+
+.plus-chip::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--brand-accent);
+}
+
+/* The comparison: the reader's own column is the one that is painted. Free is
+   the reader's column until `body.plus` says otherwise. */
+table.compare th,
+table.compare td {
+  text-align: left;
+  white-space: normal;
+  vertical-align: top;
+  background: transparent;
+}
+
+table.compare td:last-child {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+
+body:not(.plus) table.compare .col-free,
+body.plus table.compare .col-plus {
+  background: var(--surface-1);
+}
+
+table.compare .you {
+  display: none;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  background: var(--text-primary);
+  color: var(--page);
+  font-size: 0.625rem;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+}
+
+body:not(.plus) table.compare th.col-free .you {
+  display: inline-block;
+}
+
+table.compare td.yes {
+  color: var(--pos);
+  font-weight: 600;
+}
+
+table.compare td.no {
+  color: var(--text-muted);
+}
+
+.nevers {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  columns: 2;
+  column-gap: 40px;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  max-width: 70ch;
+}
+
+.nevers li {
+  break-inside: avoid;
+  margin-bottom: 6px;
+}
+
+@media (max-width: 40em) {
+  .nevers {
+    columns: 1;
+  }
+}
+
+/* US-151: the anchor column on a phone. Frozen, it is the part of every row that
+   never leaves, so at 420px it may not be 240 of them. The name already
+   ellipsises; this only caps where it does. */
+@media (max-width: 40em) {
+  #holdings td[data-col='instrument'] {
+    max-width: 10rem;
+  }
 }

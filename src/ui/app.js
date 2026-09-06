@@ -52,6 +52,7 @@ import { THEMES, alpha, applyAnonymize, applyTheme, fmtEurCents, fmtPct, fmtPric
 import { FORMATS, flowModel, moneyInOver, ownerLine, positionSpan, scoreCardModel, snapshotModel, splitModel } from '../lib/snapshot.js';
 import { HOLDINGS_COLUMNS, baseHidden, cycleSort, droppableByPriority, optionalColumns, orderedColumns } from './columns.js';
 import { brokerMarkSvg, lockupSvg, markSvg } from './brand.js';
+import { enhanceTables } from './tables.js';
 import { copySnapshot, downloadSnapshot, drawScoreCard, drawSnapshot, tokensForTheme } from './snapshot.js';
 import { Spring, clampShift, prefersReducedMotion, project, rubber, revealOnArrival, shiftToShow, velocityFrom, wirePressFeedback } from './motion.js';
 import { inExtension, load, send, wantsDemo } from './datasource.js';
@@ -167,6 +168,12 @@ const TABS = [
   { key: 'holdings', label: 'Holdings' },
   { key: 'outlook', label: 'Outlook' },
   { key: 'notices', label: 'Notices' },
+  /**
+   * US-151. Under a rule, because it is not a section of the account's own
+   * data: it says what Plus will add and what it will never do. `sep` draws the
+   * rule; `plus` marks it with the brand dot on a free install.
+   */
+  { key: 'plus', label: 'Plus', sep: true, plus: true },
 ];
 
 /**
@@ -1339,10 +1346,22 @@ function buildControls() {
    */
   const railNav = $('#tabs');
   for (const t of TABS) {
+    if (t.sep) {
+      const sep = document.createElement('div');
+      sep.className = 'rail-sep';
+      sep.setAttribute('role', 'presentation');
+      railNav.append(sep);
+    }
     const b = document.createElement('button');
     b.type = 'button';
     b.dataset.tab = t.key;
     b.textContent = tr(t.label);
+    if (t.plus) {
+      const dot = document.createElement('span');
+      dot.className = 'plus-dot';
+      dot.setAttribute('aria-hidden', 'true');
+      b.append(dot);
+    }
     b.addEventListener('click', () => {
       // Writing the hash is the whole of it — `hashchange` does the render, so
       // a click and a pasted URL take exactly one path.
@@ -1351,6 +1370,11 @@ function buildControls() {
     railNav.append(b);
   }
   $('#lockup').replaceChildren(lockupSvg({ height: 26 }));
+  // US-151: Upgrade is a link to the Plus section, nothing more — there is
+  // nothing to buy yet, and the section says so.
+  $('#btn-upgrade')?.addEventListener('click', () => {
+    location.hash = '#/plus';
+  });
   /**
    * The connection check names the broker it would check, read off the adapter's
    * own `label`. With one adapter that is one line and no submenu — a submenu of
@@ -2129,7 +2153,7 @@ function applyTab() {
    * column: a control that governs a figure has to be reachable from the screen
    * that figure is on.
    */
-  const windowed = !['outlook', 'notices'].includes(state.tab);
+  const windowed = !['outlook', 'notices', 'plus'].includes(state.tab);
   $('.controls').hidden = !windowed;
   $('#window-crumb').hidden = !windowed;
 }
@@ -2409,6 +2433,8 @@ function render() {
   section('price return', () => renderPriceReturn(r, from, to));
   section('transactions', () => renderTransactions(data, r, from, to));
   section('footer', () => renderFooter(r, data));
+  // US-151: after every table above has been (re)built. Idempotent per element.
+  section('tables', () => enhanceTables());
 }
 
 /**

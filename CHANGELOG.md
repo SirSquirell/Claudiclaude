@@ -16,6 +16,43 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.71.0] — 2026-09-06
+
+**No resync needed** — nothing in the numbers changed. This release is the redesign (US-151): how the
+same figures are set, and a new section that says what Plus will be.
+
+### Changed
+
+- **The statement register.** Cool paper and ink navy replace the warm cream and terracotta of
+  0.46; that pairing had become the default look of generated dashboards, which is the opposite of
+  what a verification tool wants to signal. Two faces are bundled in `vendor/fonts` (latin subsets,
+  OFL): Source Sans 3 for text and every figure, Newsreader for titles and the one hero figure. The
+  hero is set in the serif at its light weight at up to 68px; the facts beside it are one ruled
+  ledger row rather than three floating tiles; cards are ruled sections on the page rather than
+  boxes with a shadow; the range control is a row of underlined tabs on a rule. The brand orange is
+  reserved for the mark and for Plus. `--pos`/`--neg` and the seven categorical slots are unchanged;
+  `npm run palette` re-measured both themes at zero collisions and `npm run type` still passes.
+- **The seal.** The reconciliation verdict leads the rail's facts, set as a stamp, because it is the
+  product's signature. It still turns red when the total does not match.
+- **The table model** (`docs/prototypes/tables.html`, now `src/ui/tables.js`). Every table's
+  header stays put while the body scrolls, the first column stays put while the rest scrolls behind
+  it, and the scroll region is a focusable landmark (`role="region"`, `tabindex`, named after its
+  card's title) so a keyboard can reach it and a screen reader knows what it is. An edge shadow
+  shows only on the side that has more table behind it. Tabular figures are limited to the cells
+  that hold figures: the first candidate face set its commas tabular too and every text column read
+  as typewriting. Column priority, the chooser, drag-to-reorder and the expand row were already on
+  Positions (US-61, US-87) and keep working; the other tables get the model's sticky header, anchor
+  column and landmark, not yet its priorities.
+- **The Sync button** is ink navy; **Upgrade to Plus** sits under it as tint-and-ink (white on the
+  brand orange measures 4,03:1, under the 4,5:1 floor, so it is never a filled orange button).
+
+### Added
+
+- **Plus**, a section under a rule in the navigation. One sentence to remember, a comparison table
+  with the reader's own column marked, and what Plus will never do. It says *in preparation*: there
+  is no price button and no licence field, because nothing is for sale yet and nothing can be
+  checked yet (`docs/TIERS.md`). Dutch through the same dictionary as the rest of the app.
+
 ## [0.70.4] — 2026-09-06
 
 **No resync needed** — nothing in the numbers changed. This is the first release after the red-team

@@ -23,6 +23,9 @@
         <div class="rail-foot">
           <div class="rail-state" id="rail-state"></div>
           <button id="btn-sync" type="button" class="primary" data-i18n>Sync now</button>
+          <!-- US-151. Opens the Plus section; hidden by `body.plus` once there is
+               a Plus to have. Tint and ink, never a filled orange (styles.css). -->
+          <button id="btn-upgrade" type="button" class="upgrade" data-i18n>Upgrade to Plus</button>
           <div class="menu-wrap">
             <button id="btn-more" type="button" aria-haspopup="menu" aria-expanded="false" data-i18n>More</button>
             <!--
@@ -637,6 +640,57 @@
       </div>
 
         <p class="footer-note" id="footer-note"></p>
+
+      <!--
+        US-151. The Plus section. One rule to remember, a comparison with the
+        reader's own column marked, and what Plus will never do. No price button
+        and no licence field: nothing is for sale yet and nothing can be checked
+        yet (docs/TIERS.md), so the section says "in preparation" rather than
+        pretending. Strings are English here and Dutch through data-i18n.
+      -->
+      <div data-tab="plus" class="grid" hidden>
+        <div class="card plus-card">
+          <h2 data-i18n>What is free, and what Plus adds</h2>
+          <p class="hint" data-i18n>Everything computed from your own DEGIRO data is free and stays free. Plus adds external data and convenience, and never changes a computed figure: a paying and a free reader see the same portfolio value to the cent.</p>
+          <p class="plus-status"><span class="plus-chip" data-i18n>In preparation</span> <span data-i18n>Planned at € 29 a year, paid once a year through a payment partner. No account, no login, no telemetry: a key by mail, checked offline in the extension.</span></p>
+          <div class="table-scroll">
+            <table class="compare">
+              <thead>
+                <tr>
+                  <th data-i18n>Part</th>
+                  <th class="col-free"><span data-i18n>Free</span> <span class="you" data-i18n>you</span></th>
+                  <th class="col-plus" data-i18n>Plus</th>
+                  <th data-i18n>Why here</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td data-i18n>Reconstruction, reconciliation, every chart, Holdings, Performance, Notices</td><td class="col-free yes" data-i18n>yes</td><td class="col-plus yes" data-i18n>yes</td><td data-i18n>From your own DEGIRO data</td></tr>
+                <tr><td data-i18n>Dividend per share, raises and cuts, rhythm, expected annual income, track record</td><td class="col-free yes" data-i18n>yes</td><td class="col-plus yes" data-i18n>yes</td><td data-i18n>From your own payments</td></tr>
+                <tr><td data-i18n>Export, bug report, interop</td><td class="col-free yes" data-i18n>yes</td><td class="col-plus yes" data-i18n>yes</td><td data-i18n>Your data, your file</td></tr>
+                <tr><td data-i18n>Data bundle: dividend history, fundamentals, TER, benchmark ETFs</td><td class="col-free no" data-i18n>not fetched</td><td class="col-plus yes" data-i18n>weekly, signed</td><td data-i18n>External data, running cost</td></tr>
+                <tr><td data-i18n>Against the market (benchmark)</td><td class="col-free no" data-i18n>no</td><td class="col-plus yes" data-i18n>yes</td><td data-i18n>The first part with a server side</td></tr>
+                <tr><td data-i18n>Safety per payment, income per bucket</td><td class="col-free no" data-i18n>no</td><td class="col-plus yes" data-i18n>yes</td><td data-i18n>Payout and debt come from the bundle</td></tr>
+                <tr><td data-i18n>Reclaimable withholding tax per country</td><td class="col-free no" data-i18n>no</td><td class="col-plus yes" data-i18n>yes</td><td data-i18n>Country and treaty rate from the bundle</td></tr>
+                <tr><td data-i18n>Backup and restore of the raw store</td><td class="col-free no" data-i18n>no</td><td class="col-plus yes" data-i18n>yes</td><td data-i18n>Convenience; touches no figure</td></tr>
+                <tr><td data-i18n>Year review as PDF and shareable card</td><td class="col-free no" data-i18n>no</td><td class="col-plus yes" data-i18n>yes</td><td data-i18n>Convenience</td></tr>
+                <tr><td data-i18n>Box 3 reference date and dividend tax</td><td class="col-free no" data-i18n>no</td><td class="col-plus yes" data-i18n>yes</td><td data-i18n>Two figures you copy into the tax return</td></tr>
+                <tr><td data-i18n>Portfolio value, result, every computed figure</td><td class="col-free yes" data-i18n>identical</td><td class="col-plus yes" data-i18n>identical</td><td data-i18n>Rule 6: the same cent for everyone</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <h2 data-i18n>What Plus will never do</h2>
+          <ul class="nevers">
+            <li data-i18n>Send your portfolio, or any part of it, to a server</li>
+            <li data-i18n>Ask for an account, a password or a device registration</li>
+            <li data-i18n>Fetch a selection of the bundle (that would reveal your positions); always the whole bundle</li>
+            <li data-i18n>Telemetry or usage measurement, anonymised or not</li>
+            <li data-i18n>Compute a free figure differently from a paid one</li>
+            <li data-i18n>Log in to DEGIRO; the extension reads a session your browser already holds, and that stays so</li>
+          </ul>
+        </div>
+      </div>
       </main>
     </div>
 

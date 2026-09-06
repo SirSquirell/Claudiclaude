@@ -401,17 +401,19 @@ test('the check fails on the two regressions it exists for', async () => {
   assert.match(src, /process\.exit\(1\)/, 'the check no longer fails the build');
 });
 
-test('optical sizing is declared, and what it can do is stated rather than promised', () => {
+test('optical sizing is declared, and the note beside it matches what is bundled', () => {
   /**
-   * The refinement's second trap: optical sizing needs a variable font. **No
-   * font is bundled here** — the stack is the system UI face — so this acts on
-   * the platforms whose system font carries the axis and is inert elsewhere.
-   * That is worth declaring and worth saying out loud; what it is not worth is
-   * claiming.
+   * The refinement's second trap: optical sizing needs a variable font. Until
+   * US-151 none was bundled and the note said so; US-151 bundles two variable
+   * files (vendor/fonts), one of them with an `opsz` axis, so the declaration
+   * now does something everywhere. The test keeps the comment honest in the
+   * other direction: if the fonts go, the note that says they are here goes too.
    */
   assert.match(css, /font-optical-sizing: auto;/);
-  assert.match(css, /\*\*no font is bundled\.\*\*/);
-  assert.ok(!/@font-face/.test(css), 'a font was bundled; the note above it is now wrong');
+  assert.match(css, /US-151 bundles two/);
+  const faces = css.match(/@font-face \{/g) ?? [];
+  assert.equal(faces.length, 2, 'two faces are bundled: the sans and the serif');
+  assert.match(css, /url\('\.\.\/\.\.\/vendor\/fonts\/[a-z0-9-]+\.woff2'\)/);
 });
 
 // ===========================================================================

@@ -1,37 +1,39 @@
-# Wat er nieuw is — 0.70.4
+# Wat er nieuw is — 0.71.0
 
-**Geen resync nodig.** Er verandert geen enkel bedrag: deze release raakt alleen wat de extensie
-toelaat en wat het bugrapport meeneemt. Alleen deze release; de volledige geschiedenis staat in
-[CHANGELOG.md](CHANGELOG.md), installeren doe je met [INSTALL.md](INSTALL.md).
+**Geen resync nodig.** Er verandert geen enkel bedrag: deze release verandert hoe dezelfde cijfers
+op het scherm staan, en voegt één onderdeel toe dat zegt wat Plus gaat zijn. Alleen deze release; de
+volledige geschiedenis staat in [CHANGELOG.md](CHANGELOG.md), installeren doe je met
+[INSTALL.md](INSTALL.md).
 
 > **Hoef je te resyncen voor deze versie? Nee.** Zie [CHANGELOG.md](CHANGELOG.md) voor oudere
 > resync-vragen.
 
 ---
 
-## Een script op de DEGIRO-pagina kan de knoppen in de strip niet meer voor je indrukken
+## De pagina leest als een afschrift
 
-De strip bovenaan trader.degiro.nl heeft twee knoppen, Sync en Open. Een script op die pagina kon
-ze programmatisch indrukken, en de Sync-knop mocht tot nu toe de dagelijkse begrenzing overslaan.
-Dat kon dus een sync afdwingen op een moment dat jij niet koos. Nu tellen alleen echte klikken, en
-alleen de extensie zelf (de popup en de app-pagina) mag een sync afdwingen. Druk je zelf op Sync in
-de strip, dan merk je niets: is je geschiedenis vandaag al bijgewerkt, dan zegt de strip dat; is hij
-dat niet, dan synct hij.
+Koel papier en inktblauw in plaats van crème en terracotta. Titels en het grote totaalbedrag staan
+in een serif (Newsreader), alle tekst en alle andere cijfers in Source Sans 3; beide zitten in de
+extensie zelf, er wordt niets van internet geladen. De kengetallen onder het totaal staan op één
+gelinieerde regel in plaats van in losse tegels, de onderdelen zijn met een lijn gescheiden in plaats
+van in dozen gezet, en de periodekeuze is een rij onderstreepte tabs. De kleuren voor plus en min en
+voor de posities in de grafieken zijn niet veranderd; die zijn gemeten en blijven zo.
 
-## De extensie is vanaf de DEGIRO-pagina niet meer te herkennen
+## Het zegel in de zijbalk
 
-Een pagina kon proberen één bestand van de extensie te laden en zo zien dat je Asteria hebt. Dat
-adres wisselt nu per sessie, dus die vraag krijgt geen antwoord meer.
+"Sluit tot op de cent" staat nu bovenaan de feiten in de zijbalk, als stempel. Klopt het totaal niet
+met wat DEGIRO zegt, dan wordt het rood, precies zoals eerst.
 
-## Het bugrapport neemt minder mee
+## Tabellen: kop en eerste kolom blijven staan
 
-De diagnose stuurde de volledige browserstring mee en de vrije tekst van de laatste fout. Nu staat er
-alleen nog het Chrome-versienummer in, en van de laatste fout de reden, de melding en het tijdstip.
-Kopieer een bugrapport uit het menu Meer en lees het na: alles wat erin staat mag je zo doorsturen.
+In elke tabel blijft de kop in beeld terwijl je scrolt, en blijft de eerste kolom staan terwijl de
+rest eronderdoor schuift. Een schaduw aan de rand laat zien aan welke kant er nog meer tabel is. De
+tabel is met het toetsenbord te bereiken en een schermlezer hoort welke tabel het is. Bij Posities
+kon je al kolommen kiezen, slepen en een rij openklappen; dat werkt nog net zo.
 
-## Waar dit uit komt
+## Nieuw onderdeel: Plus
 
-Er is een red-team-review gedaan op de extensie en op het plan voor een betaalde laag; het verslag
-staat in [docs/RED-TEAM.md](docs/RED-TEAM.md). Van de vijftien punten zijn de vier die vandaag konden
-in deze release gefixt. Belangrijkste conclusie: er is geen weg gevonden waarlangs je gegevens de
-machine verlaten, wel één waarlangs een pagina de extensie iets kon laten doen, en die is nu dicht.
+Onder een lijn in de navigatie staat **Plus**: wat gratis is en blijft (alles wat uit je eigen
+DEGIRO-data komt), wat Plus later toevoegt (externe data en gemak, nooit een ander getal) en wat Plus
+nooit zal doen. Het staat er als *in voorbereiding*: er valt nog niets te kopen en nog niets te
+controleren, en de knop *Upgrade naar Plus* in de zijbalk opent alleen dit onderdeel.
