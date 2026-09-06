@@ -8,6 +8,64 @@ state is in STATUS.md; this is the evidence that it was checked.
 
 ---
 
+## Light scan, 2026-09-06 (twentieth pass)
+
+This session's own transport branch (`claude/eager-cannon-767gaf`) was identical to `origin/main`
+at start (both at 0.72.0, the nineteenth pass's own release) — worked directly off `main`.
+
+**Branches.** 38 remote `claude/*` branches plus `poc`, same count and same names as the nineteenth
+pass. Every branch re-checked with `git log origin/main..<branch>`: each one's newest commits are
+the same superseded/merged history already indexed by prior passes (e.g. `work-items-zk6g5r` still
+tops out at the pre-0.64.0 Dividends-tab work, `eager-cannon-b3ncc4` still at pre-0.48.0). Nothing in
+the set carries a story `main` does not have. Git proxy still refuses branch deletion, so the 38
+stale branches remain GitHub-UI cleanup for the owner (**US-120**).
+
+**GitHub.** Zero open issues, zero open PRs — same as every prior pass, nothing to close.
+
+**Backlog numbering**, via `tools/check-backlog.mjs`: 156 stories, highest US-160, next free US-161,
+no duplicate numbers, every heading states its state — unchanged from the nineteenth pass (before
+this pass's own US-161). `## Last updated` still matches `CHANGELOG.md`'s 0.72.0 entry.
+
+**Rule compliance / security.** Same spot checks as every prior pass, all still clean: `fetch()`
+appears only in `src/lib/degiro.js`, `src/ui/datasource.js` (demo fixtures) and `src/ui/app.js` (the
+extension's own `manifest.json`, for the version string). `degiro.js` still refuses to retry
+401/403. `EXPORTABLE_META` in `store.js` is still an allowlist, `redactMeta` still redacts anything
+not listed. `node tools/check-leaks.mjs` clean (186 tracked files; still no `.leakwords` file, so
+account names are not checked — the `LEAKWORDS` secret remains the owner's, per the red-team
+finding).
+
+**Design pass** (`apple-design` skill loaded first, before judging anything, against
+`docs/redesign/DESIGN-BRIEF.md` as the brief that wins any conflict). Headless Playwright at 1440px
+and 380px, light and dark, driven across Overview, Composition and Holdings via `npm run demo`: zero
+page errors, zero console errors, zero horizontal overflow at the document level in every
+combination. Screenshotted and looked closely rather than only measuring: hero number, supporting
+facts, "All figures" grid, both charts and both tables held their layout, spacing and type hierarchy
+in every combination, no shadow on a nested element, no uppercase above the 11px eyebrow, matching
+`docs/redesign/DESIGN-BRIEF.md` §8. `backdrop-filter` still does not appear in `src/ui/styles.css`,
+consistent with the brief's flat-container rule (§8) over the `apple-design` skill's translucency
+guidance, which does not apply here.
+
+Found a real one this pass: **US-161**, the "More" overflow menu opens off the left edge of the
+viewport at every width from 320px to 959px in today's default (non-Plus) state — confirmed
+headless, not by eye, with the menu's bounding rect landing 130–166px into negative `left`. The
+CSS still anchors the menu to its trigger's right edge, a fix from the fifth pass (0.60.2) for the
+opposite overflow; US-151's always-`width: 100%` "Upgrade to Plus" banner now forces the trigger
+onto its own line at the *left* below the 60em breakpoint, so the old fix's assumption no longer
+holds. Confirmed the fix is not a one-line swap: with `body.plus` set, the trigger sits at the
+*right* end of the row instead, where today's rule is still correct — so left/right needs to be
+chosen from where the trigger actually is, not asserted once. Refined as a story rather than patched
+live, since a wrong guess here would just trade which state is broken.
+
+**Optimization.** No new candidate. Same conclusion as every prior pass: `src/ui/app.js` stays
+unbundled by design (MV3, no build step), and rule 8 rules out a refactor with no story or defect
+behind it.
+
+**Brokers.** No new candidate. Trade Republic, Trading 212 (§8) and Interactive Brokers (§9) in
+`docs/MULTI-BROKER.md` remain scoped as far as possible without a human at a funded, logged-in tab.
+
+`npm test` 693/693, `npm run palette` zero collisions in both themes, `node tools/check-leaks.mjs`
+clean.
+
 ## Light scan, 2026-09-05 (nineteenth pass)
 
 This session's own transport branch (`claude/eager-cannon-6d2r3g`) was identical to `origin/main`

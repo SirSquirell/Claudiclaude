@@ -9396,4 +9396,53 @@ anonymised string equals the tiles' anonymised string for the same amount.
 
 ---
 
-**Next free number: US-161.**
+### US-161 — The overflow menu opens off the left edge of the screen *(new, refined — light scan, 2026-09-06)*
+
+**The bug.** `#more-menu` is positioned in `styles.css` under `@media (max-width: 60em)` on the
+assumption that its trigger, `#btn-more`, "sits at the right end of a wrapped row" — a comment left
+by the fifth light scan's own fix for the opposite overflow (0.60.2, the menu running off the
+*right*). That assumption no longer holds: `button.upgrade` (US-151's "Upgrade to Plus" banner) is
+`width: 100%` unconditionally, so below the breakpoint it always forces its own line, and `More`
+always wraps onto a fresh line *alone*, flush left. The menu still opens `right: 0` — anchored to a
+trigger that is no longer on the right — so it grows leftward off its own button and off the
+viewport. Confirmed headless at every width from 320px to 959px (the whole breakpoint, not an edge
+case): the menu's left edge lands around −136px to −166px, permanently cutting off its first rows
+("Check connection", the language/theme row) behind the left edge with no scroll that reaches them.
+
+**Why this is not a one-line fix.** The trigger's position is state-dependent, not fixed: with
+`body.plus` (Upgrade hidden, once Plus tier exists), `#btn-more` *does* end up at the right end of
+the row, where today's `right: 0` anchor is correct — verified headless at the same three widths.
+Swapping to `left: 0` would fix today's default state and silently reopen the original
+right-edge bug the moment an account carries `body.plus`. A static CSS rule cannot get both right,
+because it cannot see where its own trigger landed.
+
+**The fix has to measure, not assume.** On open, read `#btn-more`'s own `getBoundingClientRect()`
+and choose the anchor from the space actually available on each side — the same class of fix
+`.tip` (styles.css, the info-tooltip) and `.cols-pop` may already need if they share this trigger
+shape; check them while in this code, but do not widen the story to rewrite either without a
+reproduced defect of their own.
+
+#### Acceptance criteria
+
+- [ ] Headless at 320, 375, 380, 414, 600, 750, 900px, in both the default state and with
+      `body.plus`: `#more-menu`'s bounding rect never has `left < 0` nor `right > innerWidth`.
+- [ ] The fix reacts to the trigger's actual position (measured, or an equivalent that is provably
+      correct in both states) — not a second hard-coded side that only moves which state breaks.
+- [ ] `.gran .menu` (the granularity dropdown) is unaffected — it already has its own positioning
+      and is not part of this bug.
+- [ ] Existing keyboard behaviour (Escape closes, focus trap) is unchanged.
+
+#### Dependencies
+
+None.
+
+#### Test
+
+A DOM test in `test/` (new or added to an existing UI test file) that renders the rail at a narrow
+width in both the default and `body.plus` states, opens the menu, and asserts its rect stays inside
+the viewport in both. A regression test belongs here precisely because this is the second time this
+exact menu has shipped off-screen (0.60.2 and now) in opposite directions.
+
+---
+
+**Next free number: US-162.**

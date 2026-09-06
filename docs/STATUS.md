@@ -8,7 +8,7 @@ releases — if it looks stale again, trust the CHANGELOG and fix this.
 
 ## Light scans
 
-Nineteen re-confirmation passes (2026-08-20 to 2026-09-05) are in [SCANS.md](SCANS.md), newest
+Twenty re-confirmation passes (2026-08-20 to 2026-09-06) are in [SCANS.md](SCANS.md), newest
 first. Their standing result: no `claude/*` branch carries a story `main` does not have, the backlog
 numbering is clean, and the rule spot checks pass. What they kept finding — 38 stale remote
 branches the git proxy cannot delete — is now **US-120**, an owner action in GitHub's UI. The
@@ -19,7 +19,12 @@ ordinary scroll — refined as a story rather than patched live, still open. The
 found nothing new. The eighteenth pass chased down what first looked like a second one — the
 Holdings table's Positions card missing from a mid-sequence screenshot — and confirmed it was its
 own screenshot taken inside the documented reveal stagger's delay window, not a stuck card. The
-nineteenth pass found nothing new; see SCANS.md for all four.
+nineteenth pass found nothing new. The twentieth pass found the ledger's second real one —
+**US-161**, the overflow menu (`#more-menu`) opening off the left edge of the screen at every width
+from 320px to 959px in the current default (non-Plus) state, because the CSS still anchors it to a
+trigger the redesign's own "Upgrade to Plus" banner no longer leaves on the right — refined as a
+story rather than patched live, since a static CSS swap would only trade today's break for the
+`body.plus` state's; see SCANS.md for all five.
 
 ## Redesign, 0.71.0
 
