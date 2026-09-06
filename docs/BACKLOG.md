@@ -8754,7 +8754,7 @@ and the **`LEAKWORDS` secret** that finding 3's fix now requires. Until the secr
 
 #### Acceptance criteria
 
-- [ ] **Finding 4** — `tools/check-vendor.mjs` compares `vendor/chart.umd.js` against the upstream
+- [x] **Finding 4** — `tools/check-vendor.mjs` compares `vendor/chart.umd.js` against the upstream
       sha256 of Chart.js 4.4.7 and runs before the tests like the other four checks; the hash and
       the URL it was taken from are in `vendor/README.md`. A modified vendor file fails `npm test`.
 - [ ] **Finding 5** — `README.md` states plainly that the raw store, including account identifiers
@@ -8762,17 +8762,17 @@ and the **`LEAKWORDS` secret** that finding 3's fix now requires. Until the secr
       `displayName` is no longer cached at all (it is shown from the live response or not shown).
       Whether `userToken` should be re-fetched per sync rather than cached is decided and written
       down, with the reason, either way.
-- [ ] **Finding 9** — a `LICENSE` file at the root (the brief's Apache-2.0 plus `TRADEMARK.md`);
+- [ ] **Finding 9** *(LICENSE, TRADEMARK.md, the Release workflow and `version_name` shipped in 0.72.0; the first tagged Release is the owner's)* — a `LICENSE` file at the root (the brief's Apache-2.0 plus `TRADEMARK.md`);
       each release is a GitHub Release carrying the install ZIP and its sha256; `version_name` in
       `manifest.json` carries the commit hash so a popup can say which build it is.
 - [ ] **Finding 10** — DEGIRO's terms are read and the conclusion is one paragraph in
       `docs/PRODUCT-BRIEF.md`; `README.md` and the brief say the same thing about the Chrome Web
       Store; the README carries a "not affiliated with DEGIRO" line.
-- [ ] **Finding 12, rest** — `diagnose.js`'s `topKeys` goes through the same digit rule as
+- [x] **Finding 12, rest** — `diagnose.js`'s `topKeys` goes through the same digit rule as
       `fieldNames`, so a key that is a number cannot appear in the report.
-- [ ] **Finding 13** — every `uses:` in `.github/workflows/*.yml` is pinned to a commit SHA with the
+- [x] **Finding 13** — every `uses:` in `.github/workflows/*.yml` is pinned to a commit SHA with the
       tag in a trailing comment.
-- [ ] **Finding 15** — `account.firstDay` in the bug report is rounded to the year.
+- [x] **Finding 15** — `account.firstDay` in the bug report is rounded to the year.
 - [ ] **Finding 1 and the secret** — the owner has enabled branch protection on `main` (required
       status check: the CI workflow; no force-push; no deletion) and added the `LEAKWORDS` secret,
       and CI on `main` is green again. Recorded here with the date when done.
@@ -8861,7 +8861,7 @@ refuse, each with the field path in the message.
 
 ---
 
-### US-144 — Signed releases with build provenance *(new, refined — red-team findings 1 and 9, owner action plus one workflow)*
+### US-144 — Signed releases with build provenance *(built, 0.72.0 — the workflow; unrun until the owner enables branch protection and pushes the first tag)*
 
 **Layer A.** The install today is "download the ZIP from `main`". Nothing says which commit built
 it, and nothing lets a reader check that the ZIP they hold is the one the repo produced. For a
@@ -9012,7 +9012,7 @@ within 0,01 pt on a single-deposit-at-start range (US-148's original check, stil
 
 ---
 
-### US-149 — Recovery time after the deepest fall *(new, refined — from the 2026-09-06 KPI pass)*
+### US-149 — Recovery time after the deepest fall *(built, 0.72.0)*
 
 **Layer A.** The *Deepest fall* tile says how far the portfolio fell and between which dates. It does
 not say when it got back. The recovery date and the number of days under water are the second half
@@ -9042,7 +9042,7 @@ peak-reaching day.
 
 ---
 
-### US-150 — Income concentration: how much of your dividend rests on the top three *(new, refined — from the 2026-09-06 KPI pass)*
+### US-150 — Income concentration: how much of your dividend rests on the top three *(built, 0.72.0 — replaces the Beta placeholder tile)*
 
 **Layer A.** The Dividends tab shows income by position. What it does not say is the risk that
 implies: if three payers are 80 % of the income, one cut is a fifth of the income. One number, with
@@ -9109,7 +9109,7 @@ land first with the Plus panels in their locked form only.
 
 ---
 
-### US-152 — The licence: a signed token, verified offline *(new, refined — TIERS §3; the first Plus story)*
+### US-152 — The licence: a signed token, verified offline *(built, 0.72.0 — no public key in the build until the owner runs tools/make-licence-key.mjs; the MoR renewal link waits for US-155)*
 
 **Layer A.** Plus is a signed JSON token the buyer pastes into Settings. The extension verifies it
 against a public key it ships with, offline, and derives one flat object every screen reads. There is
@@ -9255,7 +9255,7 @@ grep over the source that no `console.log` receives the body.
 
 ---
 
-### US-156 — LICENSE and TRADEMARK.md *(new, refined — TIERS §7; red-team finding 9)*
+### US-156 — LICENSE and TRADEMARK.md *(built, 0.72.0)*
 
 **Layer A.** The repository has no licence file, which makes the code "all rights reserved" by
 default: the opposite of what the safety page claims about openness. Apache-2.0 on everything, with
@@ -9366,7 +9366,7 @@ absent from the detail.
 
 ---
 
-### US-160 — The seal's two amounts: last value and the broker's total *(new, refined — US-151 deferred it)*
+### US-160 — The seal's two amounts: last value and the broker's total *(built, 0.72.0)*
 
 **Layer A.** The rail's seal says "Reconciles to the cent" without showing the two figures it
 compared. The prototype shows both; 0.71.0 did not, because a figure in the rail must respect the

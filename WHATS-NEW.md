@@ -1,39 +1,45 @@
-# Wat er nieuw is — 0.71.0
+# Wat er nieuw is — 0.72.0
 
-**Geen resync nodig.** Er verandert geen enkel bedrag: deze release verandert hoe dezelfde cijfers
-op het scherm staan, en voegt één onderdeel toe dat zegt wat Plus gaat zijn. Alleen deze release; de
-volledige geschiedenis staat in [CHANGELOG.md](CHANGELOG.md), installeren doe je met
-[INSTALL.md](INSTALL.md).
+**Geen resync nodig.** Er verandert geen enkel berekend bedrag. Twee tegels zeggen meer, één kaart
+toont twee cijfers tegelijk, en het fundament voor Plus en voor controleerbare releases zit erin.
+Alleen deze release; de volledige geschiedenis staat in [CHANGELOG.md](CHANGELOG.md), installeren doe
+je met [INSTALL.md](INSTALL.md).
 
-> **Hoef je te resyncen voor deze versie? Nee.** Zie [CHANGELOG.md](CHANGELOG.md) voor oudere
-> resync-vragen.
+> **Hoef je te resyncen voor deze versie? Nee.**
 
 ---
 
-## De pagina leest als een afschrift
+## Het zegel laat de twee bedragen zien die het vergeleek
 
-Koel papier en inktblauw in plaats van crème en terracotta. Titels en het grote totaalbedrag staan
-in een serif (Newsreader), alle tekst en alle andere cijfers in Source Sans 3; beide zitten in de
-extensie zelf, er wordt niets van internet geladen. De kengetallen onder het totaal staan op één
-gelinieerde regel in plaats van in losse tegels, de onderdelen zijn met een lijn gescheiden in plaats
-van in dozen gezet, en de periodekeuze is een rij onderstreepte tabs. De kleuren voor plus en min en
-voor de posities in de grafieken zijn niet veranderd; die zijn gemeten en blijven zo.
+Onder "Sluit tot op de cent" in de zijbalk staan nu de laatste waarde zoals Asteria die
+reconstrueerde en het totaal dat DEGIRO zelf opgeeft. Ze horen gelijk te zijn; zijn ze dat niet,
+dan staat het verschil er in rood bij. Verberg je bedragen, dan worden deze twee ook verborgen.
 
-## Het zegel in de zijbalk
+## Diepste daling zegt nu ook wanneer het weer goed kwam
 
-"Sluit tot op de cent" staat nu bovenaan de feiten in de zijbalk, als stempel. Klopt het totaal niet
-met wat DEGIRO zegt, dan wordt het rood, precies zoals eerst.
+De tegel eindigt met "hersteld 25 jun 2026, 499 dagen onder water" of met "nog niet hersteld, N
+dagen en tellend". Gemeten op dezelfde curve zonder stortingen als de daling zelf, dus een storting
+tijdens de daling telt niet als herstel. De daling zelf is exact wat hij was.
 
-## Tabellen: kop en eerste kolom blijven staan
+## Top 3 betalers, op het tabblad Dividenden
 
-In elke tabel blijft de kop in beeld terwijl je scrolt, en blijft de eerste kolom staan terwijl de
-rest eronderdoor schuift. Een schaduw aan de rand laat zien aan welke kant er nog meer tabel is. De
-tabel is met het toetsenbord te bereiken en een schermlezer hoort welke tabel het is. Bij Posities
-kon je al kolommen kiezen, slepen en een rij openklappen; dat werkt nog net zo.
+Welk deel van je reguliere brutodividend van de laatste twaalf maanden kwam van de drie grootste
+betalers, met hun namen. Een hoog percentage betekent dat één verlaging een groot deel van je
+inkomen raakt. Bijzondere uitkeringen tellen niet mee. Deze tegel vervangt de lege "Beta"-tegel.
 
-## Nieuw onderdeel: Plus
+## Rendement op jaarbasis: allebei tegelijk
 
-Onder een lijn in de navigatie staat **Plus**: wat gratis is en blijft (alles wat uit je eigen
-DEGIRO-data komt), wat Plus later toevoegt (externe data en gemak, nooit een ander getal) en wat Plus
-nooit zal doen. Het staat er als *in voorbereiding*: er valt nog niets te kopen en nog niets te
-controleren, en de knop *Upgrade naar Plus* in de zijbalk opent alleen dit onderdeel.
+"Mijn geld" en "De portefeuille" staan nu naast elkaar in plaats van achter een schakelaar, met het
+verschil in punten per jaar en één zin over wat dat betekent: of je timing hielp of tegenwerkte.
+
+## Een licentieveld voor Plus, nog zonder sleutel
+
+Op het tabblad Plus kun je een licentiesleutel plakken. Die wordt in de extensie zelf gecontroleerd,
+er gaat niets naar buiten, en de sleutel zit nooit in een export of bugrapport. Deze versie bevat nog
+geen publieke sleutel, dus elke ingevoerde sleutel zegt "in voorbereiding". Er is nog niets te koop.
+
+## Licentie op de code, en releases die je kunt controleren
+
+De code staat onder Apache-2.0; de naam Asteria en het merkteken niet (TRADEMARK.md). Vanaf de
+eerstvolgende getagde release komt de installatie-ZIP met een sha256 en een herkomstbewijs op de
+GitHub Releases-pagina, en zegt de popup welke build je draait. INSTALL.md beschrijft de nieuwe route.

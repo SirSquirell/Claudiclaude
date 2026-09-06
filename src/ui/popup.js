@@ -279,7 +279,12 @@ async function paint(r, status = {}) {
   // Which build this is. The popup is where a tester looks first, and a bug
   // report about an unnamed version costs a round trip to establish.
   const el = $('#version');
-  if (el && inExtension) el.textContent = `v${chrome.runtime.getManifest().version}`;
+  // US-144: the build, when a Release stamped one ("0.72.0 (abcdef0)"); the
+  // plain version otherwise. A tester's first screenshot names the commit.
+  if (el && inExtension) {
+    const m = chrome.runtime.getManifest();
+    el.textContent = `v${m.version_name ?? m.version}`;
+  }
 
   // Last 90 days of value, enough to read the shape in 64px.
   //

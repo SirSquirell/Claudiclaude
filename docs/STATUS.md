@@ -3,7 +3,7 @@
 `docs/BACKLOG.md` is 7 600 lines of reasoning and evidence, which is the right place for *why* and
 a bad place to find out *where things stand*. This is the index.
 
-**Last updated at 0.71.0, on 2026-09-06.** It had been stale since 0.21.0 once, which is fifteen
+**Last updated at 0.72.0, on 2026-09-06.** It had been stale since 0.21.0 once, which is fifteen
 releases — if it looks stale again, trust the CHANGELOG and fix this.
 
 ## Light scans
@@ -30,6 +30,17 @@ says *in preparation*. Palette and type checks re-measured green. Deferred from 
 priorities on tables other than Positions, and the seal's two amount rows, which wait for the
 anonymize path to be confirmed against them. The design POCs stay in `docs/prototypes/`
 (`redesign-tiers.html`, `tables.html`).
+
+## 0.72.0 — 2026-09-06
+
+Built from the batch refined the same day: **US-152** the offline licence (no public key in the
+build yet; `tools/make-licence-key.mjs` is the owner's next step), **US-160** the seal's two amounts,
+**US-149** drawdown recovery, **US-150** income concentration, **US-148** both annualised figures at
+once (a display change: the engine had both), **US-156** LICENSE and TRADEMARK, **US-144** the release
+workflow (unrun until the owner tags, after branch protection), and US-141 findings 4, 12, 13 and 15.
+Still open from the batch: **US-153** to **US-155** (bundle client, pipeline, webhook — need a bundle
+and a MoR), **US-157** (SPEC amendment, owner), **US-158** (needs a Plus feature to lock), **US-159**
+(column priority on the other wide tables).
 
 ## Plus, the backend that is not one — 2026-09-06
 

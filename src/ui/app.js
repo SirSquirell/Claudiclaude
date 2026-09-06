@@ -7,7 +7,7 @@
 
 import { aggregatePnl, annualisedReturn, buildComposition, projectPortfolio, projectDividendIncome, candleSeries, maxDrawdown, monthlyTable, priceVsTotalReturn, rangeEndIndex, rangeStartIndex, windowReturnPct } from '../lib/engine.js';
 import { isinCountry, treatyRateFor, withholdingSplit, TREATY_RATE } from '../lib/withholding.js';
-import { perShareSeries, classifyPayments, changes as dividendChanges, forwardIncome, yields as dividendYields, trackRecord, nextExpected, measuredDividendGrowth, incomeGoal, MIN_COMPARISON_PAYMENTS, RECENT_TRADE_DAYS } from '../lib/dividends.js';
+import { perShareSeries, classifyPayments, changes as dividendChanges, forwardIncome, yields as dividendYields, trackRecord, nextExpected, measuredDividendGrowth, incomeGoal, incomeConcentration, MIN_COMPARISON_PAYMENTS, RECENT_TRADE_DAYS } from '../lib/dividends.js';
 import { PLAUSIBLE_ANNUAL } from '../lib/engine.js';
 import { CATEGORY } from '../lib/classify.js';
 import { formatDay, monthKey, subMonths, weekKey } from '../lib/dates.js';
@@ -3268,12 +3268,28 @@ function buildTiles(r, from = 0, to = r.days.length - 1, live = null) {
           : tr('last 12 months of regular payments × today’s shares, in EUR · {n} of {m} positions', { n: fi.determinedCount, m }),
       };
     })(),
-    {
-      tabs: ['dividends'],
-      label: 'Beta',
-      value: tr('Needs US-98'),
-      note: tr('a benchmark price series is not built yet'),
-    },
+    (() => {
+      /**
+       * US-150. How much of the last twelve months' regular income rests on
+       * the largest three payers — the risk the per-position table shows but
+       * does not add up. Specials out, as everywhere in the layer. With fewer
+       * than three payers the tile says "all N positions" rather than
+       * reporting a percentage of itself.
+       */
+      const c = dividendModel(state.data, r).concentration;
+      const names = (list) => list.map((p) => p.name).join(', ');
+      if (!c.payerCount) {
+        return { tabs: ['dividends'], label: 'Top 3 payers', value: '—', note: tr('no regular dividend in the last 12 months') };
+      }
+      const t3 = c.top3;
+      return {
+        tabs: ['dividends'],
+        label: 'Top 3 payers',
+        value: t3.pct == null ? tr('all {n} positions', { n: t3.allOf }) : fmtPct(t3.pct).replace(/^\+/, ''),
+        note: tr('of the last 12 months’ regular gross dividend · {names}', { names: names(t3.payers) })
+          + (c.unattributedPayments ? ' · ' + tr('{n} payments not attributable', { n: c.unattributedPayments }) : ''),
+      };
+    })(),
     {
       tabs: ['income'],
       label: 'Fees paid',
@@ -3647,6 +3663,7 @@ const TILE_TIPS = {
   'Total cost': 'Fees, withheld dividend tax and interest paid, added together — what holding this account has cost you. Each is easy to ignore alone, which is the argument for the sum.',
   Realised: 'The whole result of every position you no longer hold. Banked: it cannot change any more.',
   Unrealised: 'What the positions you still hold have made so far. It moves with prices every day and is not yours until you sell.',
+  'Top 3 payers': 'The share of the last twelve months’ regular gross dividend, in EUR, that came from the three largest payers. Special dividends are left out. A high share means one cut is a large part of the income; the per-position table below is where to see which one.',
   'Deepest fall': 'The worst peak-to-trough fall in the range, measured on the curve with deposits and withdrawals removed. That matters: on portfolio value, the day you withdrew money would be reported as the worst market event of your life.',
   'Months in profit': 'How many calendar months ended up, out of every full month in the history. Not the selected range.',
   'Best month': 'As a percentage rather than in euros, because €500 on a small portfolio and €500 on a large one are not the same month. Whole history.',
@@ -3681,7 +3698,13 @@ function drawdownTile(r, from, to, period) {
     value: fmtSigned(d.amount),
     // Where and how long, because a 20 % fall that took three years to recover
     // is a different experience from one that lasted a fortnight.
-    note: `${fmtPct(d.pct)} · ${formatDay(r.days[d.from])} → ${formatDay(r.days[d.to])}`,
+    // US-149: and whether it got back. Measured on the same deposit-free curve
+    // as the fall, so a deposit during the fall cannot end it.
+    note: `${fmtPct(d.pct)} · ${formatDay(r.days[d.from])} → ${formatDay(r.days[d.to])} · ${
+      d.recoveredOn
+        ? tr('recovered {date}, {days} days under water', { date: formatDay(d.recoveredOn), days: d.underwaterDays })
+        : tr('not yet recovered, {days} days and counting', { days: d.underwaterDays })
+    }`,
     cls: 'down',
   };
 }
@@ -4966,6 +4989,7 @@ function dividendModel(data, r) {
     forward: forwardIncome(series, quantities, today),
     yields: dividendYields(series, r.byProduct, today),
     track: trackRecord(series, today),
+    concentration: incomeConcentration(series, today),
     next: Object.fromEntries(Object.values(series.byProduct).map((p) => [p.productId, nextExpected(p.points, p.rhythm, today)])),
   };
   dividendCache = { data, model };

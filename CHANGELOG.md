@@ -16,6 +16,56 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.72.0] — 2026-09-06
+
+**No resync needed** — no engine figure changed. Two tiles say more, one card shows two figures at
+once, and the groundwork for Plus and for verifiable releases is in.
+
+### Added
+
+- **Plus licence, checked offline (US-152).** The Plus section gets a licence field. A key is
+  `AST1.<payload>.<signature>`, ECDSA P-256, verified in the extension against the public keys in
+  `config.js`; every failure says why (no key configured yet, malformed, unknown signing key, bad
+  signature, expired). The token lives in `chrome.storage.local`, not beside the portfolio, and is in
+  no export, bug report or diagnose — those carry `plus` and `expiresInDays`, nothing else. This build
+  carries **no** public key, so every key says "in preparation"; `tools/make-licence-key.mjs` makes the
+  pair for the owner (private half refused inside the repo), `tools/sign-licence.mjs` signs one token.
+  `check-leaks` treats a token literal anywhere in the tree as a leak.
+- **The seal shows its two figures (US-160).** Under "Reconciles to the cent" the rail now shows the
+  reconstructed last value and DEGIRO's own total, formatted by the tiles' formatter so hide-amounts
+  masks them the same way. A derived anchor is labelled; a failed reconciliation adds the difference
+  in red; a disconnected account shows no amounts.
+- **Deepest fall says when it recovered (US-149).** The tile's note ends with "recovered 25 jun 2026,
+  499 days under water" or "not yet recovered, N days and counting", measured on the same
+  deposit-free curve as the fall itself, so a deposit during the fall cannot end it. Amount,
+  percentage and the two dates are computed exactly as before.
+- **Top 3 payers (US-150).** A Dividends tile: what share of the last twelve months' regular gross
+  dividend came from the three largest payers, with their names; specials out, as everywhere in the
+  layer; "all N positions" with fewer than three payers; unattributable payments counted. It replaces
+  the *Beta · Needs US-98* placeholder tile, which said nothing a reader could use.
+- **Both annualised figures at once (US-148).** *My money* (money-weighted) and *The portfolio*
+  (time-weighted) side by side, with the gap in points a year and what it means. Both existed; the
+  card used to show one behind a toggle. `ann-view` is in `docs/RETIRED.md`.
+- **LICENSE and TRADEMARK.md (US-156).** Apache-2.0 on the code; the name "Asteria", the mark and the
+  lockup are not licensed. `tools/check-licence.mjs` joins the pre-test checks.
+- **Signed releases (US-144).** `.github/workflows/release.yml`: a tag `vX.Y.Z` becomes a GitHub
+  Release with `asteria-X.Y.Z.zip` (manifest, `src/`, `vendor/`, `icons/` only), its sha256 and a build
+  provenance attestation; it refuses a tag that is not the manifest version. Inside the ZIP
+  `version_name` reads `X.Y.Z (abcdef0)` and the popup shows it. INSTALL.md installs from the
+  Release and checks the hash with one command. The workflow has not run yet: the first tag is the
+  owner's, after branch protection.
+
+### Security
+
+- **Vendored files are hash-checked (US-141 finding 4).** `tools/check-vendor.mjs` refuses any file
+  under `vendor/` whose sha256 differs from `vendor/README.md`; `chart.umd.js` was verified
+  byte-identical to the upstream Chart.js 4.4.7 build.
+- **Actions pinned to commit SHAs (finding 13)** in both workflows, tag in the comment.
+- **The bug report's `account.firstDay` is the year only (finding 15).** The exact opening day
+  identified an account; a defect only ever needed the length of the history.
+- **The connection check's key lists cannot carry a number (finding 12, rest).** `keys` and `rowKeys`
+  go through the same digit rule as `fieldNames`.
+
 ## [0.71.0] — 2026-09-06
 
 **No resync needed** — nothing in the numbers changed. This release is the redesign (US-151): how the
