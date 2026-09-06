@@ -8737,4 +8737,58 @@ this — `npm test`'s fake-DOM suite has no compositor to freeze.
 
 ---
 
-**Next free number: US-141.**
+### US-141 — Red-team follow-up: the findings 0.70.4 did not close *(new, refined — from `docs/RED-TEAM.md`, 2026-09-06)*
+
+**Layer A.** The red-team review found fifteen things. Four were fixed in 0.70.4 (findings 2, 3, 11,
+12: forced sync from a page script, the silent leak check, the fingerprint, the diagnose leak). One
+is accepted as-is (14). Three are decided in `docs/TIERS.md` and become code with the Plus stories
+(6, 7, 8). This story is the remaining seven, so that they have one number and are not lost between
+a report and a release. Each item below is small enough to land alone; the story is done when every
+box is ticked or explicitly retired into `RETIRED.md`.
+
+**Layer B.** Two of the seven are the owner's and cannot be done from a session: **finding 1**, branch
+protection on `main` with required CI and releases cut from tagged commits (this is the root of 6
+and 7 as well: a signing key is worth exactly as much as the weakest credential with push rights),
+and the **`LEAKWORDS` secret** that finding 3's fix now requires. Until the secret exists, CI on
+`main` is red on purpose.
+
+#### Acceptance criteria
+
+- [ ] **Finding 4** — `tools/check-vendor.mjs` compares `vendor/chart.umd.js` against the upstream
+      sha256 of Chart.js 4.4.7 and runs before the tests like the other four checks; the hash and
+      the URL it was taken from are in `vendor/README.md`. A modified vendor file fails `npm test`.
+- [ ] **Finding 5** — `README.md` states plainly that the raw store, including account identifiers
+      and positions, is unencrypted IndexedDB readable by anyone with the browser profile;
+      `displayName` is no longer cached at all (it is shown from the live response or not shown).
+      Whether `userToken` should be re-fetched per sync rather than cached is decided and written
+      down, with the reason, either way.
+- [ ] **Finding 9** — a `LICENSE` file at the root (the brief's Apache-2.0 plus `TRADEMARK.md`);
+      each release is a GitHub Release carrying the install ZIP and its sha256; `version_name` in
+      `manifest.json` carries the commit hash so a popup can say which build it is.
+- [ ] **Finding 10** — DEGIRO's terms are read and the conclusion is one paragraph in
+      `docs/PRODUCT-BRIEF.md`; `README.md` and the brief say the same thing about the Chrome Web
+      Store; the README carries a "not affiliated with DEGIRO" line.
+- [ ] **Finding 12, rest** — `diagnose.js`'s `topKeys` goes through the same digit rule as
+      `fieldNames`, so a key that is a number cannot appear in the report.
+- [ ] **Finding 13** — every `uses:` in `.github/workflows/*.yml` is pinned to a commit SHA with the
+      tag in a trailing comment.
+- [ ] **Finding 15** — `account.firstDay` in the bug report is rounded to the year.
+- [ ] **Finding 1 and the secret** — the owner has enabled branch protection on `main` (required
+      status check: the CI workflow; no force-push; no deletion) and added the `LEAKWORDS` secret,
+      and CI on `main` is green again. Recorded here with the date when done.
+
+#### Dependencies
+
+None between the items. Finding 9's release step wants finding 1 first, otherwise the ZIP is signed
+by whoever last pushed.
+
+#### Test
+
+Finding 4 is its own test (`npm test` fails on a changed vendor file, checked by flipping one byte
+in a copy). Finding 12's rest and finding 15 get a case each, next to the existing report tests in `test/`: a
+numeric key does not appear in the diagnose output, a first day appears as a year. The rest is
+documents and settings, checked by reading.
+
+---
+
+**Next free number: US-142.**

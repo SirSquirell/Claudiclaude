@@ -341,7 +341,9 @@ export async function localInfo() {
   ]);
   return {
     version: (globalThis.chrome?.runtime?.getManifest?.() ?? {}).version ?? 'unknown',
-    userAgent: globalThis.navigator?.userAgent ?? 'unknown',
+    // The Chrome major only. A full user-agent string names the OS build and
+    // every brand token, which is a fingerprint in a report meant to be pasted.
+    chrome: /Chrome\/(\d+)/.exec(globalThis.navigator?.userAgent ?? '')?.[1] ?? null,
     today: todayISO(),
     lastSyncAt: lastSyncAt ? new Date(lastSyncAt).toISOString() : null,
     // US-112: the two timestamps read together. A sync that did not run because
@@ -349,7 +351,9 @@ export async function localInfo() {
     // all, unless the attempt is dated too.
     lastSyncAttemptAt: lastSyncAttemptAt ? new Date(lastSyncAttemptAt).toISOString() : null,
     lastDataDate,
-    lastError,
+    // `reason`, `message` and `at` only: `detail` carries whatever the failing
+    // step attached, and that is not a field this report has declared.
+    lastError: lastError ? { reason: lastError.reason ?? null, message: lastError.message ?? null, at: lastError.at ?? null } : null,
     syncState,
   };
 }

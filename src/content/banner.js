@@ -205,14 +205,19 @@ function mount(model, t, lang, want) {
   };
   apply(model);
 
+  // A click the page script made up (`el.click()`) has `isTrusted === false`.
+  // The strip is in an open shadow root, so without this any script on the
+  // broker's page could press these buttons on the reader's behalf.
   for (const btn of root.querySelectorAll('.open')) {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', (e) => {
+      if (!e.isTrusted) return;
       chrome.runtime.sendMessage({ type: 'openApp' }).catch(() => {});
     });
   }
 
   for (const btn of root.querySelectorAll('.sync')) {
-    btn.addEventListener('click', async () => {
+    btn.addEventListener('click', async (e) => {
+      if (!e.isTrusted) return;
       // Dezelfde boodschap als de sync-knop in de popup, met de uitkomst in
       // de regel — geen verzonnen getal, alleen wat de worker terugmeldt.
       for (const b of root.querySelectorAll('.sync')) b.disabled = true;

@@ -1,91 +1,37 @@
-# Wat er nieuw is — 0.70.3
+# Wat er nieuw is — 0.70.4
 
-**Geen resync nodig.** Er verandert geen enkel bedrag in je geschiedenis: alles wat hieronder
-staat wordt bij elke opening opnieuw uitgerekend uit de regels die de extensie al had. Alleen deze
-release; de volledige geschiedenis staat in [CHANGELOG.md](CHANGELOG.md), installeren doe je met
-[INSTALL.md](INSTALL.md).
+**Geen resync nodig.** Er verandert geen enkel bedrag: deze release raakt alleen wat de extensie
+toelaat en wat het bugrapport meeneemt. Alleen deze release; de volledige geschiedenis staat in
+[CHANGELOG.md](CHANGELOG.md), installeren doe je met [INSTALL.md](INSTALL.md).
 
 > **Hoef je te resyncen voor deze versie? Nee.** Zie [CHANGELOG.md](CHANGELOG.md) voor oudere
 > resync-vragen.
 
 ---
 
-## Een fout in één onderdeel houdt de rest van de pagina niet meer tegen
+## Een script op de DEGIRO-pagina kan de knoppen in de strip niet meer voor je indrukken
 
-Ging er iets mis in het tekenen van bijvoorbeeld het tabblad Dividenden, dan stopte de hele
-pagina daar stil, zonder melding, en bleef bijvoorbeeld een zoom op de grafiek uit. Nu tekent elk
-onderdeel apart: gaat er één stuk, dan staat er een rode balk met de naam van dat onderdeel en de
-foutmelding, en de rest van de pagina werkt door. Zie je zo'n balk, kopieer dan het bugrapport
-(menu Meer) en stuur het op; daar staat de fout in.
+De strip bovenaan trader.degiro.nl heeft twee knoppen, Sync en Open. Een script op die pagina kon
+ze programmatisch indrukken, en de Sync-knop mocht tot nu toe de dagelijkse begrenzing overslaan.
+Dat kon dus een sync afdwingen op een moment dat jij niet koos. Nu tellen alleen echte klikken, en
+alleen de extensie zelf (de popup en de app-pagina) mag een sync afdwingen. Druk je zelf op Sync in
+de strip, dan merk je niets: is je geschiedenis vandaag al bijgewerkt, dan zegt de strip dat; is hij
+dat niet, dan synct hij.
 
-## Slepen op de waardegrafiek zoomt weer, ook waar het niet deed
+## De extensie is vanaf de DEGIRO-pagina niet meer te herkennen
 
-Trok je een venster over de grafiek, dan tekende de selectie wel maar gebeurde er bij loslaten
-niets. Dat lag aan hoe Chrome op sommige machines de muisbeweging doorgeeft (bij aanraking, pen
-en bepaalde Windows-drivers als nul), waardoor de extensie de sleep als een klik zag. Nu telt de
-afstand vanaf het indrukken. Loslaten zoomt de hele pagina naar het venster: de tegels, de
-grafieken en het kruimelpad volgen mee, en "Terug" brengt je naar de vorige stand.
+Een pagina kon proberen één bestand van de extensie te laden en zo zien dat je Asteria hebt. Dat
+adres wisselt nu per sessie, dus die vraag krijgt geen antwoord meer.
 
-## Het tabblad Dividenden laat nu zien wat elke positie per aandeel uitkeerde
+## Het bugrapport neemt minder mee
 
-**Nieuw in 0.70.1** (uitgebracht vlak na 0.70.0, daarom staan ze hier samen): in de opengeklikte
-rij staat per uitkering nu ook **wat er precies binnenkwam**: ontvangen bruto, ingehouden
-belasting en netto, in euro's zoals DEGIRO ze boekte. De bedragen per aandeel staan ernaast; die
-zijn daarvan afgeleid, de eurobedragen niet.
+De diagnose stuurde de volledige browserstring mee en de vrije tekst van de laatste fout. Nu staat er
+alleen nog het Chrome-versienummer in, en van de laatste fout de reden, de melding en het tijdstip.
+Kopieer een bugrapport uit het menu Meer en lees het na: alles wat erin staat mag je zo doorsturen.
 
+## Waar dit uit komt
 
-Tot nu toe stond er per positie alleen hoeveel euro er in totaal binnenkwam. Nu staat er ook wat
-dat per aandeel was, en wat je daaruit kunt aflezen:
-
-- **Rendement op kostprijs en huidig rendement**: het bruto dividend van de laatste twaalf maanden
-  gedeeld door wat je aandelen kostten, en door wat ze nu waard zijn. Waar dat niet te zeggen is
-  (positie gesloten, niets ontvangen, geen kostprijs) staat dát er, geen 0 %.
-- **Ritme**: maandelijks, per kwartaal, halfjaarlijks of jaarlijks, afgelezen uit de tussenpozen
-  tussen de uitkeringen, met hoeveel van die tussenpozen het ermee eens zijn. "Onregelmatig" is een
-  antwoord, geen gok.
-- **Staat van dienst**: hoeveel jaar achtereen er is uitgekeerd, hoe vaak verhoogd, hoe vaak
-  verlaagd en wat de grootste verlaging was. Alleen binnen wat dít account heeft gezien: de teller
-  begint toen jij de positie kocht, niet toen het bedrijf begon uit te keren. Feiten, geen score.
-- **Volgende verwachte uitkering**: een schatting uit het betaalritme, met een marge. Het staat er
-  ook zo bij; het is geen aangekondigde datum.
-
-**Klik een rij open** en je ziet elke uitkering per aandeel: datum, bruto en belasting per aandeel,
-of het een reguliere of een bijzondere uitkering was (en volgens welke regel), de verandering ten
-opzichte van een jaar eerder, en het aantal aandelen waardoor is gedeeld. Stond er binnen dertig
-dagen vóór de betaaldatum een transactie, dan staat daar een vlag bij: het aantal aandelen op de
-betaaldatum is dan misschien niet het aantal dat de uitkering verdiende.
-
-Regels die niet aan een aantal aandelen toe te rekenen zijn (bijvoorbeeld een dividend dat
-binnenkwam nadat je de positie al had verkocht) staan onder de tabel onder **Niet toe te rekenen**,
-met de reden en geteld. Ze zitten wel in elk totaal, maar niet in de kolommen.
-
-## Een nieuwe tegel: Verwacht jaarinkomen
-
-De reguliere uitkeringen per aandeel van de laatste twaalf maanden, maal de aandelen die je nu hebt.
-Bijzondere uitkeringen tellen niet mee. De tegel zegt op hoeveel posities het cijfer rust ("5 van 7
-posities"); een positie zonder herkenbaar ritme of met minder dan één volledige cyclus zit er niet
-in, en in de opengeklapte rij staat waarom. De bestaande kaart met de groeiprojectie heet nu
-**Inkomstenprojectie, uit gemeten groei**, zodat de twee niet voor hetzelfde getal kunnen worden
-gehouden: de tegel neemt niets aan, de kaart rekent een gemeten groei door.
-
-## Verhogingen, verlagingen en gestopte uitkeringen onder Meldingen
-
-Per positie: de laatste verhoging of verlaging van de afgelopen twaalf maanden, met het percentage
-per aandeel en de uitkering waarmee is vergeleken. Een verlaging is een waarschuwing, een verhoging
-een notitie. Een uitkering die volgens haar ritme ruim te laat is, staat er ook als waarschuwing.
-Achteraf afgelezen uit je eigen regels, niet aangekondigd.
-
-## Een inkomensdoel op Vooruitblik
-
-Vul een **doel per maand** in en de kaart laat zien waar het verwachte jaarinkomen staat (per maand,
-als percentage van het doel, het tekort) en in welke maand het doel gehaald zou worden als de inleg
-en het rendement die je op Vooruitblik al instelde doorlopen en de dividenden zelf blijven groeien.
-Dat groeipercentage is vooraf ingevuld met wat je eigen account heeft gemeten (en staat er als
-"gemeten" bij, met over welke posities en jaren); typ je er iets anders in, dan heet het "jouw
-aanname". Elke aanname staat op de kaart. Het is rekenwerk, geen advies en geen voorspelling.
-
-## Alles per aandeel is in EUR zoals het is afgewikkeld
-
-Een cashregel van DEGIRO is het eurobedrag dat op je rekening kwam. Bij een buitenlandse betaler
-beweegt het cijfer per aandeel daardoor mee met de wisselkoers, ook als het gedeclareerde dividend
-niet veranderde. De extensie rekent niets terug; elke tabel en melding zegt "in EUR".
+Er is een red-team-review gedaan op de extensie en op het plan voor een betaalde laag; het verslag
+staat in [docs/RED-TEAM.md](docs/RED-TEAM.md). Van de vijftien punten zijn de vier die vandaag konden
+in deze release gefixt. Belangrijkste conclusie: er is geen weg gevonden waarlangs je gegevens de
+machine verlaten, wel één waarlangs een pagina de extensie iets kon laten doen, en die is nu dicht.

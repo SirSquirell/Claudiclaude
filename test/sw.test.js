@@ -152,3 +152,26 @@ test('an unknown message type is answered with an error, not silence', async () 
   assert.equal(res.ok, false);
   assert.match(res.error, /Unknown message type/);
 });
+
+test('red team finding 2 — `force` is honoured from the extension’s own pages, dropped from the broker’s tab', async () => {
+  // Runs in the same fake as the rest: no cookie, so every sync that gets past
+  // the gates stops at the session probe with `ok: false`. That difference is
+  // the whole assertion — a forced sync reaches the probe, a gated one does not.
+  const { setMeta } = await import('../src/lib/store.js');
+  await setMeta('disconnected', false);
+  await setMeta('lastSyncAt', Date.now());
+  await setMeta('lastSyncAttemptAt', Date.now());
+
+  const fromStrip = await send({ type: 'sync', force: true }, degiroTab);
+  assert.equal(fromStrip.ok, true);
+  assert.equal(fromStrip.data.skipped, 'fresh', 'a page script that presses the strip cannot skip the daily gate');
+
+  const fromApp = await send({ type: 'sync', force: true }, appTab);
+  assert.equal(fromApp.ok, true);
+  assert.equal(fromApp.data.skipped, undefined, 'the app page still forces: past the gate, into the session probe');
+  assert.equal(fromApp.data.ok, false, 'where, with no cookie, it stops');
+
+  const fromPopup = await send({ type: 'sync', force: true }, popup);
+  assert.equal(fromPopup.data.skipped, undefined);
+  assert.equal(fromPopup.data.ok, false);
+});

@@ -20,4 +20,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      # The names list never enters the repo (a committed list of names is the
+      # leak it guards against). It comes from a secret, one name per line.
+      - name: Write .leakwords from the LEAKWORDS secret
+        env:
+          LEAKWORDS: ${{ secrets.LEAKWORDS }}
+        run: |
+          if [ -z "$LEAKWORDS" ]; then
+            echo "::error::Repository secret LEAKWORDS is not set; tools/check-leaks.mjs cannot check names. Add it under Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+          printf '%s\n' "$LEAKWORDS" > .leakwords
       - run: npm test

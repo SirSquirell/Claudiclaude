@@ -3,7 +3,7 @@
 `docs/BACKLOG.md` is 7 600 lines of reasoning and evidence, which is the right place for *why* and
 a bad place to find out *where things stand*. This is the index.
 
-**Last updated at 0.70.3, on 2026-09-02.** It had been stale since 0.21.0 once, which is fifteen
+**Last updated at 0.70.4, on 2026-09-06.** It had been stale since 0.21.0 once, which is fifteen
 releases — if it looks stale again, trust the CHANGELOG and fix this.
 
 ## Light scans
@@ -20,6 +20,18 @@ found nothing new. The eighteenth pass chased down what first looked like a seco
 Holdings table's Positions card missing from a mid-sequence screenshot — and confirmed it was its
 own screenshot taken inside the documented reveal stagger's delay window, not a stuck card. The
 nineteenth pass found nothing new; see SCANS.md for all four.
+
+## Red team, 2026-09-06
+
+One adversarial pass over the extension and over the tier design in `docs/TIERS.md`, written up in
+[RED-TEAM.md](RED-TEAM.md). No path was found by which account data leaves the machine. What was
+found: a page script on trader.degiro.nl could press the strip's buttons through the open shadow
+root and force a sync (fixed, 0.70.4), the extension was fingerprintable through its one
+web-accessible resource (fixed), the diagnostics carried the full user-agent and free error text
+(fixed), and the leak check had been running in CI without its word list (fails closed now; the
+`LEAKWORDS` secret is the owner's). The one **high** finding is not code: `main` has no branch
+protection and is what Pages, the install ZIP and any future signed bundle are built from. The open
+items are **US-141**.
 
 ## Owner's screenshots, 2026-08-22
 

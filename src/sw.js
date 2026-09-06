@@ -103,7 +103,7 @@ function permitted(msg, sender) {
 /** Message API used by the popup, the full page and the two content scripts. */
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (!permitted(msg, sender)) return;
-  handle(msg)
+  handle(msg, sender)
     .then((data) => sendResponse({ ok: true, data }))
     .catch((err) => {
       // Answer first, record second. The reply is what unsticks the button;
@@ -115,7 +115,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   return true; // keep the channel open for the async reply
 });
 
-async function handle(msg) {
+/** The extension's own pages: popup, app page. A tab on a broker's site is not one. */
+const ownPage = (sender) => typeof sender?.url === 'string' && sender.url.startsWith(chrome.runtime.getURL(''));
+
+async function handle(msg, sender) {
   switch (msg?.type) {
     case 'status':
       return getStatus({ includeDerived: msg.includeDerived === true });
@@ -145,7 +148,17 @@ async function handle(msg) {
        * install and startup handlers above create the same one.
        */
       chrome.alarms.create(SYNC.alarmName, { periodInMinutes: SYNC.alarmPeriodMinutes });
-      return runSync({ force: msg.force === true });
+      /**
+       * Red team 2026-09-06, finding 2: the strip's Sync button lives in an
+       * open shadow root on trader.degiro.nl, so any script on that page can
+       * `.click()` it and send `force: true`, and `force` is what skips the
+       * daily gate of US-112. A press from the strip is still honoured as a
+       * sync, but only the extension's own pages may force one; from a tab on
+       * the broker's site the request goes through the same gates as the
+       * alarm. The person pressing the real button loses nothing they could
+       * see: a stale account syncs either way, a fresh one says it is fresh.
+       */
+      return runSync({ force: msg.force === true && ownPage(sender) });
     }
 
     case 'tab-ready':

@@ -52,6 +52,13 @@ const wordFile = '.leakwords';
 const words = existsSync(wordFile)
   ? readFileSync(wordFile, 'utf8').split('\n').map((w) => w.trim()).filter((w) => w.length > 2 && !w.startsWith('#'))
   : [];
+// In CI the file is written from the LEAKWORDS secret by ci.yml. Without it the
+// names check silently passed for months (red team 2026-09-06, finding 3); a
+// check that cannot run must fail, not shrug.
+if (process.env.CI && !existsSync(wordFile)) {
+  console.error('check-leaks: .leakwords is missing in CI. Add the LEAKWORDS repository secret (one name per line); ci.yml writes it before this check runs.');
+  process.exit(1);
+}
 
 const IDENTIFYING_KEYS = ['displayName', 'intAccount', 'userToken', 'clientId'];
 

@@ -16,6 +16,41 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.70.4] — 2026-09-06
+
+**No resync needed** — nothing in the numbers changed. This is the first release after the red-team
+review in [docs/RED-TEAM.md](docs/RED-TEAM.md); the four findings that could be fixed today are.
+
+### Security
+
+- **A script on trader.degiro.nl can no longer force a sync or open the app on the reader's
+  behalf** (finding 2). The strip lives in an open shadow root, so any page script could `.click()`
+  its two buttons; the Sync button sent `force: true`, which is what skips the once-a-day gate of
+  US-112 and reconnects a disconnected account. Both buttons now ignore synthetic clicks
+  (`isTrusted`), and the worker honours `force` only from the extension's own pages — a sync asked
+  for from a tab on the broker's site goes through the same gates as the alarm. A real press on the
+  strip loses nothing visible: a stale account syncs, a fresh one says it is fresh. Tested in
+  `test/sw.test.js`.
+- **The extension is no longer fingerprintable from the broker's page** (finding 11): the one
+  web-accessible resource gets `use_dynamic_url`, so its URL changes per session and a page cannot
+  probe for the extension by loading it.
+- **The diagnostics carry less** (finding 12): the browser's full user-agent string is reduced to
+  the Chrome major version, and the last error's `detail` — free text from the sync — is no longer
+  included; reason, message and time remain.
+- **The leak check fails closed in CI** (finding 3). `.leakwords`, the list of names the check
+  scans for, is gitignored and so was silently absent on every CI run: the check ran, found no
+  words, passed. CI now writes the file from the `LEAKWORDS` repository secret and `check-leaks`
+  exits non-zero when it is missing under `CI`. **Until the owner adds that secret, CI on `main` is
+  red by design.**
+
+### Added
+
+- `docs/RED-TEAM.md`: the red-team report, fifteen findings with severity, evidence and status.
+  Eleven remain open or are the owner's; **US-141** tracks them.
+- `docs/TIERS.md` carries the cryptographic and webhook decisions the review forced: ECDSA P-256
+  over raw bytes with a key id, a monotone bundle version with anti-rollback, the signing key outside
+  `main`'s trust, webhook HMAC with idempotency.
+
 ## [0.70.3] — 2026-09-02
 
 **No resync needed** — display only.

@@ -55,9 +55,12 @@ Een licentie is een getekend token, verifieerbaar zonder netwerk.
 + handtekening over het gecanonicaliseerde JSON
 ```
 
-- **Algoritme: ECDSA P-256 via WebCrypto**, niet Ed25519. Ed25519 in WebCrypto is in Chrome pas
-  recent en achter versiegrenzen; P-256 werkt in elke Chrome die MV3 draait. De publieke sleutel
-  staat in `src/lib/config.js`. Wisselen van sleutel is een release.
+- **Algoritme: ECDSA P-256 via WebCrypto**, niet Ed25519. Ed25519 in WebCrypto staat pas sinds
+  Chrome 137 standaard aan en `minimum_chrome_version` is 116; P-256 werkt overal. Vastgelegd:
+  signatureformaat P1363 (rauwe r||s, wat WebCrypto teruggeeft), handtekening over de rauwe
+  UTF-8-bytes van het token en pas daarna `JSON.parse`, en een `kid` (key-id) in het token zodat
+  een sleutel geroteerd kan worden zonder alle tokens ongeldig te maken. De publieke sleutels staan
+  in `src/lib/config.js`, per `kid`. Wisselen van sleutel is een release.
 - **Verificatie is puur**: `src/lib/licence.js` exporteert `verify(token, publicKeyJwk, today)` en
   geeft `{ tier: 'free' | 'plus', reason }` terug. Geen I/O, geen klok (regel 1: `today` komt
   binnen). Getest met een testsleutelpaar dat alleen in `test/` bestaat.
@@ -87,9 +90,18 @@ Zoals US-104 al besloot: statisch, getekend, in zijn geheel opgehaald, nooit per
 
 - **Bestanden**: `bundle-v1.json.gz` en `bundle-v1.sig` op GitHub Pages van deze repo (of
   `asteria.prulwerk.nl`), naast een `bundle-index.json` met versie, datum en sha256.
+- **Anti-rollback**: de bundel draagt een monotone versie en een getekende datum. De extensie
+  bewaart de hoogste versie die ze zag en weigert alles wat ouder is, ook met een geldige
+  handtekening. Anders is de intrekkingslijst te omzeilen door de bundel van vorige week terug te
+  spelen (red team, bevinding 7).
 - **Handtekening**: dezelfde P-256-sleutelfamilie als de licentie maar een **andere sleutel**;
   een gelekte bundelsleutel mag geen licenties kunnen tekenen en omgekeerd. Verificatie in een
   pure functie in `src/lib/bundle.js`, getest.
+- **Waar de tekensleutel woont**: niet in de secrets van deze repo zolang `main` geen branch
+  protection heeft, want dan kan iedereen die kan pushen de workflow laten tekenen wat hij wil
+  (red team, bevinding 6). Een GitHub environment met required reviewers, of een aparte repo met
+  twee beheerders. Een verkeerd bronbelastingtarief met een geldige handtekening is erger dan
+  geen bundel.
 - **Schema hard**: een bundel die het schema breekt wordt geweigerd met reden, ook al is de
   handtekening goed. Een getekende fout is nog steeds een fout.
 - **Ophalen**: één keer per week via een alarm in de worker, via een aparte fetch-wrapper met
@@ -106,10 +118,13 @@ Zoals US-104 al besloot: statisch, getekend, in zijn geheel opgehaald, nooit per
 - **Merchant of Record**: Lemon Squeezy of Paddle. Zij zijn verkoper, doen btw, factuur, refund en
   bewaren de klantgegevens. Wij bewaren niets van de klant; dat is ook het AVG-antwoord (§8 van
   de red-team-analyse).
-- **Webhook**: één Cloudflare Worker ontvangt `order_created`, controleert de webhook-handtekening
-  van de MoR, tekent het licentietoken met de privésleutel uit een Worker Secret en geeft het
-  terug aan de MoR voor de bevestigingsmail. De Worker heeft geen database en geen endpoint voor
-  buitenstaanders behalve deze webhook.
+- **Webhook**: één Cloudflare Worker ontvangt alleen `order_paid`, controleert eerst de
+  HMAC-handtekening van de MoR en weigert alles zonder, is idempotent op order-id (hetzelfde order
+  levert hetzelfde token, nooit een tweede), tekent met de privésleutel uit een Worker Secret en
+  geeft het token terug aan de MoR voor de bevestigingsmail. Geen database, geen ander endpoint,
+  geen logging van de payload (daar staat het e-mailadres van de koper in, en dat maakt ons
+  verwerker: verwerkersovereenkomst met de MoR). Zonder deze drie controles is de Worker een
+  tekenorakel (red team, bevinding 7).
 - **Refund**: `order_refunded` zet `sha256(id)` op de intrekkingslijst; de eerstvolgende
   bundelbuild neemt hem mee.
 - **Founding-prijs**: een aparte productvariant bij de MoR met `validUntil` ver in de toekomst en
@@ -150,6 +165,8 @@ de veiligheidspagina wil zeggen. Twee opties, één aanbeveling:
   store (§9 van de red-team-analyse).
 
 ## 8. Stories die hieruit volgen
+
+Zie ook `RED-TEAM.md` §2 voor de bevindingen 6, 7 en 8 die dit ontwerp hebben aangescherpt.
 
 Nummers pas bij landen op `main`; volgend vrij nummer staat onderaan `BACKLOG.md`.
 
