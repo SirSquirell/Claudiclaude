@@ -679,6 +679,21 @@
             </table>
           </div>
         </div>
+        <!--
+          US-152. The licence is pasted here and checked offline against the
+          public keys in config.js. The verdict is always a sentence with a
+          reason; a build with no key yet says exactly that.
+        -->
+        <div class="card" id="licence-card">
+          <h2 data-i18n>Licence</h2>
+          <p class="hint" data-i18n>Paste the key from your confirmation mail. It is checked here, in the extension, against a public key: nothing is sent anywhere, and the key is stored outside your portfolio data. It is never part of an export or a bug report.</p>
+          <div class="licence">
+            <input type="text" id="licence-input" autocomplete="off" spellcheck="false" placeholder="AST1.…" aria-label="Licence key" data-i18n-aria="Licence key" />
+            <button type="button" id="licence-activate" data-i18n>Check and save</button>
+            <button type="button" id="licence-remove" class="quiet" data-i18n>Remove</button>
+          </div>
+          <p class="licence-verdict" id="licence-verdict" role="status"></p>
+        </div>
         <div class="card">
           <h2 data-i18n>What Plus will never do</h2>
           <ul class="nevers">

@@ -284,3 +284,17 @@ export const WATERMARK = {
   inset: 4,
   opacity: 0.35,
 };
+
+/**
+ * US-152 — the public keys a Plus licence may be signed with, by key id.
+ *
+ * Empty until the owner runs `node tools/make-licence-key.mjs`, which prints
+ * the entry to paste here and writes the private half to a path outside this
+ * repository. With no key here every token is `free` with reason `no-keys`,
+ * and the licence screen says so in words — the honest state of a build that
+ * cannot check anything yet. Rotating a key is a release: add the new `kid`,
+ * keep the old one until its last token has expired, then delete it.
+ *
+ * P-256 JWKs: `{ kty: 'EC', crv: 'P-256', x, y }`. Nothing else belongs here.
+ */
+export const LICENCE_KEYS = Object.freeze({});

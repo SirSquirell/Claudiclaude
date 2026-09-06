@@ -16,7 +16,8 @@
  * Everything added here has to keep that true.
  */
 
-import { DEFAULT_URLS, ENDPOINTS } from './config.js';
+import { DEFAULT_URLS, ENDPOINTS, LICENCE_KEYS } from './config.js';
+import { summary as licenceSummary, verify as verifyLicence, webCryptoVerify } from './licence.js';
 import { SessionExpiredError, fetchUrls, throttledFetch } from './degiro.js';
 import { subMonths, todayISO } from './dates.js';
 import { parseCashMovements, parseChartResponse, parseProducts, parseTransactions, parseUpdate, unwrapJsonp } from './parse.js';
@@ -331,16 +332,36 @@ function finish(steps) {
 }
 
 /** Everything about the local install, for a bug report. No personal data. */
+/**
+ * US-152. The two licence facts this report may carry, and no third: whether
+ * the install is Plus and for how many days. The token itself is an identifier
+ * of a purchase and stays where it is. Any failure to read or verify is
+ * reported as "not Plus", which is also what the licence screen would say.
+ */
+async function licenceFacts() {
+  try {
+    const got = await globalThis.chrome?.storage?.local?.get?.('licence');
+    const token = typeof got?.licence === 'string' ? got.licence : null;
+    const today = todayISO();
+    return licenceSummary(await verifyLicence(token, LICENCE_KEYS, today, webCryptoVerify), today);
+  } catch {
+    return { plus: false, expiresInDays: null };
+  }
+}
+
 export async function localInfo() {
-  const [lastSyncAt, lastSyncAttemptAt, lastError, syncState, lastDataDate] = await Promise.all([
+  const [lastSyncAt, lastSyncAttemptAt, lastError, syncState, lastDataDate, licence] = await Promise.all([
     getMeta('lastSyncAt', 0),
     getMeta('lastSyncAttemptAt', 0),
     getMeta('lastError', null),
     getMeta('syncState', null),
     getMeta('lastDataDate', null),
+    licenceFacts(),
   ]);
   return {
     version: (globalThis.chrome?.runtime?.getManifest?.() ?? {}).version ?? 'unknown',
+    plus: licence.plus,
+    expiresInDays: licence.expiresInDays,
     // The Chrome major only. A full user-agent string names the OS build and
     // every brand token, which is a fingerprint in a report meant to be pasted.
     chrome: /Chrome\/(\d+)/.exec(globalThis.navigator?.userAgent ?? '')?.[1] ?? null,

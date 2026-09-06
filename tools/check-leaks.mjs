@@ -143,6 +143,12 @@ for (const file of files) {
       }
     }
 
+    // US-152: a licence token. Tests build theirs at runtime from the test
+    // keypair, so a literal one in the tree is somebody's purchase.
+    for (const m of line.matchAll(/AST1\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}/g)) {
+      report(file, i + 1, 'licence token', m[0].slice(0, 12) + '…');
+    }
+
     for (const m of line.matchAll(IBAN)) {
       if (m[0] !== EXAMPLE_IBAN && !isPlaceholder(m[0])) report(file, i + 1, 'IBAN', m[0].slice(0, 8) + '…');
     }

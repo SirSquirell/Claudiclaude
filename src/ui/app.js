@@ -53,6 +53,9 @@ import { FORMATS, flowModel, moneyInOver, ownerLine, positionSpan, scoreCardMode
 import { HOLDINGS_COLUMNS, baseHidden, cycleSort, droppableByPriority, optionalColumns, orderedColumns } from './columns.js';
 import { brokerMarkSvg, lockupSvg, markSvg } from './brand.js';
 import { enhanceTables } from './tables.js';
+import { activate as activateLicence, entitlements, refreshEntitlements, removeLicence } from './entitlements.js';
+import { sealRows } from '../lib/sealmodel.js';
+import { todayISO } from '../lib/dates.js';
 import { copySnapshot, downloadSnapshot, drawScoreCard, drawSnapshot, tokensForTheme } from './snapshot.js';
 import { Spring, clampShift, prefersReducedMotion, project, rubber, revealOnArrival, shiftToShow, velocityFrom, wirePressFeedback } from './motion.js';
 import { inExtension, load, send, wantsDemo } from './datasource.js';
@@ -1375,6 +1378,37 @@ function buildControls() {
   $('#btn-upgrade')?.addEventListener('click', () => {
     location.hash = '#/plus';
   });
+  // US-152. One verdict, painted as a sentence with its reason.
+  const paintLicence = (e) => {
+    const v = e.verdict;
+    const box = $('#licence-verdict');
+    if (!box) return;
+    const line = {
+      none: tr('No licence entered. Everything on this page except the Plus screens works without one.'),
+      'no-keys': tr('This build carries no licence key yet, so no token can be checked. Plus is in preparation.'),
+      malformed: tr('That is not an Asteria licence. A key looks like AST1.<payload>.<signature>, pasted whole.'),
+      'unknown-kid': tr('The key names a signing key this build does not know ({kid}). Update the extension, or the key is not for this product.', { kid: v.kid ?? '?' }),
+      'bad-signature': tr('The signature does not verify. The key was altered in copying, or it was not issued for Asteria.'),
+      expired: tr('Plus expired on {date}. Nothing was removed; the Plus screens explain what they would show.', { date: v.validUntil ?? '' }),
+    };
+    if (v.tier === 'plus') {
+      const soon = e.expiresInDays <= 14;
+      box.textContent = tr('Plus, valid until {date} ({days} days).', { date: v.validUntil, days: e.expiresInDays })
+        + (soon ? ' ' + tr('Renew before then to keep the weekly bundle coming.') : '');
+      box.dataset.tone = soon ? 'warn' : 'ok';
+    } else {
+      box.textContent = line[v.reason] ?? line.malformed;
+      box.dataset.tone = v.reason === 'none' || v.reason === 'no-keys' ? 'muted' : 'bad';
+    }
+    const rm = $('#licence-remove');
+    if (rm) rm.hidden = !e.hasToken;
+  };
+  refreshEntitlements(todayISO()).then(paintLicence);
+  $('#licence-activate')?.addEventListener('click', async () => {
+    paintLicence(await activateLicence($('#licence-input').value, todayISO()));
+    $('#licence-input').value = '';
+  });
+  $('#licence-remove')?.addEventListener('click', async () => paintLicence(await removeLicence(todayISO())));
   /**
    * The connection check names the broker it would check, read off the adapter's
    * own `label`. With one adapter that is one line and no submenu — a submenu of
@@ -1698,6 +1732,13 @@ function renderRailState(data, r) {
       esc(tr('{pct}% measured', { pct: (100 - (est / days) * 100).toFixed(1) }))
     }</span></div>`,
   );
+  // US-160: the two figures the stamp compared, formatted by the tiles' own
+  // formatter so hide-amounts masks them the same way. Model in sealmodel.js.
+  for (const row of sealRows({ reconciliation: r.reconciliation, disconnected: !!data.disconnected })) {
+    rows.push(
+      `<div class="row amount ${row.tone === 'bad' ? 'bad' : ''}"><span>${esc(tr(row.label))}</span><b>${esc(fmtEurCents(row.value))}</b></div>`,
+    );
+  }
   $('#rail-state').innerHTML = rows.join('');
 }
 
@@ -1936,6 +1977,9 @@ function wireActions() {
       ui: {
         ...captured(),
         mode: d.mode,
+        // US-152: two facts, never the token.
+        plus: entitlements().plus,
+        expiresInDays: entitlements().expiresInDays,
         // Chrome's own version, which decides whether a CSS or API feature
         // exists at all. Major only: the build number identifies nobody but is
         // also of no diagnostic use.

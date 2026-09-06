@@ -4153,3 +4153,69 @@ table.compare td.no {
     max-width: 10rem;
   }
 }
+
+
+/* --- US-152: the licence field; US-160: the seal's amounts ------------------ */
+
+.licence {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  max-width: 40rem;
+}
+
+.licence input {
+  flex: 1 1 16rem;
+  min-width: 0;
+  font: 500 0.8125rem/1 var(--font-mono);
+  letter-spacing: 0.02em;
+  padding: 10px 12px;
+  border: var(--rule) solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+  color: var(--text-primary);
+}
+
+.licence input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.licence button {
+  border-radius: var(--radius-sm);
+}
+
+.licence button.quiet {
+  color: var(--text-muted);
+  border-style: dashed;
+}
+
+.licence-verdict {
+  margin: 12px 0 0;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  max-width: 66ch;
+}
+
+.licence-verdict[data-tone='ok'] { color: var(--pos); font-weight: 600; }
+.licence-verdict[data-tone='warn'] { color: var(--warning); font-weight: 600; }
+.licence-verdict[data-tone='bad'] { color: var(--critical); }
+
+/* The two compared figures under the stamp: label left, amount right, the
+   amount in tabular figures so the two line up to the cent they agree on. */
+.rail-state .row.amount {
+  justify-content: space-between;
+  gap: 10px;
+  padding-left: 12px;
+}
+
+.rail-state .row.amount b {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.rail-state .row.amount.bad b {
+  color: var(--critical);
+}

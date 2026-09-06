@@ -494,6 +494,9 @@ export function buildBugReport({ result, meta = {}, counts = {}, version = null,
           viewport: typeof ui.viewport === 'string' ? ui.viewport.slice(0, 12) : null,
           /** Strings with no translation. Counted, never hidden — see i18n.js. */
           untranslated: Number(ui.untranslated) || 0,
+          /** US-152: Plus or not, and for how many days. The token never travels. */
+          plus: ui.plus === true,
+          expiresInDays: Number.isInteger(ui.expiresInDays) ? ui.expiresInDays : null,
           /**
            * Warning codes the engine raised that this file has no summary for.
            * They already travel as code and level only; this says how many, so a
