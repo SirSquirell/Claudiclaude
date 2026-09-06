@@ -31,6 +31,17 @@ priorities on tables other than Positions, and the seal's two amount rows, which
 anonymize path to be confirmed against them. The design POCs stay in `docs/prototypes/`
 (`redesign-tiers.html`, `tables.html`).
 
+## Plus, the backend that is not one — 2026-09-06
+
+Nothing server-side exists yet. What Plus needs is refined as nine stories: **US-152** the offline
+licence, **US-153** the bundle client, **US-154** the pipeline with its signing outside `main`,
+**US-155** the order webhook, **US-156** LICENSE and TRADEMARK, **US-157** the SPEC §7 amendment,
+and the three things 0.71.0's redesign left out on purpose: **US-158** locked Plus panels, **US-159**
+column priority on the other wide tables, **US-160** the seal's two amounts. Design in
+[TIERS.md](TIERS.md), audit stories US-142 to US-147 beside them. The order that makes sense: US-141
+finding 1 (branch protection, owner) before US-154 and US-155, because a signing key is worth what
+the weakest push credential is worth.
+
 ## Red team, 2026-09-06
 
 One adversarial pass over the extension and over the tier design in `docs/TIERS.md`, written up in

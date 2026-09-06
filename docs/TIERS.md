@@ -168,11 +168,14 @@ de veiligheidspagina wil zeggen. Twee opties, één aanbeveling:
 
 Zie ook `RED-TEAM.md` §2 voor de bevindingen 6, 7 en 8 die dit ontwerp hebben aangescherpt.
 
-Nummers pas bij landen op `main`; volgend vrij nummer staat onderaan `BACKLOG.md`.
+Geland in `BACKLOG.md` op 2026-09-06:
 
-1. Licentie: `licence.js`, opslag, Instellingen-veld, uitlegstaat, allowlist-tests.
-2. Bundel-client: `bundle.js`, alarm, schema, intrekkingslijst.
-3. Bundel-pipeline (US-104 herzien met de bronnen uit de brief) plus tekenstap in CI.
-4. Webhook-Worker met MoR-handtekeningcontrole en tekenstap.
-5. LICENSE en TRADEMARK.md.
-6. SPEC §7-amendement: Web Store en Plus.
+1. **US-152** Licentie: `licence.js`, opslag, Instellingen-veld, allowlist-tests.
+2. **US-153** Bundel-client: `bundle.js`, alarm, schema, intrekkingslijst, last-good (US-146).
+3. **US-154** Bundel-pipeline (US-104 herzien met de bronnen uit de brief), tekenstap buiten `main`.
+4. **US-155** Webhook-Worker met MoR-handtekeningcontrole, idempotentie en tekenstap.
+5. **US-156** LICENSE en TRADEMARK.md.
+6. **US-157** SPEC §7-amendement: Web Store en Plus.
+
+De uitlegstaat van een Plus-paneel is **US-158**; de vergelijkingstabel en de Upgrade-knop staan
+sinds 0.71.0 in de app (US-151).

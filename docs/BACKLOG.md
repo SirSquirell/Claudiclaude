@@ -9116,4 +9116,291 @@ land first with the Plus panels in their locked form only.
 
 ---
 
-**Next free number: US-152.**
+### US-152 — The licence: a signed token, verified offline *(new, refined — TIERS §3; the first Plus story)*
+
+**Layer A.** Plus is a signed JSON token the buyer pastes into Settings. The extension verifies it
+against a public key it ships with, offline, and derives one flat object every screen reads. There is
+no account, no login and no device registration: the token is the whole of the relationship, and
+`resolveSession`'s pattern (read, never write, never send) is the pattern here too.
+
+**Layer B.** `src/lib/licence.js` exports `verify(tokenText, publicKeys, today)` → `{ tier: 'free' |
+'plus', reason, validUntil, kid }`. ECDSA P-256 over the raw UTF-8 bytes of the token, signature in
+P1363 form (raw `r||s`, what WebCrypto emits), `kid` in the token selecting one of the public keys in
+`src/lib/config.js`. Pure: WebCrypto's `verify` is injected as a function so the module has no I/O
+and the test runs it against a keypair that exists only in `test/`. `entitlements(state)` in the UI
+calls it once per render. The token lives in `chrome.storage.local` under `licence`, not in
+IndexedDB, and is in no allowlist: not `EXPORTABLE_META`, not the bug report, not the diagnose
+(which says `plus: true/false` and `expiresInDays`, nothing else).
+
+#### Acceptance criteria
+
+- [ ] A valid token gives `plus`; a token with a bad signature, an unknown `kid`, a `validUntil`
+      before `today`, or a malformed body gives `free` **with the reason**, never a silent free.
+- [ ] Settings shows a field to paste the token, the verdict with its reason, `validUntil`, and from
+      fourteen days before expiry a line saying so with the renewal link from the MoR.
+- [ ] After expiry nothing is wiped; Plus screens show their explanation state (US-158).
+- [ ] `tools/check-leaks.mjs` knows the token's shape (`AST1.` prefix) and fails on one anywhere
+      under `fixtures/` or `test/` other than the test keypair's own fixture.
+- [ ] The diagnose and the bug report carry `plus` and `expiresInDays` and no other licence field;
+      `test/report.test.js` and `test/diagnose.test.js` assert the key sets.
+
+#### Dependencies
+
+None to build; US-154 (the bundle) to *revoke*.
+
+#### Test
+
+`test/licence.test.js`: the five verdicts above from synthetic tokens signed with the test key;
+`kid` rotation (two keys, token under either verifies, token under a third does not); the `today`
+boundary is inclusive on `validUntil`.
+
+---
+
+### US-153 — The bundle client: fetch weekly, verify twice, keep the last good one *(new, refined — TIERS §4; depends on US-152, US-143, US-146)*
+
+**Layer A.** A Plus install fetches the data bundle once a week, whole, from one static URL. It
+accepts a bundle only when the signature verifies **and** the schema validates, and only when its
+version is higher than the last one it saw. A free install never touches the URL, so it never
+appears in anyone's logs.
+
+**Layer B.** `src/lib/bundle.js`: `verifyBundle(bytes, sigBytes, publicKeys, lastVersion)` → `{ ok,
+reason, version, data }`, pure, injected verify like US-152, a *different* key family than the
+licence. `src/lib/bundlefetch.js`: the fetch wrapper for the bundle host, deliberately separate
+from `throttledFetch` (rule 5 is about DEGIRO; a second host must not share its queue), no headers,
+no query, no cookie. `sw.js` gains one alarm (`bundle-refresh`, weekly) and one case; both run
+only when `entitlements().plus`. Storage per US-146: `bundle/current`, swap on success only.
+
+#### Acceptance criteria
+
+- [ ] Free install: no request to the bundle host, ever — `test/sw.test.js` asserts the fetch stub
+      is never called without a Plus licence.
+- [ ] Plus install: one request per week, `GET <config.bundleUrl>` with default options.
+- [ ] Bad signature, bad schema, or version ≤ last seen: refused with reason, previous bundle kept,
+      reason in the error ring; Plus screens show the previous bundle's date.
+- [ ] The revocation list in the bundle (`sha256(id)`) is applied to the licence verdict on the next
+      `entitlements()` call, with reason `revoked`.
+- [ ] Wipe removes `bundle/*`.
+
+#### Dependencies
+
+US-152, US-143 (schema), US-146 (last-good), US-104 (a bundle to fetch).
+
+#### Test
+
+`test/bundle.test.js` against the fake IndexedDB: good→bad keeps good; good→older keeps good;
+good→newer swaps; revocation reaches the verdict; the free-install never-fetches case.
+
+---
+
+### US-154 — The bundle pipeline, revised: sources, schema, signing outside `main` *(new, refined — supersedes the build half of US-104; TIERS §4, brief §4.1)*
+
+**Layer A.** One scheduled job builds `bundle-v1.json.gz`, `bundle-v1.sig`, `bundle-index.json`
+and `health.json` (US-145) from the free, republishable sources in the brief: GLEIF for country per
+ISIN, SEC EDGAR for US fundamentals and dividend history, issuer factsheets for TER and NAV, ECB for
+rates, and a curated table for European dividend history that grows by pull request. It signs only
+after the schema (US-143) validates, with provenance per row (US-142).
+
+**Layer B.** Python, `pipeline/build.py`, tests on every parser (Teamkiezeer is the precedent), a
+GitHub Action on a weekly cron. The signing key is **not** a plain repository secret while `main`
+has no branch protection (red-team finding 6): it lives in a GitHub environment with required
+reviewers, or in a separate two-maintainer repo, and the decision is written here with the date.
+Output is published from Pages; R2 is the fallback if the size outgrows Pages (US-147 decides the
+host for counting).
+
+#### Acceptance criteria
+
+- [ ] A build with a schema failure publishes nothing new and writes `health.json` with the failing
+      source and step; the previous bundle stays live.
+- [ ] Every row carries `src`; every source carries `url`, `fetchedAt`, `sha256`, `licence`.
+- [ ] The signing step runs only in the protected environment; a workflow run from a fork or an
+      unprotected branch cannot reach the key. Recorded here how, with the date.
+- [ ] Bundle version is monotone (`YYYY.WW` plus a build counter) and the index states it.
+- [ ] Size at first publication is measured and recorded here (the brief estimates 2 MB gzipped).
+
+#### Dependencies
+
+US-142, US-143, US-145; owner action for the environment (US-141 finding 1 first).
+
+#### Test
+
+Pipeline tests per parser on captured, licence-clean samples; a schema fixture set shared with
+US-143; one end-to-end dry run that builds, validates and signs with a test key.
+
+---
+
+### US-155 — The order webhook: one Worker, three checks, no database *(new, refined — TIERS §5; red-team finding 7)*
+
+**Layer A.** When someone buys Plus at the Merchant of Record, the MoR calls one endpoint, which
+returns a signed licence token for the confirmation mail. Nothing about the buyer is stored by us:
+the MoR is the seller and the keeper of customer data.
+
+**Layer B.** A Cloudflare Worker with exactly one route. It (1) verifies the MoR's HMAC over the raw
+body and rejects anything without a valid one, (2) accepts only `order_paid` and `order_refunded`,
+(3) is idempotent on the order id: the same order yields the same token, computed deterministically
+(`id = sha256(orderId + salt)`), so a replay cannot mint a second licence. It signs with the licence
+private key from a Worker Secret (a different key than the bundle's), returns the token, and logs
+**nothing** of the payload: the payload carries the buyer's e-mail, and logging it would make us a
+processor. `order_refunded` appends `sha256(id)` to the revocation source the pipeline reads.
+
+#### Acceptance criteria
+
+- [ ] A request without a valid HMAC gets 401 and no token; a replayed `order_paid` gets the
+      identical token; any other event type gets 200 and does nothing.
+- [ ] The Worker has no KV/D1 binding for customer data; the only state is the revocation source.
+- [ ] Worker logs contain the order id and the outcome, never the body.
+- [ ] A processing agreement with the MoR is signed before the first sale; recorded here with the
+      date (owner).
+
+#### Dependencies
+
+US-152 (token format); the MoR account (owner).
+
+#### Test
+
+Worker unit tests with `miniflare`/`vitest`: HMAC accept/reject, idempotency, event filter, and a
+grep over the source that no `console.log` receives the body.
+
+---
+
+### US-156 — LICENSE and TRADEMARK.md *(new, refined — TIERS §7; red-team finding 9)*
+
+**Layer A.** The repository has no licence file, which makes the code "all rights reserved" by
+default: the opposite of what the safety page claims about openness. Apache-2.0 on everything, with
+the name and mark excluded in `TRADEMARK.md`, so a copy in the Web Store under another name is
+allowed and one under *this* name is not.
+
+#### Acceptance criteria
+
+- [ ] `LICENSE` (Apache-2.0, verbatim) at the root; `TRADEMARK.md` excluding "Asteria", the mark
+      and the lockup; `README.md` links both in its first section about data.
+- [ ] `package.json` `license` field set; `vendor/` licences unchanged (Chart.js MIT, fonts OFL).
+- [ ] Every source file keeps its existing header; no per-file licence banners are added (rule 8).
+
+#### Dependencies
+
+None.
+
+#### Test
+
+`tools/check-leaks.mjs` already lists tracked files; a one-line check that `LICENSE` and
+`TRADEMARK.md` exist joins the four pre-test checks.
+
+---
+
+### US-157 — SPEC §7 amendment: the Web Store and Plus *(new, refined — decided in the brief and TIERS; needs the owner's signature on SPEC)*
+
+**Layer A.** SPEC §7 says no Chrome Web Store; the brief plans one and README §"not in the store"
+forbids it. Two documents disagree and a reader cannot tell which is current. This story is the
+amendment: one paragraph in `SPEC.md` §7 that names the Web Store as the distribution channel once
+US-144's signed releases exist, names Plus as the paid layer with TIERS.md as its design, and states
+the two things that do not change — the extension never authenticates (rule 9) and a free and a Plus
+install compute identical figures (rule 6).
+
+#### Acceptance criteria
+
+- [ ] `SPEC.md` §7 carries the amendment, dated and attributed to the owner.
+- [ ] `README.md` and `docs/PRODUCT-BRIEF.md` say the same thing about the store; the "not
+      affiliated with DEGIRO" line is in the README (red-team finding 10).
+- [ ] DEGIRO's terms have been read and the conclusion is one paragraph in the brief, with the date.
+
+#### Dependencies
+
+Owner decision. Blocks the Web Store listing, not the code.
+
+#### Test
+
+Read.
+
+---
+
+### US-158 — Plus panels in their locked state *(new, refined — US-151 deferred it; depends on US-152)*
+
+**Layer A.** The prototype's locked panel shows *what a Plus screen would show and why it is
+external*, as text and structure, never as blurred fake data (US-46's rule: replacement, not blur).
+0.71.0 shipped the Plus section but no panels, because there was no Plus feature to lock. This story
+adds the panel component and uses it the day the first Plus feature lands.
+
+**Layer B.** `plusPanel({ title, why, would: [...] })` in the UI: an inset (`.plus-card` tokens) with
+the chip, one sentence on why it needs external data, two or three "would show" cells, and the
+Upgrade link. It renders when `entitlements().plus` is false or the licence has expired; with Plus it
+renders the feature. First users: US-98 (benchmark) and US-129 (reclaimable withholding).
+
+#### Acceptance criteria
+
+- [ ] A locked panel contains no figure derived from bundle data and no placeholder number.
+- [ ] Expired licence: the panel says "your Plus expired on {date}" and shows the last bundle date
+      it has, not the free explanation.
+- [ ] `body.plus` is set from `entitlements()`, which hides the Upgrade button and the nav dots.
+
+#### Dependencies
+
+US-152; a Plus feature to lock (US-98 or US-129).
+
+#### Test
+
+DOM test: the panel's text nodes contain no digit sequence longer than the year in "expired on".
+
+---
+
+### US-159 — Column priority on every wide table, not only Positions *(new, refined — US-151 deferred it)*
+
+**Layer A.** US-61 gave the Positions table columns that know their priority and fold into the
+expand row. The Dividends-per-position table (nine columns), Month by month, the transactions table
+and the withholding table still overflow into a scrollbar with nothing dropped. The table model
+(0.71.0) made scrolling honest; this makes it rare.
+
+**Layer B.** Generalise `columns.js`'s shape (`lock`, `pri`, `num`) into a per-table column list
+for the dividend and transactions tables, reuse `droppableByPriority` and the width observer, and
+show dropped columns in the existing detail row (dividends already has one). Container queries on
+the `.table-scroll` rather than viewport queries, so a table in a half-width card behaves as narrow.
+
+#### Acceptance criteria
+
+- [ ] Dividends and Transactions carry column definitions with priorities; below the measured
+      thresholds columns drop in priority order and reappear in the detail row.
+- [ ] The chooser exists on both, persisted like Positions'.
+- [ ] Nothing is dropped from a table under seven columns (Years, Withholding by country).
+
+#### Dependencies
+
+None.
+
+#### Test
+
+`test/columns.test.js` extended with the two new lists (every `pri` unique, `lock` set covers the
+question the table answers); a Chromium check at 640 and 400 px that no column is both dropped and
+absent from the detail.
+
+---
+
+### US-160 — The seal's two amounts: last value and the broker's total *(new, refined — US-151 deferred it)*
+
+**Layer A.** The rail's seal says "Reconciles to the cent" without showing the two figures it
+compared. The prototype shows both; 0.71.0 did not, because a figure in the rail must respect the
+hide-amounts toggle and the anonymised share path, and that had not been checked.
+
+**Layer B.** Two rows under the stamp, `reconstructed` and `live` from `r.reconciliation`, formatted
+by the same `fmtEurCents` the tiles use, so `applyAnonymize` masks them the same way. When
+`reconciliation.source === 'derived'`, the second label says "DEGIRO (derived)" and the row carries
+the existing tooltip text about what that cannot catch. On a failed reconciliation both rows stay and
+the diff is a third, red.
+
+#### Acceptance criteria
+
+- [ ] Hide amounts masks both rows; a shared card never contains them (they are not in the
+      snapshot key set, `test/snapshot.test.js`).
+- [ ] `source: 'derived'` is labelled; `ok: false` shows the diff in red.
+- [ ] The rows do not appear on a disconnected account's frozen state (there is no live total).
+
+#### Dependencies
+
+None.
+
+#### Test
+
+`test/rail.test.js` (new, DOM): the three states above from synthetic reconciliation objects; the
+anonymised string equals the tiles' anonymised string for the same amount.
+
+---
+
+**Next free number: US-161.**
