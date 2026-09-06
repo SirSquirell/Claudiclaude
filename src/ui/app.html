@@ -258,14 +258,23 @@
 
       <div data-tab="perf" class="grid" style="margin-top: 16px">
         <div class="card">
-          <div class="card-head">
+          <h2 data-i18n>Annualised return</h2>
+          <p class="hint" data-i18n>
+            Two answers to two questions, shown together (US-148). My money: what your euros earned per year
+            given when you paid them in, an internal rate of return over your actual deposits and withdrawals.
+            The portfolio: how it performed per year regardless of when you paid in, the daily-chained return
+            annualised, which is what a fund reports. They diverge exactly when you bought high or sold low.
+          </p>
+          <div class="split-kpi">
             <div>
-              <h2 data-i18n>Annualised return</h2>
-              <p class="hint" id="ann-hint"></p>
+              <div class="label" data-i18n>My money</div>
+              <div class="bignum" id="ann-money">—</div>
             </div>
-            <div class="group" id="ann-view"></div>
+            <div>
+              <div class="label" data-i18n>The portfolio</div>
+              <div class="bignum" id="ann-time">—</div>
+            </div>
           </div>
-          <div class="bignum" id="ann-value">—</div>
           <p class="hint" id="ann-note"></p>
         </div>
       </div>

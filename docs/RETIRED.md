@@ -50,3 +50,10 @@ a decision somebody can disagree with later.
   only ever sort on two of the table's thirteen columns, and the header can sort on all of them.
   The default with nothing persisted is unchanged — windowed result, descending — so the view the
   chips showed is the view the table still opens with.
+
+- `ann-view` → RETIRED: superseded by showing both figures at once (US-148 — *My money* and *The
+  portfolio* side by side in the same two-figure layout as *Price return vs. total return*, with the
+  gap between them stated in the note), because the toggle hid the one fact that makes two return
+  figures worth having: how far apart they are. Nothing was removed from the computation —
+  `annualisedReturn` has returned both since it was written; the card just stopped choosing for
+  the reader.

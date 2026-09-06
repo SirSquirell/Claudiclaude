@@ -684,8 +684,12 @@ const DICT = {
     'Your deposits and withdrawals cross zero more than once, so this rate has several mathematically valid answers and no way to choose between them. The portfolio figure beside it has only one.':
       'Je stortingen en opnames wisselen meer dan één keer van teken, dus dit percentage heeft meerdere wiskundig geldige antwoorden en geen manier om te kiezen. Het cijfer voor de portefeuille ernaast heeft er maar één.',
     'Over {years} years{name}.': 'Over {years} jaar{name}.',
-    ', money-weighted': ', gewogen naar jouw geld',
-    ', time-weighted': ', gewogen naar tijd',
+    'Over {years} years.': 'Over {years} jaar.',
+    'The two agree: your timing neither helped nor hurt.': 'De twee komen overeen: je timing heeft niet geholpen en niet geschaad.',
+    'Your money did {gap} pt a year better than the portfolio: on balance you paid in before rises.': 'Je geld deed het {gap} pt per jaar beter dan de portefeuille: per saldo legde je in vóór stijgingen.',
+    'Your money did {gap} pt a year worse than the portfolio: on balance you paid in before falls.': 'Je geld deed het {gap} pt per jaar slechter dan de portefeuille: per saldo legde je in vóór dalingen.',
+    'Two answers to two questions, shown together (US-148). My money: what your euros earned per year given when you paid them in, an internal rate of return over your actual deposits and withdrawals. The portfolio: how it performed per year regardless of when you paid in, the daily-chained return annualised, which is what a fund reports. They diverge exactly when you bought high or sold low.':
+      'Twee antwoorden op twee vragen, samen getoond (US-148). Mijn geld: wat je euro\u2019s per jaar opbrachten gegeven wanneer je ze inlegde, een intern rendement over je eigen stortingen en opnames. De portefeuille: hoe die per jaar presteerde los van wanneer je inlegde, het dagelijks geketende rendement op jaarbasis, wat een fonds rapporteert. Ze lopen uiteen precies wanneer je hoog kocht of laag verkocht.',
 
     // --- US-99: price return vs. total return ---------------------------------
     'Price return vs. total return': 'Koersrendement versus totaalrendement',

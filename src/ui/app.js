@@ -93,7 +93,6 @@ const state = {
    *  reader's own number, because the card must say which. */
   outlook: { months: 60, monthly: 0, manual: false, growthPct: null, yieldPct: null, reinvest: null, goalPerMonth: 0, dividendGrowthPct: null, dividendGrowthBasis: null },
   /** 'money' (what my money earned) or 'time' (how the portfolio performed). */
-  annualisedView: 'money',
   /**
    * US-106. `hasW8BEN` is per-account, applies to every US position at once
    * (AC2). `overrides[productId]` corrects a guessed country (AC4) — the
@@ -5258,42 +5257,40 @@ function wireDividendExpanders() {
  * empty number people invent an explanation for.
  */
 function renderAnnualised(r, from, to) {
-  buildChoice('#ann-view',
-    [{ key: 'money', label: tr('My money') }, { key: 'time', label: tr('The portfolio') }],
-    () => state.annualisedView, (k) => { state.annualisedView = k; render(); });
-
+  // US-148: both figures, side by side, no toggle. Which one a reader wanted
+  // used to be a click; the useful fact is the *gap* between them, and a gap
+  // cannot be seen one figure at a time.
   const a = annualisedReturn(r, from, to);
-  const money = state.annualisedView === 'money';
-
-  $('#ann-hint').textContent = money
-    ? tr('What your money earned per year, given when you paid it in — an internal rate of return over your actual deposits and withdrawals.')
-    : tr('How the portfolio performed per year regardless of when you paid in — the daily-chained return, annualised. This is what a fund reports.');
-
-  const value = $('#ann-value');
+  const money = $('#ann-money');
+  const time = $('#ann-time');
   const note = $('#ann-note');
+  const paint = (el, pct) => {
+    el.textContent = pct == null ? '—' : fmtPct(pct);
+    el.className = `bignum ${pct == null ? '' : signClass(pct)}`;
+  };
 
   if (a.reason === 'too-short') {
-    value.textContent = '—';
-    value.className = 'bignum';
+    paint(money, null);
+    paint(time, null);
     note.textContent = tr('Less than a year selected. Annualising three months of {pct} would report {year} a year, which is not a number anyone should act on — the period result is above.',
       { pct: fmtPct(windowReturnPct(r, from, to)), year: fmtPct(((1 + windowReturnPct(r, from, to) / 100) ** 4 - 1) * 100) });
     return;
   }
 
-  const pct = money ? a.moneyWeighted : a.timeWeighted;
-  if (pct == null) {
-    value.textContent = '—';
-    value.className = 'bignum';
-    note.textContent = tr('Your deposits and withdrawals cross zero more than once, so this rate has several mathematically valid answers and no way to choose between them. The portfolio figure beside it has only one.');
-    return;
+  paint(money, a.moneyWeighted);
+  paint(time, a.timeWeighted);
+  const parts = [tr('Over {years} years.', { years: a.years.toFixed(1) })];
+  if (a.moneyWeighted == null) {
+    parts.push(tr('Your deposits and withdrawals cross zero more than once, so this rate has several mathematically valid answers and no way to choose between them. The portfolio figure beside it has only one.'));
+  } else if (a.timeWeighted != null) {
+    const gap = a.moneyWeighted - a.timeWeighted;
+    parts.push(Math.abs(gap) < 0.05
+      ? tr('The two agree: your timing neither helped nor hurt.')
+      : gap > 0
+        ? tr('Your money did {gap} pt a year better than the portfolio: on balance you paid in before rises.', { gap: gap.toFixed(2) })
+        : tr('Your money did {gap} pt a year worse than the portfolio: on balance you paid in before falls.', { gap: Math.abs(gap).toFixed(2) }));
   }
-
-  value.textContent = fmtPct(pct);
-  value.className = `bignum ${signClass(pct)}`;
-  note.textContent = tr('Over {years} years{name}.', {
-    years: a.years.toFixed(1),
-    name: money ? tr(', money-weighted') : tr(', time-weighted'),
-  });
+  note.textContent = parts.join(' ');
 }
 
 /**

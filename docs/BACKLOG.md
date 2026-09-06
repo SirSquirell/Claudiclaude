@@ -8985,37 +8985,30 @@ rest is configuration, checked by reading the Worker.
 
 ---
 
-### US-148 — Money-weighted return next to annualised return *(new, refined — from the 2026-09-06 KPI pass)*
+### US-148 — Money-weighted return next to annualised return *(built, 0.72.0 — as a display change: the figure already existed)*
 
-**Layer A.** `annualisedReturn` (engine.js) is time-weighted in spirit: it asks what the portfolio
-did. The reader also wants to know what *their money* did, timing included: the internal rate of
-return over their own deposits and withdrawals. The two diverge exactly when the reader bought high
-or sold low, which is the most useful thing a return figure can say. Both stand side by side, both
-labelled with what they answer.
+**Layer A.** `annualisedReturn` (engine.js) has returned both figures since US-9x: `timeWeighted`
+(the daily-chained return, what a fund reports) and `moneyWeighted` (an IRR over the reader's own
+deposits and withdrawals, `solveIrr`). The Performance card showed **one at a time** behind a
+*My money / The portfolio* toggle. The useful fact is the gap between them — it says whether the
+reader's timing helped or hurt — and a gap cannot be seen one figure at a time.
 
-**Layer B.** `moneyWeightedReturn(result, from, to)` in engine.js: cashflows are the external
-movements in the range (deposits negative, withdrawals positive), the opening value as a negative
-flow on the first day and the closing value as a positive flow on the last; solve the rate by
-bisection on the daily-compounded NPV, `PLAUSIBLE_ANNUAL` as the bound. Returns `null` with a reason
-when there is no sign change (all flows one way) or when the range is under 30 days.
+**Layer B.** The story as first refined asked for a new `moneyWeightedReturn` in the engine; that
+would have been a second IRR next to the first (rule 8), and was caught before it was built. What
+shipped: the card shows both, side by side, in the same two-figure layout as *Price return vs.
+total return*, and the note states the gap in points a year with one sentence on what it means.
+`multiple-roots` still shows a dash for the money-weighted figure with the existing explanation.
 
 #### Acceptance criteria
 
-- [ ] The Performance tab's *Annualised return* card shows two figures: time-weighted (existing) and
-      money-weighted, each with a one-line "what this answers" under it.
-- [ ] The two agree within 0,01 pt on a range with a single deposit at the start and none after.
-- [ ] A range with no external flows and a range under 30 days shows "not computable" with the
-      reason, never 0 %.
-- [ ] Pure: the function takes the engine result and two indices and nothing else.
-
-#### Dependencies
-
-None.
+- [x] Both figures visible at once, labelled *My money* and *The portfolio*; the toggle is gone.
+- [x] The note states the gap and its direction; under 0,05 pt it says the two agree.
+- [x] No engine change; `annualisedReturn`'s outputs are what they were.
 
 #### Test
 
-`test/engine-mwr.test.js`: single-deposit case equals annualised; a deposit right before a fall
-gives MWR below TWR; the two null cases; the bisection converges to 1e-6 on a synthetic series.
+The existing annualised-return tests; one added case asserting money- and time-weighted agree
+within 0,01 pt on a single-deposit-at-start range (US-148's original check, still worth having).
 
 ---
 
