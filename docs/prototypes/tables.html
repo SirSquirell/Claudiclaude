@@ -1,0 +1,600 @@
+<title>Asteria Tabellen</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,500;0,6..72,600&family=Schibsted+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root {
+  color-scheme: light;
+  --page: #f1f2f5; --paper: #ffffff; --inset: #f6f7f9; --inset-2: #eceef2;
+  --ink: #0f1626; --ink-2: #4b5567; --ink-3: #8a93a3;
+  --rule: #dfe2e8; --rule-strong: #c5cad4;
+  --primary: #16213e; --primary-ink: #ffffff;
+  --brand: #d9531e; --brand-soft: #fbe9e0; --brand-ink: #9a3a12;
+  --pos: #0b5fc4; --neg: #c02434; --pos-soft: #e4edf9; --neg-soft: #fae7e8;
+  --pos-rgb: 11, 95, 196; --neg-rgb: 192, 36, 52;
+  --series: #4a5f96; --hover: #f3f5f9; --zebra: #f8f9fb;
+  --edge: rgba(15, 22, 38, 0.16);
+  --serif: "Newsreader", Georgia, serif; --sans: "Schibsted Grotesk", "Helvetica Neue", Arial, sans-serif; --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  --row: 44px; --cell-y: 11px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  color-scheme: dark;
+  --page: #0c0f16; --paper: #141924; --inset: #1a2030; --inset-2: #222a3c;
+  --ink: #e9ecf2; --ink-2: #aeb6c4; --ink-3: #737d8f; --rule: #262e40; --rule-strong: #38425a;
+  --primary: #e9ecf2; --primary-ink: #0f1626; --brand: #f0743f; --brand-soft: #3a2117; --brand-ink: #f5a27c;
+  --pos: #6ea3ea; --neg: #ef6d78; --pos-soft: #172742; --neg-soft: #3a1a1f; --pos-rgb: 110, 163, 234; --neg-rgb: 239, 109, 120;
+  --series: #8ea4dc; --hover: #1b2233; --zebra: #171d2a; --edge: rgba(0,0,0,.55);
+} }
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0c0f16; --paper: #141924; --inset: #1a2030; --inset-2: #222a3c;
+  --ink: #e9ecf2; --ink-2: #aeb6c4; --ink-3: #737d8f; --rule: #262e40; --rule-strong: #38425a;
+  --primary: #e9ecf2; --primary-ink: #0f1626; --brand: #f0743f; --brand-soft: #3a2117; --brand-ink: #f5a27c;
+  --pos: #6ea3ea; --neg: #ef6d78; --pos-soft: #172742; --neg-soft: #3a1a1f; --pos-rgb: 110, 163, 234; --neg-rgb: 239, 109, 120;
+  --series: #8ea4dc; --hover: #1b2233; --zebra: #171d2a; --edge: rgba(0,0,0,.55);
+}
+body.compact { --row: 32px; --cell-y: 6px; }
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--page); color: var(--ink); font: 400 15px/1.5 var(--sans); -webkit-font-smoothing: antialiased; }
+h1, h2, h3 { margin: 0; font-family: var(--serif); font-weight: 500; letter-spacing: -0.01em; text-wrap: balance; }
+p { margin: 0; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.eyebrow { font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-3); }
+.mono { font-family: var(--mono); font-size: 0.8125rem; }
+.wrap { max-width: 1280px; margin: 0 auto; padding: 36px clamp(16px, 3vw, 40px) 80px; }
+.head h1 { font-size: clamp(1.9rem, 3vw, 2.5rem); line-height: 1.1; }
+.head .sub { color: var(--ink-2); max-width: 70ch; margin-top: 8px; }
+.pocnote { display: inline-block; margin-top: 12px; font-family: var(--mono); font-size: .75rem; color: var(--ink-3); }
+
+/* The rules, as a ruled list rather than cards */
+.rules { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 0 32px; margin-top: 28px; border-top: 1px solid var(--rule-strong); }
+.rules div { padding: 14px 0; border-bottom: 1px solid var(--rule); font-size: .875rem; color: var(--ink-2); }
+.rules b { display: block; color: var(--ink); font-weight: 600; margin-bottom: 2px; }
+
+section.demo { margin-top: 48px; padding-top: 22px; border-top: 1px solid var(--rule-strong); }
+.t { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+.t h2 { font-size: 1.5rem; }
+.t .meta { color: var(--ink-2); font-size: .875rem; max-width: 60ch; }
+
+/* Toolbar: the controls a table carries */
+.bar { display: flex; gap: 8px 18px; align-items: center; flex-wrap: wrap; margin-top: 16px; font-size: .8125rem; color: var(--ink-2); }
+.seg { display: inline-flex; border: 1px solid var(--rule-strong); border-radius: 4px; overflow: hidden; background: var(--paper); }
+.seg button { padding: 6px 11px; font-weight: 500; color: var(--ink-2); border-left: 1px solid var(--rule); transition: background .12s, color .12s; }
+.seg button:first-child { border-left: 0; }
+.seg button[aria-pressed="true"] { background: var(--primary); color: var(--primary-ink); }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--rule-strong); border-radius: 999px; background: var(--paper); font-size: .8125rem; color: var(--ink-2); }
+.chip[hidden] { display: none; }
+.cols { position: relative; }
+.cols .menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: 30; min-width: 220px; padding: 8px; background: var(--paper); border: 1px solid var(--rule-strong); border-radius: 6px; box-shadow: 0 12px 32px rgba(15,22,38,.14); display: grid; gap: 2px; }
+.cols .menu label { display: flex; gap: 10px; align-items: center; padding: 6px 8px; border-radius: 4px; font-size: .875rem; color: var(--ink); cursor: pointer; }
+.cols .menu label:hover { background: var(--hover); }
+.cols .menu label.auto-hidden { color: var(--ink-3); }
+.cols .menu label.auto-hidden::after { content: "verborgen op deze breedte"; margin-left: auto; font-size: .6875rem; color: var(--ink-3); }
+
+/* Stage: a resizable frame so the responsive behaviour can be *seen* at 1280px */
+.stage { width: 100%; max-width: 100%; margin: 14px 0 0; transition: width .35s cubic-bezier(.2,.7,.2,1); container-type: inline-size; }
+.stage.w900 { width: 900px; } .stage.w640 { width: 640px; } .stage.w400 { width: 400px; }
+@media (max-width: 900px) { .stage.w900 { width: 100%; } }
+@media (max-width: 640px) { .stage.w640 { width: 100%; } }
+@media (max-width: 400px) { .stage.w400 { width: 100%; } }
+.stage-label { font-family: var(--mono); font-size: .75rem; color: var(--ink-3); margin-top: 6px; display: flex; justify-content: space-between; }
+
+/* The scroll region: focusable, named, one shadow per edge that only shows when there is something behind it */
+.region { position: relative; overflow: auto; max-height: 460px; background: var(--paper); border: 1px solid var(--rule-strong); border-radius: 6px; scrollbar-width: thin; }
+.region:focus-visible { outline-offset: -2px; }
+.region::before, .region::after { content: ""; position: sticky; top: 0; z-index: 5; display: block; width: 0; height: 0; }
+.shadow-r, .shadow-l { position: absolute; top: 0; bottom: 0; width: 22px; pointer-events: none; opacity: 0; transition: opacity .2s; z-index: 6; }
+.shadow-r { right: 0; background: linear-gradient(90deg, rgba(0,0,0,0), var(--edge)); }
+.shadow-l { left: var(--frozen, 0px); background: linear-gradient(90deg, var(--edge), rgba(0,0,0,0)); }
+.hold { position: relative; }
+.hold[data-x="middle"] .shadow-l, .hold[data-x="middle"] .shadow-r, .hold[data-x="start"] .shadow-r, .hold[data-x="end"] .shadow-l { opacity: 1; }
+
+table { border-collapse: separate; border-spacing: 0; width: 100%; min-width: max-content; font-size: .875rem; }
+caption { text-align: left; padding: 0; height: 0; overflow: hidden; }
+th, td { padding: var(--cell-y) 14px; text-align: left; vertical-align: middle; border-bottom: 1px solid var(--rule); background: var(--paper); white-space: nowrap; transition: padding .2s; }
+th { font-size: .6875rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); border-bottom: 1px solid var(--rule-strong); line-height: 1.25; white-space: normal; min-width: 88px; }
+th small { display: block; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--ink-3); }
+thead th { position: sticky; top: 0; z-index: 2; }
+tfoot td { position: sticky; bottom: 0; z-index: 2; border-top: 1px solid var(--rule-strong); border-bottom: 0; font-weight: 600; background: var(--inset); }
+/* The frozen anchor column sits above the body, and the header wins at the intersection. */
+tbody td:first-child, tfoot td:first-child { position: sticky; left: 0; z-index: 3; }
+thead th:first-child { position: sticky; left: 0; z-index: 4; }
+tbody th[scope="row"] { position: sticky; left: 0; z-index: 3; font: inherit; letter-spacing: 0; text-transform: none; color: var(--ink); background: var(--paper); }
+.r { text-align: right; font-variant-numeric: tabular-nums lining-nums; }
+th.r { text-align: right; }
+td.tick { font-family: var(--mono); font-size: .8125rem; font-weight: 500; }
+td .sub { display: block; font-size: .75rem; color: var(--ink-3); font-weight: 400; margin-top: 1px; }
+tbody tr:hover > td, tbody tr:hover > th { background: var(--hover); }
+tbody tr[aria-expanded="true"] > td { background: var(--inset); }
+body.zebra tbody tr:nth-child(4n+3) > td { background: var(--zebra); }
+tbody tr { transition: background .12s; }
+tbody tr.sorting > td { animation: settle .28s ease-out; }
+@keyframes settle { from { opacity: .35; transform: translateY(-2px); } to { opacity: 1; transform: none; } }
+
+/* Sign: sign character + colour + a small triangle. Three channels, never one. */
+.d { font-variant-numeric: tabular-nums lining-nums; font-weight: 500; }
+.d.pos { color: var(--pos); } .d.neg { color: var(--neg); } .d.zero { color: var(--ink-3); font-weight: 400; }
+.d::before { display: inline-block; width: .55em; margin-right: .2em; font-size: .7em; vertical-align: .15em; text-align: center; }
+.d.pos::before { content: "▲"; } .d.neg::before { content: "▼"; } .d.zero::before { content: ""; width: 0; margin: 0; }
+.pill { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: .8125rem; }
+.pill.pos { background: var(--pos-soft); color: var(--pos); } .pill.neg { background: var(--neg-soft); color: var(--neg); }
+
+/* Sort buttons: the whole header is the control; unsorted glyph differs in shape, not just colour */
+th button.sort { display: inline-flex; align-items: flex-start; gap: 6px; font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit; text-align: inherit; }
+th.r button.sort { flex-direction: row-reverse; }
+th button.sort .lbl { display: block; }
+th button.sort .g { width: 10px; height: 10px; margin-top: 2px; opacity: .45; transition: opacity .15s, transform .2s; }
+th button.sort:hover .g, th[aria-sort] button.sort .g { opacity: 1; }
+th[aria-sort] { color: var(--ink); }
+th[aria-sort="descending"] .g-asc, th[aria-sort="ascending"] .g-desc, th[aria-sort] .g-none, th:not([aria-sort]) .g-asc, th:not([aria-sort]) .g-desc { display: none; }
+
+/* Expand: a caret that turns, and a detail row that grows */
+.exp { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 4px; color: var(--ink-3); margin-right: 4px; transition: transform .2s, background .12s; }
+.exp:hover { background: var(--inset-2); color: var(--ink); }
+tr[aria-expanded="true"] .exp { transform: rotate(90deg); color: var(--ink); }
+tr.detail > td { padding: 0; border-bottom: 0; background: var(--inset); white-space: normal; }
+tr.detail .grow { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .22s ease; position: sticky; left: 0; width: calc(100cqw - 2px); max-width: calc(100cqw - 2px); }
+tr.detail.open .grow { grid-template-rows: 1fr; }
+tr.detail .grow > div { overflow: hidden; }
+tr.detail .inner { padding: 14px 16px 18px 50px; border-bottom: 1px solid var(--rule); display: grid; grid-template-columns: minmax(200px, 1fr) minmax(0, 2fr); gap: 20px 32px; }
+@container (max-width: 640px) { tr.detail .inner { grid-template-columns: 1fr; padding-left: 16px; } }
+.kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; font-size: .8125rem; align-content: start; }
+.kv dt { color: var(--ink-3); } .kv dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+.kv dd.pos { color: var(--pos); } .kv dd.neg { color: var(--neg); }
+.kv .h { grid-column: 1 / -1; font-size: .6875rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); margin-top: 6px; }
+.kv .h:first-child { margin-top: 0; }
+.pay { width: 100%; min-width: 0; font-size: .8125rem; }
+.pay th, .pay td { position: static; padding: 6px 10px 6px 0; background: transparent; }
+.pay th { border-bottom-color: var(--rule); }
+.pay tr:last-child td { border-bottom: 0; }
+
+/* Column priority: hidden by the container's width, shown again in the detail row */
+@container (max-width: 1000px) { .p3 { display: none; } }
+@container (max-width: 720px)  { .p2 { display: none; } }
+@container (max-width: 480px)  { .p1 { display: none; } }
+.hide-c { display: none !important; }
+
+/* Matrix: both axes frozen, heat by sign */
+.matrix td { text-align: right; font-variant-numeric: tabular-nums lining-nums; }
+.matrix th[scope="row"] { min-width: 110px; }
+.matrix tfoot td:first-child { text-align: left; }
+.matrix td.pos { background: rgba(var(--pos-rgb), calc(var(--w) * .28)); }
+.matrix td.neg { background: rgba(var(--neg-rgb), calc(var(--w) * .28)); }
+.matrix td.pos, .matrix td.neg { transition: background .3s; }
+.matrix tbody tr:hover td.pos { background: rgba(var(--pos-rgb), calc(var(--w) * .28 + .06)); }
+.matrix tbody tr:hover td.neg { background: rgba(var(--neg-rgb), calc(var(--w) * .28 + .06)); }
+.matrix td.pos .d, .matrix td.neg .d { font-weight: 500; }
+.matrix td.na { color: var(--ink-3); }
+
+/* Two narrow variants side by side */
+.pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 28px; margin-top: 18px; }
+.phone { width: 100%; max-width: 380px; container-type: inline-size; }
+.phone .hold, .phone .stack { container-type: inline-size; }
+.phone .region { max-height: 520px; }
+.phone h3 { font-family: var(--sans); font-size: .875rem; font-weight: 700; margin-bottom: 8px; }
+.phone .verdict { font-size: .8125rem; color: var(--ink-2); margin-top: 10px; max-width: 42ch; }
+/* Stacked: table roles kept in ARIA while display changes */
+.stack table { min-width: 0; }
+.stack thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.stack tbody tr { display: block; padding: 12px 14px 6px; border-bottom: 1px solid var(--rule); }
+.stack tbody tr:last-child { border-bottom: 0; }
+.stack tbody td { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 4px 0; border: 0; position: static; text-align: right; white-space: normal; }
+.stack tbody td::before { content: attr(data-label); font-size: .6875rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); text-align: left; }
+.stack tbody td.lead { display: flex; padding-bottom: 8px; font-weight: 600; font-family: var(--mono); font-size: .9375rem; }
+.stack tbody td.lead::before { content: none; }
+.stack tbody td.lead .sub { font-family: var(--sans); font-weight: 400; }
+
+/* Sign swatches */
+.signs { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; margin-top: 18px; }
+.signs > div { padding: 14px 16px; background: var(--paper); border: 1px solid var(--rule); border-radius: 6px; font-size: .875rem; color: var(--ink-2); }
+.signs .big { font-size: 1.5rem; margin: 4px 0 6px; }
+.signs b { color: var(--ink); }
+
+.rationale { margin-top: 56px; padding-top: 24px; border-top: 1px solid var(--rule-strong); }
+.rationale .cols3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 24px 40px; }
+.rationale h3 { font-family: var(--sans); font-size: .875rem; font-weight: 700; margin-bottom: 6px; }
+.rationale p, .rationale li { font-size: .875rem; color: var(--ink-2); }
+.rationale ul { margin: 6px 0 0; padding-left: 18px; }
+.rationale a { color: var(--ink); text-decoration-color: var(--rule-strong); }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
+</style>
+
+<div class="wrap">
+  <div class="head">
+    <span class="eyebrow">Prototype · tabellen opnieuw · 6 september 2026</span>
+    <h1>Eén tabelmodel voor alle twaalf tabellen</h1>
+    <p class="sub">Asteria heeft twaalf tabellen, van vier kolommen tot elf, van vijf rijen tot honderd. Dit prototype legt één gedrag vast dat ze allemaal krijgen, en laat het zien op drie breedtes zonder dat je je venster hoeft te slepen. Gebouwd op wat het onderzoek naar datatabellen eens is, en waar het bewijs ophoudt staat dat erbij.</p>
+    <span class="pocnote">bedragen SHELL en VWRL uit de demomodus · overige rijen illustratief voor de opmaak, gemarkeerd</span>
+  </div>
+
+  <div class="rules">
+    <div><b>Kop en eerste kolom staan vast</b>Boven een schermhoogte of breder dan het kader scrollt de inhoud onder de kop en achter de ankerkolom door. Eén tabel, geen twee (een losse koptabel breekt de koppeling voor schermlezers).</div>
+    <div><b>Een schaduw alleen waar iets achter zit</b>De rand van de bevroren kolom krijgt pas een schaduw zodra er gescrold is, en de rechterrand verliest hem aan het eind. Zo is "er is meer" zichtbaar zonder dat een pijl het hoeft te zeggen.</div>
+    <div><b>Kolommen verdwijnen op prioriteit, nooit stilzwijgend</b>Onder 1000, 720 en 480 pixels kaderbreedte vallen kolommen van prioriteit 3, 2 en 1 weg. Een teller zegt hoeveel; de uitklaprij toont ze alsnog; het kolommenmenu zet ze terug.</div>
+    <div><b>Cijfers rechts, tabular, eenheid in de kop</b>Komma's boven elkaar, dezelfde decimalen per kolom, "€" en "%" één keer in de kop in plaats van in elke cel. Tekst links.</div>
+    <div><b>Plus en min in drie kanalen</b>Teken, kleur en driehoekje. De kleuren zijn het gemeten blauw/rood van de app, niet rood/groen: dat paar valt weg voor acht procent van de mannen.</div>
+    <div><b>Sorteren via de kop, met <span class="mono">aria-sort</span></b>De hele koptekst is de knop. Precies één kop draagt de sorteerstand; ongesorteerd heeft een andere vorm dan oplopend of aflopend, niet alleen een andere kleur.</div>
+    <div><b>Uitklappen blijft open</b>Een rij klapt in de tabel uit, de detailrij groeit in 220 ms, en blijft open tot je hem sluit. Wat een kolomprioriteit verborg staat hier als eerste.</div>
+    <div><b>Scrollen met het toetsenbord</b>De scrollcontainer is een <span class="mono">region</span> met naam en <span class="mono">tabindex="0"</span>, zodat een toetsenbordgebruiker erin kan en een schermlezer weet wat het is.</div>
+    <div><b>Dichtheid is opt-in</b>Rijen van 44 px standaard, 32 px compact. Zebra is een keuze: het onderzoek vindt het niet sneller, wel prettiger, en pas zinvol boven acht tot tien rijen.</div>
+  </div>
+
+  <!-- ============ DEMO 1: the wide holdings table ============ -->
+  <section class="demo">
+    <div class="t">
+      <h2>Posities, dividendweergave</h2>
+      <p class="meta">Elf kolommen. Kies een kaderbreedte en kijk wat wegvalt en wat terugkomt in de uitklaprij. Sorteer op een kop, klap SHELL open, zet compact aan.</p>
+    </div>
+    <div class="bar" role="toolbar" aria-label="Weergave">
+      <span>Kader</span>
+      <span class="seg" role="group" aria-label="Kaderbreedte"><button data-w="" aria-pressed="true">Volledig</button><button data-w="w900" aria-pressed="false">900</button><button data-w="w640" aria-pressed="false">640</button><button data-w="w400" aria-pressed="false">400</button></span>
+      <span>Rijen</span>
+      <span class="seg" role="group" aria-label="Dichtheid"><button data-density="comfortable" aria-pressed="true">Ruim</button><button data-density="compact" aria-pressed="false">Compact</button></span>
+      <span class="seg" role="group" aria-label="Zebra"><button data-zebra="off" aria-pressed="true">Lijnen</button><button data-zebra="on" aria-pressed="false">Zebra</button></span>
+      <span class="cols">
+        <button class="chip" id="colbtn" aria-expanded="false" aria-controls="colmenu">Kolommen <span class="mono" id="colcount"></span></button>
+        <div class="menu" id="colmenu" hidden></div>
+      </span>
+      <span class="chip" id="hiddenchip" hidden></span>
+    </div>
+
+    <div class="stage" id="stage1">
+      <div class="hold" data-x="start" style="--frozen: 150px">
+        <div class="region" role="region" aria-labelledby="cap1" tabindex="0">
+          <table id="tbl1">
+            <caption id="cap1">Posities, dividendweergave. Bedragen in euro zoals afgewikkeld.</caption>
+            <thead>
+              <tr>
+                <th scope="col" data-c="0" data-p="0" style="min-width:150px"><button class="sort" data-key="name" data-type="text"><span class="lbl">Positie</span><span class="g g-none">◇</span><span class="g g-asc">▲</span><span class="g g-desc">▼</span></button></th>
+                <th scope="col" class="r p3" data-c="1" data-p="3"><button class="sort" data-key="ytd" data-type="num"><span class="lbl">Dit jaar<small>€</small></span><span class="g g-none">◇</span><span class="g g-asc">▲</span><span class="g g-desc">▼</span></button></th>
+                <th scope="col" class="r" data-c="2" data-p="0"><button class="sort" data-key="all" data-type="num"><span class="lbl">Totaal<small>€, hele periode</small></span><span class="g g-none">◇</span><span class="g g-asc">▲</span><span class="g g-desc">▼</span></button></th>
+                <th scope="col" class="r p1" data-c="3" data-p="1"><button class="sort" data-key="chg" data-type="num"><span class="lbl">Per aandeel<small>t.o.v. jaar eerder</small></span><span class="g g-none">◇</span><span class="g g-asc">▲</span><span class="g g-desc">▼</span></button></th>
+                <th scope="col" class="r p2" data-c="4" data-p="2"><button class="sort" data-key="yoc" data-type="num"><span class="lbl">Op kostprijs<small>%</small></span><span class="g g-none">◇</span><span class="g g-asc">▲</span><span class="g g-desc">▼</span></button></th>
+                <th scope="col" class="r p2" data-c="5" data-p="2"><button class="sort" data-key="cy" data-type="num"><span class="lbl">Nu<small>%</small></span><span class="g g-none">◇</span><span class="g g-asc">▲</span><span class="g g-desc">▼</span></button></th>
+                <th scope="col" class="p3" data-c="6" data-p="3">Regelmaat<small>laatste 6</small></th>
+                <th scope="col" class="p1" data-c="7" data-p="1">Ritme</th>
+                <th scope="col" class="p3" data-c="8" data-p="3">Staat van dienst</th>
+                <th scope="col" class="r p2" data-c="9" data-p="2"><button class="sort" data-key="next" data-type="num"><span class="lbl">Volgende<small>schatting</small></span><span class="g g-none">◇</span><span class="g g-asc">▲</span><span class="g g-desc">▼</span></button></th>
+                <th scope="col" class="r p3" data-c="10" data-p="3"><button class="sort" data-key="w" data-type="num"><span class="lbl">Weging<small>%</small></span><span class="g g-none">◇</span><span class="g g-asc">▲</span><span class="g g-desc">▼</span></button></th>
+              </tr>
+            </thead>
+            <tbody id="body1"></tbody>
+            <tfoot>
+              <tr><td>Totaal <span class="sub">7 posities</span></td><td class="r p3">€ 402,11</td><td class="r">€ 2.652,40</td><td class="r p1"></td><td class="r p2"></td><td class="r p2"></td><td class="p3"></td><td class="p1"></td><td class="p3"></td><td class="r p2"></td><td class="r p3">100,0</td></tr>
+            </tfoot>
+          </table>
+        </div>
+        <div class="shadow-l" aria-hidden="true"></div><div class="shadow-r" aria-hidden="true"></div>
+      </div>
+      <div class="stage-label"><span id="stagew">kader: volledig</span><span id="stagehidden"></span></div>
+    </div>
+  </section>
+
+  <!-- ============ DEMO 2: the matrix ============ -->
+  <section class="demo">
+    <div class="t">
+      <h2>Maand na maand, als matrix</h2>
+      <p class="meta">Beide assen staan vast: de maandnamen links, de jaren boven. Kleurintensiteit volgt de grootte van het resultaat, het teken staat er altijd bij. Illustratieve waarden voor de opmaak; de echte staan onder Rendement.</p>
+    </div>
+    <div class="bar"><span>Kader</span><span class="seg" role="group" aria-label="Kaderbreedte matrix"><button data-w="" data-stage="stage2" aria-pressed="true">Volledig</button><button data-w="w640" data-stage="stage2" aria-pressed="false">640</button><button data-w="w400" data-stage="stage2" aria-pressed="false">400</button></span></div>
+    <div class="stage" id="stage2">
+      <div class="hold" data-x="start" style="--frozen: 110px">
+        <div class="region matrix" role="region" aria-labelledby="cap2" tabindex="0" style="max-height: 560px">
+          <table id="tbl2">
+            <caption id="cap2">Resultaat per maand en jaar, in euro na inleg. Illustratieve waarden.</caption>
+            <thead><tr><th scope="col">Maand</th><th scope="col" class="r">2021</th><th scope="col" class="r">2022</th><th scope="col" class="r">2023</th><th scope="col" class="r">2024</th><th scope="col" class="r">2025</th><th scope="col" class="r">2026</th><th scope="col" class="r">Gemiddeld</th></tr></thead>
+            <tbody id="body2"></tbody>
+            <tfoot><tr id="foot2"><td>Jaar</td></tr></tfoot>
+          </table>
+        </div>
+        <div class="shadow-l" aria-hidden="true"></div><div class="shadow-r" aria-hidden="true"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ DEMO 3: two narrow answers ============ -->
+  <section class="demo">
+    <div class="t">
+      <h2>Onder 480 pixels: twee antwoorden, één per tabelsoort</h2>
+      <p class="meta">Een brede tabel blijft een tabel met een ankerkolom en scrollt; een korte tabel wordt een lijst van kaarten. Het onderzoek is hier duidelijk: kaarten lezen goed tot een paar dozijn rijen en verliezen daarboven elke vergelijkbaarheid.</p>
+    </div>
+    <div class="pair">
+      <div class="phone">
+        <h3>A. Ankerkolom en scrollen (Posities, 100+ rijen)</h3>
+        <div class="hold" data-x="start" style="--frozen: 96px">
+          <div class="region" role="region" aria-labelledby="cap3" tabindex="0">
+            <table style="font-size:.8125rem">
+              <caption id="cap3">Posities, smal: anker en scroll.</caption>
+              <thead><tr><th scope="col" style="min-width:96px">Positie</th><th scope="col" class="r">Waarde<small>€</small></th><th scope="col" class="r">Vandaag</th><th scope="col" class="r">Totaal</th><th scope="col" class="r">Weging<small>%</small></th></tr></thead>
+              <tbody>
+                <tr><td class="tick">VWRL</td><td class="r">33.216,17</td><td class="r"><span class="d neg">0,61 %</span></td><td class="r"><span class="d pos">21,4 %</span></td><td class="r">27,4</td></tr>
+                <tr><td class="tick">SHELL</td><td class="r">22.926,38</td><td class="r"><span class="d pos">0,84 %</span></td><td class="r"><span class="d pos">38,2 %</span></td><td class="r">18,9</td></tr>
+                <tr><td class="tick">ASML</td><td class="r">17.225,11</td><td class="r"><span class="d neg">2,10 %</span></td><td class="r"><span class="d pos">64,7 %</span></td><td class="r">14,2</td></tr>
+                <tr><td class="tick">INGA</td><td class="r">14.192,52</td><td class="r"><span class="d zero">0,00 %</span></td><td class="r"><span class="d pos">12,9 %</span></td><td class="r">11,7</td></tr>
+                <tr><td class="tick">BESI</td><td class="r">8.104,20</td><td class="r"><span class="d neg">3,42 %</span></td><td class="r"><span class="d neg">8,1 %</span></td><td class="r">6,7</td></tr>
+                <tr><td class="tick">WKL</td><td class="r">6.410,88</td><td class="r"><span class="d pos">0,12 %</span></td><td class="r"><span class="d pos">3,3 %</span></td><td class="r">5,3</td></tr>
+                <tr><td class="tick">PHIA</td><td class="r">4.998,31</td><td class="r"><span class="d neg">1,05 %</span></td><td class="r"><span class="d neg">17,6 %</span></td><td class="r">4,1</td></tr>
+                <tr><td>Cash</td><td class="r">6.328,78</td><td class="r"><span class="d zero">–</span></td><td class="r"><span class="d zero">–</span></td><td class="r">5,2</td></tr>
+              </tbody>
+              <tfoot><tr><td>Totaal</td><td class="r">121.303,57</td><td class="r"><span class="d neg">0,42 %</span></td><td class="r"><span class="d pos">43,05 %</span></td><td class="r">100,0</td></tr></tfoot>
+            </table>
+          </div>
+          <div class="shadow-l" aria-hidden="true"></div><div class="shadow-r" aria-hidden="true"></div>
+        </div>
+        <p class="verdict">Waarde, Vandaag en Totaal zijn illustratief per positie; de totaalregel is de demo. De ankerkolom is 96 px: genoeg voor een ticker, nooit voor een bedrijfsnaam. Die staat in de uitklaprij.</p>
+      </div>
+      <div class="phone">
+        <h3>B. Kaarten (Jaar na jaar, 6 rijen)</h3>
+        <div class="stack">
+          <div class="region" role="region" aria-labelledby="cap4" tabindex="0">
+            <table role="table">
+              <caption id="cap4">Jaar na jaar, als kaarten.</caption>
+              <thead role="rowgroup"><tr role="row"><th role="columnheader" scope="col">Jaar</th><th role="columnheader" scope="col">Resultaat</th><th role="columnheader" scope="col">Rendement</th><th role="columnheader" scope="col">Ingelegd</th><th role="columnheader" scope="col">Dividend</th></tr></thead>
+              <tbody role="rowgroup">
+                <tr role="row"><td role="cell" class="lead">2026 <span class="sub">tot 18 aug</span></td><td role="cell" data-label="Resultaat"><span class="d pos">€ 9.812,40</span></td><td role="cell" data-label="Rendement"><span class="d pos">9,1 %</span></td><td role="cell" data-label="Ingelegd">€ 6.000,00</td><td role="cell" data-label="Dividend">€ 402,11</td></tr>
+                <tr role="row"><td role="cell" class="lead">2025</td><td role="cell" data-label="Resultaat"><span class="d pos">€ 11.240,05</span></td><td role="cell" data-label="Rendement"><span class="d pos">12,6 %</span></td><td role="cell" data-label="Ingelegd">€ 12.000,00</td><td role="cell" data-label="Dividend">€ 718,30</td></tr>
+                <tr role="row"><td role="cell" class="lead">2024</td><td role="cell" data-label="Resultaat"><span class="d pos">€ 14.871,22</span></td><td role="cell" data-label="Rendement"><span class="d pos">21,3 %</span></td><td role="cell" data-label="Ingelegd">€ 18.000,00</td><td role="cell" data-label="Dividend">€ 611,54</td></tr>
+                <tr role="row"><td role="cell" class="lead">2023</td><td role="cell" data-label="Resultaat"><span class="d pos">€ 7.402,90</span></td><td role="cell" data-label="Rendement"><span class="d pos">15,8 %</span></td><td role="cell" data-label="Ingelegd">€ 24.000,00</td><td role="cell" data-label="Dividend">€ 488,12</td></tr>
+                <tr role="row"><td role="cell" class="lead">2022</td><td role="cell" data-label="Resultaat"><span class="d neg">€ 5.612,00</span></td><td role="cell" data-label="Rendement"><span class="d neg">18,4 %</span></td><td role="cell" data-label="Ingelegd">€ 18.000,00</td><td role="cell" data-label="Dividend">€ 301,03</td></tr>
+                <tr role="row"><td role="cell" class="lead">2021</td><td role="cell" data-label="Resultaat"><span class="d neg">€ 1.211,00</span></td><td role="cell" data-label="Rendement"><span class="d neg">14,1 %</span></td><td role="cell" data-label="Ingelegd">€ 6.800,00</td><td role="cell" data-label="Dividend">€ 131,30</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <p class="verdict">Jaarbedragen illustratief; het dividendtotaal van € 2.652,40 is de demo. De kop is visueel weg maar staat in de boom: de <span class="mono">role</span>-attributen houden de tabel een tabel als <span class="mono">display</span> verandert.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ Sign colours ============ -->
+  <section class="demo">
+    <div class="t"><h2>Plus en min</h2><p class="meta">Eén paar, drie kanalen, vier gedaanten. Nooit alleen kleur, nooit rood/groen, nul is grijs en heeft geen teken.</p></div>
+    <div class="signs">
+      <div><span class="eyebrow">In een cel</span><div class="big"><span class="d pos">€ 36.503,57</span></div>Teken als driehoek, cijfer in de kleur. De driehoek is 70 % van de cijferhoogte en staat op de basislijn van de komma.</div>
+      <div><span class="eyebrow">Als verandering</span><div class="big"><span class="pill neg">▼ 0,42 %</span></div>Alleen voor het ene cijfer per rij dat een verandering is (Vandaag, Per aandeel). Een hele kolom pillen wordt een kerstboom.</div>
+      <div><span class="eyebrow">Nul en onbekend</span><div class="big"><span class="d zero">0,00 %</span> &nbsp; <span class="d zero">–</span></div>Grijs, geen teken. Een streepje betekent "niet te bepalen" en de reden staat in de uitklaprij, nooit een 0 die iets anders betekent.</div>
+      <div><span class="eyebrow">Als vlak</span><div class="big"><span class="pill pos" style="padding:6px 14px">+ € 1.204</span> <span class="pill neg" style="padding:6px 14px">− € 388</span></div>Alleen in de matrix, waar de intensiteit iets zegt (de grootte). Op 28 % dekking maximaal, zodat de tekst 4,5:1 houdt.</div>
+    </div>
+  </section>
+
+  <footer class="rationale">
+    <div class="cols3">
+      <div>
+        <h3>Wat dit voor Asteria beslist</h3>
+        <ul>
+          <li>Alle twaalf tabellen krijgen dezelfde wrapper: <span class="mono">region</span> + caption + anker + kop, één component in <span class="mono">columns.js</span>.</li>
+          <li>Prioriteiten per kolom staan in de kolomdefinitie, niet in CSS per tabel. Container queries op het kader, niet op het venster: de tabel in een halve kolom gedraagt zich als een smalle tabel.</li>
+          <li>De uitklaprij is de plek voor alles wat niet in een kolom past: bedrijfsnaam, ISIN, redenen, de uitkeringen. Dat maakt kolommen verbergen veilig.</li>
+          <li>Kaartweergave alleen voor Jaar na jaar, Bronbelasting per land en Meldingen. De rest scrollt.</li>
+          <li>Zebra uit, hover aan, compact als instelling die onthouden wordt.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Waar het bewijs stopt</h3>
+        <p>Dat een vaste kop en een ankerkolom taken sneller maken is gemeten (Adobe Research over tabellen op mobiel: kleinere celpadding en bevroren koppen versnellen, zebra en rijlijnen niet maar worden wel geprefereerd). Dat 44 px de juiste rijhoogte is, is een conventie, geen meting. De drempels 1000/720/480 zijn gekozen op deze tabel en horen per tabel opnieuw gekozen te worden.</p>
+        <h3 style="margin-top:14px">Kleine animaties, en waar niet</h3>
+        <p>Kader 350 ms, uitklappen 220 ms, schaduw 200 ms, hover 120 ms, rijen die opnieuw sorteren 280 ms. Geen animatie op cijfers die veranderen door een sync: een bedrag dat "telt" suggereert beweging die er niet was. Alles uit onder <span class="mono">prefers-reduced-motion</span>.</p>
+      </div>
+      <div>
+        <h3>Bronnen</h3>
+        <ul>
+          <li><a href="https://adrianroselli.com/2020/11/under-engineered-responsive-tables.html">Roselli, Under-Engineered Responsive Tables</a> (region, tabindex, aria-labelledby)</li>
+          <li><a href="https://adrianroselli.com/2021/04/sortable-table-columns.html">Roselli, Sortable Table Columns</a></li>
+          <li><a href="https://www.w3.org/WAI/ARIA/apg/patterns/table/examples/sortable-table/">WAI-ARIA APG, Sortable Table</a> (aria-sort op één kop, ander glyph voor ongesorteerd)</li>
+          <li><a href="https://www.smashingmagazine.com/2022/12/accessible-front-end-patterns-responsive-tables-part1/">Smashing, Accessible Patterns for Responsive Tables</a> (stapelen, prioriteit, scrollen)</li>
+          <li><a href="https://www.smashingmagazine.com/2019/01/table-design-patterns-web/">Verou, Table Design Patterns on the Web</a> (scrollschaduwen)</li>
+          <li><a href="https://www.nngroup.com/videos/big-tables-small-screens/">NN/g, Big Tables on Small Screens</a> (koppen vastzetten, kolommen kiezen)</li>
+          <li><a href="https://research.adobe.com/publication/web-table-formatting-affects-readability-on-mobile-devices">Adobe Research, Web Table Formatting on Mobile</a></li>
+          <li><a href="https://css-tricks.com/position-sticky-and-table-headers/">CSS-Tricks, Position Sticky and Table Headers</a> (sticky op th, border-collapse: separate)</li>
+          <li><a href="https://www.pencilandpaper.io/articles/ux-pattern-analysis-enterprise-data-tables">Pencil &amp; Paper, Enterprise Data Tables</a></li>
+          <li><a href="https://www.smashingmagazine.com/2024/02/designing-for-colorblindness/">Smashing, Designing for Colorblind People</a></li>
+        </ul>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<script>
+(function () {
+  // ---------- Demo 1 data: SHELL and VWRL are the demo figures; the rest is marked illustrative ----------
+  var rows = [
+    { name: 'SHELL', full: 'Shell plc', isin: 'GB00BP6MXD84', ytd: 234.56, all: 863.70, chg: 4.2, yoc: 4.5, cy: 3.2, reg: [6,12,9,10,11,12], rhythm: 'halfjaarlijks', agree: '100 % van de tussenpozen', track: '3 jr betaald', tr2: '2 verhoogd · 0 verlaagd', next: '2026-11-11', nextlbl: '≈ 11 nov 2026', win: '15 okt tot 8 dec', w: 18.9, demo: true,
+      pays: [['2026-06-23', '0,3580', '0,0537', '0,3043', '+4,2 %'], ['2025-12-18', '0,3436', '0,0515', '0,2921', '+4,0 %'], ['2025-06-24', '0,3436', '0,0515', '0,2921', '+4,0 %']] },
+    { name: 'VWRL', full: 'Vanguard FTSE All-World UCITS ETF', isin: 'IE00B3RBWM25', ytd: 68.25, all: 743.98, chg: -20.73, yoc: 2.4, cy: 2.0, reg: [3,4,6,10,14,11], rhythm: 'per kwartaal', agree: '87 % van de tussenpozen', track: '6 jr betaald', tr2: '7 verhoogd · 4 verlaagd · grootste −20,73 %', next: '2026-09-11', nextlbl: '≈ 11 sep 2026', win: '28 aug tot 25 sep', w: 27.4, demo: true,
+      pays: [['2026-06-25', '0,4875', '0,0000', '0,4875', '−20,73 %'], ['2026-03-26', '0,3921', '0,0000', '0,3921', '+2,1 %'], ['2025-12-24', '0,6150', '0,0000', '0,6150', '+8,4 %']] },
+    { name: 'INGA', full: 'ING Groep N.V.', isin: 'NL0011821202', ytd: 41.20, all: 402.15, chg: 6.1, yoc: 5.1, cy: 4.3, reg: [8,9,11], rhythm: 'halfjaarlijks', agree: '100 %', track: '3 jr betaald', tr2: '2 verhoogd', next: '2027-02-04', nextlbl: '≈ 4 feb 2027', win: '', w: 11.7, pays: [] },
+    { name: 'BESI', full: 'BE Semiconductor Industries', isin: 'NL0012866412', ytd: 18.10, all: 288.44, chg: -12.0, yoc: 1.2, cy: 0.7, reg: [4,14,7], rhythm: 'jaarlijks', agree: '', track: '3 jr betaald', tr2: '1 verhoogd · 1 verlaagd', next: '2027-05-12', nextlbl: '≈ 12 mei 2027', win: '', w: 6.7, pays: [] },
+    { name: 'ASML', full: 'ASML Holding N.V.', isin: 'NL0010273215', ytd: 22.40, all: 201.13, chg: 9.3, yoc: 0.9, cy: 0.6, reg: [5,6,7,8], rhythm: 'per kwartaal', agree: '75 %', track: '4 jr betaald', tr2: '4 verhoogd', next: '2026-11-05', nextlbl: '≈ 5 nov 2026', win: '', w: 14.2, pays: [] },
+    { name: 'WKL', full: 'Wolters Kluwer N.V.', isin: 'NL0000395903', ytd: 12.60, all: 98.30, chg: 11.2, yoc: 1.6, cy: 1.4, reg: [4,5,6], rhythm: 'halfjaarlijks', agree: '100 %', track: '2 jr betaald', tr2: '2 verhoogd', next: '2026-09-25', nextlbl: '≈ 25 sep 2026', win: '', w: 5.3, pays: [] },
+    { name: 'PHIA', full: 'Koninklijke Philips N.V.', isin: 'NL0000009538', ytd: 5.00, all: 54.70, chg: 0, yoc: 1.4, cy: 1.7, reg: [5,5,5], rhythm: 'jaarlijks', agree: '', track: '2 jr betaald', tr2: '0 verhoogd · 0 verlaagd', next: '2027-05-20', nextlbl: '≈ 20 mei 2027', win: '', w: 4.1, pays: [] }
+  ];
+  var eur = function (n) { return '€ ' + n.toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+  var pct = function (n, d) { return n.toLocaleString('nl-NL', { minimumFractionDigits: d, maximumFractionDigits: d }) + ' %'; };
+  var sign = function (n, txt) { var c = n > 0 ? 'pos' : n < 0 ? 'neg' : 'zero'; return '<span class="d ' + c + '">' + txt + '</span>'; };
+  var spark = function (a) { var m = Math.max.apply(null, a); return '<span class="spark" aria-hidden="true">' + a.map(function (v) { return '<i style="height:' + Math.max(2, Math.round(v / m * 16)) + 'px"></i>'; }).join('') + '</span>'; };
+
+  var headers = Array.prototype.slice.call(document.querySelectorAll('#tbl1 thead th'));
+  var labels = headers.map(function (h) { var c = h.cloneNode(true); c.querySelectorAll('small, .g').forEach(function (x) { x.remove(); }); return c.textContent.trim(); });
+
+  function renderRows(list) {
+    var tb = document.getElementById('body1'); tb.innerHTML = '';
+    list.forEach(function (r, i) {
+      var tr = document.createElement('tr'); tr.setAttribute('aria-expanded', 'false'); tr.dataset.i = i;
+      var fmt = function (v) { return Math.abs(v).toLocaleString('nl-NL', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' %'; };
+      tr.innerHTML =
+        '<td class="tick" data-c="0"><button class="exp" aria-label="Details ' + r.name + '" aria-expanded="false">›</button>' + r.name + (r.demo ? '' : '<span class="sub">illustratief</span>') + '</td>' +
+        '<td class="r p3" data-c="1">' + eur(r.ytd) + '</td>' +
+        '<td class="r" data-c="2">' + eur(r.all) + '</td>' +
+        '<td class="r p1" data-c="3">' + sign(r.chg, fmt(r.chg)) + '</td>' +
+        '<td class="r p2" data-c="4">' + pct(r.yoc, 1) + '</td>' +
+        '<td class="r p2" data-c="5">' + pct(r.cy, 1) + '</td>' +
+        '<td class="p3" data-c="6">' + spark(r.reg) + '</td>' +
+        '<td class="p1" data-c="7">' + r.rhythm + (r.agree ? '<span class="sub">' + r.agree + '</span>' : '') + '</td>' +
+        '<td class="p3" data-c="8">' + r.track + '<span class="sub">' + r.tr2 + '</span></td>' +
+        '<td class="r p2" data-c="9">' + r.nextlbl + (r.win ? '<span class="sub">' + r.win + '</span>' : '') + '</td>' +
+        '<td class="r p3" data-c="10">' + r.w.toLocaleString('nl-NL', { minimumFractionDigits: 1 }) + '</td>';
+      var det = document.createElement('tr'); det.className = 'detail'; det.hidden = true;
+      det.innerHTML = '<td colspan="11"><div class="grow"><div><div class="inner"></div></div></div></td>';
+      tb.appendChild(tr); tb.appendChild(det);
+      tr.querySelector('.exp').addEventListener('click', function () { toggle(tr, det, r); });
+    });
+    updateHidden();
+  }
+
+  function toggle(tr, det, r) {
+    var open = tr.getAttribute('aria-expanded') === 'true';
+    if (!open) {
+      // hidden columns first, then identity, then the payments
+      var hidden = [];
+      tr.querySelectorAll('td').forEach(function (td, c) {
+        if (c === 0) return;
+        if (getComputedStyle(td).display === 'none') hidden.push([labels[c], td.innerHTML.replace(/<span class="sub">.*?<\/span>/, '')]);
+      });
+      var kv = '<dl class="kv">';
+      if (hidden.length) { kv += '<div class="h">Niet in beeld op deze breedte</div>' + hidden.map(function (h) { return '<dt>' + h[0] + '</dt><dd>' + h[1] + '</dd>'; }).join(''); }
+      kv += '<div class="h">Positie</div><dt>Naam</dt><dd>' + r.full + '</dd><dt>ISIN</dt><dd class="mono">' + r.isin + '</dd><dt>Ritme</dt><dd>' + r.rhythm + '</dd></dl>';
+      var pays = r.pays.length
+        ? '<table class="pay"><thead><tr><th scope="col">Betaald</th><th scope="col" class="r">Bruto<small>€/aandeel</small></th><th scope="col" class="r">Belasting</th><th scope="col" class="r">Netto</th><th scope="col" class="r">t.o.v. jaar eerder</th></tr></thead><tbody>' +
+          r.pays.map(function (p) { var n = parseFloat(p[4].replace(',', '.').replace('−', '-')); return '<tr><td>' + p[0] + '</td><td class="r">' + p[1] + '</td><td class="r">' + p[2] + '</td><td class="r">' + p[3] + '</td><td class="r">' + sign(n, p[4].replace(/^[+−-]/, '')) + '</td></tr>'; }).join('') + '</tbody></table>'
+        : '<p style="font-size:.8125rem;color:var(--ink-3)">Uitkeringen per aandeel: in de demo alleen voor SHELL en VWRL.</p>';
+      det.querySelector('.inner').innerHTML = kv + '<div>' + pays + '</div>';
+      det.hidden = false;
+      requestAnimationFrame(function () { det.classList.add('open'); });
+    } else {
+      det.classList.remove('open');
+      det.addEventListener('transitionend', function h() { det.hidden = true; det.removeEventListener('transitionend', h); });
+      if (matchMedia('(prefers-reduced-motion: reduce)').matches) det.hidden = true;
+    }
+    tr.setAttribute('aria-expanded', String(!open));
+    tr.querySelector('.exp').setAttribute('aria-expanded', String(!open));
+  }
+
+  // ---------- sort ----------
+  var sortState = { key: null, dir: null };
+  document.querySelectorAll('#tbl1 th button.sort').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var th = b.closest('th'), key = b.dataset.key, type = b.dataset.type;
+      var dir = sortState.key === key && sortState.dir === 'descending' ? 'ascending' : 'descending';
+      if (type === 'text' && sortState.key !== key) dir = 'ascending';
+      sortState = { key: key, dir: dir };
+      document.querySelectorAll('#tbl1 th').forEach(function (h) { h.removeAttribute('aria-sort'); });
+      th.setAttribute('aria-sort', dir);
+      var list = rows.slice().sort(function (a, b2) {
+        var x = a[key], y = b2[key];
+        if (type === 'text') return dir === 'ascending' ? String(x).localeCompare(String(y)) : String(y).localeCompare(String(x));
+        return dir === 'ascending' ? x - y : y - x;
+      });
+      renderRows(list);
+      document.querySelectorAll('#body1 tr:not(.detail)').forEach(function (tr) { tr.classList.add('sorting'); });
+    });
+  });
+  // ---------- column menu ----------
+  var menu = document.getElementById('colmenu'), colbtn = document.getElementById('colbtn');
+  var userHidden = {};
+  headers.forEach(function (h, c) {
+    if (c === 0) return;
+    var l = document.createElement('label'); l.dataset.c = c;
+    l.innerHTML = '<input type="checkbox" checked> ' + labels[c];
+    l.querySelector('input').addEventListener('change', function (e) {
+      userHidden[c] = !e.target.checked;
+      document.querySelectorAll('#tbl1 [data-c="' + c + '"], #tbl1 tfoot td:nth-child(' + (c + 1) + ')').forEach(function (el) { el.classList.toggle('hide-c', !e.target.checked); });
+      updateHidden();
+    });
+    menu.appendChild(l);
+  });
+  colbtn.addEventListener('click', function () { var o = menu.hidden; menu.hidden = !o; colbtn.setAttribute('aria-expanded', String(o)); });
+  document.addEventListener('click', function (e) { if (!e.target.closest('.cols')) { menu.hidden = true; colbtn.setAttribute('aria-expanded', 'false'); } });
+
+  renderRows(rows);
+
+  function updateHidden() {
+    var auto = 0, user = 0;
+    headers.forEach(function (h, c) {
+      if (c === 0) return;
+      var hidden = getComputedStyle(h).display === 'none';
+      var l = menu.querySelector('[data-c="' + c + '"]');
+      if (userHidden[c]) user++; else if (hidden) auto++;
+      if (l) l.classList.toggle('auto-hidden', hidden && !userHidden[c]);
+    });
+    var shown = headers.length - 1 - auto - user;
+    document.getElementById('colcount').textContent = shown + '/' + (headers.length - 1);
+    var chip = document.getElementById('hiddenchip');
+    chip.hidden = !(auto || user);
+    chip.textContent = (auto ? auto + ' verborgen door de breedte' : '') + (auto && user ? ' · ' : '') + (user ? user + ' door jou' : '') + ' · in de uitklaprij';
+    document.getElementById('stagehidden').textContent = auto ? auto + ' kolommen weg op prioriteit' : 'alle kolommen in beeld';
+  }
+
+  // ---------- stage width ----------
+  document.querySelectorAll('[data-w]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var stage = document.getElementById(b.dataset.stage || 'stage1');
+      stage.className = 'stage ' + b.dataset.w;
+      b.parentElement.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); });
+      if (!b.dataset.stage) document.getElementById('stagew').textContent = 'kader: ' + (b.dataset.w ? b.dataset.w.slice(1) + ' px' : 'volledig');
+      setTimeout(updateHidden, 380); setTimeout(updateAllShadows, 380);
+    });
+  });
+  var ro = new ResizeObserver(function () { updateHidden(); updateAllShadows(); });
+  ro.observe(document.getElementById('stage1'));
+
+  // ---------- density / zebra ----------
+  document.querySelectorAll('[data-density]').forEach(function (b) { b.addEventListener('click', function () {
+    document.body.classList.toggle('compact', b.dataset.density === 'compact');
+    b.parentElement.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); });
+    try { localStorage.setItem('asteria-poc-density', b.dataset.density); } catch (e) {}
+  }); });
+  document.querySelectorAll('[data-zebra]').forEach(function (b) { b.addEventListener('click', function () {
+    document.body.classList.toggle('zebra', b.dataset.zebra === 'on');
+    b.parentElement.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); });
+  }); });
+  try { if (localStorage.getItem('asteria-poc-density') === 'compact') document.querySelector('[data-density="compact"]').click(); } catch (e) {}
+
+  // ---------- scroll shadows: a state, not a decoration ----------
+  function stateOf(el) {
+    var max = el.scrollWidth - el.clientWidth;
+    if (max <= 1) return 'none';
+    if (el.scrollLeft <= 1) return 'start';
+    if (el.scrollLeft >= max - 1) return 'end';
+    return 'middle';
+  }
+  function updateAllShadows() {
+    document.querySelectorAll('.hold').forEach(function (h) { var r = h.querySelector('.region'); h.dataset.x = stateOf(r); });
+  }
+  document.querySelectorAll('.hold .region').forEach(function (r) {
+    r.addEventListener('scroll', function () { r.parentElement.dataset.x = stateOf(r); }, { passive: true });
+  });
+  window.addEventListener('resize', updateAllShadows);
+  updateAllShadows();
+
+  // ---------- Demo 2: matrix, illustrative values ----------
+  var months = ['jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
+  var years = [2021, 2022, 2023, 2024, 2025, 2026];
+  // deterministic pseudo-series so the matrix looks like a portfolio, marked illustrative in the caption
+  var seed = 7; function rnd() { seed = (seed * 9301 + 49297) % 233280; return seed / 233280 - 0.5; }
+  var m = months.map(function (_, mi) { return years.map(function (y, yi) {
+    if (y === 2021 && mi < 0) return null; if (y === 2026 && mi > 7) return null;
+    var scale = 300 + yi * 380; return Math.round((rnd() * 2 + (y === 2022 ? -0.35 : 0.22)) * scale);
+  }); });
+  var maxAbs = 0; m.forEach(function (r) { r.forEach(function (v) { if (v !== null) maxAbs = Math.max(maxAbs, Math.abs(v)); }); });
+  var tb2 = document.getElementById('body2');
+  m.forEach(function (r, mi) {
+    var tr = document.createElement('tr');
+    var cells = r.map(function (v) {
+      if (v === null) return '<td class="na">–</td>';
+      var c = v > 0 ? 'pos' : v < 0 ? 'neg' : 'zero';
+      return '<td class="' + c + '" style="--w:' + (Math.abs(v) / maxAbs).toFixed(2) + '">' + sign(v, '€ ' + Math.abs(v).toLocaleString('nl-NL')) + '</td>';
+    });
+    var vals = r.filter(function (v) { return v !== null; }); var avg = Math.round(vals.reduce(function (a, b) { return a + b; }, 0) / vals.length);
+    tr.innerHTML = '<th scope="row">' + months[mi] + '</th>' + cells.join('') + '<td>' + sign(avg, '€ ' + Math.abs(avg).toLocaleString('nl-NL')) + '</td>';
+    tb2.appendChild(tr);
+  });
+  var foot = document.getElementById('foot2');
+  years.forEach(function (_, yi) {
+    var s = m.reduce(function (a, r) { return a + (r[yi] || 0); }, 0);
+    var td = document.createElement('td'); td.className = 'r'; td.innerHTML = sign(s, '€ ' + Math.abs(s).toLocaleString('nl-NL')); foot.appendChild(td);
+  });
+  var tot = document.createElement('td'); tot.className = 'r'; tot.textContent = ''; foot.appendChild(tot);
+  updateAllShadows();
+})();
+</script>
