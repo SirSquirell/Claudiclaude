@@ -16,6 +16,21 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.72.1] — 2026-09-07
+
+**No resync needed** — display only.
+
+### Fixed
+
+- **The More menu opened off the left edge of the screen below the rail breakpoint (US-161).**
+  0.60.2 had pinned it `right: 0` there, assuming its trigger sat at the right end of a wrapped row;
+  0.71.0's full-width *Upgrade to Plus* button gave *More* a row of its own, flush left, and the
+  same rule sent the menu 136 to 166 px off the left at every width from 320 to 959 px, hiding
+  *Check connection* and the language and theme rows. With `body.plus` the trigger is back on the
+  right, so swapping the side would have moved the bug rather than fixed it. The side is now
+  measured on open (`src/lib/placement.js`, pure, tested) and set as a class; verified headless at
+  seven widths in both states, every rect inside the viewport. Found by the twentieth light scan.
+
 ## [0.72.0] — 2026-09-06
 
 **No resync needed** — no engine figure changed. Two tiles say more, one card shows two figures at

@@ -55,6 +55,7 @@ import { brokerMarkSvg, lockupSvg, markSvg } from './brand.js';
 import { enhanceTables } from './tables.js';
 import { activate as activateLicence, entitlements, refreshEntitlements, removeLicence } from './entitlements.js';
 import { sealRows } from '../lib/sealmodel.js';
+import { menuAnchor } from '../lib/placement.js';
 import { todayISO } from '../lib/dates.js';
 import { copySnapshot, downloadSnapshot, drawScoreCard, drawSnapshot, tokensForTheme } from './snapshot.js';
 import { Spring, clampShift, prefersReducedMotion, project, rubber, revealOnArrival, shiftToShow, velocityFrom, wirePressFeedback } from './motion.js';
@@ -1599,6 +1600,14 @@ function wireMore() {
     const open = menu.hidden;
     menu.hidden = !open;
     btn.setAttribute('aria-expanded', String(open));
+    if (open) {
+      // US-161: which side the menu hangs from is measured on open, not
+      // assumed by the stylesheet — the trigger's place in a wrapped rail row
+      // depends on whether the Upgrade button is there (placement.js).
+      const t = btn.getBoundingClientRect();
+      const side = menuAnchor({ triggerLeft: t.left, triggerRight: t.right, menuWidth: menu.offsetWidth, viewportWidth: window.innerWidth });
+      menu.classList.toggle('anchor-right', side === 'right');
+    }
   });
   menu.addEventListener('click', (e) => {
     // The language and theme groups live in here and are meant to be used

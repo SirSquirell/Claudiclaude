@@ -3,7 +3,7 @@
 `docs/BACKLOG.md` is 7 600 lines of reasoning and evidence, which is the right place for *why* and
 a bad place to find out *where things stand*. This is the index.
 
-**Last updated at 0.72.0, on 2026-09-06.** It had been stale since 0.21.0 once, which is fifteen
+**Last updated at 0.72.1, on 2026-09-07.** It had been stale since 0.21.0 once, which is fifteen
 releases — if it looks stale again, trust the CHANGELOG and fix this.
 
 ## Light scans
@@ -35,6 +35,13 @@ says *in preparation*. Palette and type checks re-measured green. Deferred from 
 priorities on tables other than Positions, and the seal's two amount rows, which wait for the
 anonymize path to be confirmed against them. The design POCs stay in `docs/prototypes/`
 (`redesign-tiers.html`, `tables.html`).
+
+## 0.72.1 — 2026-09-07
+
+**US-161**, found by the twentieth light scan hours after 0.72.0: the More menu opened off the left
+edge below the rail breakpoint because 0.71.0's full-width Upgrade button moved its trigger. Fixed by
+measuring the trigger on open (`src/lib/placement.js`), verified at seven widths in both the free and
+the `body.plus` state. The stylesheet no longer pins a side there.
 
 ## 0.72.0 — 2026-09-06
 

@@ -1399,12 +1399,28 @@ button.primary:hover {
      reach it — the first three items (Check connection, Copy bug report,
      Export JSON) were permanently hidden above the screen edge. */
   .menu {
-    left: auto;
-    right: 0;
     top: calc(100% + 6px);
     bottom: auto;
+    transform-origin: top left;
+  }
+
+  .menu.anchor-right {
     transform-origin: top right;
   }
+}
+
+/*
+ * US-161. Which horizontal edge the menu hangs from is decided on open by
+ * measuring the trigger (src/lib/placement.js); the stylesheet only knows the
+ * two answers. It used to pin `right: 0` below the breakpoint on the assumption
+ * that the trigger sat at the right end of a wrapped row — true in 0.60.2,
+ * false since US-151's full-width Upgrade button gave More a row of its own,
+ * and true again the moment `body.plus` hides that button. A rule that cannot
+ * see its trigger cannot be right in both states.
+ */
+.menu.anchor-right {
+  left: auto;
+  right: 0;
 }
 
 

@@ -9396,7 +9396,7 @@ anonymised string equals the tiles' anonymised string for the same amount.
 
 ---
 
-### US-161 — The overflow menu opens off the left edge of the screen *(new, refined — light scan, 2026-09-06)*
+### US-161 — The overflow menu opens off the left edge of the screen *(built, 0.72.1 — measured anchor in src/lib/placement.js)*
 
 **The bug.** `#more-menu` is positioned in `styles.css` under `@media (max-width: 60em)` on the
 assumption that its trigger, `#btn-more`, "sits at the right end of a wrapped row" — a comment left
@@ -9424,13 +9424,13 @@ reproduced defect of their own.
 
 #### Acceptance criteria
 
-- [ ] Headless at 320, 375, 380, 414, 600, 750, 900px, in both the default state and with
+- [x] Headless at 320, 375, 380, 414, 600, 750, 900px, in both the default state and with
       `body.plus`: `#more-menu`'s bounding rect never has `left < 0` nor `right > innerWidth`.
-- [ ] The fix reacts to the trigger's actual position (measured, or an equivalent that is provably
+- [x] The fix reacts to the trigger's actual position (measured, or an equivalent that is provably
       correct in both states) — not a second hard-coded side that only moves which state breaks.
-- [ ] `.gran .menu` (the granularity dropdown) is unaffected — it already has its own positioning
+- [x] `.gran .menu` (the granularity dropdown) is unaffected — it already has its own positioning
       and is not part of this bug.
-- [ ] Existing keyboard behaviour (Escape closes, focus trap) is unchanged.
+- [x] Existing keyboard behaviour (Escape closes, focus trap) is unchanged.
 
 #### Dependencies
 
