@@ -8,7 +8,7 @@ releases — if it looks stale again, trust the CHANGELOG and fix this.
 
 ## Light scans
 
-Twenty re-confirmation passes (2026-08-20 to 2026-09-06) are in [SCANS.md](SCANS.md), newest
+Twenty-one re-confirmation passes (2026-08-20 to 2026-09-07) are in [SCANS.md](SCANS.md), newest
 first. Their standing result: no `claude/*` branch carries a story `main` does not have, the backlog
 numbering is clean, and the rule spot checks pass. What they kept finding — 38 stale remote
 branches the git proxy cannot delete — is now **US-120**, an owner action in GitHub's UI. The
@@ -24,7 +24,11 @@ nineteenth pass found nothing new. The twentieth pass found the ledger's second 
 from 320px to 959px in the current default (non-Plus) state, because the CSS still anchors it to a
 trigger the redesign's own "Upgrade to Plus" banner no longer leaves on the right — refined as a
 story rather than patched live, since a static CSS swap would only trade today's break for the
-`body.plus` state's; see SCANS.md for all five.
+`body.plus` state's. The twenty-first pass re-verified that fix headless (menu stays on-screen in
+both the free and `body.plus` state) and found no new design defect, but did find a documentation
+gap: `docs/BACKLOG.md` has no heading for **US-12** or **US-13** — both shipped in 0.12.0 and both
+are still cited by five other stories as an existing feature — a stale cross-reference rather than
+a code issue, left for the owner to reconcile; see SCANS.md for all six.
 
 ## Redesign, 0.71.0
 

@@ -8,6 +8,70 @@ state is in STATUS.md; this is the evidence that it was checked.
 
 ---
 
+## Light scan, 2026-09-07 (twenty-first pass)
+
+This session's own transport branch (`claude/eager-cannon-tjpl32`) was identical to `origin/main`
+at start (both at 0.72.1, the twentieth pass's own release) — worked directly off `main`.
+
+**Branches.** 38 remote `claude/*` branches plus `poc` — an audit agent re-checked every one with
+`git log main..origin/<branch>`. 9 carry commits main does not have; all 9 are superseded, none
+carries a story `main` is missing: `feature-requests-user-stories-u0rxdl` (US-97–109 dividend
+layer, reconciled by `aeb803d`), `degiro-portfolio-spike-7x5d4h` (Trading 212 R1 spike, result
+recorded as US-37), `new-user-story-iu926r` (a disconnect button, same feature shipped as US-79),
+`v47-nav-aspect-ratio-v0wa42` (share-sheet shape strip, shipped as US-78), `bug-report-pbvnjs` (the
+0.46.1 Today-live-day fix, landed re-authored as `52bde3d`), `multi-broker-build` (a snapshot-window
+fix superseded by US-50's `positionSpan`), and `multi-broker-poc` / `refine-0470` / `refine-0470b` /
+`paid-vs-grown-*` / `eager-cannon-islvb3` / `account-total-bug-veh3bv` (docs-only drafts of stories
+already on `main` in final form). Git proxy still refuses branch deletion (**US-120**).
+
+**GitHub.** Zero open issues, zero open PRs — same as every prior pass.
+
+**Backlog numbering**, via `tools/check-backlog.mjs`: 157 stories, highest US-161, next free
+US-162, every heading states its state — unchanged from the twentieth pass plus US-161 itself.
+Sampled 15 "(built)" headings against `main`'s history (old and recent: US-46, 47, 79, 90, 91,
+102, 113, 121–128, 148–152, 156, 160, 161) — all confirmed present by commit.
+
+**Found one, a documentation gap rather than a code defect.** `docs/BACKLOG.md` has no `US-12` or
+`US-13` heading at all — both existed once (`fe5a96c` "US-12: drag across the value chart to zoom",
+`701537b` "US-13: candles on the cumulative result"), both shipped in 0.12.0 and are still listed
+in STATUS.md's *Shipped and confirmed* table, but their entries were dropped from `docs/BACKLOG.md`
+somewhere before or during the US-16 redesign without cleaning up after them: five other stories
+(around `docs/BACKLOG.md` lines 3689, 4183, 4206, 4228, 4368) still cite "US-12" in prose as an
+existing feature to build against (the chart drag-to-zoom), so a reader following those citations
+today hits nothing. Not fixing it here — restoring two five-year-old headings or rewriting five
+other stories' prose is an editorial call, not a "small and clearly safe" one — but it is now
+written down so it stops being silent.
+
+**Rule compliance / security.** Same spot checks as every prior pass, all still clean: `fetch()`
+appears only in `src/lib/degiro.js`, `src/ui/datasource.js` (demo fixtures) and `src/ui/app.js`
+(the extension's own `manifest.json`, for the version string). `degiro.js` still refuses to retry
+401/403. `EXPORTABLE_META` in `store.js` is still an allowlist, `redactMeta` still redacts anything
+not listed. `node tools/check-leaks.mjs` clean (188 tracked files; still no `.leakwords` file).
+
+**Design pass** (`apple-design` skill loaded first, against `docs/redesign/DESIGN-BRIEF.md` as the
+brief that wins any conflict). Headless Playwright at 1440px and 380px, light and dark, driven
+across Overview, Performance, Composition, Holdings and Notices via `npm run demo`: zero page
+errors, zero console errors, zero horizontal overflow in every combination. Screenshotted and
+looked closely: hero number, supporting facts, "All figures" grid, charts and tables held their
+layout, spacing and type hierarchy; sentence case throughout above the 11px eyebrow, no shadow on
+a nested element, tabular numerics, hairline dividers only. `backdrop-filter` still does not
+appear in `src/ui/styles.css`, consistent with the brief's flat-container rule (§8) over the
+`apple-design` skill's translucency guidance, which does not apply here. Specifically re-verified
+the twentieth pass's own fix, US-161: opened `#more-menu` headless at 380px and 500px in both the
+default and `body.plus` state — its bounding rect stayed inside `[0, innerWidth]` in all four
+combinations, confirming the measured-anchor fix holds rather than trading which state breaks.
+No new design or motion defect found this pass.
+
+**Optimization.** No new candidate. Same conclusion as every prior pass: `src/ui/app.js` stays
+unbundled by design (MV3, no build step), and rule 8 rules out a refactor with no story or defect
+behind it.
+
+**Brokers.** No new candidate. Trade Republic, Trading 212 (§8) and Interactive Brokers (§9) in
+`docs/MULTI-BROKER.md` remain scoped as far as possible without a human at a funded, logged-in tab.
+
+`npm test` 698/698, `npm run palette` zero collisions in both themes, `node tools/check-leaks.mjs`
+clean.
+
 ## Light scan, 2026-09-06 (twentieth pass)
 
 This session's own transport branch (`claude/eager-cannon-767gaf`) was identical to `origin/main`
