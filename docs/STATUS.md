@@ -33,7 +33,11 @@ one, and the first that is a leak rather than a layout: **US-164**, *Hide amount
 tile figure in the DOM as the swap's opacity-0 ghost, selectable and copyable until the next render
 (since 0.47.0) — fixed the same day as 0.74.1. It also rescued a story stranded on a fresh branch
 under an already-claimed number (**US-163**, was "US-121" there) and refined **US-165**, the
-dividend table's blank third column on a phone; see SCANS.md for all seven.
+dividend table's blank third column on a phone; see SCANS.md for all seven. The twenty-third pass,
+hours later and prompted by `docs/ARCHITECTURE-REVIEW.md` landing in between, found nothing new in
+code or branches but turned that review's testing observation into a story — **US-166**, folding
+the throwaway browser scripts these passes keep writing (this one included) into a real, repeatable
+check beside `tools/check-mobile.mjs` instead of a paragraph in this file.
 
 ## Architecture review, 2026-09-08
 
@@ -346,6 +350,7 @@ three variants.)
 | US-26 | Instrument coverage declared per broker — verified / assumed, as a vocabulary | More relevant once a second broker lands |
 | US-163 | **Since you last looked** — one panel on Overview for the window since the reader was last here: the period control over a range nobody had to pick, deposits on their own line. Refined 2026-09-08 on a session branch as "US-121", a number `main` had already claimed; landed on `main` under the next free number the same day | The owner deciding to build it |
 | US-165 | **The dividend table's third lock column is blank at rest on a phone.** *Rhythm* is a 309px `nowrap` cell, so at 375 and 414 the three locks do not fit and the reader opens on an empty column with an edge shadow. Wrap the cell or let *Rhythm* yield its lock below a measured width — measure both first. Refined 2026-09-08 | A decision between the two options, at 375 and 414 |
+| US-166 | **Fold the browser scan into a real check.** `check-mobile.mjs` already runs Chromium in CI; widen it (or rename it `check-ui.mjs`) to assert the hidden-amount DOM guarantee and any future UI invariant, so the next regression there is caught by `npm run check:*` instead of a person or a scan re-writing the same script. From `docs/ARCHITECTURE-REVIEW.md`'s testing finding. Refined 2026-09-08 | A decision between widening in place and the rename, before writing code |
 | US-114 | **A price series was rescaled by factor 4,369**, which is not a split ratio. Investigation: one factor across two regimes, or a vwd id that changed instrument. Do not tune the threshold. Numbered 2026-09-02; the text in `docs/BACKLOG.md` is the original | Nothing |
 | US-37 | **Trading 212 R1 — PASS, measured 2026-08-13.** Page 200/401, logged out 401, and the service worker `PASS_JSON` with only an `Accept` header — so no device identifier is required either | Nothing. **US-39–US-45 are unblocked** |
 | US-44 | **Trading 212 renders through the existing pipeline** — no separate dashboard | Gated on US-37 and the data gates. Addendum body not yet received |

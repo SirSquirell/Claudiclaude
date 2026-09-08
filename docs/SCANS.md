@@ -8,6 +8,56 @@ state is in STATUS.md; this is the evidence that it was checked.
 
 ---
 
+## Light scan, 2026-09-08 (twenty-third pass)
+
+Scheduled run, hours after the twenty-second. `origin/main` had moved once since: a docs-only
+commit (`1a125aa`, `docs/ARCHITECTURE-REVIEW.md`) — no code changed, so every code-level check below
+reconfirms rather than re-derives.
+
+**Branches.** 40 remote `claude/*` branches plus `poc`, unchanged in count from the twenty-second
+pass. Checked `merge-base` against `main` for the three smallest "ahead" counts by `git rev-list`
+(`eager-cannon-dp11yd`, 4; `portfolio-visualization-testing-xs5ck4`, 22; `multi-broker-poc`, 90): all
+three return no merge-base, i.e. they diverged before the 2026-08-20 rewrite and their "ahead" count
+is unrelated history, not unlanded work — `dp11yd`'s tip is an old scan pass (fourteenth), `xs5ck4`'s
+is the 0.10.0-era history, `multi-broker-poc` likewise pre-dates the rewrite. `plugin-new-features-
+6d8wjl` (1 commit ahead) is the branch already rescued as US-163 last pass; it stays stale as
+recorded. No branch found carrying a story `main` does not have.
+
+**GitHub.** Zero open issues, zero open PRs — unchanged.
+
+**Backlog numbering**, via `tools/check-backlog.mjs`: 161 stories before this pass's addition,
+highest US-165, next free US-166 — matched STATUS's own count exactly. After adding US-166 (below):
+162 stories, highest US-166, next free US-167.
+
+**Rule compliance / security.** `npm test` 702/702, `npm run palette` zero collisions light and
+dark, `node tools/check-leaks.mjs` clean (190 tracked files, still no `.leakwords` file — unchanged
+gap, not a defect this pass introduced).
+
+**Design pass** (`apple-design` skill loaded first, `docs/redesign/DESIGN-BRIEF.md` as the brief
+that wins any conflict). No code shipped since the twenty-second pass covered 0.73.0/0.74.0/0.74.1
+in depth, so this pass re-measured rather than re-read: a corrected Playwright script (the first
+draft's `[data-route]` selector matched nothing — `#tabs button[data-tab]` is the real one, caught
+before trusting a false-clean result) drove all nine tabs at 1440 and 380, light and dark — zero
+page/console errors, zero horizontal overflow, 36 checks. Re-measured US-165's numbers directly
+rather than trusting the write-up: dividend table 560px in a 351px (375) / 389px (414) scroller,
+unchanged, confirming it is still open and still accurately described. Checked the one deliberate
+translucent surface (`styles.css`'s comment above the modal scrim) against DESIGN-BRIEF.md §8's flat-
+container-depth mandate and `docs/redesign/portfolio-redesign.html`'s two `backdrop-filter` uses (a
+prototype file, not shipped code) — no violation: the shipped stylesheet has exactly the one scrim
+the comment says it does, nothing translucent was added.
+
+**New this pass.** `docs/ARCHITECTURE-REVIEW.md` (landed just before this pass, docs-only) named a
+real gap and left it without a story number: the last three shipped UI defects were all found by a
+browser, none by `npm test`, and the one place that pattern is already fixed
+(`tools/check-mobile.mjs` as its own Chromium CI job) has not been widened past mobile-specific
+checks — the US-164 DOM proof (no hidden amount left in the page text) exists only as a scan's
+scratch script and a SCANS.md paragraph, this pass's own included. Refined as **US-166**, with the
+naming question (widen in place vs. rename to `check-ui.mjs`, which moves `ci.yml`'s `mobile` job
+and `package.json`'s `check:mobile` script) left as an explicit Layer B decision rather than picked
+unilaterally. Not built: it is a testing-infrastructure decision, not a small, obviously-safe fix.
+
+---
+
 ## Light scan, 2026-09-08 (twenty-second pass)
 
 Run at the owner's request, hours after the twenty-first. `origin/main` had moved since: 0.73.0

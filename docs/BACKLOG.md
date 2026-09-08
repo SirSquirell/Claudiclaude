@@ -9641,4 +9641,51 @@ fourth mechanism, stop and write down the measured widths instead of adding one.
 
 ---
 
-**Next free number: US-166.**
+### US-166 — Fold the browser scan into a real check, not a one-off script *(new, refined)*
+
+**Layer A.** `docs/ARCHITECTURE-REVIEW.md` (2026-09-08) measured the last three shipped defects —
+US-161 (menu off-screen), US-162 (chart 2,5 screens down) and US-164 (a hidden amount left in the
+DOM) — and all three were found by a person or a scan running a throwaway Playwright script against
+the demo, none by `npm test`. `npm test`'s own UI coverage is mostly regex over `src/ui/*.js` as
+text (`test/motion.test.js` and four others): a check that the guarding code exists, not that the
+page behaves. `tools/check-mobile.mjs` already runs a real Chromium in CI as its own job (`ci.yml`,
+`mobile`) and is the one place this pattern already works — the DOM-level proof for US-164
+(no amount string in `textContent` or on a copy path, at 0, 300ms, 1s and 5s after pressing the eye)
+exists only as this session's scratch script and a paragraph in `docs/SCANS.md`, so the next
+regression in that path waits for a person to press the eye again.
+
+**Layer B, to decide before building.** Two shapes were considered. (a) Widen
+`tools/check-mobile.mjs` in place to also assert non-mobile DOM invariants (the hidden-amount
+check, the menu-placement check it already has generalised past "mobile"), keeping its name. (b)
+Rename it `tools/check-ui.mjs` (`ci.yml`'s `mobile` job and `package.json`'s `check:mobile` script
+move with it) so the file's name states what it now checks, since a reader who has not read this
+story has no reason to look for a DOM assertion inside a file called "mobile". (b) is the more
+honest name; (a) is zero-risk to CI wiring. Pick one before writing code — do not do the rename as
+a drive-by inside an unrelated story.
+
+#### Acceptance criteria
+
+- [ ] The eye's DOM guarantee (no amount string in `textContent` or on a select-all-and-copy of the
+      figures block, at 0, 300ms, 1s and 5s after toggling) is asserted by a script `npm run
+      check:*` runs, not only demonstrated in `docs/SCANS.md`.
+- [ ] Existing three checks in `check-mobile.mjs` (first chart above the fold, no sideways
+      overflow, More menu on-screen) are byte-identical in behaviour; CI's `mobile` job still runs
+      them, under whichever name Layer B settles on.
+- [ ] `docs/ARCHITECTURE-REVIEW.md`'s recommendation is either satisfied by this story or the story
+      says explicitly which part it defers and why.
+
+#### Dependencies
+
+None — the tool and the pattern already exist; this only widens what it checks.
+
+#### Test
+
+The check itself is the test; `npm test` stays dependency-free and does not gain a browser.
+
+**Stop condition.** If the hidden-amount assertion cannot be expressed without simulating the eye's
+click-and-wait sequence in a way that duplicates `test/motion.test.js`'s existing guard rather than
+verifying the DOM it guards, stop and say so — a second copy of the same assertion is not progress.
+
+---
+
+**Next free number: US-167.**
