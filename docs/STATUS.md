@@ -3,12 +3,12 @@
 `docs/BACKLOG.md` is 7 600 lines of reasoning and evidence, which is the right place for *why* and
 a bad place to find out *where things stand*. This is the index.
 
-**Last updated at 0.74.0, on 2026-09-08.** It had been stale since 0.21.0 once, which is fifteen
+**Last updated at 0.74.1, on 2026-09-08.** It had been stale since 0.21.0 once, which is fifteen
 releases — if it looks stale again, trust the CHANGELOG and fix this.
 
 ## Light scans
 
-Twenty-one re-confirmation passes (2026-08-20 to 2026-09-07) are in [SCANS.md](SCANS.md), newest
+Twenty-two re-confirmation passes (2026-08-20 to 2026-09-08) are in [SCANS.md](SCANS.md), newest
 first. Their standing result: no `claude/*` branch carries a story `main` does not have, the backlog
 numbering is clean, and the rule spot checks pass. What they kept finding — 38 stale remote
 branches the git proxy cannot delete — is now **US-120**, an owner action in GitHub's UI. The
@@ -28,7 +28,12 @@ story rather than patched live, since a static CSS swap would only trade today's
 both the free and `body.plus` state) and found no new design defect, but did find a documentation
 gap: `docs/BACKLOG.md` has no heading for **US-12** or **US-13** — both shipped in 0.12.0 and both
 are still cited by five other stories as an existing feature — a stale cross-reference rather than
-a code issue, left for the owner to reconcile; see SCANS.md for all six.
+a code issue, left for the owner to reconcile. The twenty-second pass found the ledger's third real
+one, and the first that is a leak rather than a layout: **US-164**, *Hide amounts* left every real
+tile figure in the DOM as the swap's opacity-0 ghost, selectable and copyable until the next render
+(since 0.47.0) — fixed the same day as 0.74.1. It also rescued a story stranded on a fresh branch
+under an already-claimed number (**US-163**, was "US-121" there) and refined **US-165**, the
+dividend table's blank third column on a phone; see SCANS.md for all seven.
 
 ## Redesign, 0.71.0
 
@@ -46,6 +51,14 @@ anonymize path to be confirmed against them. The design POCs stay in `docs/proto
 edge below the rail breakpoint because 0.71.0's full-width Upgrade button moved its trigger. Fixed by
 measuring the trigger on open (`src/lib/placement.js`), verified at seven widths in both the free and
 the `body.plus` state. The stylesheet no longer pins a side there.
+
+## 0.74.1 — 2026-09-08
+
+**US-164**, found by the twenty-second light scan: pressing the eye masked every figure on screen but
+kept the real one in the DOM as the swap's departing ghost — six amounts selectable and copyable
+five seconds later, until the next render. A render whose only change is the eye's state no longer
+swaps. Measured after: zero amounts in the page text and on the copy path at 1440 and 375. The share
+card was never affected.
 
 ## 0.74.0 — 2026-09-08
 
@@ -319,6 +332,8 @@ three variants.)
 |---|---|---|
 | US-98 | **Benchmark compare (S&P 500 default, any ETF, PROP folded in) — the owner decided the feature in chat, 2026-08-22.** That is not the same document event as the SPEC amendment rule 8 and the branch policy both lean on: SPEC §7 still reads "no benchmarks" verbatim | The SPEC.md §7 amendment text is drafted in `docs/BACKLOG.md`'s US-98 entry, ready to land in the same commit as the first line of code — nobody has landed it yet |
 | US-26 | Instrument coverage declared per broker — verified / assumed, as a vocabulary | More relevant once a second broker lands |
+| US-163 | **Since you last looked** — one panel on Overview for the window since the reader was last here: the period control over a range nobody had to pick, deposits on their own line. Refined 2026-09-08 on a session branch as "US-121", a number `main` had already claimed; landed on `main` under the next free number the same day | The owner deciding to build it |
+| US-165 | **The dividend table's third lock column is blank at rest on a phone.** *Rhythm* is a 309px `nowrap` cell, so at 375 and 414 the three locks do not fit and the reader opens on an empty column with an edge shadow. Wrap the cell or let *Rhythm* yield its lock below a measured width — measure both first. Refined 2026-09-08 | A decision between the two options, at 375 and 414 |
 | US-114 | **A price series was rescaled by factor 4,369**, which is not a split ratio. Investigation: one factor across two regimes, or a vwd id that changed instrument. Do not tune the threshold. Numbered 2026-09-02; the text in `docs/BACKLOG.md` is the original | Nothing |
 | US-37 | **Trading 212 R1 — PASS, measured 2026-08-13.** Page 200/401, logged out 401, and the service worker `PASS_JSON` with only an `Accept` header — so no device identifier is required either | Nothing. **US-39–US-45 are unblocked** |
 | US-44 | **Trading 212 renders through the existing pipeline** — no separate dashboard | Gated on US-37 and the data gates. Addendum body not yet received |

@@ -8,6 +8,82 @@ state is in STATUS.md; this is the evidence that it was checked.
 
 ---
 
+## Light scan, 2026-09-08 (twenty-second pass)
+
+Run at the owner's request, hours after the twenty-first. `origin/main` had moved since: 0.73.0
+(US-162, the phone layout) and 0.74.0 (US-159, the dividend table's column priority) both landed
+overnight. This session's transport branch (`claude/eager-cannon-tjpl32`) was reset to `origin/main`
+before anything was measured.
+
+**Branches.** 40 remote `claude/*` branches plus `poc`, counted as `origin/claude/*` — this
+session's own transport branch included. **One is new and carried real unlanded work:**
+`claude/plugin-new-features-6d8wjl`, one docs-only commit (`05c1d1b`, 2026-09-08 05:13) refining a
+story *Since you last looked* — a panel for the window since the reader's last visit — and numbering
+it **US-121**, because the branch was cut from a 2026-09-02 `main` whose next free number was
+US-121. `main` had given US-121 to *Dividend per share* (built, 0.70.0) a week earlier. This is the
+collision the branch policy exists for (three stories claimed US-66 in August). Rescued: the story's
+text landed on `main` unchanged as **US-163**, with a numbering note, and STATUS's *Refined, not
+built* table carries it; the branch is now stale like the others. Every other branch's tip is
+unchanged from the twenty-first pass; the git proxy still refuses branch deletion (**US-120**).
+
+**GitHub.** Zero open issues, zero open PRs.
+
+**Backlog numbering**, via `tools/check-backlog.mjs` before this pass's own additions: 158 stories,
+highest US-162, next free US-163, every heading states its state. After: 161 stories, highest US-165,
+next free US-166. The ten highest `(built` headings all appear in `main`'s commit log. **The US-12 /
+US-13 gap the twenty-first pass found is unchanged**: no heading for either, five prose citations of
+US-12 still in place — still the owner's editorial call.
+
+**Rule compliance / security.** Same spot checks, all still clean: `fetch()` only in
+`src/lib/degiro.js`, `src/ui/datasource.js` and `src/ui/app.js` (its own manifest); 401/403 not
+retried; `EXPORTABLE_META` still an allowlist; `node tools/check-leaks.mjs` clean (189 tracked files;
+still no `.leakwords` file).
+
+**Design pass** (`apple-design` skill loaded first, `docs/redesign/DESIGN-BRIEF.md` as the brief that
+wins any conflict). Two new releases meant two new things to look at, and — following the 0.60.3
+lesson that every scan so far measured the *resting* page — this pass pressed things.
+
+- *US-162, the phone layout.* `tools/check-mobile.mjs` (new in 0.73.0) run against the demo: first
+  chart at 460–660 on 375×667 and 461–661 on 390×844, no sideways overflow on any section at four
+  widths, the More sheet inside the viewport in both states. Then looked at, not only measured: the
+  44px bar, the sideways tab strip (750px of tabs in a 375px strip, `overflow-x: auto`), the seal
+  line, the 36px hero and the ruled row of three facts, the chart above the fold; More as a bottom
+  sheet with 44px rows, closing on Escape, its transitions 0,14 s and no keyframe animation under
+  reduced motion. The glyph on its first row is the broker mark (DEGIRO's two bars), not a misplaced
+  grabber — checked in the DOM before calling it anything. Zero page errors, zero console errors,
+  zero horizontal overflow at 1440 and 380, light and dark, across all eight sections.
+- *US-159, the dividend table.* At 768 eight columns are visible and the chooser is present; at 375
+  the priority pass leaves the three locks. But the locks do not fit: the table is 560px in a 351px
+  scroller because the *Rhythm* cell is 309px of `nowrap` text (the word plus the share of gaps that
+  agree), so at rest the reader sees *Position*, *All time* and an empty third column with the edge
+  shadow. Reachable by scrolling, so no acceptance criterion of US-159 fails — refined as **US-165**
+  rather than patched, because the right answer (wrap the cell, or let *Rhythm* yield its lock below
+  a width) needs both measured at 375 and 414 first.
+- *Hidden amounts, pressed rather than admired.* **Found the ledger's third real defect, and the
+  first that is a leak rather than a layout — US-164.** After the eye, every tile *looked* masked,
+  but the swap of US-65 keeps the departing string in the DOM as an opacity-0 `span.swap-out`
+  until the next render — and on the eye press the departing string is the real figure. Measured:
+  six amounts (€ 121.303,57 and the rest of the demo's tiles) in the tiles' `textContent` and in a
+  select-all-and-copy of the block at 0,3 s, 1 s and 5 s after the press, at 1440 and at 375; gone
+  only after a section change forced a render. Shipped that way since 0.47.0, across twenty-one
+  scans that all checked the mask by eye. Fixed the same day as **0.74.1**: a render whose only
+  change is the eye's state replaces without swapping. Measured after: zero amounts in the DOM
+  text, zero on the copy path at all three delays and both widths; a range change while unmasked
+  still swaps (two ghosts, as before). The share card was never affected — drawn from an allowlist.
+- One line for the owner, no story: the dividend hero's *Dividend yield* fact prints `+1.13%` in
+  blue. A yield has no sign to colour; the brief colours the sign and the delta, and this reads as
+  a change.
+
+**Optimization.** No new candidate. `src/ui/app.js` stays unbundled by design (MV3, no build step);
+rule 8 rules out a refactor with no story or defect behind it.
+
+**Brokers.** No new candidate. Trade Republic, Trading 212 (§8) and Interactive Brokers (§9) in
+`docs/MULTI-BROKER.md` remain scoped as far as they can be without a human at a funded, logged-in
+tab.
+
+`npm test` 702/702 (one new: the US-164 guard), `npm run palette` zero collisions in both themes,
+`node tools/check-leaks.mjs` clean, `tools/check-mobile.mjs` green.
+
 ## Light scan, 2026-09-07 (twenty-first pass)
 
 This session's own transport branch (`claude/eager-cannon-tjpl32`) was identical to `origin/main`

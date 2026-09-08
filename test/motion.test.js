@@ -231,8 +231,24 @@ test('AC4 — a figure only swaps when it actually changed', () => {
   // overlapping subsets in different orders and an index would call a tab
   // switch a change.
   const tiles = app.slice(app.indexOf('const cell = (t, kind) =>'), app.indexOf('const [hero, ...others]'));
-  assert.match(tiles, /const changed = previous !== undefined && previous !== value;/);
+  assert.match(tiles, /const changed = !masking && previous !== undefined && previous !== value;/);
   assert.match(app, /const lastTileValue = new Map\(\);/);
+});
+
+test('US-164 — pressing the eye replaces the figure, it does not swap it', () => {
+  /**
+   * The ghost of a swap is the departing string, kept in the DOM at opacity 0
+   * until the next render. When the change is the mask going on, that string is
+   * the real amount the reader just hid — measured in Chromium: six amounts
+   * selectable and copyable five seconds after the press. So a render in which
+   * the eye's state differs from the last render's does not swap at all, in
+   * either direction — measured after: zero amounts in the DOM, zero ghosts.
+   */
+  const fn = app.slice(app.indexOf('function renderTiles('), app.indexOf('const cell = (t, kind) =>'));
+  assert.match(app, /let lastTileMask;/);
+  assert.match(fn, /const mask = getAnonymize\(\);/);
+  assert.match(fn, /const masking = lastTileMask !== undefined && lastTileMask !== mask;/);
+  assert.match(fn, /lastTileMask = mask;/);
 });
 
 test('AC5 — reduced motion is an instant swap, not a slower one', () => {

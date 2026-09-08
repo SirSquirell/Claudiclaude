@@ -16,6 +16,25 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.74.1] — 2026-09-08
+
+**No resync needed** — display only. If you use *Hide amounts*, this one is for you.
+
+### Fixed
+
+- **Hidden amounts left the real figures in the page (US-164).** Since 0.47.0 a changed tile
+  figure *swaps*: the new string arrives and the old one leaves as a ghost at opacity 0, which stays
+  in the DOM until the next render. Pressing the eye changes every figure — so every tile kept the
+  real amount it had just hidden, invisible but selectable: select-all and copy on the figures block
+  returned all six amounts, five seconds after the press and for as long as the page sat still. The
+  masking itself was never the problem (the mask is the formatter's, US-46); the departing string
+  was. A render whose only change is the eye's state now replaces without swapping, in both
+  directions, which is also what the brief asks for — amounts are hidden by replacement. Every other
+  swap (a range change, a sync) is unchanged. Measured after in Chromium at 1440 and 375: zero
+  amounts in the DOM text, zero on the clipboard path, at 0,3 s, 1 s and 5 s; a range change while
+  unmasked still swaps. The share card was never affected — it is drawn from an
+  allowlist, not from the DOM. Found by the twenty-second light scan.
+
 ## [0.74.0] — 2026-09-08
 
 **No resync needed** — display only.

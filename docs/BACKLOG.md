@@ -9496,4 +9496,149 @@ for the two defects this shell has already shipped (US-161 twice, and this one).
 
 ---
 
-**Next free number: US-163.**
+### US-163 — Since you last looked *(new, refined)*
+
+> "Is wel n cool idee!" — the owner, 2026-09-08, picking one item out of a brainstorm.
+
+*Numbering note.* This story was refined on 2026-09-08 on a session branch
+(`claude/plugin-new-features-6d8wjl`) cut from a 2026-09-02 `main`, and numbered **US-121** there — a
+number `main` had already given to *Dividend per share* (built, 0.70.0). Landed here under the next
+free number the same day by the twenty-second light scan; the text is the branch's, unchanged. The
+policy that makes this the only place a number is claimed is in CLAUDE.md, *Branches*.
+
+The sync runs unattended once a day (US-112); the page is opened when it occurs to you. Between
+the two lies a gap of days or weeks that nothing on screen names. The Today tile covers one day;
+the period control covers a window you have to pick. Missing is the window you did *not* pick: the
+one since the last time you were here.
+
+One panel at the top of Overview, present only when it has something to say: *"12 days synced
+since 27 August."* Under it, over exactly those days: the return, the deposits and withdrawals on
+their own line, the number of transactions, and the dividend received.
+
+#### The trap, in its fourth disguise
+
+*"Up €2 000 since you last looked"* when €2 000 was paid in. The panel is therefore **the period
+control with a range the reader did not have to pick**: from the last seen day to the last synced
+day, anchored on the value the day before, chained by `windowReturnPct`. No new engine number, no
+second way of computing a return. Deposits are printed beside it and never netted into it.
+
+#### What is stored, and where
+
+One marker: the ISO date of the last synced day that was on screen when the reader left, written
+on `pagehide`, in `localStorage` beside the theme and the column order (US-87's pattern). It is a
+bookmark, not a derived figure (rule 2): every number in the panel is recomputed from the raw store
+against it. `localStorage` is not part of the export and the bug report's allowlist does not
+change, so nothing new leaves the machine (rule 7).
+
+Written on leaving rather than on opening, because a marker written on open makes the panel vanish
+on the first reload, while the reader is still looking at it.
+
+#### Scope / not in scope
+
+- In: the panel; the marker; a `?since=YYYY-MM-DD` flag on the demo, the same shape as `?frozen=1`
+  and for the same reason — a "last visit" cannot otherwise be looked at in `npm run demo`.
+- In: the panel is absent when the marker is missing (first visit), equals the last synced day
+  (nothing new), is not in `result.days` (wiped and resynced to a different depth), or the account
+  is frozen (US-79 — nothing advances).
+- Not: a notices diff (notices carry no timestamp), a per-position delta, "mark as read", anything
+  outside the page (a badge on the icon is its own idea), or carrying the marker across devices.
+
+#### Acceptance criteria
+
+- [ ] With a marker N days before the last synced day, the panel names both dates and N, and its
+      return equals what the period control shows for that same range.
+- [ ] A deposit inside the window moves the deposits line and leaves the return unchanged.
+- [ ] Reloading keeps the panel; leaving and coming back the same day hides it (nothing new).
+- [ ] Amounts follow the eye (US-46): replaced when hidden, percentages kept.
+- [ ] `npm run demo` with `?since=` shows the panel; without it, nothing is added to Overview.
+- [ ] Wipe & resync cannot produce a wrong panel: a marker outside the new series hides it.
+
+#### Dependencies
+
+None. `windowReturnPct`, the `netExternal` series, the transaction list and `dividendGross` exist.
+
+#### Test
+
+Pure, in `engine.js`: `sinceVisit(result, lastSeenDay)` returns `{ fromIndex, toIndex, days,
+returnPct, netExternal, transactions, dividendGross }` or `null`. Tests on the fixtures for the
+four `null` cases, the deposit case, and equality with `windowReturnPct` over the same indices.
+The panel itself is checked by eye through the demo flag.
+
+---
+
+### US-164 — Hidden amounts leave the real figure in the DOM *(built, 0.74.1)*
+
+**The bug.** US-65 (0.47.0) made a changed tile figure *swap*: `renderTiles` writes the new string
+as `span.swap-in` and the previous one as `span.swap-out`, which `figure-out` fades to opacity 0
+and leaves in place — until the next render. Pressing the eye (US-46) changes every string, so every
+tile's ghost was the real amount the reader had just asked to hide: `aria-hidden`, pointer-events
+off, but in the text of the page. Measured headless on the demo at 1440 and 375: six amounts in the
+tiles' `textContent` and in a select-all-and-copy of the block, unchanged at 0,3 s, 1 s and 5 s
+after the press; gone only after a section round-trip forced a render. The brief (§5, §9) says
+amounts are hidden by replacement and that no amount may remain in the DOM. The comment on the
+swap reasoned about the *arriving* string being a mask and never about the departing one.
+
+**The fix.** One state beside `lastTileValue`: the eye's state at the last render. A render in
+which it differs from the current one does not swap at all — the figure is written outright, in
+both directions, so there is no ghost and nothing to remember about which way the eye went. Every
+other swap is unchanged. Nothing in `theme.js`, `anon.js` or the formatters moved; the popup has no
+eye of its own and keeps its swap.
+
+#### Acceptance criteria
+
+- [x] After the eye is pressed, no string matching an amount exists anywhere in the page's
+      `textContent`, and a selection over the figures block copies none — at 0,3 s, 1 s and 5 s.
+- [x] A range change while masked leaves it that way; unmasking replaces too, with no ghost.
+- [x] A range change while unmasked still swaps (US-65 AC4 intact) — measured: two ghosts, as before.
+- [x] `test/motion.test.js` pins the guard; the browser measurement above is in SCANS.md.
+
+#### Dependencies
+
+None.
+
+#### Test
+
+`test/motion.test.js`, *US-164*: the guard and its state exist in `renderTiles`. The DOM
+measurement is the scan's Chromium script, recorded with its figures in `docs/SCANS.md`.
+
+---
+
+### US-165 — The Dividends table's third lock column is blank at rest on a phone *(new, refined)*
+
+**Layer A.** US-159 (0.74.0) locks *Position*, *All time* and *Rhythm* on the dividend table and
+drops the rest by priority. Measured at 375 and 414 the lock set does not fit: the table is 560px in
+a 351px (375) or 389px (414) scroller, because the *Rhythm* cell is 309px wide — its word and the
+share of gaps that agree sit on one `nowrap` line. At rest the reader sees *Position*, *All time*,
+then an empty third column and the edge shadow; the rhythm word itself starts beyond the viewport.
+The table is reachable by scrolling, so no acceptance criterion of US-159 fails — but the phone
+view of this table now opens on a column that shows nothing.
+
+**Layer B, to decide before building.** Either the *Rhythm* cell wraps or shortens below a measured
+width (the word on one line, the share under it or behind the row's detail), or *Rhythm* yields its
+lock below that width and reappears in the detail like the others. The first keeps the story's
+promise that three things never drop; the second keeps every lock column visible at rest. Measure
+both at 375 and 414 before choosing; do not change the lock set at 640 and above.
+
+#### Acceptance criteria
+
+- [ ] At 375 and 414, every column visible at rest shows its header and its value without
+      scrolling the table sideways; a column that cannot is not visible at rest.
+- [ ] Positions is byte-identical; nothing changes at 640px and above.
+- [ ] `tools/check-mobile.mjs` measures it: the dividend table's scroller has no sideways overflow
+      at 375 and 414, or every visible lock column's header is inside the viewport.
+
+#### Dependencies
+
+US-159.
+
+#### Test
+
+`tools/check-mobile.mjs` (the criterion above); `test/columns.test.js` if the lock set changes by
+width.
+
+**Stop condition.** If neither option fits a real account's longest rhythm string at 375 without a
+fourth mechanism, stop and write down the measured widths instead of adding one.
+
+---
+
+**Next free number: US-166.**

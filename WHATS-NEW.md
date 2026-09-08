@@ -1,15 +1,19 @@
-# Wat er nieuw is — 0.74.0
+# Wat er nieuw is — 0.74.1
 
-**Geen resync nodig.** Alleen de weergave van één tabel verandert; geen enkel bedrag.
+**Geen resync nodig.** Er verandert geen enkel bedrag; één lek in *Bedragen verbergen* is dicht.
 De volledige geschiedenis staat in [CHANGELOG.md](CHANGELOG.md).
 
 > **Hoef je te resyncen voor deze versie? Nee.**
 
 ---
 
-## De dividendtabel past zich aan de breedte aan, zoals Posities al deed
+## Verborgen bedragen stonden nog in de pagina
 
-Op een smal venster of een telefoon scrolde de tabel met negen kolommen opzij. Nu vallen kolommen
-weg in een vaste volgorde (eerst Volgende verwacht, dan Staat van dienst, Regelmaat, Dit jaar, de
-twee rendementen) en komen ze terug bovenin de uitklaprij van elke positie. Positie, Totaal en Ritme
-blijven altijd staan. Met de knop Kolommen kies je zelf wat je wilt zien; die keuze wordt bewaard.
+Als je op het oog drukte, werd elk bedrag netjes vervangen door `€ •••` — op het scherm. Maar het
+echte bedrag bleef onzichtbaar in de pagina staan, als de "vertrekkende" tekst van de wisselanimatie,
+tot de pagina opnieuw tekende. Wie alles selecteerde en kopieerde, of de pagina in devtools opende,
+had de zes bedragen terug. Dat is nu weg: drukken op het oog vervangt de cijfers zonder
+wisselanimatie, en er blijft niets achter. Gemeten in de browser, op een breed en een smal scherm.
+
+De deelkaart was hier nooit door geraakt: die wordt getekend uit een vaste lijst velden, niet uit
+de pagina.

@@ -3437,9 +3437,25 @@ function buildTiles(r, from = 0, to = r.days.length - 1, live = null) {
  * index would call a tab switch a change and animate figures that did not move.
  */
 const lastTileValue = new Map();
+/** The eye's state at the last render — see `masking` in `renderTiles`. */
+let lastTileMask;
 
 function renderTiles(r, from = 0, to = r.days.length - 1, live = null) {
   const tiles = buildTiles(r, from, to, live);
+
+  /**
+   * US-164. The swap keeps the departing string in the DOM as a ghost (opacity 0,
+   * `aria-hidden`) — which, when the change is the eye being pressed, is the real
+   * figure the reader just asked to hide: selectable, copyable, still there after
+   * the animation until the next render. Found by the twenty-second light scan,
+   * 0.47.0 to 0.74.0. So a render whose only change is the mask flipping does not
+   * swap at all: the brief says amounts are hidden *by replacement*, and a fade of
+   * the figure being hidden is motion against the reader's intent. Both directions
+   * of the eye replace — one rule, no state to remember which way it went.
+   */
+  const mask = getAnonymize();
+  const masking = lastTileMask !== undefined && lastTileMask !== mask;
+  lastTileMask = mask;
 
   /**
    * Optimism Mode, applied at the last possible moment.
@@ -3522,7 +3538,7 @@ function renderTiles(r, from = 0, to = r.days.length - 1, live = null) {
        * of a tile is not a change — `previous` is undefined and it simply draws.
        */
       const previous = lastTileValue.get(t.label);
-      const changed = previous !== undefined && previous !== value;
+      const changed = !masking && previous !== undefined && previous !== value;
       lastTileValue.set(t.label, value);
       return `
       <div class="tile ${kind}${cheerful && down ? ' tile-flipped' : ''}">
