@@ -16,7 +16,28 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
-## [0.72.1] — 2026-09-07
+## [0.73.0] — 2026-09-08
+
+**No resync needed** — the phone layout only; no figure changed.
+
+### Changed
+
+- **The phone gets its chart on the first screen (US-162).** Below the rail breakpoint the rail was
+  stacked on top of the page — 411px of chrome, then a 138px title — and on 375×667 the first chart
+  started at y = 1573. Now the rail is a 44px bar (mark, eye, frown, Sync, More), a 44px tab strip
+  that scrolls sideways, and a 24px seal line; the bar scrolls away and the strip and seal stay
+  pinned, so the section and the reconciliation verdict are on screen at every scroll position. The
+  title is screen-reader only, the Upgrade button leaves (the Plus tab is the same link), the crumb
+  leaves unless it carries its red message, the three facts sit in one ruled row under a 36px hero,
+  All figures starts closed, charts are 200/220px, banners clamp to two lines until tapped, and More
+  opens as a bottom sheet. Measured after: the first chart at y = 460–660 on 375×667, above the fold;
+  the frozen state at 542. Spec from a mobile design review; the rejected alternatives (bottom tab
+  bar, hamburger, KPI carousel) are in the story.
+- **`tools/check-mobile.mjs`** measures it: chart position on two phones, sideways overflow on nine
+  sections at four widths, the More menu at fourteen width/state combinations. CI runs it as its own
+  job; `npm test` stays browser-free.
+
+
 
 **No resync needed** — display only.
 

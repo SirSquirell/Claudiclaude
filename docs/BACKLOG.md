@@ -9445,4 +9445,55 @@ exact menu has shipped off-screen (0.60.2 and now) in opposite directions.
 
 ---
 
-**Next free number: US-162.**
+### US-162 — The phone: the chart on the first screen *(built, 0.73.0 — from a mobile design review on 2026-09-07)*
+
+**Layer A.** Below the rail breakpoint 0.71.0 stacked the whole rail on top of the page: mark, three
+rows of tabs, five rows of seal, Sync, a full-width Upgrade button and More — 411px of chrome before
+the page title, which itself took 138. Measured on 375×667 the first chart started at **y = 1573**,
+two and a half screens down; the first screen held no figure and no chart. The owner's verdict: on
+a phone you want to see your chart without scrolling. A mobile design review (apple-design and Emil
+Kowalski lenses, on real screenshots at 375, 390 and 768) produced the spec this story builds.
+
+**Layer B.** Below 60em the rail becomes three rows: a 44px bar (mark, the eye and frown buttons
+moved in from the topbar, Sync, More), a 44px tab strip that scrolls sideways with a fade at both
+edges, and a 24px seal line. The rail is sticky at `top: -44px`, so the bar scrolls away and the
+strip and the seal stay pinned: "where am I" and "does it reconcile" (rule 6) on every scroll
+position. The topbar title is screen-reader only; the Upgrade button is gone (the Plus tab with its
+dot is the same link); the crumb leaves unless it carries its red clipped-range message. Below 40em
+the hero is 36px Newsreader with the three facts as one ruled row, All figures starts closed, the
+range takes one full row with granularity and the cash toggle sharing the next, charts are 200/220px,
+banners clamp to two lines until tapped, and More opens as a bottom sheet with 44px rows and room for
+the home indicator. Rejected on purpose: a bottom tab bar (nine sections do not fit five slots and
+Chrome's own bar is already there), a hamburger (hides where you are), a KPI carousel (hides two of
+three figures), and any tap in front of the seal.
+
+**Measured after, 375×667:** bar 44, strip 44, seal 24, controls 77, hero 81, facts 64, All figures
+24; the first chart at **y = 460–660**, wholly above the fold. 390×844: 461. 768×1024: 687. Frozen
+account: 542 with the clamped banner. No sideways overflow at 320, 375, 414 or 768 on any section.
+
+#### Acceptance criteria
+
+- [x] 375×667 and 390×844: the first chart starts at or above 480px and ends above the fold.
+- [x] The tab strip and the seal are visible at every scroll position below 60em.
+- [x] The seal shows the sync time and the frozen state; the two amounts of US-160 appear only when
+      the reconciliation failed, in red.
+- [x] More opens inside the viewport at 320 to 900px in both the default and the `body.plus`
+      state (US-161's cases), as a sheet below 60em.
+- [x] Nothing overflows sideways on any section at 320, 375, 414 or 768px.
+- [x] `?frozen=1` still shows its banner, two lines until tapped.
+- [x] Touch targets: tabs 44px, range 44px, menu rows 44px, icon buttons 40px under a coarse pointer.
+- [x] `tools/check-mobile.mjs` measures all of the above in Chromium; CI runs it as its own job.
+
+#### Dependencies
+
+US-161 (the measured menu anchor), US-160 (the seal's amounts).
+
+#### Test
+
+`tools/check-mobile.mjs` against the demo: chart position on two phones, sideways overflow on nine
+sections at four widths, the menu at fourteen width/state combinations. It is the regression check
+for the two defects this shell has already shipped (US-161 twice, and this one).
+
+---
+
+**Next free number: US-163.**

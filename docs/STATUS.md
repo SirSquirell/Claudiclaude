@@ -3,7 +3,7 @@
 `docs/BACKLOG.md` is 7 600 lines of reasoning and evidence, which is the right place for *why* and
 a bad place to find out *where things stand*. This is the index.
 
-**Last updated at 0.72.1, on 2026-09-07.** It had been stale since 0.21.0 once, which is fifteen
+**Last updated at 0.73.0, on 2026-09-08.** It had been stale since 0.21.0 once, which is fifteen
 releases — if it looks stale again, trust the CHANGELOG and fix this.
 
 ## Light scans
@@ -46,6 +46,15 @@ anonymize path to be confirmed against them. The design POCs stay in `docs/proto
 edge below the rail breakpoint because 0.71.0's full-width Upgrade button moved its trigger. Fixed by
 measuring the trigger on open (`src/lib/placement.js`), verified at seven widths in both the free and
 the `body.plus` state. The stylesheet no longer pins a side there.
+
+## 0.73.0 — 2026-09-08
+
+**US-162**, the phone layout, from a mobile design review: the first chart on 375×667 moved from
+y = 1573 to y = 460 and sits wholly above the fold; the rail is a bar, a sticky tab strip and a
+sticky one-line seal. `tools/check-mobile.mjs` (Chromium, its own CI job) is the regression check for
+the two phone defects this shell has shipped, US-161 and this one. Next: **US-159** column priority on
+the other wide tables, whose phone view is the weakest screen left (Positions at 375 shows three
+rows of filter pills before the table).
 
 ## 0.72.0 — 2026-09-06
 

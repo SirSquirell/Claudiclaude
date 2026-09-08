@@ -1346,16 +1346,115 @@ button.primary:hover {
     grid-template-columns: 1fr;
   }
 
+  /*
+   * US-162 — the shell on a phone or a tablet.
+   *
+   * The rail stops being a column and becomes three rows: a 44px bar (mark,
+   * the eye and frown buttons moved in from the topbar, Sync, More), a 44px
+   * tab strip that scrolls sideways, and a 24px seal line. The bar scrolls
+   * away — `top: -44px` on a sticky rail leaves exactly the strip and the seal
+   * pinned — so "where am I" and "does it reconcile" (rule 6) are on screen at
+   * every scroll position and the chart is on screen at the first one. Measured
+   * before this: 411px of chrome, and the first chart at y = 1573 on 375×667.
+   */
   .rail {
-    position: static;
+    position: sticky;
+    top: -44px;
     height: auto;
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    grid-template-areas:
+      'head sync more'
+      'nav nav nav'
+      'state state state';
+    align-items: center;
+    gap: 0 8px;
+    padding: 0 0.75rem;
+    padding-left: max(0.75rem, env(safe-area-inset-left));
+    padding-right: max(0.75rem, env(safe-area-inset-right));
     border-right: 0;
     border-bottom: var(--rule) solid var(--border);
   }
 
+  .rail-head {
+    grid-area: head;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+    padding: 0;
+  }
+
+  .rail-head #lockup {
+    display: flex;
+    margin-right: auto;
+  }
+
+  /* The eye and the frown live in the bar here; app.js moves `.topbar-right`
+     in below 60em and back above it. The prulwerk link stays out: a phone bar
+     has room for what you press, not for where you came from. */
+  .rail-head .topbar-right .prulwerk-link {
+    display: none;
+  }
+
+  .rail-foot {
+    display: contents;
+  }
+
+  #btn-sync {
+    grid-area: sync;
+    width: auto;
+    min-height: 36px;
+    padding: 6px 14px;
+  }
+
+  .menu-wrap {
+    grid-area: more;
+  }
+
+  .menu-wrap > button {
+    width: auto;
+    min-height: 36px;
+    padding: 6px 12px;
+  }
+
+  /* The Plus tab with its dot is the same link; a second, full-width button
+     cost 38px of every first screen. */
+  #btn-upgrade {
+    display: none;
+  }
+
   .rail-nav {
+    grid-area: nav;
     flex-direction: row;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    gap: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin: 0 -0.75rem;
+    padding: 0 0.75rem;
+    min-height: 44px;
+    align-items: stretch;
+    /* The strip fades at both edges, which is how it says "there is more"
+       without an arrow; the fade is 12px in and 24px out so the current tab
+       is never the one dimmed. */
+    mask-image: linear-gradient(90deg, transparent, #000 12px, #000 calc(100% - 24px), transparent);
+    border-top: var(--rule) solid var(--border);
+  }
+
+  .rail-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .rail-nav button {
+    flex: none;
+    white-space: nowrap;
+    min-height: 44px;
+    padding: 0 10px;
+    border-radius: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
   }
 
   /*
@@ -1370,44 +1469,120 @@ button.primary:hover {
     box-shadow: inset 0 -2px 0 var(--accent);
   }
 
-  .rail-foot {
-    /* No auto margin here: stacked, there is no column height to push against,
-       and it left ~90px of empty rail between the nav and the sync row. */
+  .rail-nav button .plus-dot {
+    float: none;
     margin-top: 0;
-    flex-direction: row;
-    align-items: center;
-    flex-wrap: wrap;
   }
 
+  .rail-sep {
+    width: var(--rule);
+    height: 18px;
+    align-self: center;
+    margin: 0 6px;
+    flex: none;
+  }
+
+  /*
+   * The seal as one line. The stamp leads; the sync time and the frozen state
+   * follow; coverage is a tile already and leaves; the two amounts show only
+   * when the reconciliation failed — at green they are confirmation, at red
+   * they are the finding (US-160).
+   */
   .rail-state {
-    flex: 1;
+    grid-area: state;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 12px;
+    min-height: 24px;
+    padding: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    font-size: 0.75rem;
+    border-top: var(--rule) solid var(--border);
   }
 
-  button.primary,
-  .menu-wrap > button {
+  .rail-state .row {
+    flex: none;
+    align-items: center;
+  }
+
+  .rail-state .row.ok {
+    margin-bottom: 0;
+  }
+
+  .rail-state .row.coverage,
+  .rail-state .row.amount {
+    display: none;
+  }
+
+  .rail-state.bad .row.amount {
+    display: flex;
+    gap: 6px;
+    padding-left: 0;
+  }
+
+  .rail-state .row.amount b {
+    color: var(--critical);
+  }
+
+  /* The page title is the tab strip now. It stays in the document for the
+     accessibility tree and leaves the screen. */
+  .topbar {
+    margin-bottom: 0;
+  }
+
+  .topbar > div:first-child {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .tiles {
+    display: block;
+  }
+
+  /*
+   * The More menu becomes a bottom sheet: fixed to the bottom edge, full width,
+   * rounded at the top, 44px rows, room for the home indicator. The measured
+   * anchor of US-161 has nothing left to decide here — both edges are pinned —
+   * and Escape and click-outside in `wireMore` are unchanged.
+   */
+  .menu-wrap .menu,
+  .menu-wrap .menu.anchor-right {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: auto;
     width: auto;
+    max-width: none;
+    border-radius: var(--radius) var(--radius) 0 0;
+    padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+    transform-origin: bottom center;
   }
 
-  /* The trigger sits at the right end of a wrapped row here, not at the foot
-     of a column, so a menu that still grows from its own left edge runs off
-     the right of the viewport. Growing from the right edge of the trigger
-     keeps it the same distance from where it was, whichever way it opens.
-     It also stops hanging off a "foot" at all: `.rail` goes `position: static`
-     below this breakpoint, so the trigger sits near the *top* of the page
-     with the whole page below it, not above it. Opening upward here ran the
-     menu's own height past the top of the viewport with no scroll able to
-     reach it — the first three items (Check connection, Copy bug report,
-     Export JSON) were permanently hidden above the screen edge. */
-  .menu {
-    top: calc(100% + 6px);
-    bottom: auto;
-    transform-origin: top left;
-  }
-
-  .menu.anchor-right {
-    transform-origin: top right;
+  .menu [role='menuitem'] {
+    min-height: 44px;
   }
 }
+
+/* Touch: a 40px target for the icon buttons, and 44px for the range tabs. */
+@media (pointer: coarse) {
+  .icon-btn,
+  .topbar-right .frown-btn {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+
+  .controls .group button {
+    min-height: 44px;
+  }
+}
+
 
 /*
  * US-161. Which horizontal edge the menu hangs from is decided on open by
@@ -2639,34 +2814,32 @@ td.neg { color: var(--neg); }
 }
 
 @media (max-width: 39em) {
-  .tiles {
-    grid-template-columns: 1fr 1fr;
-  }
-
+  /* US-162: the range takes the full row; granularity and the cash toggle
+     share the row beneath it. Two rows, 76px, where three rows were 118. */
   .controls {
-    gap: 10px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 0 12px;
+    align-items: center;
   }
 
-  /* Every group keeps its own line, so a range and a granularity never read as
-     one row of eight equal buttons. */
-  .controls > .group,
-  .controls > label.check {
-    width: 100%;
-  }
-
-  .group {
+  .controls > #range-group {
+    grid-column: 1 / -1;
     justify-content: space-between;
   }
 
-  .group button {
-    flex: 1 1 auto;
-    padding: 6px 8px;
+  .controls > #range-group > .glabel {
+    display: none;
   }
-}
 
-@media (max-width: 26em) {
-  .tiles {
-    grid-template-columns: 1fr;
+  .controls > #range-group button {
+    flex: 1 1 auto;
+    padding: 9px 4px;
+  }
+
+  .controls > label.check {
+    justify-self: end;
+    padding: 6px 0;
   }
 }
 
@@ -4234,4 +4407,132 @@ table.compare td.no {
 
 .rail-state .row.amount.bad b {
   color: var(--critical);
+}
+
+/* US-162: phone overrides last, so they win over the desktop rules above at equal specificity. */
+@media (max-width: 40em) {
+  :root {
+    /* Shorter charts on a phone: 220 and 240px, so the hero chart's whole
+       height is above the fold once the shell is 72px. */
+    --chart-h: 13.75rem;
+    --hero-h: 12.5rem;
+  }
+
+  .main {
+    padding-left: max(var(--outer), env(safe-area-inset-left));
+    padding-right: max(var(--outer), env(safe-area-inset-right));
+  }
+
+  /* US-162: the hero at 40px, and the three facts as one ruled row beneath
+     it, not a column of three. */
+  .hero-row {
+    gap: 8px;
+    padding: 6px 0 8px;
+  }
+
+  .tile.is-hero {
+    width: 100%;
+    --kpi: 2.25rem;
+    --kpi-track: var(--track-display);
+  }
+
+  /* Tighter vertical rhythm inside a tile, and a label that never wraps: on a
+     phone a second label line costs the chart its place above the fold. */
+  .tile .value {
+    margin-top: 4px;
+  }
+
+  .tile .note {
+    margin-top: 2px;
+  }
+
+  .facts > .tile .label {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+  }
+
+  .facts > .tile .label .info {
+    display: none;
+  }
+
+  /* The crumb repeats what the range tabs say; it stays only when it carries
+     the red "range clipped" message (`.thin`). */
+  #window-crumb:not(.thin) {
+    display: none;
+  }
+
+  .controls > label.check {
+    padding: 2px 0;
+  }
+
+  .allfigures {
+    padding-top: 2px;
+  }
+
+  .allfigures > summary {
+    padding: 2px 0;
+  }
+
+  .card {
+    padding-top: 10px;
+  }
+
+  .card h2 {
+    font-size: 1.125rem;
+  }
+
+  /* A notice is two lines on a phone until it is tapped; the disconnected
+     banner alone was 127px, a fifth of the first screen. */
+  .banner:not(.open) > :not(.icon) {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .banner {
+    cursor: pointer;
+  }
+
+  .facts {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0 10px;
+    width: 100%;
+  }
+
+  .facts > .tile {
+    width: auto;
+    min-width: 0;
+    --kpi: 1.0625rem;
+    --kpi-track: var(--track-body);
+    --kpi-lead: var(--lead-label);
+    padding-left: 8px;
+  }
+
+  .facts > .tile:first-child {
+    border-left: 0;
+    padding-left: 0;
+  }
+
+  .facts > .tile .note {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 2px;
+  }
+
+  .hero-row .block-share {
+    display: none;
+  }
+
+  .allfigures {
+    margin-bottom: 4px;
+  }
+
+  .figures-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }

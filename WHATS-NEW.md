@@ -1,16 +1,23 @@
-# Wat er nieuw is — 0.72.1
+# Wat er nieuw is — 0.73.0
 
-**Geen resync nodig.** Eén fout in de weergave, verder niets. De volledige geschiedenis staat in
-[CHANGELOG.md](CHANGELOG.md); 0.72.0 van gisteren staat daar ook uitgeschreven.
+**Geen resync nodig.** Alleen de weergave op een telefoon verandert; geen enkel bedrag.
+De volledige geschiedenis staat in [CHANGELOG.md](CHANGELOG.md).
 
 > **Hoef je te resyncen voor deze versie? Nee.**
 
 ---
 
-## Het menu Meer viel op smalle schermen buiten beeld
+## Op je telefoon staat de grafiek nu op het eerste scherm
 
-Op een venster smaller dan zo'n 960 pixels opende het menu Meer links buiten het scherm, zodat
-"Verbinding controleren" en de taal- en themakeuze niet te bereiken waren. Dat kwam door de nieuwe
-knop Upgrade naar Plus, die de knop Meer op een eigen regel zette terwijl het menu nog aannam dat die
-rechts stond. Het menu meet nu bij het openen waar zijn knop staat en kiest zelf de kant. Gevonden
-door de nachtelijke controle, niet door een gebruiker.
+Tot nu toe stond op een telefoon eerst de hele zijbalk boven de pagina: merk, drie regels tabs, vijf
+regels zegel, drie knoppen, dan pas de titel. De eerste grafiek begon twee en een half scherm naar
+beneden. Nu is er een balk van één regel (merk, oog, Sync, Meer), daaronder een tabstrip die je
+opzij schuift, daaronder het zegel als één regel. De balk scrolt weg; de strip en het zegel blijven
+staan, zodat je altijd ziet waar je bent en of de cijfers sluiten. Het totaal en drie kengetallen
+staan compact boven de grafiek, die op een iPhone SE nu volledig boven de vouw staat.
+
+## Kleinere dingen die je op een telefoon merkt
+
+Het menu Meer opent onderaan als een paneel met ruime rijen. Een melding, bijvoorbeeld over een
+verbroken verbinding, toont twee regels en vouwt uit als je erop tikt. "Alle cijfers" begint
+ingeklapt. De knop Upgrade naar Plus is op een telefoon weg; het tabblad Plus is dezelfde link.

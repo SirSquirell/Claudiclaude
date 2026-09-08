@@ -1373,6 +1373,30 @@ function buildControls() {
     railNav.append(b);
   }
   $('#lockup').replaceChildren(lockupSvg({ height: 26 }));
+  /**
+   * US-162. The eye and the frown belong in the phone's bar, beside Sync and
+   * More, but they are born in the topbar inside `main`; `.app` is a grid of
+   * two children and CSS cannot move a node across them. So the node moves —
+   * once per crossing of the breakpoint, back and forth, and never rebuilt, so
+   * its listeners and its pressed state travel with it.
+   */
+  const narrow = window.matchMedia('(max-width: 60em)');
+  const topbar = $('.topbar');
+  const right = $('.topbar-right');
+  const placeTopbarRight = () => {
+    if (!right || !topbar) return;
+    if (narrow.matches) $('.rail-head')?.append(right);
+    else topbar.append(right);
+  };
+  placeTopbarRight();
+  narrow.addEventListener('change', placeTopbarRight);
+  // US-162: a clamped banner opens on tap (phone only; elsewhere the class is inert).
+  for (const host of ['#banners', '#notices']) {
+    $(host)?.addEventListener('click', (e) => {
+      const banner = e.target.closest('.banner');
+      if (banner && !e.target.closest('button, a')) banner.classList.toggle('open');
+    });
+  }
   // US-151: Upgrade is a link to the Plus section, nothing more — there is
   // nothing to buy yet, and the section says so.
   $('#btn-upgrade')?.addEventListener('click', () => {
@@ -1717,12 +1741,12 @@ function renderRailState(data, r) {
       : data.lastSyncAt
         ? new Date(data.lastSyncAt).toLocaleString('nl-NL')
         : tr('Not synced yet');
-  rows.push(`<div class="row"><span class="dot"></span><span>${esc(synced)}</span></div>`);
+  rows.push(`<div class="row sync"><span class="dot"></span><span>${esc(synced)}</span></div>`);
   // US-79: the rail is where a reader checks what state this is in, so the frozen
   // state belongs here as well as in the banner — and above the verdict, because
   // it dates it.
   if (data.disconnected) {
-    rows.push(`<div class="row"><span class="dot"></span><span>${esc(tr('Disconnected · frozen'))}</span></div>`);
+    rows.push(`<div class="row frozen"><span class="dot"></span><span>${esc(tr('Disconnected · frozen'))}</span></div>`);
   }
 
   if (r.reconciliation) {
@@ -1736,7 +1760,7 @@ function renderRailState(data, r) {
   const est = r.coverage?.estimated ?? 0;
   const days = Math.max(1, r.coverage?.days ?? 1);
   rows.push(
-    `<div class="row"><span class="dot"></span><span>${
+    `<div class="row coverage"><span class="dot"></span><span>${
       esc(tr('{pct}% measured', { pct: (100 - (est / days) * 100).toFixed(1) }))
     }</span></div>`,
   );
@@ -1747,7 +1771,11 @@ function renderRailState(data, r) {
       `<div class="row amount ${row.tone === 'bad' ? 'bad' : ''}"><span>${esc(tr(row.label))}</span><b>${esc(fmtEurCents(row.value))}</b></div>`,
     );
   }
-  $('#rail-state').innerHTML = rows.join('');
+  const host = $('#rail-state');
+  host.innerHTML = rows.join('');
+  // US-162: on a phone the seal is one line and shows its two amounts only
+  // when they disagree; the class is what the stylesheet reads.
+  host.classList.toggle('bad', !!r.reconciliation && r.reconciliation.ok !== true);
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -2188,12 +2216,16 @@ function applyTab() {
     section.hidden = !on;
     if (on && changed) arrive(section);
   }
-  for (const b of $('#tabs').querySelectorAll('button')) {
+  const nav = $('#tabs');
+  for (const b of nav.querySelectorAll('button')) {
     const on = b.dataset.tab === state.tab;
     if (on) b.setAttribute('aria-current', 'page');
     else b.removeAttribute('aria-current');
     b.setAttribute('aria-selected', String(on));
     b.classList.toggle('is-on', on);
+    // US-162: in the phone's scrolling strip the current tab must be visible;
+    // `nearest` never scrolls the page, only the strip, and only if it has to.
+    if (on && changed && nav.scrollWidth > nav.clientWidth + 1) b.scrollIntoView({ inline: 'nearest', block: 'nearest' });
   }
   /**
    * Brief §4. Range applies on Overzicht, Rendement, Posities and Inkomsten;
@@ -3534,7 +3566,7 @@ function renderTiles(r, from = 0, to = r.days.length - 1, live = null) {
         ${shareBtn}
       </div>` +
       (rest.length
-        ? `<details class="allfigures" open>
+        ? `<details class="allfigures"${window.matchMedia('(max-width: 40em)').matches ? '' : ' open'}>
              <summary>${esc(tr('All figures'))}</summary>
              <div class="figures-grid">${rest.map((t) => cell(t, 'is-fig')).join('')}</div>
            </details>`
