@@ -7863,4 +7863,68 @@ The owner, in a browser. Nothing in this repository can do it.
 
 ---
 
-**Next free number: US-121.**
+## US-121 — Since you last looked *(new, refined)*
+
+> "Is wel n cool idee!" — the owner, 2026-09-08, picking one item out of a brainstorm.
+
+The sync runs unattended once a day (US-112); the page is opened when it occurs to you. Between
+the two lies a gap of days or weeks that nothing on screen names. The Today tile covers one day;
+the period control covers a window you have to pick. Missing is the window you did *not* pick: the
+one since the last time you were here.
+
+One panel at the top of Overview, present only when it has something to say: *"12 days synced
+since 27 August."* Under it, over exactly those days: the return, the deposits and withdrawals on
+their own line, the number of transactions, and the dividend received.
+
+### The trap, in its fourth disguise
+
+*"Up €2 000 since you last looked"* when €2 000 was paid in. The panel is therefore **the period
+control with a range the reader did not have to pick**: from the last seen day to the last synced
+day, anchored on the value the day before, chained by `windowReturnPct`. No new engine number, no
+second way of computing a return. Deposits are printed beside it and never netted into it.
+
+### What is stored, and where
+
+One marker: the ISO date of the last synced day that was on screen when the reader left, written
+on `pagehide`, in `localStorage` beside the theme and the column order (US-87's pattern). It is a
+bookmark, not a derived figure (rule 2): every number in the panel is recomputed from the raw store
+against it. `localStorage` is not part of the export and the bug report's allowlist does not
+change, so nothing new leaves the machine (rule 7).
+
+Written on leaving rather than on opening, because a marker written on open makes the panel vanish
+on the first reload, while the reader is still looking at it.
+
+### Scope / not in scope
+
+- In: the panel; the marker; a `?since=YYYY-MM-DD` flag on the demo, the same shape as `?frozen=1`
+  and for the same reason — a "last visit" cannot otherwise be looked at in `npm run demo`.
+- In: the panel is absent when the marker is missing (first visit), equals the last synced day
+  (nothing new), is not in `result.days` (wiped and resynced to a different depth), or the account
+  is frozen (US-79 — nothing advances).
+- Not: a notices diff (notices carry no timestamp), a per-position delta, "mark as read", anything
+  outside the page (a badge on the icon is its own idea), or carrying the marker across devices.
+
+### Acceptance criteria
+
+- [ ] With a marker N days before the last synced day, the panel names both dates and N, and its
+      return equals what the period control shows for that same range.
+- [ ] A deposit inside the window moves the deposits line and leaves the return unchanged.
+- [ ] Reloading keeps the panel; leaving and coming back the same day hides it (nothing new).
+- [ ] Amounts follow the eye (US-46): replaced when hidden, percentages kept.
+- [ ] `npm run demo` with `?since=` shows the panel; without it, nothing is added to Overview.
+- [ ] Wipe & resync cannot produce a wrong panel: a marker outside the new series hides it.
+
+### Dependencies
+
+None. `windowReturnPct`, the `netExternal` series, the transaction list and `dividendGross` exist.
+
+### Test
+
+Pure, in `engine.js`: `sinceVisit(result, lastSeenDay)` returns `{ fromIndex, toIndex, days,
+returnPct, netExternal, transactions, dividendGross }` or `null`. Tests on the fixtures for the
+four `null` cases, the deposit case, and equality with `windowReturnPct` over the same indices.
+The panel itself is checked by eye through the demo flag.
+
+---
+
+**Next free number: US-122.**

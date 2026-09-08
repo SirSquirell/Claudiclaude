@@ -235,6 +235,7 @@ three variants.)
 |---|---|---|
 | US-98 | **Benchmark compare (S&P 500 default, any ETF, PROP folded in) — the owner decided the feature in chat, 2026-08-22.** That is not the same document event as the SPEC amendment rule 8 and the branch policy both lean on: SPEC §7 still reads "no benchmarks" verbatim | The SPEC.md §7 amendment text is drafted in `docs/BACKLOG.md`'s US-98 entry, ready to land in the same commit as the first line of code — nobody has landed it yet |
 | US-26 | Instrument coverage declared per broker — verified / assumed, as a vocabulary | More relevant once a second broker lands |
+| US-121 | **Since you last looked** — one panel on Overview for the window since the reader was last here: the period control over a range nobody had to pick, deposits on their own line. Refined 2026-09-08 | The owner deciding to build it |
 | US-114 | **A price series was rescaled by factor 4,369**, which is not a split ratio. Investigation: one factor across two regimes, or a vwd id that changed instrument. Do not tune the threshold. Numbered 2026-09-02; the text in `docs/BACKLOG.md` is the original | Nothing |
 | US-37 | **Trading 212 R1 — PASS, measured 2026-08-13.** Page 200/401, logged out 401, and the service worker `PASS_JSON` with only an `Accept` header — so no device identifier is required either | Nothing. **US-39–US-45 are unblocked** |
 | US-44 | **Trading 212 renders through the existing pipeline** — no separate dashboard | Gated on US-37 and the data gates. Addendum body not yet received |
