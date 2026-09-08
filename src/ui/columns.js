@@ -72,21 +72,43 @@ export const HOLDINGS_COLUMNS = Object.freeze([
  *  four the reader reads. */
 export const LOAD_BEARING = Object.freeze(['instrument', 'value', 'split', 'result']);
 
-export const isLockColumn = (key) =>
-  HOLDINGS_COLUMNS.some((c) => c.key === key && c.lock);
+/**
+ * US-159 — the Dividends table's columns, the same shape as the Positions
+ * list so the same width pass and chooser serve both. The question this table
+ * answers is "what does each position pay, and how reliably": Position, All
+ * time and Rhythm are the floor. Next expected and Track record are read
+ * least often on a phone and drop first; the yields hold longest because they
+ * are the two figures the story that built them (US-126) is about. Every
+ * dropped column reappears in the row's detail (US-61 AC2), which this table
+ * already has for its payments.
+ */
+export const DIVIDEND_COLUMNS = Object.freeze([
+  { key: 'position', label: 'Position', lock: true },
+  { key: 'thisYear', label: 'This year', num: true, pri: 60 },
+  { key: 'allTime', label: 'All time', lock: true, num: true },
+  { key: 'consistency', label: 'Consistency', pri: 70 },
+  { key: 'yoc', label: 'Yield on cost', num: true, pri: 40 },
+  { key: 'cy', label: 'Current yield', num: true, pri: 50 },
+  { key: 'rhythm', label: 'Rhythm', lock: true },
+  { key: 'track', label: 'Track record', pri: 80 },
+  { key: 'next', label: 'Next expected', pri: 90 },
+].map(Object.freeze));
+
+export const isLockColumn = (key, columns = HOLDINGS_COLUMNS) =>
+  columns.some((c) => c.key === key && c.lock);
 
 /** Columns the chooser may offer to hide — every non-lock, non-action column,
  *  in table order. */
-export const optionalColumns = () =>
-  HOLDINGS_COLUMNS.filter((c) => !c.lock && !c.action);
+export const optionalColumns = (columns = HOLDINGS_COLUMNS) =>
+  columns.filter((c) => !c.lock && !c.action);
 
 /**
  * The order the responsive pass drops columns: highest `pri` first. A column
  * that is `lock` is never here, so the load-bearing four and the share action
  * can never be dropped by width — the invariant the whole story rests on.
  */
-export const droppableByPriority = () =>
-  HOLDINGS_COLUMNS.filter((c) => !c.lock).sort((a, b) => (b.pri ?? 0) - (a.pri ?? 0));
+export const droppableByPriority = (columns = HOLDINGS_COLUMNS) =>
+  columns.filter((c) => !c.lock).sort((a, b) => (b.pri ?? 0) - (a.pri ?? 0));
 
 /**
  * The keys hidden for a given view *before* the width pass runs: the user's

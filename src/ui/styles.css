@@ -4536,3 +4536,34 @@ table.compare td.no {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+
+/* US-159: the columns a width dropped, first thing in the row's detail; empty
+   (and so invisible) when every column is on screen. */
+.dropped-cols:empty {
+  display: none;
+}
+
+.dropped-cols {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin-bottom: 8px;
+}
+
+.dropped-cols:not(:has(.kv:not([hidden]))) {
+  display: none;
+}
+
+/*
+ * US-159. A detail row's content must not decide the table's width: the width
+ * pass reads `table.scrollWidth`, and an opened row carrying a wide payments
+ * table made it drop every column. A block at `width: 0; min-width: 100%`
+ * contributes nothing to the table's intrinsic width and still fills its cell;
+ * what is wider than the table scrolls inside the detail instead.
+ */
+.detail-inner {
+  width: 0;
+  min-width: 100%;
+  overflow-x: auto;
+}

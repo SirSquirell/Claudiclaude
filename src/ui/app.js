@@ -50,7 +50,7 @@ import { ADAPTERS, connected as connectedBrokers } from '../lib/brokers/index.js
 import { LANGS, applyStatic, getLang, missing as missingTranslations, setLang, t as tr } from './i18n.js';
 import { THEMES, alpha, applyAnonymize, applyTheme, fmtEurCents, fmtPct, fmtPrice, fmtQty, fmtSigned, getAnonymize, getTheme, onThemeChange, setAnonymize, setTheme, tokens, withAnonymize } from './theme.js';
 import { FORMATS, flowModel, moneyInOver, ownerLine, positionSpan, scoreCardModel, snapshotModel, splitModel } from '../lib/snapshot.js';
-import { HOLDINGS_COLUMNS, baseHidden, cycleSort, droppableByPriority, optionalColumns, orderedColumns } from './columns.js';
+import { DIVIDEND_COLUMNS, HOLDINGS_COLUMNS, baseHidden, cycleSort, droppableByPriority, isLockColumn, optionalColumns, orderedColumns } from './columns.js';
 import { brokerMarkSvg, lockupSvg, markSvg } from './brand.js';
 import { enhanceTables } from './tables.js';
 import { activate as activateLicence, entitlements, refreshEntitlements, removeLicence } from './entitlements.js';
@@ -5146,22 +5146,33 @@ function renderDividendHoldings(r, m) {
           : `≈ ${esc(formatDay(n.expected))}${n.overdue ? ` <span class="chip">${esc(tr('not seen yet'))}</span>` : ''}${sub(`${formatDay(n.from)} – ${formatDay(n.to)}`)}`;
       }
 
-      return `<tr class="pos-row" data-product="${esc(id)}">
-        <td><button type="button" class="expander" aria-expanded="false" title="${esc(tr('Details'))}" aria-label="${esc(tr('Details'))}"></button>${esc(p.symbol || p.name)}</td>
-        <td class="num">${esc(fmtEurCents(p.dividendGrossByYear[thisYear] ?? 0))}</td>
-        <td class="num">${esc(fmtEurCents(p.dividendGross))}</td>
-        <td><span class="mini-bars">${bars}</span></td>
-        <td class="num">${y ? yieldCell(y.yieldOnCostPct, y.reasons.yieldOnCost) : noSeries}</td>
-        <td class="num">${y ? yieldCell(y.currentYieldPct, y.reasons.currentYield) : noSeries}</td>
-        <td>${rhythmCell}</td>
-        <td>${trackCell}</td>
-        <td>${nextCell}</td>
-      </tr>
-      <tr class="pos-detail" hidden><td class="detail-cell" colspan="${cols}">${dividendDetail(id, p, m, { prod, y, t, n, f: forwardById.get(id), fu: forwardUndeterminedById.get(id) })}</td></tr>`;
+      // US-159: one cell per column key, so the row, the header and the detail
+      // row's copy of a dropped column all read the same list.
+      const cell = {
+        position: `<button type="button" class="expander" aria-expanded="false" title="${esc(tr('Details'))}" aria-label="${esc(tr('Details'))}"></button>${esc(p.symbol || p.name)}`,
+        thisYear: esc(fmtEurCents(p.dividendGrossByYear[thisYear] ?? 0)),
+        allTime: esc(fmtEurCents(p.dividendGross)),
+        consistency: `<span class="mini-bars">${bars}</span>`,
+        yoc: y ? yieldCell(y.yieldOnCostPct, y.reasons.yieldOnCost) : noSeries,
+        cy: y ? yieldCell(y.currentYieldPct, y.reasons.currentYield) : noSeries,
+        rhythm: rhythmCell,
+        track: trackCell,
+        next: nextCell,
+      };
+      const tds = DIVIDEND_COLUMNS.map((c) => `<td data-col="${c.key}"${c.num ? ' class="num"' : ''}>${cell[c.key]}</td>`).join('');
+      const dropped = optionalColumns(DIVIDEND_COLUMNS)
+        .map((c) => `<span class="kv" data-col="${c.key}" hidden><b>${esc(tr(c.label))}</b> <span>${cell[c.key]}</span></span>`)
+        .join('');
+      return `<tr class="pos-row" data-product="${esc(id)}">${tds}</tr>
+      <tr class="pos-detail" hidden><td class="detail-cell" colspan="${cols}"><div class="detail-inner"><div class="dropped-cols">${dropped}</div>${dividendDetail(id, p, m, { prod, y, t, n, f: forwardById.get(id), fu: forwardUndeterminedById.get(id) })}</div></td></tr>`;
     })
     .join('');
   $('#dividend-holdings tbody').innerHTML = rows;
   $('#dividend-holdings').closest('.card').hidden = rows.length === 0;
+  // US-159: the same width pass and chooser as Positions.
+  buildDividendChooser();
+  observeFit($('#dividend-holdings')?.closest('.table-scroll'), fitDividendColumns);
+  fitDividendColumns();
 
   $('#dividend-holdings-note').textContent = tr(
     'Per-share figures, yields and changes are in EUR as settled — a foreign payer’s figure moves with the exchange rate even when the declared dividend did not. Yields are gross received in the twelve months to {today}, over cost and over value. The track record is bounded by this account’s own history: it starts when the position was first held, not when the company first paid. The next expected payment is an estimate from the payment rhythm, never an announced date.',
@@ -5765,19 +5776,140 @@ const HOLDINGS_COLS_KEY = 'degiro-portfolio.holdings-cols';
 
 /** The columns the reader has chosen to hide. A display preference, stored like
  *  the theme; a blocked or empty store just means "hide nothing". */
-function userHiddenCols() {
+function readHiddenCols(key) {
   try {
-    return new Set((localStorage.getItem(HOLDINGS_COLS_KEY) || '').split(',').filter(Boolean));
+    return new Set((localStorage.getItem(key) || '').split(',').filter(Boolean));
   } catch {
     return new Set();
   }
 }
-function setUserHiddenCols(set) {
+function writeHiddenCols(key, set) {
   try {
-    localStorage.setItem(HOLDINGS_COLS_KEY, [...set].join(','));
+    localStorage.setItem(key, [...set].join(','));
   } catch {
     /* memory only for this page's lifetime */
   }
+}
+const userHiddenCols = () => readHiddenCols(HOLDINGS_COLS_KEY);
+const setUserHiddenCols = (set) => writeHiddenCols(HOLDINGS_COLS_KEY, set);
+
+// --- US-159: the width pass and the chooser, for any table built on a column list ---
+
+const DIVIDEND_COLS_KEY = 'degiro-portfolio.dividend-cols';
+
+/**
+ * Hide and show by `data-col`: the header cell, every row cell, and the copy of
+ * the column inside the detail row — which is *shown* exactly when the column
+ * is hidden, so no figure is unreachable at any width (US-61 AC2). The detail
+ * cell's colspan follows the visible count.
+ */
+function applyHiddenColumns(table, hidden) {
+  if (!table) return;
+  let visible = 0;
+  table.querySelectorAll('thead [data-col]').forEach((el) => {
+    const on = !hidden.has(el.dataset.col);
+    el.hidden = !on;
+    if (on) visible += 1;
+  });
+  table.querySelectorAll('tbody .pos-row > [data-col], tbody .cash-row > [data-col]').forEach((el) => {
+    el.hidden = hidden.has(el.dataset.col);
+  });
+  table.querySelectorAll('.pos-detail .kv[data-col]').forEach((el) => {
+    el.hidden = !hidden.has(el.dataset.col);
+  });
+  table.querySelectorAll('.detail-cell').forEach((el) => { el.colSpan = visible; });
+  table.toggleAttribute('data-has-hidden', hidden.size > 0);
+}
+
+/**
+ * Start from the base set (the reader's choices, plus whatever the view hides),
+ * then drop the lowest-priority columns one at a time until the table stops
+ * overflowing its own container. The scoped scroll is the last resort, for the
+ * lock columns only.
+ */
+function fitColumns(table, wrap, columns, base) {
+  if (!table || !wrap || wrap.hidden) return;
+  const hidden = new Set(base);
+  applyHiddenColumns(table, hidden);
+  for (const c of droppableByPriority(columns)) {
+    if (table.scrollWidth <= wrap.clientWidth + 1) break;
+    if (hidden.has(c.key)) continue;
+    hidden.add(c.key);
+    applyHiddenColumns(table, hidden);
+  }
+}
+
+/** One ResizeObserver per container — the panel the table sits in, not the
+ *  window, which is wider than it. Idempotent per container. */
+function observeFit(wrap, fit) {
+  if (!wrap || wrap.dataset.fitObserved || typeof ResizeObserver === 'undefined') return;
+  wrap.dataset.fitObserved = '1';
+  let queued = false;
+  new ResizeObserver(() => {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(() => { queued = false; fit(); });
+  }).observe(wrap);
+}
+
+/** The chooser's rows: lock columns checked and disabled (always on, and still
+ *  listed because the chooser is the touch path to each column's explanation,
+ *  US-93), the rest ticked per the hidden set. */
+function chooserMarkup(columns, hidden) {
+  const items = columns.filter((c) => !c.action)
+    .map((c) => (c.lock
+      ? `<label${c.tip ? ` data-tip="${esc(tr(c.tip))}"` : ''}><input type="checkbox" checked disabled> ${esc(tr(c.label))}</label>`
+      : `<label${c.tip ? ` data-tip="${esc(tr(c.tip))}"` : ''}><input type="checkbox" data-col="${c.key}"${hidden.has(c.key) ? '' : ' checked'}> ${esc(tr(c.label))}</label>`))
+    .join('');
+  return `<button type="button" class="cols-btn" aria-expanded="false" aria-haspopup="true">${esc(tr('Columns'))}</button>`
+    + `<div class="cols-pop" hidden role="group" aria-label="${esc(tr('Columns'))}">${items}</div>`;
+}
+
+/** Open, close-on-outside-click (once, for every chooser on the page), and the
+ *  toggle callback. Toggling re-fits rather than re-rendering, so the panel
+ *  stays open while you tick through it. */
+function wireChooser(host, onToggle) {
+  const btn = host.querySelector('.cols-btn');
+  const pop = host.querySelector('.cols-pop');
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const show = pop.hidden;
+    pop.hidden = !show;
+    btn.setAttribute('aria-expanded', String(show));
+  });
+  pop.addEventListener('click', (e) => e.stopPropagation());
+  pop.addEventListener('change', (e) => {
+    const cb = e.target.closest('input[data-col]');
+    if (cb) onToggle(cb.dataset.col, cb.checked);
+  });
+  if (!document.body.dataset.colsPopWired) {
+    document.body.dataset.colsPopWired = '1';
+    document.addEventListener('click', () => {
+      for (const p of document.querySelectorAll('.cols-pop:not([hidden])')) {
+        p.hidden = true;
+        p.parentElement.querySelector('.cols-btn')?.setAttribute('aria-expanded', 'false');
+      }
+    });
+  }
+}
+
+const dividendHidden = () => new Set([...readHiddenCols(DIVIDEND_COLS_KEY)].filter((k) => !isLockColumn(k, DIVIDEND_COLUMNS)));
+
+function fitDividendColumns() {
+  const table = $('#dividend-holdings');
+  fitColumns(table, table?.closest('.table-scroll'), DIVIDEND_COLUMNS, dividendHidden());
+}
+
+function buildDividendChooser() {
+  const host = $('#dividend-columns');
+  if (!host) return;
+  host.innerHTML = chooserMarkup(DIVIDEND_COLUMNS, readHiddenCols(DIVIDEND_COLS_KEY));
+  wireChooser(host, (key, checked) => {
+    const set = readHiddenCols(DIVIDEND_COLS_KEY);
+    if (checked) set.delete(key); else set.add(key);
+    writeHiddenCols(DIVIDEND_COLS_KEY, set);
+    fitDividendColumns();
+  });
 }
 
 // --- US-87: sort by header, drag to reorder, both persisted -------------------
@@ -5922,22 +6054,7 @@ function ensureHoldingsHeader() {
  * share action always show. Display only: no number is read or written here.
  */
 function applyHoldingsHidden(hidden) {
-  const table = $('#holdings');
-  if (!table) return;
-  let visible = 0;
-  table.querySelectorAll('thead [data-col]').forEach((el) => {
-    const on = !hidden.has(el.dataset.col);
-    el.hidden = !on;
-    if (on) visible += 1;
-  });
-  table.querySelectorAll('tbody .pos-row > [data-col], tbody .cash-row > [data-col]').forEach((el) => {
-    el.hidden = hidden.has(el.dataset.col);
-  });
-  table.querySelectorAll('.pos-detail .kv[data-col]').forEach((el) => {
-    el.hidden = !hidden.has(el.dataset.col);
-  });
-  table.querySelectorAll('.detail-cell').forEach((el) => { el.colSpan = visible; });
-  table.toggleAttribute('data-has-hidden', hidden.size > 0);
+  applyHiddenColumns($('#holdings'), hidden);
 }
 
 /**
@@ -5947,36 +6064,17 @@ function applyHoldingsHidden(hidden) {
  * resort — for the load-bearing four, not for eleven columns.
  */
 function fitHoldingsColumns() {
-  const table = $('#holdings');
-  const wrap = $('#holdings-table-wrap');
-  if (!table || !wrap || wrap.hidden) return;
   const status = state.posStatus ?? 'open';
-  const hidden = baseHidden(status, userHiddenCols());
-  applyHoldingsHidden(hidden);
-  for (const c of droppableByPriority()) {
-    if (table.scrollWidth <= wrap.clientWidth + 1) break;
-    if (hidden.has(c.key)) continue;
-    hidden.add(c.key);
-    applyHoldingsHidden(hidden);
-  }
+  fitColumns($('#holdings'), $('#holdings-table-wrap'), HOLDINGS_COLUMNS, baseHidden(status, userHiddenCols()));
 }
 
-let holdingsObserver = null;
 /** One ResizeObserver on the table's own container — not the window, which is
  *  wider than the panel the table sits in — plus the delegated expand toggle. */
 function ensureHoldingsObserver() {
   const wrap = $('#holdings-table-wrap');
   const table = $('#holdings');
   if (!wrap || !table) return;
-  if (!holdingsObserver && typeof ResizeObserver !== 'undefined') {
-    let queued = false;
-    holdingsObserver = new ResizeObserver(() => {
-      if (queued) return;
-      queued = true;
-      requestAnimationFrame(() => { queued = false; fitHoldingsColumns(); });
-    });
-    holdingsObserver.observe(wrap);
-  }
+  observeFit(wrap, fitHoldingsColumns);
   if (!table.dataset.expanderWired) {
     table.dataset.expanderWired = '1';
     table.addEventListener('click', (e) => {
@@ -6003,50 +6101,22 @@ function ensureHoldingsObserver() {
 function buildColumnChooser() {
   const host = $('#holdings-columns');
   if (!host) return;
-  const hidden = userHiddenCols();
-  const items = HOLDINGS_COLUMNS.filter((c) => !c.action)
-    .map((c) => (c.lock
-      ? `<label${c.tip ? ` data-tip="${esc(tr(c.tip))}"` : ''}><input type="checkbox" checked disabled> ${esc(tr(c.label))}</label>`
-      : `<label${c.tip ? ` data-tip="${esc(tr(c.tip))}"` : ''}><input type="checkbox" data-col="${c.key}"${hidden.has(c.key) ? '' : ' checked'}> ${esc(tr(c.label))}</label>`))
-    .join('');
-  host.innerHTML = `<button type="button" class="cols-btn" id="cols-btn" aria-expanded="false" aria-haspopup="true">${esc(tr('Columns'))}</button>`
-    + `<div class="cols-pop" id="cols-pop" hidden role="group" aria-label="${esc(tr('Columns'))}">${items}</div>`;
-  const btn = $('#cols-btn');
-  const pop = $('#cols-pop');
-  btn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    const show = pop.hidden;
-    pop.hidden = !show;
-    btn.setAttribute('aria-expanded', String(show));
-  });
-  pop.addEventListener('click', (e) => e.stopPropagation());
-  pop.addEventListener('change', (e) => {
-    const cb = e.target.closest('input[data-col]');
-    if (!cb) return;
+  host.innerHTML = chooserMarkup(HOLDINGS_COLUMNS, userHiddenCols());
+  wireChooser(host, (key, checked) => {
     const sortedKey = readHoldingsSort()?.key;
     const set = userHiddenCols();
-    if (cb.checked) set.delete(cb.dataset.col); else set.add(cb.dataset.col);
+    if (checked) set.delete(key); else set.add(key);
     setUserHiddenCols(set);
     // US-87. Hiding the column the table is sorted on clears the sort — an
     // order driven by something invisible is a mystery order. This one needs a
     // re-render (the rows visibly change order), not just a re-fit.
-    if (!cb.checked && cb.dataset.col === sortedKey) {
+    if (!checked && key === sortedKey) {
       setHoldingsSort(null);
       render();
       return;
     }
     fitHoldingsColumns();
   });
-  if (!document.body.dataset.colsPopWired) {
-    document.body.dataset.colsPopWired = '1';
-    document.addEventListener('click', () => {
-      const p = $('#cols-pop');
-      if (p && !p.hidden) {
-        p.hidden = true;
-        $('#cols-btn')?.setAttribute('aria-expanded', 'false');
-      }
-    });
-  }
 }
 
 /**

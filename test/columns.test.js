@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 import {
+  DIVIDEND_COLUMNS,
   HOLDINGS_COLUMNS,
   LOAD_BEARING,
   baseHidden,
@@ -182,4 +184,35 @@ test('US-93 — every tip has a Dutch translation', async () => {
     if (!c.tip) continue;
     assert.ok(dict[c.tip], `${c.key}'s tip has no Dutch entry`);
   }
+});
+
+
+// US-159 — the Dividends table's list has the same invariants.
+
+test('US-159: the dividend columns lock Position, All time and Rhythm, and only those', () => {
+  const lock = DIVIDEND_COLUMNS.filter((c) => c.lock).map((c) => c.key).sort();
+  assert.deepEqual(lock, ['allTime', 'position', 'rhythm']);
+  for (const k of lock) assert.ok(isLockColumn(k, DIVIDEND_COLUMNS));
+  assert.ok(!isLockColumn('position'), 'the default list is still Positions, whose keys differ');
+});
+
+test('US-159: dividend keys are unique, every priority is unique, and the drop order never touches a lock', () => {
+  const keys = DIVIDEND_COLUMNS.map((c) => c.key);
+  assert.equal(new Set(keys).size, keys.length);
+  const pris = DIVIDEND_COLUMNS.filter((c) => c.pri != null).map((c) => c.pri);
+  assert.equal(new Set(pris).size, pris.length, 'two columns with one priority drop in source order, which nobody decided');
+  const order = droppableByPriority(DIVIDEND_COLUMNS);
+  assert.deepEqual(order.map((c) => c.key), ['next', 'track', 'consistency', 'thisYear', 'cy', 'yoc']);
+  for (const c of order) assert.ok(!c.lock);
+  assert.equal(optionalColumns(DIVIDEND_COLUMNS).length, 6);
+});
+
+test('US-159: the header, the row and the detail all read one list', () => {
+  const html = readFileSync(new URL('../src/ui/app.html', import.meta.url), 'utf8');
+  const head = html.slice(html.indexOf('<table id="dividend-holdings">'), html.indexOf('</thead>', html.indexOf('<table id="dividend-holdings">')));
+  const cols = [...head.matchAll(/data-col="([a-zA-Z]+)"/g)].map((m) => m[1]);
+  assert.deepEqual(cols, DIVIDEND_COLUMNS.map((c) => c.key), 'the static header must list exactly the model, in order');
+  const app = readFileSync(new URL('../src/ui/app.js', import.meta.url), 'utf8');
+  assert.match(app, /DIVIDEND_COLUMNS\.map\(\(c\) => `<td data-col=/, 'rows are built from the list');
+  assert.match(app, /optionalColumns\(DIVIDEND_COLUMNS\)/, 'the detail copies every optional column');
 });

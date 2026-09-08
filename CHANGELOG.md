@@ -16,7 +16,23 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
-## [0.73.0] — 2026-09-08
+## [0.74.0] — 2026-09-08
+
+**No resync needed** — display only.
+
+### Changed
+
+- **The Dividends table drops columns by priority instead of scrolling (US-159).** The nine-column
+  *Holdings, dividend view* now uses the same width pass as Positions (US-61): below the width it
+  needs, *Next expected*, *Track record*, *Consistency*, *This year*, *Current yield* and *Yield on
+  cost* drop in that order and reappear at the top of the row's detail, so no figure is unreachable
+  at any width; *Position*, *All time* and *Rhythm* never drop. A *Columns* chooser beside the table
+  persists the reader's own choices, as on Positions. The machinery is shared now — one `fitColumns`,
+  one `applyHiddenColumns`, one chooser — where Positions had its own copy; Positions behaves as
+  before. Transactions (six columns) and the smaller tables keep the anchor-column scroll: nothing is
+  dropped from a table under seven columns.
+
+
 
 **No resync needed** — the phone layout only; no figure changed.
 

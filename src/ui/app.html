@@ -460,24 +460,29 @@
           <p class="hint" data-i18n>A dividend-scoped column set, not the general Positions table. Consistency
             is the same per-year total as a small sparkline — the fastest way to see a year that paid less than
             the one before it, which a single lifetime total hides. Open a row for every payment per share.</p>
+          <!-- US-159. The chooser, as on Positions; columns carry `data-col` so the
+               width pass and the detail row can name them. -->
+          <div class="filter-row">
+            <div class="group cols-group" id="dividend-columns"></div>
+          </div>
           <div class="table-scroll">
             <table id="dividend-holdings">
               <thead>
                 <tr>
-                  <th data-i18n>Position</th>
-                  <th class="num" data-i18n>This year</th>
-                  <th class="num" data-i18n>All time</th>
-                  <th data-i18n>Consistency</th>
+                  <th data-col="position" data-i18n>Position</th>
+                  <th data-col="thisYear" class="num" data-i18n>This year</th>
+                  <th data-col="allTime" class="num" data-i18n>All time</th>
+                  <th data-col="consistency" data-i18n>Consistency</th>
                   <!-- US-126, US-124, US-127: the header explains itself (US-93's pattern), tap or hover. -->
-                  <th class="num" data-i18n
+                  <th data-col="yoc" class="num" data-i18n
                     data-i18n-tip="Gross dividend received in the twelve months to the last day, specials included, divided by what the shares held today cost at the average buy price. In EUR.">Yield on cost</th>
-                  <th class="num" data-i18n
+                  <th data-col="cy" class="num" data-i18n
                     data-i18n-tip="The same twelve months of gross dividend divided by today's value of the position. In EUR.">Current yield</th>
-                  <th data-i18n
+                  <th data-col="rhythm" data-i18n
                     data-i18n-tip="Read from the gaps between regular payments: monthly, quarterly, semi-annual or annual, with the share of gaps that agree. Irregular is an answer, not a guess.">Rhythm</th>
-                  <th data-i18n
+                  <th data-col="track" data-i18n
                     data-i18n-tip="Years paid without a gap, raises and cuts against the payment a year earlier, and the largest cut — within this account's own history only, in EUR per share. Facts, not a score.">Track record</th>
-                  <th data-i18n
+                  <th data-col="next" data-i18n
                     data-i18n-tip="Estimate, from the payment rhythm: the last regular payment plus one interval, with a window of ±15 % of the interval either side. Not an announced date.">Next expected</th>
                 </tr>
               </thead>

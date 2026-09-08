@@ -9335,7 +9335,7 @@ DOM test: the panel's text nodes contain no digit sequence longer than the year 
 
 ---
 
-### US-159 — Column priority on every wide table, not only Positions *(new, refined — US-151 deferred it)*
+### US-159 — Column priority on every wide table, not only Positions *(built, 0.74.0 — the Dividends table; Transactions has six columns and stays a scroll)*
 
 **Layer A.** US-61 gave the Positions table columns that know their priority and fold into the
 expand row. The Dividends-per-position table (nine columns), Month by month, the transactions table
@@ -9349,10 +9349,10 @@ the `.table-scroll` rather than viewport queries, so a table in a half-width car
 
 #### Acceptance criteria
 
-- [ ] Dividends and Transactions carry column definitions with priorities; below the measured
+- [x] Dividends carries column definitions with priorities (Transactions has six columns and is exempt by the third criterion); below the measured
       thresholds columns drop in priority order and reappear in the detail row.
-- [ ] The chooser exists on both, persisted like Positions'.
-- [ ] Nothing is dropped from a table under seven columns (Years, Withholding by country).
+- [x] The chooser exists on Dividends, persisted like Positions'.
+- [x] Nothing is dropped from a table under seven columns (Years, Withholding by country).
 
 #### Dependencies
 
