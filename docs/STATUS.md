@@ -35,6 +35,18 @@ tile figure in the DOM as the swap's opacity-0 ghost, selectable and copyable un
 under an already-claimed number (**US-163**, was "US-121" there) and refined **US-165**, the
 dividend table's blank third column on a phone; see SCANS.md for all seven.
 
+## Architecture review, 2026-09-08
+
+[ARCHITECTURE-REVIEW.md](ARCHITECTURE-REVIEW.md), on the owner's request: is the direction right?
+The core measures clean (pure engine, clean layering, default-deny egress, rules enforced by tools)
+and the direction — open core, static signed bundle, no accounts, rule 9 — is coherent. The one
+strong objection is *order*: every Plus feature enriches a scrape DEGIRO can close tomorrow, and the
+hedge SPEC §1.3 named on day one (DEGIRO's own CSV as a second source through the same pipeline) is
+still "when it breaks" while effort goes to a second broker whose gate is outside the owner's hands.
+Three smaller ones: UI defects land where `npm test` does not look (three in three releases, all
+found by a browser), three tracks open with two waiting on the owner, and `app.js` at 6 443 lines.
+Nothing in it has a story number yet.
+
 ## Redesign, 0.71.0
 
 **US-151** is built: the statement register (cool paper, ink navy, two bundled faces, a serif hero,
