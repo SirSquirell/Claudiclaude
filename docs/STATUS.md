@@ -3,12 +3,12 @@
 `docs/BACKLOG.md` is 7 600 lines of reasoning and evidence, which is the right place for *why* and
 a bad place to find out *where things stand*. This is the index.
 
-**Last updated at 0.74.1, on 2026-09-08.** It had been stale since 0.21.0 once, which is fifteen
+**Last updated at 0.74.1, on 2026-09-09.** It had been stale since 0.21.0 once, which is fifteen
 releases — if it looks stale again, trust the CHANGELOG and fix this.
 
 ## Light scans
 
-Twenty-two re-confirmation passes (2026-08-20 to 2026-09-08) are in [SCANS.md](SCANS.md), newest
+Twenty-three re-confirmation passes (2026-08-20 to 2026-09-08) are in [SCANS.md](SCANS.md), newest
 first. Their standing result: no `claude/*` branch carries a story `main` does not have, the backlog
 numbering is clean, and the rule spot checks pass. What they kept finding — 38 stale remote
 branches the git proxy cannot delete — is now **US-120**, an owner action in GitHub's UI. The
@@ -37,7 +37,13 @@ dividend table's blank third column on a phone; see SCANS.md for all seven. The 
 hours later and prompted by `docs/ARCHITECTURE-REVIEW.md` landing in between, found nothing new in
 code or branches but turned that review's testing observation into a story — **US-166**, folding
 the throwaway browser scripts these passes keep writing (this one included) into a real, repeatable
-check beside `tools/check-mobile.mjs` instead of a paragraph in this file.
+check beside `tools/check-mobile.mjs` instead of a paragraph in this file. The twenty-fourth pass
+(2026-09-09), the next day, found nothing new either: branch count unchanged (40 `claude/*` plus
+`poc`, none carrying an unlanded story), backlog numbering clean at US-167 next, zero open GitHub
+issues or PRs, `npm test` 702/702, palette and leaks clean, and a browser sweep aimed specifically
+at this task brief's three named failure shapes (a menu drawn under a chart, a zero-width tile, a
+misread sparkline) found none of them. Its own first job was landing the twenty-third pass's work,
+which this session had started ahead of but not yet fast-forwarded onto `main`.
 
 ## Architecture review, 2026-09-08
 

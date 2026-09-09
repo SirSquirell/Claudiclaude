@@ -8,6 +8,60 @@ state is in STATUS.md; this is the evidence that it was checked.
 
 ---
 
+## Light scan, 2026-09-09 (twenty-fourth pass)
+
+Scheduled run, the day after the twenty-third. This session started on its own transport branch
+(`claude/eager-cannon-32il1j`) already six commits ahead of `origin/main` — the twenty-third pass's
+own work (0.73.0, 0.74.0, 0.74.1, the architecture review and US-166's refinement) had not yet been
+fast-forwarded there. Landed first, `git merge --ff-only`, before measuring anything, so every check
+below runs against what is now `main`.
+
+**Branches.** 40 remote `claude/*` branches plus `poc` — unchanged in count from the twenty-second
+and twenty-third passes. Checked every one by tree diff against `main` rather than commit count
+(this repo's rebased histories make `git rev-list` unreliable, as prior passes already found): all
+41 are net deletions against `main`, and only two carry any file `main` lacks at all —
+`claude/degiro-portfolio-spike-7x5d4h` (`tools/trading212-r1/probe.js`,
+`test/trading212-probe.test.js`, both an earlier shape of the spike tooling `main` has since
+replaced with `tools/trading212-r1/spike.js` and `tools/r1-probe.js`) and
+`claude/eager-cannon-tjpl32` (`tools/check-mobile.mjs`, byte-identical to the copy just landed on
+`main` above — that branch's tip, `65d5820`, is the same 0.74.1 commit this pass fast-forwarded
+from, not new work). No branch found carrying a story `main` does not have.
+
+**GitHub.** Zero open issues, zero open PRs — unchanged.
+
+**Backlog numbering**, via `tools/check-backlog.mjs`: 162 stories, highest US-166, next free
+US-167 — matches STATUS's own count exactly; nothing added this pass since nothing new was found.
+
+**Rule compliance / security.** `npm test` 702/702, `npm run palette` zero collisions light and
+dark, `node tools/check-leaks.mjs` clean (190 tracked files, still no `.leakwords` file — unchanged
+gap, not a defect this pass introduced). Spot-checked rule 5 (`throttledFetch` still the only
+`fetch` path outside a demo/manifest read, no 401/403 retry) and rule 7 (`innerHTML` sites in
+`app.js` all route through `esc()`) by hand — both clean, unchanged from every prior pass.
+
+**Design pass** (`apple-design` skill loaded first, `docs/redesign/DESIGN-BRIEF.md` as the brief
+that wins any conflict). `tools/check-mobile.mjs` green against the demo. A from-scratch Playwright
+sweep — corrected against the same `#tabs button[data-tab]` selector the twenty-third pass had to
+fix, so this pass started from a known-good script instead of re-discovering it — drove all nine
+tabs at 1440 and 380, light and dark: 36 checks, zero page/console errors, zero horizontal overflow.
+A second interaction pass targeted the three failure shapes this task brief names by name (a menu
+under a chart, a tile collapsed to zero width, a sparkline read wrong): opened the Dividends more/
+columns menu at both widths and measured its box against the viewport and against every `<canvas>`'s
+z-index, toggled *Hide amounts* and measured every visible tile's width, at both widths. Nothing
+found. Typography (`--track-*`/`--lead-*` custom properties, size-bucketed since US-58) and the
+`.card-head > .group` fix from the second light scan re-measured unchanged.
+
+**Optimization sweep**, repeating the US-83/US-90 shape check: the same bounded `.indexOf(` calls
+as every prior pass (`report.js:512` over a handful of cash categories, five in `app.js` over
+short, user-built arrays inside click handlers) — no new finding, no O(n²) scan over transactions
+or days introduced. `docs/ARCHITECTURE-REVIEW.md`'s `app.js`-size observation (6 443 lines) already
+has its answer on record — split per-section as the next story that touches a section, not a
+refactor now — so no new story opened for it; refactoring it today with no story behind the change
+would itself be the rule-8 violation the review warned against.
+
+No new broker surfaced worth scoping — unchanged from the table in STATUS.md.
+
+---
+
 ## Light scan, 2026-09-08 (twenty-third pass)
 
 Scheduled run, hours after the twenty-second. `origin/main` had moved once since: a docs-only
