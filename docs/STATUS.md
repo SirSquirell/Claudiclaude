@@ -3,7 +3,7 @@
 `docs/BACKLOG.md` is 7 600 lines of reasoning and evidence, which is the right place for *why* and
 a bad place to find out *where things stand*. This is the index.
 
-**Last updated at 0.74.1, on 2026-09-09.** It had been stale since 0.21.0 once, which is fifteen
+**Last updated at 0.74.1, on 2026-09-10.** It had been stale since 0.21.0 once, which is fifteen
 releases — if it looks stale again, trust the CHANGELOG and fix this.
 
 ## Light scans
@@ -43,7 +43,13 @@ check beside `tools/check-mobile.mjs` instead of a paragraph in this file. The t
 issues or PRs, `npm test` 702/702, palette and leaks clean, and a browser sweep aimed specifically
 at this task brief's three named failure shapes (a menu drawn under a chart, a zero-width tile, a
 misread sparkline) found none of them. Its own first job was landing the twenty-third pass's work,
-which this session had started ahead of but not yet fast-forwarded onto `main`.
+which this session had started ahead of but not yet fast-forwarded onto `main`. The twenty-fifth
+pass (2026-09-10), the next day, also found nothing new: the 15 `claude/*` branches still ahead of
+`main` were checked in full (not shallow) and confirmed as stale duplicates of work already landed,
+zero open GitHub issues, backlog numbering unchanged at US-167 next, `npm test` 702/702, palette
+and leaks clean, and the same three-failure-shape browser sweep found none of them. See
+[SCANS.md](SCANS.md) for the full record, including a "Sync now" button colour that looked like a
+dark-mode bug and measured out as the theme's deliberate ink-as-accent convention.
 
 ## Architecture review, 2026-09-08
 

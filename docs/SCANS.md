@@ -8,6 +8,66 @@ state is in STATUS.md; this is the evidence that it was checked.
 
 ---
 
+## Light scan, 2026-09-10 (twenty-fifth pass)
+
+Scheduled run, the day after the twenty-fourth. This session's own branch (`claude/eager-cannon-
+xqky3n`) started at the same commit as `origin/main` (`fd13885`), so no fast-forward was needed
+before measuring.
+
+**Branches.** 40 remote `claude/*` branches plus `poc`, same count as the twenty-fourth pass. A
+full (non-shallow) diff check against `origin/main` found 15 with content `main` doesn't already
+have as an ancestor — all 15 inspected by commit log and file diff, and every one turned out to be
+a stale duplicate: the same fix, story text or prototype already landed on `main` under a different
+commit (a rebase, a renumbering, or a competing branch that won). None is unlanded work. The other
+25 are plain ancestors of `main` — already merged, no action. No branch found carrying a story
+`main` does not have.
+
+**GitHub.** Zero open issues (confirmed via the GitHub MCP tools), zero open PRs.
+
+**Backlog numbering**, via `tools/check-backlog.mjs`: 162 stories, highest US-166, next free
+US-167 — unchanged from the twenty-fourth pass, every heading states its state, no duplicate or
+skipped number. **US-12/US-13** remain the one known stale cross-reference (shipped 0.12.0,
+pre-dating this file, cited by five later stories, nothing to fix in code) — unchanged.
+
+**Rule compliance / security.** `npm test` 702/702, `npm run palette` zero collisions light and
+dark, `node tools/check-leaks.mjs` clean (190 tracked files, no real account data, still no
+`.leakwords` file — unchanged gap, not new). Reviewed the most recent rule-relevant code (the
+licence/entitlements path from US-152/US-160, the drawdown/income stories, US-161's placement
+helper): `src/lib/licence.js` stays pure (verification primitive and `today` passed in, no
+network/clock read), the licence token itself is excluded from the bug-report and diagnose
+payloads (only `plus` and `expiresInDays` travel), and it is stored in `chrome.storage.local` only
+— never IndexedDB, never sent anywhere. No second fetch path, no 401/403 retry, no `Date.now()`
+inside `engine.js`. `test/` and `fixtures/` re-checked for real data: only well-known placeholder
+IBANs/account numbers used deliberately to test the leak-checker itself, each already marked
+`// leak-check: ok`.
+
+**Design pass** (`apple-design` skill loaded first, `docs/redesign/DESIGN-BRIEF.md` §8 — one flat
+container depth, no translucency — as the brief that wins any conflict). A fresh headless sweep
+(the `#tabs button[data-tab]` selector, same fix the twenty-third pass needed) drove all nine tabs
+at 1440 and 380, light and dark: zero page/console errors, zero horizontal overflow. The brief's
+three named failure shapes were checked directly rather than eyeballed: the More/columns menu's
+bounding box measured against the viewport at both widths (on-screen both times — US-161 still
+holds), every KPI tile's rendered width checked for a zero-width collapse (none), and the
+value-history sparklines' y-axis range checked against their data (matches, no exaggerated slope).
+One candidate defect turned out to be a screenshot misread rather than a bug: the "Sync now"
+button reads as a light pill against a dark toolbar at 380px in dark mode, which looked like a
+light-mode style leaking through until computed-style checks at both 1440 and 380 showed identical
+`background`/`color` — `--primary` is deliberately light in dark theme (the ink-as-accent
+convention `--accent`/`--primary` already use), so the button is correct and consistent at both
+widths. No real design defect found this pass.
+
+**Optimization sweep**, repeating the US-83/US-90 shape check: the same bounded `.indexOf(` calls
+as every prior pass (`report.js:512` over a handful of cash categories, five in `app.js` over
+short, user-built arrays inside click handlers) — no new finding. `docs/ARCHITECTURE-REVIEW.md`'s
+`app.js`-size observation (6 443 lines) is unchanged and still has its answer on record from the
+twenty-fourth pass: split per-section as the next story that touches a section, not a standalone
+refactor — opening a story for it with no defect or feature behind it would itself be the rule-8
+violation the review warned against, so none was opened this pass either.
+
+No new broker surfaced worth scoping — unchanged from the table in STATUS.md.
+
+---
+
 ## Light scan, 2026-09-09 (twenty-fourth pass)
 
 Scheduled run, the day after the twenty-third. This session started on its own transport branch
