@@ -8,6 +8,46 @@ state is in STATUS.md; this is the evidence that it was checked.
 
 ---
 
+## Light scan, 2026-09-11 (twenty-sixth pass)
+
+Scheduled run, the day after the twenty-fifth. `origin/main` had not moved (still `7b7c24a`), so
+this session's branch started at the same commit — no fast-forward needed before measuring.
+
+**Branches.** 40 remote `claude/*` branches plus `poc`, same count as the twenty-fifth pass. Given
+the twenty-fifth pass's full non-shallow diff already inspected all 15 branches carrying content
+beyond a plain ancestor of `main` and found every one a stale duplicate, this pass re-confirmed the
+branch *count* only rather than repeating that per-branch diff a day later with nothing landed on
+`main` in between — a light scan, not a re-run of the deep audit. No new branch appeared.
+
+**GitHub.** Zero open issues, zero open PRs (GitHub MCP tools).
+
+**Backlog numbering**, via `tools/check-backlog.mjs`: unchanged at highest US-166, next free
+US-167, no duplicate or skipped number. US-12/US-13 remain the one known stale cross-reference,
+unchanged. No backlog heading claims a state the code contradicts (spot-checked US-161, US-164,
+US-159, US-162 against `main` — all built as described).
+
+**Rule compliance / security.** `npm test` 702/702, `npm run palette` zero collisions light and
+dark, `node tools/check-leaks.mjs` clean (190 tracked files, still no `.leakwords` file — unchanged
+gap). No code has changed since the twenty-fifth pass, so no new rule-relevant diff to review.
+
+**Design pass** (`apple-design` skill loaded first; `docs/redesign/DESIGN-BRIEF.md` §8 — one flat
+container depth, no translucency — as the brief that wins any conflict; confirmed no
+`backdrop-filter` anywhere in `src/`). A headless sweep at 1440 and 380, light and dark: zero
+page/console errors, zero horizontal overflow. Checked directly: the More menu's bounding box
+stays on-screen at 380 (US-161 still holds), the Dividends/Holdings/Composition tabs render with no
+zero-width tiles and their tables scroll inside their own frame rather than the page, and the
+Overview sparkline's y-axis matches its data range (no exaggerated slope). No new design defect.
+
+**Optimization sweep**, repeating the US-83/US-90 shape check: no new bounded-`.indexOf` or O(n²)
+pattern found. `app.js` is still 6 443 lines with the same answer on record (twenty-third/
+twenty-fourth pass): split per-section as the next story that touches that section, not a
+standalone refactor — opening one now, with no code changed since yesterday, would be the rule-8
+violation the architecture review warned against. None opened.
+
+No new broker surfaced worth scoping — unchanged from the table in STATUS.md.
+
+---
+
 ## Light scan, 2026-09-10 (twenty-fifth pass)
 
 Scheduled run, the day after the twenty-fourth. This session's own branch (`claude/eager-cannon-

@@ -47,7 +47,11 @@ which this session had started ahead of but not yet fast-forwarded onto `main`. 
 pass (2026-09-10), the next day, also found nothing new: the 15 `claude/*` branches still ahead of
 `main` were checked in full (not shallow) and confirmed as stale duplicates of work already landed,
 zero open GitHub issues, backlog numbering unchanged at US-167 next, `npm test` 702/702, palette
-and leaks clean, and the same three-failure-shape browser sweep found none of them. See
+and leaks clean, and the same three-failure-shape browser sweep found none of them. The twenty-sixth
+pass (2026-09-11), the next day again, found nothing new either: no code had changed on `main` since
+the twenty-fifth pass, branch count unchanged at 40 `claude/*` plus `poc`, zero open GitHub issues,
+backlog numbering unchanged, `npm test` 702/702, palette and leaks clean, and the same browser sweep
+(now also covering Dividends/Holdings/Composition at 380px) found no new design defect. See
 [SCANS.md](SCANS.md) for the full record, including a "Sync now" button colour that looked like a
 dark-mode bug and measured out as the theme's deliberate ink-as-accent convention.
 
