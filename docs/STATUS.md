@@ -53,7 +53,13 @@ the twenty-fifth pass, branch count unchanged at 40 `claude/*` plus `poc`, zero 
 backlog numbering unchanged, `npm test` 702/702, palette and leaks clean, and the same browser sweep
 (now also covering Dividends/Holdings/Composition at 380px) found no new design defect. See
 [SCANS.md](SCANS.md) for the full record, including a "Sync now" button colour that looked like a
-dark-mode bug and measured out as the theme's deliberate ink-as-accent convention.
+dark-mode bug and measured out as the theme's deliberate ink-as-accent convention. **The
+twenty-seventh pass (2026-09-12) found something the previous few had not**: its own transport
+branch was 9 commits ahead of `origin/main` — three releases and four scan write-ups that the
+twenty-fifth and twenty-sixth passes had each judged "unchanged from yesterday" without checking
+that "yesterday's" commit had actually reached `origin/main` rather than just their own branch's
+prior tip. Fast-forwarded and pushed this pass, tests green throughout (702/702); no other design or
+process defect found. See SCANS.md for the full reasoning and why it happened.
 
 ## Architecture review, 2026-09-08
 

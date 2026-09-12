@@ -8,6 +8,62 @@ state is in STATUS.md; this is the evidence that it was checked.
 
 ---
 
+## Light scan, 2026-09-12 (twenty-seventh pass)
+
+Scheduled run, the day after the twenty-sixth. **This time the session's own transport branch was
+not empty**: it started 9 commits ahead of `origin/main` (`8431a5a`) — three releases (0.72.1,
+0.73.0, 0.74.0, 0.74.1), `docs/ARCHITECTURE-REVIEW.md`, and the twenty-third through twenty-sixth
+scan passes themselves, none of it on `main`. This is exactly the failure the 2026-08-18 branch
+policy exists to prevent: a run's work landing only on its own disposable branch. `git rev-list`
+showed a clean 0-ahead/9-behind relationship (no divergence), so it fast-forwarded onto `main`
+after `npm test` passed 702/702, and was pushed. The likely cause: the twenty-sixth pass's own
+entry above says it found `origin/main` still at `7b7c24a` and started from the same commit "no
+fast-forward needed" — but `7b7c24a` is itself one of the unlanded commits, meaning the twenty-fifth
+and twenty-sixth passes were each comparing their branch against their *own* prior branch tip
+rather than confirming that tip had actually reached `origin/main`. Worth a line for whoever reads
+this next: the fast-forward-and-push step is not optional even when the local branch already looks
+current, because "current" and "pushed" were silently the same variable for several passes running.
+
+**Branches.** 40 remote `claude/*` branches plus `poc` (via the GitHub API, not a shallow local
+fetch), same count as the twenty-sixth pass; this session's own transport branch was the exception
+handled above rather than counted among the 40. Given the twenty-fifth pass's full non-shallow diff
+already inspected every branch with content beyond a plain ancestor of `main` and found each one a
+stale duplicate, this pass re-confirmed the count and names only.
+
+**GitHub.** Zero open issues, zero open PRs.
+
+**Backlog numbering**: unchanged at highest US-166, next free US-167, no duplicate or skipped
+number (one apparent duplicate, two `### US-11` headings, is the story and its "what changed on the
+way" follow-up, not a numbering collision). US-12/US-13 remain the one known stale cross-reference,
+unchanged.
+
+**Rule compliance / security.** `npm test` 702/702, `npm run palette` zero collisions light and
+dark, `node tools/check-leaks.mjs` clean (190 tracked files, still no `.leakwords` file — unchanged
+gap). `CHANGELOG.md`, `WHATS-NEW.md` and `manifest.json` agree at 0.74.1.
+
+**Design pass** (`apple-design` skill loaded first; `docs/redesign/DESIGN-BRIEF.md` §8 — one flat
+container depth, no translucency — as the brief that wins any conflict; confirmed no
+`backdrop-filter` anywhere in `src/`, and the few `box-shadow` uses are focus rings and floating-menu
+elevation, not card depth). A headless sweep at 1440 and 380, light and dark, over Overview,
+Composition, Dividends and Holdings, plus the More menu open at both widths: zero page/console
+errors, zero horizontal overflow anywhere. Checked directly against the three named failure shapes:
+the More menu stays on-screen and anchors to its own trigger at both widths (spatial consistency,
+§7), no zero-width tile, and every sparkline's y-axis matches its own data range rather than an
+exaggerated slope. `src/lib/motion.js`'s spring already matches the skill's own recommendations
+(critically damped by default, animates from the presentation value, accepts a velocity, stops
+itself) — nothing to change there. No new design defect.
+
+**Optimization sweep.** No new O(n²) or unbounded-`indexOf`-in-a-loop pattern found in `src/lib/`.
+`app.js` is still 6 443 lines; the standing answer (split per-section as the next story that
+touches that section, not a standalone refactor) is unchanged from the twenty-third/twenty-fourth/
+twenty-sixth passes' reasoning, and for the same reason it stays unopened as a story this pass too:
+nothing in `src/` changed that would make opening it now anything but the rule-8 violation those
+passes already declined.
+
+No new broker surfaced worth scoping — unchanged from the table in STATUS.md.
+
+---
+
 ## Light scan, 2026-09-11 (twenty-sixth pass)
 
 Scheduled run, the day after the twenty-fifth. `origin/main` had not moved (still `7b7c24a`), so
