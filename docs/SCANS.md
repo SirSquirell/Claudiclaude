@@ -8,6 +8,57 @@ state is in STATUS.md; this is the evidence that it was checked.
 
 ---
 
+## Light scan, 2026-09-13 (twenty-eighth pass)
+
+Scheduled run, the day after the twenty-seventh. This session's own transport branch started
+identical to `origin/main` (`66f415a`, 0.74.1) — the fast-forward the twenty-seventh pass's own
+write-up flagged as easy to skip was checked first this time, and it was already unnecessary.
+
+**Branches.** 40 remote `claude/*` branches plus `poc`, unchanged in count. Re-ran the ahead/behind
+count against `main` for all 40 directly (not via a prior pass's cached list): the same small set
+as ever shows any commits `main` lacks — `eager-cannon-dp11yd` (4), `plugin-new-features-6d8wjl`
+(1), `portfolio-visualization-testing-xs5ck4` (22) — and each is the same stale item the
+twenty-third/twenty-fifth passes already traced (an old scan branch, the `US-121`→`US-163` rescue,
+and the 0.10.0-era pre-history respectively). No merge-base with `main` for the large-count
+branches, consistent with the 2026-08-20 rewrite. No branch found carrying a story `main` does not
+have. Git proxy still refuses branch deletion (**US-120**, unchanged, owner's GitHub-UI cleanup).
+
+**GitHub.** Zero open issues, zero open PRs (GitHub MCP tools) — nothing to close or name.
+
+**Backlog numbering**, via `tools/check-backlog.mjs`: 162 stories, highest US-166, next free
+US-167 — unchanged. No duplicate or skipped number. US-12/US-13 remain the one known stale
+cross-reference, unchanged; no code changed since the twenty-seventh pass, so no heading was
+re-sampled against `main` beyond that spot check.
+
+**Rule compliance / security.** `npm test` 702/702, `npm run palette` zero collisions light and
+dark, `node tools/check-leaks.mjs` clean (190 tracked files, still no `.leakwords` file — unchanged
+gap). Spot checks unchanged: `fetch()` only in `src/lib/degiro.js`, `src/ui/datasource.js` and
+`src/ui/app.js`'s own manifest read; `degiro.js` still refuses to retry 401/403; `EXPORTABLE_META`
+in `store.js` still an allowlist. No code has changed since the twenty-seventh pass, so nothing new
+to review.
+
+**Design pass** (`apple-design` skill loaded first; `docs/redesign/DESIGN-BRIEF.md` §8 — one flat
+container depth, no translucency — as the brief that wins any conflict over the skill's own
+materials guidance; confirmed `grep -rn backdrop-filter src/` still empty). A headless Playwright
+sweep at 1440 and 380, light and dark, over all eight tabs (Overview, Performance, Composition,
+Income, Dividends, Holdings, Outlook, Notices): zero page errors, zero console errors, zero
+horizontal overflow in all 32 combinations. Checked the three named failure shapes directly: the
+More menu (`#btn-more` → `#more-menu`) stays inside `[0, innerWidth]` at both widths and both
+themes (US-161 still holds); a tile/card width sweep at 380px across all eight tabs found zero
+zero-width elements (53 tiles measured); `src/lib/motion.js`'s spring is unchanged from the
+twenty-seventh pass's read (critically damped by default, animates from presentation value, accepts
+velocity). No new design defect.
+
+**Optimization sweep.** Still just the one bounded `.indexOf(` at `report.js:512` in `src/lib/`
+(a handful of cash categories); no new O(n²) or unbounded-loop pattern. `app.js` is still 6 443
+lines — same standing answer (split per-section as the next story that touches that section, not a
+refactor with nothing behind it) — no story opened, since nothing changed that would make opening
+one anything but the rule-8 violation prior passes already declined.
+
+No new broker surfaced worth scoping — unchanged from the table in STATUS.md.
+
+---
+
 ## Light scan, 2026-09-12 (twenty-seventh pass)
 
 Scheduled run, the day after the twenty-sixth. **This time the session's own transport branch was

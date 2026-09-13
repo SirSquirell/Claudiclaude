@@ -8,7 +8,7 @@ releases — if it looks stale again, trust the CHANGELOG and fix this.
 
 ## Light scans
 
-Twenty-three re-confirmation passes (2026-08-20 to 2026-09-08) are in [SCANS.md](SCANS.md), newest
+Twenty-eight re-confirmation passes (2026-08-20 to 2026-09-13) are in [SCANS.md](SCANS.md), newest
 first. Their standing result: no `claude/*` branch carries a story `main` does not have, the backlog
 numbering is clean, and the rule spot checks pass. What they kept finding — 38 stale remote
 branches the git proxy cannot delete — is now **US-120**, an owner action in GitHub's UI. The
@@ -59,7 +59,12 @@ branch was 9 commits ahead of `origin/main` — three releases and four scan wri
 twenty-fifth and twenty-sixth passes had each judged "unchanged from yesterday" without checking
 that "yesterday's" commit had actually reached `origin/main` rather than just their own branch's
 prior tip. Fast-forwarded and pushed this pass, tests green throughout (702/702); no other design or
-process defect found. See SCANS.md for the full reasoning and why it happened.
+process defect found. See SCANS.md for the full reasoning and why it happened. The twenty-eighth
+pass (2026-09-13), the next day, checked the fast-forward first and found it already unnecessary —
+nothing new: branch count unchanged at 40 `claude/*` plus `poc`, none carrying an unlanded story;
+zero open GitHub issues or PRs; backlog numbering unchanged at US-167 next; `npm test` 702/702,
+palette and leaks clean; and the same browser sweep, now run against all eight tabs at both widths
+and themes, found no overflow, no errors, and no zero-width tile.
 
 ## Architecture review, 2026-09-08
 
