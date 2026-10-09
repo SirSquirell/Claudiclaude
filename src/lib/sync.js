@@ -122,12 +122,14 @@ export async function runSync(opts = {}) {
  */
 export async function disconnectAccount() {
   // Same reason as the wipe below: a sync in flight is about to write the very
-  // identifiers we are removing.
-  if (running) await running.catch(() => {});
-  await setMeta('disconnected', true);
-  await setMeta('disconnectedAt', new Date().toISOString());
-  await delMeta(IDENTIFYING_META);
-  return { disconnected: true, forgotten: [...IDENTIFYING_META] };
+  // identifiers we are removing, and one that starts while we write them would
+  // re-cache them, so the slot is held until the forgetting is done.
+  return exclusively(async () => {
+    await setMeta('disconnected', true);
+    await setMeta('disconnectedAt', new Date().toISOString());
+    await delMeta(IDENTIFYING_META);
+    return { disconnected: true, forgotten: [...IDENTIFYING_META] };
+  });
 }
 
 /** Is the account disconnected? Read per call; it is one row. */
@@ -143,15 +145,30 @@ export const isDisconnected = async () => (await getMeta('disconnected', false))
  * holdings — the transactions had been written just before the wipe and the
  * cash movements just after, so the position ledger was silently empty.
  *
- * Awaiting the in-flight run first is enough; `runSync` then starts a genuinely
- * new one, because the old promise has settled and cleared the guard.
+ * Awaiting the in-flight run first was not enough: between that await and the
+ * wipe the slot was free, so an alarm or a tab load could start a sync that the
+ * wipe then ran underneath, the same half-written database by a rarer road.
+ * The wipe now occupies the slot, and the resync it ends with runs inside it,
+ * so a `runSync` arriving meanwhile joins this run instead of starting its own.
  */
 export async function wipeAndResync({ onProgress } = {}) {
-  if (running) {
-    await running.catch(() => {});
-  }
-  await wipeAll();
-  return runSync({ force: true, onProgress });
+  return exclusively(async () => {
+    await wipeAll();
+    return doSync({ force: true, onProgress });
+  });
+}
+
+/**
+ * Wait for the sync slot, then hold it for `fn`. The loop re-checks after every
+ * wait because another caller may have taken the slot in the meantime; the check
+ * and the claim below it are synchronous, so two callers cannot both pass.
+ */
+async function exclusively(fn) {
+  while (running) await running.catch(() => {});
+  running = fn().finally(() => {
+    running = null;
+  });
+  return running;
 }
 
 /**

@@ -216,3 +216,15 @@ test('US-159: the header, the row and the detail all read one list', () => {
   assert.match(app, /DIVIDEND_COLUMNS\.map\(\(c\) => `<td data-col=/, 'rows are built from the list');
   assert.match(app, /optionalColumns\(DIVIDEND_COLUMNS\)/, 'the detail copies every optional column');
 });
+
+test('US-165 — the dividend table has the three locks, and no width floor that stretches them', () => {
+  // The lock set is the promise of US-159 and must not move; what US-165 fixed is
+  // that the Positions table's 560px floor stretched the three locks past a phone.
+  // The real measurement is `tools/check-ui.mjs` in Chromium; this pins the two
+  // statements that measurement rests on.
+  assert.deepEqual(DIVIDEND_COLUMNS.filter((c) => c.lock).map((c) => c.key), ['position', 'allTime', 'rhythm']);
+  const css = readFileSync(new URL('../src/ui/styles.css', import.meta.url), 'utf8');
+  const phone = /@media \(max-width: 51em\) \{(\n  \.table-scroll table[\s\S]*?)\n\}\n/.exec(css)?.[1] ?? '';
+  assert.match(phone, /\.table-scroll table \{\s*min-width: 560px;/, 'the shared floor is still there for Positions');
+  assert.match(phone, /#dividend-holdings \{\s*min-width: 0;/, 'and the dividend table is exempt from it');
+});

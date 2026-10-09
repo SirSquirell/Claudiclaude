@@ -2877,6 +2877,17 @@ td.neg { color: var(--neg); }
   .table-scroll table {
     min-width: 560px;
   }
+  /*
+   * US-165 — the Dividends table sizes to its columns. The 560px floor above
+   * is a Positions figure; here it stretched the three locked columns (Position,
+   * All time, Rhythm) to fill 560px, so at 375 and 414 the Rhythm cell was 309px
+   * wide, the third lock started beyond the edge and the table opened on an empty
+   * column. The columns it drops down to are narrower than the floor, so the
+   * floor is what overflowed, not the content.
+   */
+  #dividend-holdings {
+    min-width: 0;
+  }
 }
 
 /* A grid or flex item defaults to `min-width: auto`, which means it refuses to

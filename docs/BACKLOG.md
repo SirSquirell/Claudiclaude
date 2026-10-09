@@ -9603,7 +9603,7 @@ measurement is the scan's Chromium script, recorded with its figures in `docs/SC
 
 ---
 
-### US-165 — The Dividends table's third lock column is blank at rest on a phone *(new, refined)*
+### US-165 — The Dividends table's third lock column is blank at rest on a phone *(built, 0.74.2)*
 
 **Layer A.** US-159 (0.74.0) locks *Position*, *All time* and *Rhythm* on the dividend table and
 drops the rest by priority. Measured at 375 and 414 the lock set does not fit: the table is 560px in
@@ -9621,10 +9621,10 @@ both at 375 and 414 before choosing; do not change the lock set at 640 and above
 
 #### Acceptance criteria
 
-- [ ] At 375 and 414, every column visible at rest shows its header and its value without
+- [x] At 375 and 414, every column visible at rest shows its header and its value without
       scrolling the table sideways; a column that cannot is not visible at rest.
-- [ ] Positions is byte-identical; nothing changes at 640px and above.
-- [ ] `tools/check-mobile.mjs` measures it: the dividend table's scroller has no sideways overflow
+- [x] Positions is byte-identical; nothing changes at 640px and above.
+- [x] `tools/check-ui.mjs` measures it: the dividend table's scroller has no sideways overflow
       at 375 and 414, or every visible lock column's header is inside the viewport.
 
 #### Dependencies
@@ -9633,15 +9633,22 @@ US-159.
 
 #### Test
 
-`tools/check-mobile.mjs` (the criterion above); `test/columns.test.js` if the lock set changes by
+`tools/check-ui.mjs` (the criterion above); `test/columns.test.js` if the lock set changes by
 width.
+
+**Decided and built (0.74.2).** Neither option was needed: the cause was not the *Rhythm* cell but the
+560px floor `.table-scroll table` gives every table below 51em, which stretched three locked columns
+to fill it. The dividend table is exempt from that floor and sizes to its columns. Measured after, at
+375 and 414: table width equal to scroller width (351 and 389), headers *Position*, *All time*,
+*Yield on cost*, *Rhythm* all inside the viewport, *Rhythm* 124 and 154px wide; at 640 and 1440 the
+widths are as before. The lock set is unchanged.
 
 **Stop condition.** If neither option fits a real account's longest rhythm string at 375 without a
 fourth mechanism, stop and write down the measured widths instead of adding one.
 
 ---
 
-### US-166 — Fold the browser scan into a real check, not a one-off script *(new, refined)*
+### US-166 — Fold the browser scan into a real check, not a one-off script *(built, 0.74.2)*
 
 **Layer A.** `docs/ARCHITECTURE-REVIEW.md` (2026-09-08) measured the last three shipped defects —
 US-161 (menu off-screen), US-162 (chart 2,5 screens down) and US-164 (a hidden amount left in the
@@ -9654,7 +9661,7 @@ page behaves. `tools/check-mobile.mjs` already runs a real Chromium in CI as its
 exists only as this session's scratch script and a paragraph in `docs/SCANS.md`, so the next
 regression in that path waits for a person to press the eye again.
 
-**Layer B, to decide before building.** Two shapes were considered. (a) Widen
+**Layer B, decided 2026-10-09: (b), the rename.** Two shapes were considered. (a) Widen
 `tools/check-mobile.mjs` in place to also assert non-mobile DOM invariants (the hidden-amount
 check, the menu-placement check it already has generalised past "mobile"), keeping its name. (b)
 Rename it `tools/check-ui.mjs` (`ci.yml`'s `mobile` job and `package.json`'s `check:mobile` script
@@ -9665,14 +9672,20 @@ a drive-by inside an unrelated story.
 
 #### Acceptance criteria
 
-- [ ] The eye's DOM guarantee (no amount string in `textContent` or on a select-all-and-copy of the
+- [x] The eye's DOM guarantee (no amount string in `textContent` or on a select-all-and-copy of the
       figures block, at 0, 300ms, 1s and 5s after toggling) is asserted by a script `npm run
       check:*` runs, not only demonstrated in `docs/SCANS.md`.
-- [ ] Existing three checks in `check-mobile.mjs` (first chart above the fold, no sideways
+- [x] Existing three checks in `check-mobile.mjs` (first chart above the fold, no sideways
       overflow, More menu on-screen) are byte-identical in behaviour; CI's `mobile` job still runs
       them, under whichever name Layer B settles on.
-- [ ] `docs/ARCHITECTURE-REVIEW.md`'s recommendation is either satisfied by this story or the story
+- [x] `docs/ARCHITECTURE-REVIEW.md`'s recommendation is either satisfied by this story or the story
       says explicitly which part it defers and why.
+
+**Built (0.74.2).** `tools/check-ui.mjs`, `npm run check:ui`, CI job `ui`. Beside the three existing
+checks it asserts the dividend table's visible headers inside the scroller at 375 and 414 (US-165) and
+the eye's DOM guarantee at 0, 300 ms, 1 s and 5 s at 1440 and 375, reading the amounts from the page
+before the press. `docs/ARCHITECTURE-REVIEW.md`'s recommendation is satisfied for the two defects it
+named; further UI invariants join the same file when a defect earns them.
 
 #### Dependencies
 

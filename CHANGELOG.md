@@ -16,6 +16,35 @@ buy you.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are
 plain increments — this is not a library and nothing depends on its API.
 
+## [0.74.2] — 2026-10-09
+
+**No resync needed** — one phone layout fix, one rare wipe/disconnect race closed, and the browser check widened.
+
+### Fixed
+
+- **The dividend table opened on a blank column on a phone (US-165).** At 375 and 414 the table kept
+  the 560px floor the Positions table needs, so its three locked columns were stretched across it: the
+  *Rhythm* cell came out 309px wide, the third lock started beyond the edge, and the reader saw
+  *Position*, *All time* and an empty column with an edge shadow. The dividend table now sizes to its
+  columns. Measured after: 351px table in a 351px scroller at 375, 389 in 389 at 414, every visible
+  header inside the viewport; at 640 and above nothing moved.
+- **A wipe or a disconnect could run underneath a sync (US-166 follow-up, found while widening the
+  check).** Both waited for a sync in flight and then released the slot, so a run started in that gap
+  (the alarm, a tab load) wrote into a database being emptied, or re-cached the identifiers a
+  disconnect had just forgotten. They now hold the slot themselves, and the resync a wipe ends with
+  runs inside it. A sync asked for meanwhile joins that run. The window was a few microtasks wide and
+  has no reported case; the result it could have produced is the one *Wipe & resync* exists to remove,
+  a portfolio with cash and no holdings.
+
+### Changed
+
+- **`tools/check-mobile.mjs` is now `tools/check-ui.mjs` (US-166), `npm run check:ui`.** CI's `mobile`
+  job is the `ui` job. The three existing checks behave as before; two are added: the dividend
+  table's visible headers must sit inside the scroller at 375 and 414, and after the eye is pressed
+  none of the euro amounts the tiles showed may remain in their text or on a select-all-and-copy, at
+  0, 300 ms, 1 s and 5 s, at 1440 and 375. The amounts are read from the page before the press, so
+  nothing is written into the tool. `npm test` stays browser-free.
+
 ## [0.74.1] — 2026-09-08
 
 **No resync needed** — display only. If you use *Hide amounts*, this one is for you.

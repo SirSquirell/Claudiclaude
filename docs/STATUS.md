@@ -3,7 +3,7 @@
 `docs/BACKLOG.md` is 7 600 lines of reasoning and evidence, which is the right place for *why* and
 a bad place to find out *where things stand*. This is the index.
 
-**Last updated at 0.74.1, on 2026-09-10.** It had been stale since 0.21.0 once, which is fifteen
+**Last updated at 0.74.2, on 2026-10-09.** It had been stale since 0.21.0 once, which is fifteen
 releases — if it looks stale again, trust the CHANGELOG and fix this.
 
 ## Light scans
@@ -37,7 +37,7 @@ dividend table's blank third column on a phone; see SCANS.md for all seven. The 
 hours later and prompted by `docs/ARCHITECTURE-REVIEW.md` landing in between, found nothing new in
 code or branches but turned that review's testing observation into a story — **US-166**, folding
 the throwaway browser scripts these passes keep writing (this one included) into a real, repeatable
-check beside `tools/check-mobile.mjs` instead of a paragraph in this file. The twenty-fourth pass
+check beside `tools/check-ui.mjs` (then still `check-mobile.mjs`) instead of a paragraph in this file. The twenty-fourth pass
 (2026-09-09), the next day, found nothing new either: branch count unchanged (40 `claude/*` plus
 `poc`, none carrying an unlanded story), backlog numbering clean at US-167 next, zero open GitHub
 issues or PRs, `npm test` 702/702, palette and leaks clean, and a browser sweep aimed specifically
@@ -95,6 +95,15 @@ edge below the rail breakpoint because 0.71.0's full-width Upgrade button moved 
 measuring the trigger on open (`src/lib/placement.js`), verified at seven widths in both the free and
 the `body.plus` state. The stylesheet no longer pins a side there.
 
+## 0.74.2 — 2026-10-09
+
+**US-165**: the dividend table no longer inherits the 560px floor that stretched its three locked
+columns past a phone, so it opens on columns that show something at 375 and 414. **US-166**:
+`check-mobile.mjs` became `check-ui.mjs` (`npm run check:ui`, CI job `ui`) and now also asserts that
+table and the eye's DOM guarantee. And a wipe or a disconnect now holds the sync slot instead of
+waiting and releasing it. Owner note: if branch protection lists the CI check by job name, change
+`mobile` to `ui`.
+
 ## 0.74.1 — 2026-09-08
 
 **US-164**, found by the twenty-second light scan: pressing the eye masked every figure on screen but
@@ -113,7 +122,7 @@ stays a scroll: six columns, under the story's threshold.
 
 **US-162**, the phone layout, from a mobile design review: the first chart on 375×667 moved from
 y = 1573 to y = 460 and sits wholly above the fold; the rail is a bar, a sticky tab strip and a
-sticky one-line seal. `tools/check-mobile.mjs` (Chromium, its own CI job) is the regression check for
+sticky one-line seal. `tools/check-ui.mjs` (Chromium, its own CI job, named `check-mobile.mjs` until 0.74.2) is the regression check for
 the two phone defects this shell has shipped, US-161 and this one. Next: **US-159** column priority on
 the other wide tables, whose phone view is the weakest screen left (Positions at 375 shows three
 rows of filter pills before the table).
@@ -376,8 +385,6 @@ three variants.)
 | US-98 | **Benchmark compare (S&P 500 default, any ETF, PROP folded in) — the owner decided the feature in chat, 2026-08-22.** That is not the same document event as the SPEC amendment rule 8 and the branch policy both lean on: SPEC §7 still reads "no benchmarks" verbatim | The SPEC.md §7 amendment text is drafted in `docs/BACKLOG.md`'s US-98 entry, ready to land in the same commit as the first line of code — nobody has landed it yet |
 | US-26 | Instrument coverage declared per broker — verified / assumed, as a vocabulary | More relevant once a second broker lands |
 | US-163 | **Since you last looked** — one panel on Overview for the window since the reader was last here: the period control over a range nobody had to pick, deposits on their own line. Refined 2026-09-08 on a session branch as "US-121", a number `main` had already claimed; landed on `main` under the next free number the same day | The owner deciding to build it |
-| US-165 | **The dividend table's third lock column is blank at rest on a phone.** *Rhythm* is a 309px `nowrap` cell, so at 375 and 414 the three locks do not fit and the reader opens on an empty column with an edge shadow. Wrap the cell or let *Rhythm* yield its lock below a measured width — measure both first. Refined 2026-09-08 | A decision between the two options, at 375 and 414 |
-| US-166 | **Fold the browser scan into a real check.** `check-mobile.mjs` already runs Chromium in CI; widen it (or rename it `check-ui.mjs`) to assert the hidden-amount DOM guarantee and any future UI invariant, so the next regression there is caught by `npm run check:*` instead of a person or a scan re-writing the same script. From `docs/ARCHITECTURE-REVIEW.md`'s testing finding. Refined 2026-09-08 | A decision between widening in place and the rename, before writing code |
 | US-114 | **A price series was rescaled by factor 4,369**, which is not a split ratio. Investigation: one factor across two regimes, or a vwd id that changed instrument. Do not tune the threshold. Numbered 2026-09-02; the text in `docs/BACKLOG.md` is the original | Nothing |
 | US-37 | **Trading 212 R1 — PASS, measured 2026-08-13.** Page 200/401, logged out 401, and the service worker `PASS_JSON` with only an `Accept` header — so no device identifier is required either | Nothing. **US-39–US-45 are unblocked** |
 | US-44 | **Trading 212 renders through the existing pipeline** — no separate dashboard | Gated on US-37 and the data gates. Addendum body not yet received |

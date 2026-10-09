@@ -480,3 +480,77 @@ test('US-112 — a run that stopped before reaching DEGIRO does not hold back th
   await withBroker(loggedIn, () => sync.runSync({ scheduled: true }));
   assert.ok(loggedIn.calls.some((u) => u.includes('/v6/accountoverview')), 'it syncs straight away');
 });
+
+/**
+ * The race the wipe and the disconnect used to lose, made to happen on purpose.
+ *
+ * A sync A is in flight. The wipe (or disconnect) is asked for and waits on it.
+ * The moment A settles, a new sync B is asked for from A's own `then`, which runs
+ * after the slot is cleared and before the waiter resumes. That is the gap: with
+ * the slot free, B started and the wipe ran underneath it. B is held at its first
+ * request so the state can be read while it is in flight.
+ */
+async function raceAgainstASync(demand) {
+  const broker = fakeBroker();
+  const inner = broker.handler;
+  let hold = null;
+  broker.handler = async (url) => {
+    if (hold) {
+      const h = hold;
+      hold = null;
+      h.reached();
+      await h.release;
+    }
+    return inner(url);
+  };
+  const gate = () => {
+    const g = {};
+    g.release = new Promise((r) => { g.open = r; });
+    g.arrived = new Promise((r) => { g.reached = r; });
+    return g;
+  };
+
+  let atStall = null;
+  await withBroker(broker, async () => {
+    await sync.runSync({ force: true, onProgress: () => {} }); // something to lose
+    const gateA = gate();
+    hold = gateA;
+    const a = sync.runSync({ force: true });
+    await gateA.arrived;
+
+    const demanded = demand();
+    const gateB = gate();
+    const startB = () => {
+      hold = gateB;
+      return sync.runSync({ force: true });
+    };
+    const b = a.then(startB, startB); // one tick: ahead of the waiter's own resumption
+    gateA.open();
+    await gateB.arrived;
+    await new Promise((r) => setImmediate(r));
+    atStall = {
+      transactions: (await store.getAll('transactions')).length,
+      disconnected: await sync.isDisconnected(),
+    };
+    gateB.open();
+    await Promise.all([demanded, b]);
+  });
+  return atStall;
+}
+
+test('a wipe holds the sync slot: a sync that starts while it waits does not run underneath it', async () => {
+  await wipe();
+  const atStall = await raceAgainstASync(() => sync.wipeAndResync());
+  assert.equal(atStall.transactions, 1, 'the wipe had not emptied the stores while a sync was still writing');
+  assert.equal((await store.getAll('transactions')).length, 1, 'and afterwards there is one coherent history');
+  assert.equal((await store.getAll('cashflows')).length, 4);
+});
+
+test('a disconnect holds the sync slot: it does not forget under a sync that is still running', async () => {
+  await wipe();
+  const atStall = await raceAgainstASync(() => sync.disconnectAccount());
+  assert.equal(atStall.disconnected, false, 'not disconnected while a sync was still running');
+  assert.equal(await sync.isDisconnected(), true, 'but disconnected once it let go');
+  const keys = new Set((await store.getAll('meta')).map((r) => r.key));
+  for (const key of store.IDENTIFYING_META) assert.ok(!keys.has(key), `${key} survived the disconnect`);
+});
